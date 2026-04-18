@@ -194,8 +194,8 @@ const Index = () => {
         </div>
 
         {/* Sentence Canvas */}
-        <section className="glass-panel rounded-3xl p-6 lg:p-10 relative overflow-hidden min-h-[360px]">
-          <div className="absolute top-0 left-0 w-full h-1 bg-secondary">
+        <section className="glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-secondary">
             <div
               className="h-full bg-gradient-to-r from-primary to-primary-glow transition-all"
               style={{
@@ -204,14 +204,14 @@ const Index = () => {
             />
           </div>
 
-          <div className="flex flex-wrap items-end gap-x-2 gap-y-12 pt-4 pb-2 leading-loose">
+          <div className="flex flex-wrap items-end gap-x-1.5 gap-y-7 pt-2 pb-1">
             {sentence.tokens.map((token, idx) => {
               if (token.type === "static") {
                 if (token.role === "bracket") {
                   return (
                     <span
                       key={idx}
-                      className="text-2xl font-light text-primary/30 self-center pb-1 select-none"
+                      className="text-lg font-light text-primary/30 self-center select-none leading-none"
                       aria-hidden
                     >
                       {token.text}
@@ -222,7 +222,7 @@ const Index = () => {
                   return (
                     <span
                       key={idx}
-                      className="text-lg font-light text-muted-foreground self-center pb-0.5"
+                      className="text-sm font-light text-muted-foreground self-center leading-none"
                       aria-hidden
                     >
                       {token.text}
@@ -232,7 +232,7 @@ const Index = () => {
                 return (
                   <span
                     key={idx}
-                    className="px-2 py-1 text-base font-medium text-muted-foreground/50 select-none tracking-tight"
+                    className="px-1 py-0.5 text-[15px] font-medium text-muted-foreground/50 select-none tracking-tight leading-tight"
                   >
                     {token.text}
                   </span>
