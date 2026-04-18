@@ -1,40 +1,110 @@
-import { useState } from "react";
-import { WordChip, type ElementType } from "@/components/analyzer/WordChip";
-import { AnalysisPanel, type PartOfSpeech, type FormType } from "@/components/analyzer/AnalysisPanel";
+import { useMemo, useState } from "react";
+import { WordChip } from "@/components/analyzer/WordChip";
+import { AnalysisPanel } from "@/components/analyzer/AnalysisPanel";
+import { SENTENCES, type ElementAnswer, type POSAnswer, type FormAnswer } from "@/data/sentences";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// Demo sentence — placeholder until 원장님 정답 데이터 제공
-// "She wanted to improve her English."
-type Token =
-  | { type: "word"; id: string; word: string; koreanLabel: string; element: ElementType }
-  | { type: "bracket"; char: "[" | "]" }
-  | { type: "punct"; char: string };
+type StepStatus = "idle" | "correct" | "wrong";
+type WordProgress = {
+  element: ElementAnswer | null;
+  pos: POSAnswer | null;
+  form: FormAnswer | null;
+  elementStatus: StepStatus;
+  posStatus: StepStatus;
+  formStatus: StepStatus;
+  completed: boolean;
+};
 
-const DEMO_TOKENS: Token[] = [
-  { type: "bracket", char: "[" },
-  { type: "word", id: "w1", word: "She", koreanLabel: "대명사", element: "S" },
-  { type: "word", id: "w2", word: "wanted", koreanLabel: "과거동사", element: "V" },
-  { type: "word", id: "w3", word: "to improve", koreanLabel: "to부정사", element: "O" },
-  { type: "word", id: "w4", word: "her", koreanLabel: "소유격", element: "M" },
-  { type: "word", id: "w5", word: "English", koreanLabel: "명사", element: "O" },
-  { type: "bracket", char: "]" },
-  { type: "punct", char: "." },
-];
+const emptyProgress = (): WordProgress => ({
+  element: null,
+  pos: null,
+  form: null,
+  elementStatus: "idle",
+  posStatus: "idle",
+  formStatus: "idle",
+  completed: false,
+});
 
 const Index = () => {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [element, setElement] = useState<ElementType | null>(null);
-  const [pos, setPos] = useState<PartOfSpeech | null>(null);
-  const [form, setForm] = useState<FormType | null>(null);
+  const [sentenceIdx, setSentenceIdx] = useState(0);
+  const sentence = SENTENCES[sentenceIdx];
 
-  const selectedWord =
-    DEMO_TOKENS.find((t): t is Extract<Token, { type: "word" }> => t.type === "word" && t.id === selectedId)
-      ?.word ?? null;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
+
+  const analyzableIds = useMemo(
+    () =>
+      sentence.tokens
+        .filter((t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> => t.type === "analyzable")
+        .map((t) => t.id),
+    [sentence]
+  );
+
+  const completedCount = analyzableIds.filter((id) => progressMap[id]?.completed).length;
+  const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
+
+  const selectedToken = sentence.tokens.find(
+    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
+      t.type === "analyzable" && t.id === selectedId
+  );
+  const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
+
+  const updateProgress = (id: string, patch: Partial<WordProgress>) => {
+    setProgressMap((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] ?? emptyProgress()), ...patch },
+    }));
+  };
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
-    setElement(null);
-    setPos(null);
-    setForm(null);
+    if (!progressMap[id]) {
+      setProgressMap((prev) => ({ ...prev, [id]: emptyProgress() }));
+    }
+  };
+
+  const handleElement = (e: ElementAnswer) => {
+    if (!selectedId || !selectedToken) return;
+    const correct = selectedToken.answer.element === e;
+    updateProgress(selectedId, {
+      element: e,
+      elementStatus: correct ? "correct" : "wrong",
+      // 오답이면 하위 잠금
+      pos: correct ? progress.pos : null,
+      form: correct ? progress.form : null,
+      posStatus: correct ? progress.posStatus : "idle",
+      formStatus: correct ? progress.formStatus : "idle",
+    });
+  };
+
+  const handlePOS = (p: POSAnswer) => {
+    if (!selectedId || !selectedToken) return;
+    const correct = selectedToken.answer.pos === p;
+    updateProgress(selectedId, {
+      pos: p,
+      posStatus: correct ? "correct" : "wrong",
+      form: correct ? progress.form : null,
+      formStatus: correct ? progress.formStatus : "idle",
+    });
+  };
+
+  const handleForm = (f: FormAnswer) => {
+    if (!selectedId || !selectedToken) return;
+    const correct = selectedToken.answer.form === f;
+    const done = correct;
+    updateProgress(selectedId, {
+      form: f,
+      formStatus: correct ? "correct" : "wrong",
+      completed: done,
+    });
+  };
+
+  const goToSentence = (next: number) => {
+    if (next < 0 || next >= SENTENCES.length) return;
+    setSentenceIdx(next);
+    setSelectedId(null);
+    setProgressMap({});
   };
 
   return (
@@ -47,8 +117,8 @@ const Index = () => {
               <h1 className="font-kr font-bold text-lg lg:text-xl text-primary leading-tight">
                 공우정바른학원
               </h1>
-              <span className="text-[10px] font-bold tracking-[0.2em] text-primary-glow uppercase font-kr">
-                문장 구조 분석기
+              <span className="text-[10px] font-bold tracking-[0.2em] text-primary-glow uppercase">
+                GWJ Syntax Master
               </span>
             </div>
             <div className="hidden md:block h-8 w-px bg-border" />
@@ -64,7 +134,7 @@ const Index = () => {
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
               <div className="size-2 rounded-full bg-element-o animate-pulse" />
               <span className="text-xs font-medium text-muted-foreground font-kr">
-                분석 세션 진행 중
+                {completedCount} / {analyzableIds.length} 분석 완료
               </span>
             </div>
           </div>
@@ -76,49 +146,98 @@ const Index = () => {
         <section className="lg:col-span-8 flex flex-col gap-6">
           <div className="glass-panel rounded-3xl p-6 lg:p-10 relative overflow-hidden min-h-[420px]">
             <div className="absolute top-0 left-0 w-full h-1 bg-secondary">
-              <div className="h-full bg-gradient-to-r from-primary to-primary-glow w-1/3" />
+              <div
+                className="h-full bg-gradient-to-r from-primary to-primary-glow transition-all"
+                style={{
+                  width: `${analyzableIds.length ? (completedCount / analyzableIds.length) * 100 : 0}%`,
+                }}
+              />
             </div>
 
-            <header className="mb-10">
-              <p className="text-xs font-bold text-primary-glow tracking-tighter uppercase mb-2 font-kr">
-                문장 분석 · 데모 No. 001
-              </p>
-              <p className="text-sm text-muted-foreground font-medium font-kr">
-                활성화된 단어를 클릭해 3-Level 구조 분석을 시작하세요.
-              </p>
+            <header className="mb-10 flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-xs font-bold text-primary-glow tracking-tighter uppercase mb-2 font-kr">
+                  문장 분석 · No. {String(sentence.no).padStart(3, "0")}
+                </p>
+                <p className="text-sm text-muted-foreground font-medium font-kr">
+                  {sentence.korean}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => goToSentence(sentenceIdx - 1)}
+                  disabled={sentenceIdx === 0}
+                  className="size-9 rounded-xl bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                  aria-label="이전 문장"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <span className="text-xs font-bold tabular-nums text-muted-foreground px-2">
+                  {sentenceIdx + 1} / {SENTENCES.length}
+                </span>
+                <button
+                  onClick={() => goToSentence(sentenceIdx + 1)}
+                  disabled={sentenceIdx === SENTENCES.length - 1}
+                  className="size-9 rounded-xl bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                  aria-label="다음 문장"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
             </header>
 
             <div className="flex flex-wrap items-end gap-x-3 gap-y-14 pb-4">
-              {DEMO_TOKENS.map((token, idx) => {
-                if (token.type === "bracket") {
+              {sentence.tokens.map((token, idx) => {
+                if (token.type === "static") {
+                  if (token.role === "bracket") {
+                    return (
+                      <span
+                        key={idx}
+                        className="text-4xl font-light text-primary/30 self-center pb-2 select-none"
+                        aria-hidden
+                      >
+                        {token.text}
+                      </span>
+                    );
+                  }
+                  if (token.role === "punct") {
+                    return (
+                      <span
+                        key={idx}
+                        className="text-2xl font-light text-muted-foreground self-center pb-1"
+                        aria-hidden
+                      >
+                        {token.text}
+                      </span>
+                    );
+                  }
+                  // 분석 대상 아닌 일반 단어 → 비활성 표시
                   return (
                     <span
                       key={idx}
-                      className="text-4xl font-light text-primary/30 self-center pb-2 select-none"
-                      aria-hidden
+                      className="px-3 py-2 text-xl font-medium text-muted-foreground/50 select-none"
                     >
-                      {token.char}
+                      {token.text}
                     </span>
                   );
                 }
-                if (token.type === "punct") {
-                  return (
-                    <span
-                      key={idx}
-                      className="text-2xl font-light text-muted-foreground self-center pb-1"
-                      aria-hidden
-                    >
-                      {token.char}
-                    </span>
-                  );
-                }
+
+                const wp = progressMap[token.id];
+                const isSelected = selectedId === token.id;
+                const isCompleted = wp?.completed;
+                const state = isSelected
+                  ? "selected"
+                  : isCompleted
+                    ? "completed"
+                    : "active";
+
                 return (
                   <WordChip
                     key={token.id}
-                    word={token.word}
-                    koreanLabel={token.koreanLabel}
-                    element={token.element}
-                    active={selectedId === token.id}
+                    word={token.text}
+                    koreanLabel={isCompleted ? token.answer.koreanLabel : undefined}
+                    element={isCompleted ? token.answer.element : undefined}
+                    state={state}
                     onClick={() => handleSelect(token.id)}
                   />
                 );
@@ -139,23 +258,36 @@ const Index = () => {
           {/* Context strip */}
           <div className="glass-panel rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-secondary flex items-center justify-center">
-                <span className="font-bold text-primary">i</span>
+              <div
+                className={cn(
+                  "size-10 rounded-xl flex items-center justify-center font-bold transition-colors",
+                  sentenceComplete
+                    ? "bg-element-o-bg text-element-o"
+                    : "bg-secondary text-primary"
+                )}
+              >
+                {sentenceComplete ? "✓" : "i"}
               </div>
               <div>
-                <p className="text-sm font-semibold">Structural Context</p>
+                <p className="text-sm font-semibold">
+                  {sentenceComplete ? "Sentence Complete" : "Structural Context"}
+                </p>
                 <p className="text-xs text-muted-foreground font-kr">
-                  단문 · 능동태 · S+V+O 구조
+                  {sentenceComplete
+                    ? "모든 단어 분석 완료 — 다음 문장으로 이동하세요"
+                    : `${analyzableIds.length}개 분석 대상 단어 · 단계별 잠금 채점`}
                 </p>
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <span className="px-3 py-1 bg-secondary text-[10px] font-bold rounded-lg text-secondary-foreground">
-                SIMPLE SENTENCE
-              </span>
-              <span className="px-3 py-1 bg-secondary text-[10px] font-bold rounded-lg text-secondary-foreground">
-                ACTIVE VOICE
-              </span>
+              {sentence.structureTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-3 py-1 bg-secondary text-[10px] font-bold rounded-lg text-secondary-foreground"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           </div>
         </section>
@@ -163,23 +295,26 @@ const Index = () => {
         {/* Analysis Panel */}
         <div className="lg:col-span-4">
           <AnalysisPanel
-            selectedWord={selectedWord}
-            element={element}
-            partOfSpeech={pos}
-            form={form}
-            onElementChange={setElement}
-            onPartOfSpeechChange={(p) => {
-              setPos(p);
-              setForm(null);
-            }}
-            onFormChange={setForm}
+            selectedWord={selectedToken?.text ?? null}
+            answer={selectedToken?.answer ?? null}
+            element={progress.element}
+            partOfSpeech={progress.pos}
+            form={progress.form}
+            elementStatus={progress.elementStatus}
+            posStatus={progress.posStatus}
+            formStatus={progress.formStatus}
+            onElementChange={handleElement}
+            onPartOfSpeechChange={handlePOS}
+            onFormChange={handleForm}
           />
         </div>
       </main>
 
       <footer className="max-w-7xl mx-auto px-6 lg:px-8 pb-10 pt-4">
         <div className="flex justify-between items-center border-t border-border pt-6 text-xs text-muted-foreground font-kr">
-          <span className="font-bold tracking-widest font-kr">공우정바른학원 · v0.1</span>
+          <span className="font-bold tracking-widest font-kr">
+            공우정바른학원 · GWJ Syntax Master · v0.2
+          </span>
           <span className="italic">설명할 수 있어야 진짜 아는 것이다</span>
         </div>
       </footer>
