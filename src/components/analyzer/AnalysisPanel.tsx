@@ -100,8 +100,8 @@ export const AnalysisPanel = ({
 }: AnalysisPanelProps) => {
   if (!selectedWord || !answer) {
     return (
-      <aside className="glass-panel rounded-2xl px-4 py-3 flex items-center justify-center text-center min-h-[68px]">
-        <p className="text-xs text-muted-foreground font-kr">
+      <aside className="glass-panel rounded-xl px-3 py-1.5 flex items-center justify-center text-center h-11">
+        <p className="text-[11px] text-muted-foreground font-kr">
           단어를 선택하면 분석 메뉴가 활성화됩니다.
         </p>
       </aside>
@@ -113,20 +113,20 @@ export const AnalysisPanel = ({
   const formOptions = partOfSpeech ? FORM_BY_POS[partOfSpeech] : [];
 
   return (
-    <aside className="glass-panel rounded-2xl px-4 py-3">
-      <div className="flex items-center gap-3 flex-wrap justify-between">
+    <aside className="glass-panel rounded-xl px-3 py-1.5">
+      <div className="flex items-center gap-2 flex-wrap justify-between">
         {/* Selected word */}
-        <div className="flex items-baseline gap-2 min-w-0">
-          <span className="text-[10px] font-bold text-primary-glow uppercase tracking-widest">
-            Selected
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="text-[9px] font-bold text-primary-glow uppercase tracking-widest">
+            Sel
           </span>
-          <span className="text-sm font-bold text-foreground truncate max-w-[220px]">
+          <span className="text-xs font-bold text-foreground truncate max-w-[160px]">
             "{selectedWord}"
           </span>
         </div>
 
         {/* Horizontal Element row */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {ELEMENTS.map(({ key, label, abbr }) => {
             const isSelected = element === key;
             const isCorrect = isSelected && elementStatus === "correct";
@@ -144,7 +144,7 @@ export const AnalysisPanel = ({
                 disabled={lockedOther}
                 title={label}
                 className={cn(
-                  "inline-flex items-center gap-1 h-9 px-3 rounded-xl border text-xs font-bold transition-all",
+                  "inline-flex items-center gap-0.5 h-7 px-2 rounded-lg border text-[11px] font-bold transition-all",
                   "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary",
                   elementChipColor[key],
                   isWrong && "border-destructive bg-destructive/10 text-destructive animate-pulse",
@@ -152,7 +152,7 @@ export const AnalysisPanel = ({
                 )}
               >
                 <span className="font-mono">{abbr}</span>
-                {isCorrect && <ChevronDown className="size-3 opacity-70" />}
+                {isCorrect && <ChevronDown className="size-2.5 opacity-70" />}
               </button>
             );
 

@@ -32,25 +32,25 @@ export const WordChip = ({ word, koreanLabel, element, state, onClick }: WordChi
       type="button"
       onClick={interactive ? onClick : undefined}
       disabled={!interactive}
-      className="group relative flex flex-col items-center focus:outline-none disabled:cursor-not-allowed"
+      className="group relative inline-flex flex-col items-center focus:outline-none disabled:cursor-not-allowed leading-none"
       aria-pressed={selected}
     >
       {completed && koreanLabel && (
-        <span className="absolute -top-5 text-[10px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight">
+        <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none">
           {koreanLabel}
         </span>
       )}
 
       <span
         className={cn(
-          "px-2.5 py-1 rounded-lg text-base font-semibold tracking-tight transition-all duration-200",
+          "px-1.5 py-0.5 rounded-md text-[15px] font-semibold tracking-tight transition-all duration-200 leading-tight",
           selected &&
-            "word-chip-active text-primary-foreground scale-105 ring-4 ring-primary/15",
+            "word-chip-active text-primary-foreground ring-2 ring-primary/20",
           completed &&
             !selected &&
             "bg-primary/10 text-primary ring-1 ring-primary/30",
           state === "active" &&
-            "bg-card shadow-sm ring-1 ring-border hover:scale-105 hover:ring-primary/40 text-foreground",
+            "bg-card shadow-sm ring-1 ring-border hover:ring-primary/40 text-foreground",
           state === "locked" &&
             "bg-muted/40 text-muted-foreground/50 ring-1 ring-transparent"
         )}
@@ -59,7 +59,12 @@ export const WordChip = ({ word, koreanLabel, element, state, onClick }: WordChi
       </span>
 
       {completed && element && (
-        <span className={cn("badge-element absolute -bottom-5", elementBadgeClass[element])}>
+        <span
+          className={cn(
+            "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight",
+            elementBadgeClass[element],
+          )}
+        >
           {element}
         </span>
       )}
