@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* GTS Analyzer Design System — Gongujeong Bareun Academy
+/* 공우정바른학원 — Sentence Analyzer Design System
    Dark Violet identity, glassmorphism, modern edu-tech
    All colors MUST be HSL.
 */
@@ -44,7 +44,7 @@
 
     --radius: 1rem;
 
-    /* GTS Element semantic colors (S/V/O/C/M) */
+    /* Sentence Element semantic colors (S/V/O/C/M) */
     --element-s: 235 80% 60%;       /* Subject — indigo */
     --element-s-bg: 235 100% 96%;
     --element-v: 350 80% 55%;       /* Verb — rose */
