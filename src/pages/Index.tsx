@@ -142,8 +142,25 @@ const Index = () => {
         </div>
       </nav>
 
-      {/* Floating compact analysis panel — top-right, never covers main passage */}
-      <div className="fixed top-[68px] right-3 z-40 w-[min(92vw,440px)]">
+      <div className="lg:hidden sticky top-[68px] z-40 px-4 pt-2">
+        <div className="max-w-7xl mx-auto">
+          <AnalysisPanel
+            selectedWord={selectedToken?.text ?? null}
+            answer={selectedToken?.answer ?? null}
+            element={progress.element}
+            partOfSpeech={progress.pos}
+            form={progress.form}
+            elementStatus={progress.elementStatus}
+            posStatus={progress.posStatus}
+            formStatus={progress.formStatus}
+            onElementChange={handleElement}
+            onPartOfSpeechChange={handlePOS}
+            onFormChange={handleForm}
+          />
+        </div>
+      </div>
+
+      <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,420px)]">
         <AnalysisPanel
           selectedWord={selectedToken?.text ?? null}
           answer={selectedToken?.answer ?? null}
@@ -159,7 +176,7 @@ const Index = () => {
         />
       </div>
 
-      <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-20 lg:pt-24 flex flex-col gap-4">
+      <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4">
         {/* Sentence meta + nav */}
         <div className="flex items-center gap-3">
           <div>
