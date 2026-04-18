@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Plus Jakarta Sans', 'Noto Sans KR', 'system-ui', 'sans-serif'],
+        kr: ['Noto Sans KR', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -22,6 +26,14 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          glow: "hsl(var(--primary-glow))",
+        },
+        element: {
+          s: "hsl(var(--element-s))",
+          v: "hsl(var(--element-v))",
+          o: "hsl(var(--element-o))",
+          c: "hsl(var(--element-c))",
+          m: "hsl(var(--element-m))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
