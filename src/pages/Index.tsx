@@ -142,54 +142,52 @@ const Index = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto p-4 lg:p-8 flex flex-col gap-5">
-        {/* Top bar: meta + analysis panel */}
-        <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="text-[10px] font-bold text-primary-glow tracking-widest uppercase font-kr">
-                문장 분석 · No. {String(sentence.no).padStart(3, "0")}
-              </p>
-              <KoreanHintButton korean={sentence.korean} />
-            </div>
-            <div className="flex items-center gap-1.5 ml-2">
-              <button
-                onClick={() => goToSentence(sentenceIdx - 1)}
-                disabled={sentenceIdx === 0}
-                className="size-8 rounded-lg bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-                aria-label="이전 문장"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-1">
-                {sentenceIdx + 1} / {SENTENCES.length}
-              </span>
-              <button
-                onClick={() => goToSentence(sentenceIdx + 1)}
-                disabled={sentenceIdx === SENTENCES.length - 1}
-                className="size-8 rounded-lg bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-                aria-label="다음 문장"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-          </div>
+      {/* Floating compact analysis panel — top-right, never covers main passage */}
+      <div className="fixed top-[68px] right-3 z-40 w-[min(92vw,440px)]">
+        <AnalysisPanel
+          selectedWord={selectedToken?.text ?? null}
+          answer={selectedToken?.answer ?? null}
+          element={progress.element}
+          partOfSpeech={progress.pos}
+          form={progress.form}
+          elementStatus={progress.elementStatus}
+          posStatus={progress.posStatus}
+          formStatus={progress.formStatus}
+          onElementChange={handleElement}
+          onPartOfSpeechChange={handlePOS}
+          onFormChange={handleForm}
+        />
+      </div>
 
-          {/* Inline analysis panel — horizontal Element row + vertical popovers */}
-          <div className="lg:min-w-[520px]">
-            <AnalysisPanel
-              selectedWord={selectedToken?.text ?? null}
-              answer={selectedToken?.answer ?? null}
-              element={progress.element}
-              partOfSpeech={progress.pos}
-              form={progress.form}
-              elementStatus={progress.elementStatus}
-              posStatus={progress.posStatus}
-              formStatus={progress.formStatus}
-              onElementChange={handleElement}
-              onPartOfSpeechChange={handlePOS}
-              onFormChange={handleForm}
-            />
+      <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-20 lg:pt-24 flex flex-col gap-4">
+        {/* Sentence meta + nav */}
+        <div className="flex items-center gap-3">
+          <div>
+            <p className="text-[10px] font-bold text-primary-glow tracking-widest uppercase font-kr">
+              문장 분석 · No. {String(sentence.no).padStart(3, "0")}
+            </p>
+            <KoreanHintButton korean={sentence.korean} />
+          </div>
+          <div className="flex items-center gap-1.5 ml-2">
+            <button
+              onClick={() => goToSentence(sentenceIdx - 1)}
+              disabled={sentenceIdx === 0}
+              className="size-8 rounded-lg bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              aria-label="이전 문장"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-1">
+              {sentenceIdx + 1} / {SENTENCES.length}
+            </span>
+            <button
+              onClick={() => goToSentence(sentenceIdx + 1)}
+              disabled={sentenceIdx === SENTENCES.length - 1}
+              className="size-8 rounded-lg bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              aria-label="다음 문장"
+            >
+              <ChevronRight className="size-4" />
+            </button>
           </div>
         </div>
 
