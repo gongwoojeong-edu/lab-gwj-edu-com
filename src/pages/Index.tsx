@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { WordChip, type ElementType } from "@/components/gts/WordChip";
-import { AnalysisPanel, type PartOfSpeech, type FormType } from "@/components/gts/AnalysisPanel";
+import { WordChip, type ElementType } from "@/components/analyzer/WordChip";
+import { AnalysisPanel, type PartOfSpeech, type FormType } from "@/components/analyzer/AnalysisPanel";
 
 // Demo sentence — placeholder until 원장님 정답 데이터 제공
 // "She wanted to improve her English."
@@ -47,8 +47,8 @@ const Index = () => {
               <h1 className="font-kr font-bold text-lg lg:text-xl text-primary leading-tight">
                 공우정바른학원
               </h1>
-              <span className="text-[10px] font-bold tracking-[0.2em] text-primary-glow uppercase">
-                GTS Analyzer Pro
+              <span className="text-[10px] font-bold tracking-[0.2em] text-primary-glow uppercase font-kr">
+                문장 구조 분석기
               </span>
             </div>
             <div className="hidden md:block h-8 w-px bg-border" />
@@ -80,8 +80,8 @@ const Index = () => {
             </div>
 
             <header className="mb-10">
-              <p className="text-xs font-bold text-primary-glow tracking-tighter uppercase mb-2">
-                Sentence Analysis · Demo No. 001
+              <p className="text-xs font-bold text-primary-glow tracking-tighter uppercase mb-2 font-kr">
+                문장 분석 · 데모 No. 001
               </p>
               <p className="text-sm text-muted-foreground font-medium font-kr">
                 활성화된 단어를 클릭해 3-Level 구조 분석을 시작하세요.
@@ -179,7 +179,7 @@ const Index = () => {
 
       <footer className="max-w-7xl mx-auto px-6 lg:px-8 pb-10 pt-4">
         <div className="flex justify-between items-center border-t border-border pt-6 text-xs text-muted-foreground font-kr">
-          <span className="font-bold tracking-widest">GTS ANALYZER · v0.1</span>
+          <span className="font-bold tracking-widest font-kr">공우정바른학원 · v0.1</span>
           <span className="italic">설명할 수 있어야 진짜 아는 것이다</span>
         </div>
       </footer>
