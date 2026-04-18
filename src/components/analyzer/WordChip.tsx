@@ -36,14 +36,14 @@ export const WordChip = ({ word, koreanLabel, element, state, onClick }: WordChi
       aria-pressed={selected}
     >
       {completed && koreanLabel && (
-        <span className="absolute -top-7 text-[11px] font-bold font-kr text-primary whitespace-nowrap">
+        <span className="absolute -top-5 text-[10px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight">
           {koreanLabel}
         </span>
       )}
 
       <span
         className={cn(
-          "px-4 py-2.5 rounded-2xl text-xl font-semibold transition-all duration-200",
+          "px-2.5 py-1 rounded-lg text-base font-semibold tracking-tight transition-all duration-200",
           selected &&
             "word-chip-active text-primary-foreground scale-105 ring-4 ring-primary/15",
           completed &&
@@ -59,7 +59,7 @@ export const WordChip = ({ word, koreanLabel, element, state, onClick }: WordChi
       </span>
 
       {completed && element && (
-        <span className={cn("badge-element absolute -bottom-6", elementBadgeClass[element])}>
+        <span className={cn("badge-element absolute -bottom-5", elementBadgeClass[element])}>
           {element}
         </span>
       )}
