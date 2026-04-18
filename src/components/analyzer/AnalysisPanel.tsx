@@ -100,8 +100,8 @@ export const AnalysisPanel = ({
 }: AnalysisPanelProps) => {
   if (!selectedWord || !answer) {
     return (
-      <aside className="glass-panel rounded-2xl px-4 py-3 flex items-center justify-center text-center min-h-[68px]">
-        <p className="text-xs text-muted-foreground font-kr">
+      <aside className="glass-panel rounded-xl px-3 py-1.5 flex items-center justify-center text-center h-11">
+        <p className="text-[11px] text-muted-foreground font-kr">
           단어를 선택하면 분석 메뉴가 활성화됩니다.
         </p>
       </aside>
