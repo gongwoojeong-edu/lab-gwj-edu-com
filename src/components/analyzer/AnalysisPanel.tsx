@@ -1408,7 +1408,7 @@ const VerbPanel = ({
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
           동사 분석 · 다중 선택
         </p>
-        <StatusPill status={verb.confirmStatus} />
+        <StatusPill status={verbConfirmStatus} />
       </div>
 
       <div className="space-y-1.5">
