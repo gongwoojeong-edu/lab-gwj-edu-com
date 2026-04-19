@@ -1069,8 +1069,12 @@ const Index = () => {
                         "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
                         // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
                         "bg-muted/40",
-                        // 완료된 단어들 — 접SV/Modifier는 배경색 없음
-                        isCompleted && !isSelected && !isModifier && !isClauseSelection && "bg-primary/[0.08]",
+                        // 완료된 단어들 — 일반: 옅은 보라 + 하단 라인으로 "처리됨" 표시
+                        isCompleted && !isSelected && !isModifier && !isClauseSelection &&
+                          "bg-primary/[0.10] border-b border-primary/30",
+                        // 완료된 modifier/접SV: 배경 없이 텍스트만 살짝 dim
+                        isCompleted && !isSelected && (isModifier || isClauseSelection) &&
+                          "text-foreground/75",
                         // 선택된 인덱스 하이라이트
                         isSelected && "bg-primary/20",
                       )}
