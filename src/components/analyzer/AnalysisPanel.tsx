@@ -517,14 +517,15 @@ interface NounPanelProps {
   onNounFormChange: (f: NounForm) => void;
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
+  onNounElementRole: (e: SentenceElement, r: string | null) => void;
 }
 
 const NounPanel = ({
   answer,
   noun,
   onNounFormChange,
-  onNounElementChange,
   onNounRoleChange,
+  onNounElementRole,
 }: NounPanelProps) => {
   const formCorrect = noun.formStatus === "correct";
   const formOnlyMode =
@@ -532,19 +533,18 @@ const NounPanel = ({
     !!noun.form &&
     (noun.form === "접SV" ||
       ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && answer.element === undefined));
-  const elementUnlocked = formCorrect && !formOnlyMode;
-  const elementCorrect = noun.elementStatus === "correct";
-  const roleUnlocked = formCorrect && (formOnlyMode || elementCorrect);
 
-  const roleOptions = (() => {
-    if (!noun.form) return [];
-    if (formOnlyMode) return FORM_ONLY_ROLES[noun.form] ?? [];
-    if (!noun.element) return [];
-    const common = COMMON_ROLES_BY_ELEMENT[noun.element] ?? [];
-    const bonus =
-      FORM_BONUS_ROLES_BY_ELEMENT[noun.form]?.[noun.element] ?? [];
-    return [...common, ...bonus];
-  })();
+  // 형태전용(접SV 등): 평탄 element-role 그리드 대신 기존 RoleRow 재사용
+  const formOnlyRoleOptions = formOnlyMode && noun.form ? FORM_ONLY_ROLES[noun.form] ?? [] : [];
+
+  // 평탄 element-role 그리드용 데이터 (S/O/C/M)
+  const elementRoleGroups = !formCorrect || formOnlyMode || !noun.form
+    ? []
+    : (ELEMENTS.map(({ key, label, colorClass }) => {
+        const common = COMMON_ROLES_BY_ELEMENT[key] ?? [];
+        const bonus = FORM_BONUS_ROLES_BY_ELEMENT[noun.form!]?.[key] ?? [];
+        return { element: key, label, colorClass, options: [...common, ...bonus] };
+      }));
 
   return (
     <>
@@ -556,23 +556,25 @@ const NounPanel = ({
         locked={formCorrect}
         onSelect={(k) => onNounFormChange(k as NounForm)}
       />
-      <ElementRow
-        items={ELEMENTS}
-        selected={noun.element}
-        status={noun.elementStatus}
-        unlocked={elementUnlocked}
-        formCorrect={formCorrect}
-        skipMessage={formOnlyMode ? "— 형태 전용 (성분 단계 건너뜀)" : undefined}
-        elementCorrect={elementCorrect}
-        onSelect={(e) => onNounElementChange(e as SentenceElement)}
-      />
-      <RoleRow
-        unlocked={roleUnlocked}
-        status={noun.roleStatus}
-        options={roleOptions}
-        selected={noun.role}
-        onSelect={onNounRoleChange}
-      />
+      {formOnlyMode ? (
+        <RoleRow
+          unlocked
+          status={noun.roleStatus}
+          options={formOnlyRoleOptions}
+          selected={noun.role}
+          onSelect={onNounRoleChange}
+        />
+      ) : (
+        <ElementRoleGrid
+          unlocked={formCorrect}
+          element={noun.element}
+          elementStatus={noun.elementStatus}
+          role={noun.role}
+          roleStatus={noun.roleStatus}
+          groups={elementRoleGroups}
+          onPick={(e, r) => onNounElementRole(e as SentenceElement, r)}
+        />
+      )}
       {noun.roleStatus === "correct" && (
         <CompletionBlock label={answer.koreanLabel} />
       )}
@@ -589,21 +591,40 @@ interface AdjPanelProps {
   onAdjFormChange: (f: AdjForm) => void;
   onAdjElementChange: (e: "C" | "M") => void;
   onAdjRoleChange: (r: string) => void;
+  onAdjElementRole: (e: "C" | "M", r: string | null) => void;
 }
 
 const AdjPanel = ({
   answer,
   adj,
   onAdjFormChange,
-  onAdjElementChange,
   onAdjRoleChange,
+  onAdjElementRole,
 }: AdjPanelProps) => {
   const formCorrect = adj.formStatus === "correct";
   const skipsElement = adj.form ? !!ADJ_FORM_SKIPS_ELEMENT[adj.form] : false;
-  const elementUnlocked = formCorrect && !skipsElement;
-  const elementCorrect = adj.elementStatus === "correct";
-  const roleUnlocked = formCorrect && (skipsElement || elementCorrect);
   const roleOptions = adj.form ? ADJ_ROLES_BY_FORM[adj.form] : [];
+
+  // skipsElement (전N, 접SV, to V, V-ing/PP) → 평탄 그리드 대신 기존 RoleRow
+  // 그 외 (형용사) → C/M 평탄 element-role 그리드
+  const elementRoleGroups = !formCorrect || skipsElement
+    ? []
+    : ADJ_ELEMENTS.map(({ key, label, colorClass }) => {
+        // 형용사 form일 때 form별 role 옵션을 element와 매칭
+        // ADJ_ROLES_BY_FORM["형용사"] = ["형용사", "a주격보어", "a목적격보어", "a명사수식"]
+        // C에는 보어 관련, M에는 수식 관련 — 단순 휴리스틱
+        let options: RoleOption[];
+        if (key === "C") {
+          options = roleOptions.filter(
+            (o) => typeof o === "string" && /보어/.test(o),
+          );
+        } else {
+          options = roleOptions.filter(
+            (o) => typeof o === "string" && !/보어/.test(o),
+          );
+        }
+        return { element: key, label, colorClass, options };
+      });
 
   return (
     <>
@@ -615,27 +636,175 @@ const AdjPanel = ({
         locked={formCorrect}
         onSelect={(k) => onAdjFormChange(k as AdjForm)}
       />
-      <ElementRow
-        items={ADJ_ELEMENTS}
-        selected={adj.element}
-        status={adj.elementStatus}
-        unlocked={elementUnlocked}
-        formCorrect={formCorrect}
-        skipMessage={skipsElement ? "— 형태에 따라 성분 단계 자동 건너뜀" : undefined}
-        elementCorrect={elementCorrect}
-        onSelect={(e) => onAdjElementChange(e as "C" | "M")}
-      />
-      <RoleRow
-        unlocked={roleUnlocked}
-        status={adj.roleStatus}
-        options={roleOptions}
-        selected={adj.role}
-        onSelect={onAdjRoleChange}
-      />
+      {skipsElement ? (
+        <RoleRow
+          unlocked={formCorrect}
+          status={adj.roleStatus}
+          options={roleOptions}
+          selected={adj.role}
+          onSelect={onAdjRoleChange}
+        />
+      ) : (
+        <ElementRoleGrid
+          unlocked={formCorrect}
+          element={adj.element}
+          elementStatus={adj.elementStatus}
+          role={adj.role}
+          roleStatus={adj.roleStatus}
+          groups={elementRoleGroups}
+          onPick={(e, r) => onAdjElementRole(e as "C" | "M", r)}
+        />
+      )}
       {adj.roleStatus === "correct" && (
         <CompletionBlock label={answer.koreanLabel} />
       )}
     </>
+  );
+};
+
+// ============================================================
+// 평탄 Element-Role 그리드 (Layer 03 통합)
+// 좌측: element 라벨 (헤더, 클릭 불가)
+// 우측: 해당 element의 role 버튼들 — 한 번 클릭으로 element+role 동시 저장
+// M (수식어): role 후보가 없으면 라벨 자체가 클릭 가능 → 즉시 완료
+// ============================================================
+const ElementRoleGrid = ({
+  unlocked,
+  element,
+  elementStatus,
+  role,
+  roleStatus,
+  groups,
+  onPick,
+}: {
+  unlocked: boolean;
+  element: string | null;
+  elementStatus: StepStatus;
+  role: string | null;
+  roleStatus: StepStatus;
+  groups: { element: string; label: string; colorClass: string; options: RoleOption[] }[];
+  onPick: (element: string, role: string | null) => void;
+}) => {
+  const done = roleStatus === "correct";
+
+  if (!unlocked) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr text-muted-foreground/40">
+          <Lock className="size-2.5" />
+          Layer 03 · 성분 / 세부역할
+        </p>
+        <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
+          형태 정답 후 열립니다.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+          Layer 03 · 성분 / 세부역할
+        </p>
+        <StatusPill status={done ? "correct" : roleStatus === "wrong" || elementStatus === "wrong" ? "wrong" : "idle"} />
+      </div>
+      <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
+        {groups.map((g) => {
+          const isM = g.element === "M";
+
+          // M with no role options → single button
+          if (isM && g.options.length === 0) {
+            const sel = element === g.element;
+            const ok = sel && elementStatus === "correct";
+            const ng = sel && elementStatus === "wrong";
+            return (
+              <div
+                key={g.element}
+                className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0"
+              >
+                <span className="shrink-0 w-[58px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1">
+                  <span className="font-mono text-[12px]">{g.element}</span>
+                  {g.label}
+                </span>
+                <div className="flex-1">
+                  <button
+                    type="button"
+                    onClick={() => onPick(g.element, null)}
+                    disabled={done && !sel}
+                    className={cn(
+                      "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30",
+                      ok && g.colorClass,
+                      ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
+                      !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+                    )}
+                  >
+                    수식어 (즉시 완료)
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          // 옵션 평탄화: '/'로 split
+          const buttons: { value: string; display: string }[] = [];
+          g.options.forEach((opt) => {
+            if (typeof opt === "string") {
+              const parts = opt.split("/").map((p) => p.trim()).filter(Boolean);
+              if (parts.length <= 1) buttons.push({ value: opt, display: opt });
+              else parts.forEach((p) => buttons.push({ value: p, display: p }));
+            } else {
+              opt.items.forEach((item) => {
+                item
+                  .split("/")
+                  .map((p) => p.trim())
+                  .filter(Boolean)
+                  .forEach((p) =>
+                    buttons.push({ value: `${opt.header} ${p}`, display: `${opt.header} ${p}` }),
+                  );
+              });
+            }
+          });
+
+          if (buttons.length === 0) return null;
+
+          return (
+            <div
+              key={g.element}
+              className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0"
+            >
+              <span className="shrink-0 w-[58px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1">
+                <span className="font-mono text-[12px]">{g.element}</span>
+                {g.label}
+              </span>
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                {buttons.map((b) => {
+                  const sel = element === g.element && role === b.value;
+                  const ok = sel && done;
+                  const ng = sel && (roleStatus === "wrong" || elementStatus === "wrong");
+                  return (
+                    <button
+                      key={`${g.element}-${b.value}`}
+                      type="button"
+                      onClick={() => onPick(g.element, b.value)}
+                      disabled={done && !sel}
+                      className={cn(
+                        "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+                        ok && "bg-primary/15 text-primary",
+                        ng && "bg-destructive/10 text-destructive animate-pulse",
+                        !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+                      )}
+                    >
+                      {b.display}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
