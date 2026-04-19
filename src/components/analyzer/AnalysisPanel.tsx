@@ -5,8 +5,14 @@ import type {
   WordAnswer,
   NounAnswer,
   VerbAnswer,
+  AdjAnswer,
+  AdvAnswer,
+  EtcAnswer,
   POS,
   NounForm,
+  AdjForm,
+  AdvForm,
+  EtcKind,
   SentenceElement,
   VerbNumber,
   VerbTense,
@@ -28,13 +34,45 @@ export interface NounProgress {
 }
 
 // ============================================================
+// 형용사 진행 상태
+// ============================================================
+export interface AdjProgress {
+  form: AdjForm | null;
+  element: "C" | "M" | null;
+  role: string | null;
+  formStatus: StepStatus;
+  elementStatus: StepStatus;
+  roleStatus: StepStatus;
+}
+
+// ============================================================
+// 부사 진행 상태
+// ============================================================
+export interface AdvProgress {
+  form: AdvForm | null;
+  role: string | null;
+  formStatus: StepStatus;
+  roleStatus: StepStatus;
+}
+
+// ============================================================
+// 기타 진행 상태
+// ============================================================
+export interface EtcProgress {
+  kind: EtcKind | null;
+  role: string | null;
+  kindStatus: StepStatus;
+  roleStatus: StepStatus;
+}
+
+// ============================================================
 // 동사 진행 상태 (다중 선택)
 // ============================================================
 export interface VerbProgress {
   number: VerbNumber | null;
   tense: VerbTense | null;
   aspect: VerbAspect[];
-  voice: boolean; // 수동
+  voice: boolean;
   proVerb: boolean;
   confirmStatus: StepStatus;
 }
@@ -52,6 +90,19 @@ interface AnalysisPanelProps {
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
 
+  adj: AdjProgress;
+  onAdjFormChange: (f: AdjForm) => void;
+  onAdjElementChange: (e: "C" | "M") => void;
+  onAdjRoleChange: (r: string) => void;
+
+  adv: AdvProgress;
+  onAdvFormChange: (f: AdvForm) => void;
+  onAdvRoleChange: (r: string) => void;
+
+  etc: EtcProgress;
+  onEtcKindChange: (k: EtcKind) => void;
+  onEtcRoleChange: (r: string) => void;
+
   verb: VerbProgress;
   onVerbToggleNumber: (n: VerbNumber) => void;
   onVerbToggleTense: (t: VerbTense) => void;
@@ -62,14 +113,14 @@ interface AnalysisPanelProps {
 }
 
 // ============================================================
-// LAYER 01: 품사
+// LAYER 01: 품사 (5종 모두 활성)
 // ============================================================
-const POS_LIST: { key: POS; circle: string; label: string; enabled: boolean }[] = [
-  { key: "명사", circle: "ⓝ", label: "명사", enabled: true },
-  { key: "형용사", circle: "ⓐ", label: "형용사", enabled: false },
-  { key: "부사", circle: "ⓓ", label: "부사", enabled: false },
-  { key: "동사", circle: "ⓥ", label: "동사", enabled: true },
-  { key: "기타", circle: "ⓔ", label: "기타", enabled: false },
+const POS_LIST: { key: POS; circle: string; label: string }[] = [
+  { key: "명사", circle: "ⓝ", label: "명사" },
+  { key: "형용사", circle: "ⓐ", label: "형용사" },
+  { key: "부사", circle: "ⓓ", label: "부사" },
+  { key: "동사", circle: "ⓥ", label: "동사" },
+  { key: "기타", circle: "ⓔ", label: "기타" },
 ];
 
 // ============================================================
@@ -82,8 +133,37 @@ const NOUN_FORMS: { key: NounForm; circle: string; label: string }[] = [
   { key: "접SV", circle: "⑪", label: "접SV" },
 ];
 
+// LAYER 02: 형용사 형태
+const ADJ_FORMS: { key: AdjForm; circle: string; label: string }[] = [
+  { key: "형용사", circle: "②", label: "형용사" },
+  { key: "to V", circle: "⑥", label: "to V" },
+  { key: "V-ing/PP", circle: "⑨", label: "V-ing/PP" },
+  { key: "접SV", circle: "⑫", label: "접SV" },
+  { key: "전N", circle: "⑭", label: "전N" },
+];
+
+// LAYER 02: 부사 형태
+const ADV_FORMS: { key: AdvForm; circle: string; label: string }[] = [
+  { key: "부사", circle: "③", label: "부사" },
+  { key: "to V", circle: "⑦", label: "to V" },
+  { key: "ing/pp", circle: "⑩", label: "ing/pp" },
+  { key: "접SV", circle: "⑬", label: "접SV" },
+  { key: "전N", circle: "⑮", label: "전N" },
+];
+
+// LAYER 02: 기타 종류
+const ETC_KINDS: { key: EtcKind; label: string }[] = [
+  { key: "비교", label: "비교" },
+  { key: "의문문", label: "의문문" },
+  { key: "감탄문", label: "감탄문" },
+  { key: "명령문", label: "명령문" },
+  { key: "접속", label: "접속" },
+  { key: "가정법", label: "가정법" },
+  { key: "도치/생략/동격", label: "도치/생략/동격" },
+];
+
 // ============================================================
-// LAYER 03a: 문장성분
+// LAYER 03a: 문장성분 (명사용 4개)
 // ============================================================
 const ELEMENTS: { key: SentenceElement; label: string; colorClass: string }[] = [
   { key: "S", label: "주어", colorClass: "bg-element-s-bg text-element-s border-element-s/40" },
@@ -92,18 +172,26 @@ const ELEMENTS: { key: SentenceElement; label: string; colorClass: string }[] = 
   { key: "M", label: "수식어", colorClass: "bg-element-m-bg text-element-m border-element-m/40" },
 ];
 
+// 형용사용 (C, M만)
+const ADJ_ELEMENTS: { key: "C" | "M"; label: string; colorClass: string }[] = [
+  { key: "C", label: "보어", colorClass: "bg-element-c-bg text-element-c border-element-c/40" },
+  { key: "M", label: "수식어", colorClass: "bg-element-m-bg text-element-m border-element-m/40" },
+];
+
 // ============================================================
-// LAYER 03b: 세부역할 매핑
+// LAYER 03b: 명사 세부역할 매핑
 // ============================================================
 const COMMON_ROLES_BY_ELEMENT: Record<SentenceElement, string[]> = {
   S: ["주어", "가주어", "진주어"],
   O: [
     "목적어(타동)",
-    "목적어(전치)",
     "간접목적어",
     "직접목적어",
     "가목적어",
     "진목적어",
+    "전치사의o",
+    "to V의o",
+    "V-ing의o",
   ],
   C: ["주격보어", "목적격보어"],
   M: [],
@@ -116,7 +204,6 @@ const FORM_BONUS_ROLES_BY_ELEMENT: Partial<
   "V-ing": { S: ["의미상주어"] },
 };
 
-// 형태 전용 칩 (성분 무관) — 03a 스킵
 const FORM_ONLY_ROLES: Partial<Record<NounForm, string[]>> = {
   "to V": [
     "의문사(to V)",
@@ -131,9 +218,59 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, string[]>> = {
   "접SV": ["명사절that", "whether/if", "의SV", "관대what", "복합관대~ever"],
 };
 
-const isFormOnlyRole = (form: NounForm | null, role: string | null): boolean => {
-  if (!form || !role) return false;
-  return FORM_ONLY_ROLES[form]?.includes(role) ?? false;
+// ============================================================
+// 형용사 세부역할 매핑
+// ============================================================
+const ADJ_ROLES_BY_FORM: Record<AdjForm, string[]> = {
+  "형용사": ["형용사", "a주격보어", "a목적격보어", "a명사수식"],
+  "to V": ["to 명사뒤수식", "be to부정사"],
+  "V-ing/PP": [
+    "ing명사앞수식",
+    "ing명사뒤수식",
+    "ing주격보어",
+    "ing목적격보어",
+    "pp명사앞수식",
+    "pp명사뒤수식",
+    "pp주격보어",
+    "pp목적격보어",
+  ],
+  "접SV": [
+    "관대(주격/목적격/소유격/전+RP/계속적/N of which/N of whom)",
+    "관부(where/when/why/how/that/계속적)",
+  ],
+  "전N": ["형용사 전치사구"],
+};
+
+// 형용사: element 단계 스킵하는 form (전N은 자동 M, 접SV는 자동 M, to V는 자동 M)
+const ADJ_FORM_SKIPS_ELEMENT: Partial<Record<AdjForm, "C" | "M">> = {
+  "전N": "M",
+  "접SV": "M",
+  "to V": "M",
+  "V-ing/PP": "M",
+};
+
+// ============================================================
+// 부사 세부역할 매핑
+// ============================================================
+const ADV_ROLES_BY_FORM: Record<AdvForm, string[]> = {
+  "부사": ["부사"],
+  "to V": ["목적", "감정의원인", "판단의근거", "조건", "결과", "형용사수식"],
+  "ing/pp": ["분사구문", "완료", "부정", "독립", "with N 형부"],
+  "접SV": ["시간", "장소", "이유", "조건", "양보", "결과", "양태", "비교"],
+  "전N": ["부사 전치사구"],
+};
+
+// ============================================================
+// 기타 세부역할 매핑
+// ============================================================
+const ETC_ROLES_BY_KIND: Record<EtcKind, string[]> = {
+  "비교": ["원급", "비교급", "최상급", "비교구문"],
+  "의문문": ["의문대명사", "의문부사", "의문형용사", "간접의문"],
+  "감탄문": ["What 감탄", "How 감탄"],
+  "명령문": ["긍정명령", "부정명령", "Let 명령"],
+  "접속": ["병렬", "상관", "유사관대"],
+  "가정법": ["가정법 현재", "가정법 과거", "가정법 과거완료", "혼합가정법"],
+  "도치/생략/동격": ["도치", "생략", "동격"],
 };
 
 const StatusPill = ({ status }: { status: StepStatus }) => {
@@ -162,6 +299,16 @@ export const AnalysisPanel = ({
   onNounFormChange,
   onNounElementChange,
   onNounRoleChange,
+  adj,
+  onAdjFormChange,
+  onAdjElementChange,
+  onAdjRoleChange,
+  adv,
+  onAdvFormChange,
+  onAdvRoleChange,
+  etc,
+  onEtcKindChange,
+  onEtcRoleChange,
   verb,
   onVerbToggleNumber,
   onVerbToggleTense,
@@ -183,6 +330,63 @@ export const AnalysisPanel = ({
   const posCorrect = posStatus === "correct";
   const isNoun = posCorrect && answer.pos === "명사";
   const isVerb = posCorrect && answer.pos === "동사";
+  const isAdj = posCorrect && answer.pos === "형용사";
+  const isAdv = posCorrect && answer.pos === "부사";
+  const isEtc = posCorrect && answer.pos === "기타";
+
+  const renderSubPanel = () => {
+    if (isNoun)
+      return (
+        <NounPanel
+          answer={answer as NounAnswer}
+          noun={noun}
+          onNounFormChange={onNounFormChange}
+          onNounElementChange={onNounElementChange}
+          onNounRoleChange={onNounRoleChange}
+        />
+      );
+    if (isVerb)
+      return (
+        <VerbPanel
+          verb={verb}
+          onVerbToggleNumber={onVerbToggleNumber}
+          onVerbToggleTense={onVerbToggleTense}
+          onVerbToggleAspect={onVerbToggleAspect}
+          onVerbToggleVoice={onVerbToggleVoice}
+          onVerbToggleProVerb={onVerbToggleProVerb}
+          onVerbConfirm={onVerbConfirm}
+        />
+      );
+    if (isAdj)
+      return (
+        <AdjPanel
+          answer={answer as AdjAnswer}
+          adj={adj}
+          onAdjFormChange={onAdjFormChange}
+          onAdjElementChange={onAdjElementChange}
+          onAdjRoleChange={onAdjRoleChange}
+        />
+      );
+    if (isAdv)
+      return (
+        <AdvPanel
+          answer={answer as AdvAnswer}
+          adv={adv}
+          onAdvFormChange={onAdvFormChange}
+          onAdvRoleChange={onAdvRoleChange}
+        />
+      );
+    if (isEtc)
+      return (
+        <EtcPanel
+          answer={answer as EtcAnswer}
+          etc={etc}
+          onEtcKindChange={onEtcKindChange}
+          onEtcRoleChange={onEtcRoleChange}
+        />
+      );
+    return null;
+  };
 
   return (
     <aside className="glass-panel rounded-xl px-3 py-1.5">
@@ -198,13 +402,13 @@ export const AnalysisPanel = ({
         </div>
 
         {/* LAYER 01 — 품사 */}
-        <div className="flex items-center gap-1">
-          {POS_LIST.map(({ key, circle, label, enabled }) => {
+        <div className="flex items-center gap-1 flex-wrap">
+          {POS_LIST.map(({ key, circle, label }) => {
             const isSelected = pos === key;
             const isCorrect = isSelected && posCorrect;
             const isWrong = isSelected && posStatus === "wrong";
             const lockedOther = posCorrect && !isSelected;
-            const disabled = !enabled || lockedOther;
+            const disabled = lockedOther;
 
             const trigger = (
               <button
@@ -214,13 +418,12 @@ export const AnalysisPanel = ({
                   onPosChange(key);
                 }}
                 disabled={disabled}
-                title={enabled ? label : `${label} (준비 중)`}
+                title={label}
                 className={cn(
                   "inline-flex items-center gap-0.5 h-7 px-2 rounded-lg border text-[11px] font-bold font-kr transition-all",
                   "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary",
                   isCorrect && "bg-primary/10 text-primary border-primary/40",
                   isWrong && "border-destructive bg-destructive/10 text-destructive animate-pulse",
-                  !enabled && "opacity-25 cursor-not-allowed",
                   lockedOther && "opacity-30 cursor-not-allowed",
                 )}
               >
@@ -229,7 +432,7 @@ export const AnalysisPanel = ({
               </button>
             );
 
-            if (isCorrect && isNoun) {
+            if (isCorrect && (isNoun || isVerb || isAdj || isAdv || isEtc)) {
               return (
                 <Popover key={key} defaultOpen>
                   <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -239,41 +442,9 @@ export const AnalysisPanel = ({
                     sideOffset={8}
                     collisionPadding={12}
                     avoidCollisions
-                    className="w-[min(92vw,360px)] p-3 space-y-3 z-[60]"
+                    className="w-[min(92vw,380px)] p-3 space-y-3 z-[60]"
                   >
-                    <NounPanel
-                      answer={answer as NounAnswer}
-                      noun={noun}
-                      onNounFormChange={onNounFormChange}
-                      onNounElementChange={onNounElementChange}
-                      onNounRoleChange={onNounRoleChange}
-                    />
-                  </PopoverContent>
-                </Popover>
-              );
-            }
-
-            if (isCorrect && isVerb) {
-              return (
-                <Popover key={key} defaultOpen>
-                  <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-                  <PopoverContent
-                    align="center"
-                    side="bottom"
-                    sideOffset={8}
-                    collisionPadding={12}
-                    avoidCollisions
-                    className="w-[min(92vw,360px)] p-3 space-y-3 z-[60]"
-                  >
-                    <VerbPanel
-                      verb={verb}
-                      onVerbToggleNumber={onVerbToggleNumber}
-                      onVerbToggleTense={onVerbToggleTense}
-                      onVerbToggleAspect={onVerbToggleAspect}
-                      onVerbToggleVoice={onVerbToggleVoice}
-                      onVerbToggleProVerb={onVerbToggleProVerb}
-                      onVerbConfirm={onVerbConfirm}
-                    />
+                    {renderSubPanel()}
                   </PopoverContent>
                 </Popover>
               );
@@ -292,7 +463,7 @@ export const AnalysisPanel = ({
 };
 
 // ============================================================
-// 명사 패널 (LAYER 02 → 03a → 03b)
+// 명사 패널
 // ============================================================
 interface NounPanelProps {
   answer: NounAnswer;
@@ -313,12 +484,12 @@ const NounPanel = ({
   const formOnlyMode =
     formCorrect &&
     !!noun.form &&
-    (noun.form === "접SV" || (FORM_ONLY_ROLES[noun.form]?.length && answer.element === undefined));
+    (noun.form === "접SV" ||
+      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && answer.element === undefined));
   const elementUnlocked = formCorrect && !formOnlyMode;
   const elementCorrect = noun.elementStatus === "correct";
   const roleUnlocked = formCorrect && (formOnlyMode || elementCorrect);
 
-  // role 옵션 계산
   const roleOptions = (() => {
     if (!noun.form) return [];
     if (formOnlyMode) return FORM_ONLY_ROLES[noun.form] ?? [];
@@ -331,151 +502,400 @@ const NounPanel = ({
 
   return (
     <>
-      {/* LAYER 02 — 형태 */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-            Layer 02 · 형태
-          </p>
-          <StatusPill status={noun.formStatus} />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {NOUN_FORMS.map(({ key, circle, label }) => {
-            const sel = noun.form === key;
-            const ok = sel && noun.formStatus === "correct";
-            const ng = sel && noun.formStatus === "wrong";
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onNounFormChange(key)}
-                disabled={formCorrect && !sel}
-                className={cn(
-                  "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all disabled:opacity-30",
-                  ok && "bg-primary/15 text-primary border border-primary/40",
-                  ng && "bg-destructive/10 text-destructive border border-destructive animate-pulse",
-                  !sel && "bg-secondary text-foreground hover:bg-secondary/70 border border-transparent",
-                )}
-              >
-                <span className="font-mono text-[12px] leading-none">{circle}</span>
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* LAYER 03a — 문장성분 */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <p
-            className={cn(
-              "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
-              elementUnlocked ? "text-muted-foreground" : "text-muted-foreground/40",
-            )}
-          >
-            {!elementUnlocked && <Lock className="size-2.5" />}
-            Layer 03a · 문장성분
-          </p>
-          <StatusPill status={noun.elementStatus} />
-        </div>
-        {!formCorrect ? (
-          <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
-            형태 정답 후 열립니다.
-          </p>
-        ) : formOnlyMode ? (
-          <p className="text-[11px] text-muted-foreground/70 italic font-kr px-1">
-            — 형태 전용 (성분 단계 건너뜀)
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {ELEMENTS.map(({ key, label, colorClass }) => {
-              const sel = noun.element === key;
-              const ok = sel && noun.elementStatus === "correct";
-              const ng = sel && noun.elementStatus === "wrong";
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onNounElementChange(key)}
-                  disabled={elementCorrect && !sel}
-                  className={cn(
-                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all disabled:opacity-30",
-                    ok && colorClass,
-                    ng && "border-destructive bg-destructive/10 text-destructive animate-pulse",
-                    !sel && "border-border bg-card text-foreground hover:border-primary/40",
-                  )}
-                >
-                  <span className="font-mono">{key}</span>
-                  <span className="font-kr">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* LAYER 03b — 세부역할 */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <p
-            className={cn(
-              "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
-              roleUnlocked ? "text-muted-foreground" : "text-muted-foreground/40",
-            )}
-          >
-            {!roleUnlocked && <Lock className="size-2.5" />}
-            Layer 03b · 세부역할
-          </p>
-          <StatusPill status={noun.roleStatus} />
-        </div>
-        {!roleUnlocked ? (
-          <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
-            이전 단계 정답 후 열립니다.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1 animate-in fade-in duration-200">
-            {roleOptions.map((r) => {
-              const sel = noun.role === r;
-              const ok = sel && noun.roleStatus === "correct";
-              const ng = sel && noun.roleStatus === "wrong";
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => onNounRoleChange(r)}
-                  disabled={noun.roleStatus === "correct" && !sel}
-                  className={cn(
-                    "px-2 py-1 rounded-md border text-[11px] font-bold font-kr transition-all disabled:opacity-30",
-                    ok && "border-element-o bg-element-o-bg text-element-o",
-                    ng && "border-destructive bg-destructive/10 text-destructive animate-pulse",
-                    !sel && "border-border bg-card text-foreground hover:border-primary/30",
-                  )}
-                >
-                  {r}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
+      <FormRow
+        label="Layer 02 · 형태"
+        status={noun.formStatus}
+        items={NOUN_FORMS}
+        selected={noun.form}
+        locked={formCorrect}
+        onSelect={(k) => onNounFormChange(k as NounForm)}
+      />
+      <ElementRow
+        items={ELEMENTS}
+        selected={noun.element}
+        status={noun.elementStatus}
+        unlocked={elementUnlocked}
+        formCorrect={formCorrect}
+        skipMessage={formOnlyMode ? "— 형태 전용 (성분 단계 건너뜀)" : undefined}
+        elementCorrect={elementCorrect}
+        onSelect={(e) => onNounElementChange(e as SentenceElement)}
+      />
+      <RoleRow
+        unlocked={roleUnlocked}
+        status={noun.roleStatus}
+        options={roleOptions}
+        selected={noun.role}
+        onSelect={onNounRoleChange}
+      />
       {noun.roleStatus === "correct" && (
-        <div className="rounded-xl bg-element-o-bg border border-element-o/30 p-2.5 text-center">
-          <p className="text-[10px] font-bold text-element-o uppercase tracking-widest mb-0.5">
-            Analysis Complete
-          </p>
-          <p className="text-xs font-bold text-foreground font-kr">
-            {answer.koreanLabel}
-          </p>
-        </div>
+        <CompletionBlock label={answer.koreanLabel} />
       )}
     </>
   );
 };
 
 // ============================================================
-// 동사 패널 (다중 선택 + ✱확정)
+// 형용사 패널
+// ============================================================
+interface AdjPanelProps {
+  answer: AdjAnswer;
+  adj: AdjProgress;
+  onAdjFormChange: (f: AdjForm) => void;
+  onAdjElementChange: (e: "C" | "M") => void;
+  onAdjRoleChange: (r: string) => void;
+}
+
+const AdjPanel = ({
+  answer,
+  adj,
+  onAdjFormChange,
+  onAdjElementChange,
+  onAdjRoleChange,
+}: AdjPanelProps) => {
+  const formCorrect = adj.formStatus === "correct";
+  const skipsElement = adj.form ? !!ADJ_FORM_SKIPS_ELEMENT[adj.form] : false;
+  const elementUnlocked = formCorrect && !skipsElement;
+  const elementCorrect = adj.elementStatus === "correct";
+  const roleUnlocked = formCorrect && (skipsElement || elementCorrect);
+  const roleOptions = adj.form ? ADJ_ROLES_BY_FORM[adj.form] : [];
+
+  return (
+    <>
+      <FormRow
+        label="Layer 02 · 형태"
+        status={adj.formStatus}
+        items={ADJ_FORMS}
+        selected={adj.form}
+        locked={formCorrect}
+        onSelect={(k) => onAdjFormChange(k as AdjForm)}
+      />
+      <ElementRow
+        items={ADJ_ELEMENTS}
+        selected={adj.element}
+        status={adj.elementStatus}
+        unlocked={elementUnlocked}
+        formCorrect={formCorrect}
+        skipMessage={skipsElement ? "— 형태에 따라 성분 단계 자동 건너뜀" : undefined}
+        elementCorrect={elementCorrect}
+        onSelect={(e) => onAdjElementChange(e as "C" | "M")}
+      />
+      <RoleRow
+        unlocked={roleUnlocked}
+        status={adj.roleStatus}
+        options={roleOptions}
+        selected={adj.role}
+        onSelect={onAdjRoleChange}
+      />
+      {adj.roleStatus === "correct" && (
+        <CompletionBlock label={answer.koreanLabel} />
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// 부사 패널 (LAYER 02 → 03 / 03a 없음)
+// ============================================================
+interface AdvPanelProps {
+  answer: AdvAnswer;
+  adv: AdvProgress;
+  onAdvFormChange: (f: AdvForm) => void;
+  onAdvRoleChange: (r: string) => void;
+}
+
+const AdvPanel = ({
+  answer,
+  adv,
+  onAdvFormChange,
+  onAdvRoleChange,
+}: AdvPanelProps) => {
+  const formCorrect = adv.formStatus === "correct";
+  const roleOptions = adv.form ? ADV_ROLES_BY_FORM[adv.form] : [];
+  return (
+    <>
+      <FormRow
+        label="Layer 02 · 형태"
+        status={adv.formStatus}
+        items={ADV_FORMS}
+        selected={adv.form}
+        locked={formCorrect}
+        onSelect={(k) => onAdvFormChange(k as AdvForm)}
+      />
+      <RoleRow
+        unlocked={formCorrect}
+        status={adv.roleStatus}
+        options={roleOptions}
+        selected={adv.role}
+        onSelect={onAdvRoleChange}
+      />
+      {adv.roleStatus === "correct" && (
+        <CompletionBlock label={answer.koreanLabel} />
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// 기타 패널 (LAYER 02 종류 → LAYER 03 세부)
+// ============================================================
+interface EtcPanelProps {
+  answer: EtcAnswer;
+  etc: EtcProgress;
+  onEtcKindChange: (k: EtcKind) => void;
+  onEtcRoleChange: (r: string) => void;
+}
+
+const EtcPanel = ({
+  answer,
+  etc,
+  onEtcKindChange,
+  onEtcRoleChange,
+}: EtcPanelProps) => {
+  const kindCorrect = etc.kindStatus === "correct";
+  const roleOptions = etc.kind ? ETC_ROLES_BY_KIND[etc.kind] : [];
+  return (
+    <>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+            Layer 02 · 종류
+          </p>
+          <StatusPill status={etc.kindStatus} />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {ETC_KINDS.map(({ key, label }) => {
+            const sel = etc.kind === key;
+            const ok = sel && etc.kindStatus === "correct";
+            const ng = sel && etc.kindStatus === "wrong";
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onEtcKindChange(key)}
+                disabled={kindCorrect && !sel}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all border disabled:opacity-30",
+                  ok && "bg-primary/15 text-primary border-primary/40",
+                  ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
+                  !sel && "bg-secondary text-foreground border-transparent hover:bg-secondary/70",
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <RoleRow
+        unlocked={kindCorrect}
+        status={etc.roleStatus}
+        options={roleOptions}
+        selected={etc.role}
+        onSelect={onEtcRoleChange}
+      />
+      {etc.roleStatus === "correct" && (
+        <CompletionBlock label={answer.koreanLabel} />
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// 공통 Row 컴포넌트
+// ============================================================
+interface FormItem {
+  key: string;
+  circle?: string;
+  label: string;
+}
+
+const FormRow = ({
+  label,
+  status,
+  items,
+  selected,
+  locked,
+  onSelect,
+}: {
+  label: string;
+  status: StepStatus;
+  items: FormItem[];
+  selected: string | null;
+  locked: boolean;
+  onSelect: (k: string) => void;
+}) => (
+  <div className="space-y-1.5">
+    <div className="flex items-center justify-between">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+        {label}
+      </p>
+      <StatusPill status={status} />
+    </div>
+    <div className="flex flex-wrap gap-1.5">
+      {items.map(({ key, circle, label: l }) => {
+        const sel = selected === key;
+        const ok = sel && status === "correct";
+        const ng = sel && status === "wrong";
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onSelect(key)}
+            disabled={locked && !sel}
+            className={cn(
+              "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all border disabled:opacity-30",
+              ok && "bg-primary/15 text-primary border-primary/40",
+              ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
+              !sel && "bg-secondary text-foreground border-transparent hover:bg-secondary/70",
+            )}
+          >
+            {circle && <span className="font-mono text-[12px] leading-none">{circle}</span>}
+            <span>{l}</span>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+const ElementRow = ({
+  items,
+  selected,
+  status,
+  unlocked,
+  formCorrect,
+  skipMessage,
+  elementCorrect,
+  onSelect,
+}: {
+  items: { key: string; label: string; colorClass: string }[];
+  selected: string | null;
+  status: StepStatus;
+  unlocked: boolean;
+  formCorrect: boolean;
+  skipMessage?: string;
+  elementCorrect: boolean;
+  onSelect: (k: string) => void;
+}) => (
+  <div className="space-y-1.5">
+    <div className="flex items-center justify-between">
+      <p
+        className={cn(
+          "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
+          unlocked ? "text-muted-foreground" : "text-muted-foreground/40",
+        )}
+      >
+        {!unlocked && <Lock className="size-2.5" />}
+        Layer 03a · 문장성분
+      </p>
+      <StatusPill status={status} />
+    </div>
+    {!formCorrect ? (
+      <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
+        형태 정답 후 열립니다.
+      </p>
+    ) : skipMessage ? (
+      <p className="text-[11px] text-muted-foreground/70 italic font-kr px-1">
+        {skipMessage}
+      </p>
+    ) : (
+      <div className="flex flex-wrap gap-1.5">
+        {items.map(({ key, label, colorClass }) => {
+          const sel = selected === key;
+          const ok = sel && status === "correct";
+          const ng = sel && status === "wrong";
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              disabled={elementCorrect && !sel}
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all disabled:opacity-30",
+                ok && colorClass,
+                ng && "border-destructive bg-destructive/10 text-destructive animate-pulse",
+                !sel && "border-border bg-card text-foreground hover:border-primary/40",
+              )}
+            >
+              <span className="font-mono">{key}</span>
+              <span className="font-kr">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    )}
+  </div>
+);
+
+const RoleRow = ({
+  unlocked,
+  status,
+  options,
+  selected,
+  onSelect,
+}: {
+  unlocked: boolean;
+  status: StepStatus;
+  options: string[];
+  selected: string | null;
+  onSelect: (r: string) => void;
+}) => (
+  <div className="space-y-1.5">
+    <div className="flex items-center justify-between">
+      <p
+        className={cn(
+          "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
+          unlocked ? "text-muted-foreground" : "text-muted-foreground/40",
+        )}
+      >
+        {!unlocked && <Lock className="size-2.5" />}
+        Layer 03b · 세부역할
+      </p>
+      <StatusPill status={status} />
+    </div>
+    {!unlocked ? (
+      <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
+        이전 단계 정답 후 열립니다.
+      </p>
+    ) : (
+      <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1 animate-in fade-in duration-200">
+        {options.map((r) => {
+          const sel = selected === r;
+          const ok = sel && status === "correct";
+          const ng = sel && status === "wrong";
+          return (
+            <button
+              key={r}
+              type="button"
+              onClick={() => onSelect(r)}
+              disabled={status === "correct" && !sel}
+              className={cn(
+                "px-2 py-1 rounded-md border text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+                ok && "border-element-o bg-element-o-bg text-element-o",
+                ng && "border-destructive bg-destructive/10 text-destructive animate-pulse",
+                !sel && "border-border bg-card text-foreground hover:border-primary/30",
+              )}
+            >
+              {r}
+            </button>
+          );
+        })}
+      </div>
+    )}
+  </div>
+);
+
+const CompletionBlock = ({ label }: { label: string }) => (
+  <div className="rounded-xl bg-element-o-bg border border-element-o/30 p-2.5 text-center">
+    <p className="text-[10px] font-bold text-element-o uppercase tracking-widest mb-0.5">
+      Analysis Complete
+    </p>
+    <p className="text-xs font-bold text-foreground font-kr">{label}</p>
+  </div>
+);
+
+// ============================================================
+// 동사 패널
 // ============================================================
 interface VerbPanelProps {
   verb: VerbProgress;
