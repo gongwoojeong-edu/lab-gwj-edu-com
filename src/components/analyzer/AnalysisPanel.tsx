@@ -327,13 +327,15 @@ const ETC_ROLES_BY_KIND: Record<EtcKind, RoleOption[]> = {
 };
 
 const StatusPill = ({ status }: { status: StepStatus }) => {
-  if (status === "correct")
+  const mask = useMaskStatus();
+  const s = mask(status);
+  if (s === "correct")
     return (
       <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-element-o uppercase tracking-wider">
         <Check className="size-3" /> OK
       </span>
     );
-  if (status === "wrong")
+  if (s === "wrong")
     return (
       <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-destructive uppercase tracking-wider">
         <X className="size-3" /> Try
