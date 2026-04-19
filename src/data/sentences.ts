@@ -34,10 +34,13 @@ export interface AdjAnswer {
 
 // ---- 부사 ----
 export type AdvForm = "부사" | "to V" | "ing/pp" | "접SV" | "전N";
+export type AdvSubtype = "일반부사" | "접속부사";
 
 export interface AdvAnswer {
   pos: "부사";
   form: AdvForm;
+  /** 부사 form일 때만 사용 — 일반부사/접속부사 구분 */
+  subtype?: AdvSubtype;
   role: string;
   koreanLabel: string;
 }
@@ -50,7 +53,9 @@ export type EtcKind =
   | "명령문"
   | "접속"
   | "가정법"
-  | "도치/생략/동격";
+  | "도치/생략/동격"
+  | "삽입"
+  | "부연";
 
 export interface EtcAnswer {
   pos: "기타";
