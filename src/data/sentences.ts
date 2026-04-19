@@ -34,10 +34,13 @@ export interface AdjAnswer {
 
 // ---- 부사 ----
 export type AdvForm = "부사" | "to V" | "ing/pp" | "접SV" | "전N";
+export type AdvSubtype = "일반부사" | "접속부사";
 
 export interface AdvAnswer {
   pos: "부사";
   form: AdvForm;
+  /** 부사 form일 때만 사용 — 일반부사/접속부사 구분 */
+  subtype?: AdvSubtype;
   role: string;
   koreanLabel: string;
 }
@@ -50,7 +53,9 @@ export type EtcKind =
   | "명령문"
   | "접속"
   | "가정법"
-  | "도치/생략/동격";
+  | "도치/생략/동격"
+  | "삽입"
+  | "부연";
 
 export interface EtcAnswer {
   pos: "기타";
@@ -189,9 +194,10 @@ export const SENTENCES: Sentence[] = [
       W("the era of patronage"),
       P(";"),
       A("s1-5", "however", {
-        pos: "기타",
-        kind: "접속",
-        role: "병렬",
+        pos: "부사",
+        form: "부사",
+        subtype: "접속부사",
+        role: "부사",
         koreanLabel: "접속부사",
       }),
       P(","),
@@ -213,6 +219,7 @@ export const SENTENCES: Sentence[] = [
       A("s1-8", "soon", {
         pos: "부사",
         form: "부사",
+        subtype: "일반부사",
         role: "부사",
         koreanLabel: "부사",
       }),
@@ -415,6 +422,7 @@ export const SENTENCES: Sentence[] = [
       A("s3-7", "incredibly", {
         pos: "부사",
         form: "부사",
+        subtype: "일반부사",
         role: "부사",
         koreanLabel: "부사 · 형용사 수식",
       }),

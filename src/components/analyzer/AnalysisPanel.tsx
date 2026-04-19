@@ -12,6 +12,7 @@ import type {
   NounForm,
   AdjForm,
   AdvForm,
+  AdvSubtype,
   EtcKind,
   SentenceElement,
   VerbNumber,
@@ -50,8 +51,10 @@ export interface AdjProgress {
 // ============================================================
 export interface AdvProgress {
   form: AdvForm | null;
+  subtype: AdvSubtype | null;
   role: string | null;
   formStatus: StepStatus;
+  subtypeStatus: StepStatus;
   roleStatus: StepStatus;
 }
 
@@ -97,6 +100,7 @@ interface AnalysisPanelProps {
 
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
+  onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
 
   etc: EtcProgress;
@@ -160,6 +164,8 @@ const ETC_KINDS: { key: EtcKind; label: string }[] = [
   { key: "접속", label: "접속" },
   { key: "가정법", label: "가정법" },
   { key: "도치/생략/동격", label: "도치/생략/동격" },
+  { key: "삽입", label: "삽입" },
+  { key: "부연", label: "부연" },
 ];
 
 // ============================================================
@@ -260,6 +266,12 @@ const ADV_ROLES_BY_FORM: Record<AdvForm, string[]> = {
   "전N": ["부사 전치사구"],
 };
 
+// 부사 form일 때만 보이는 sub-type 행
+const ADV_SUBTYPES: { key: "일반부사" | "접속부사"; label: string }[] = [
+  { key: "일반부사", label: "일반부사" },
+  { key: "접속부사", label: "접속부사" },
+];
+
 // ============================================================
 // 기타 세부역할 매핑
 // ============================================================
@@ -271,6 +283,8 @@ const ETC_ROLES_BY_KIND: Record<EtcKind, string[]> = {
   "접속": ["병렬", "상관", "유사관대"],
   "가정법": ["가정법 현재", "가정법 과거", "가정법 과거완료", "혼합가정법"],
   "도치/생략/동격": ["도치", "생략", "동격"],
+  "삽입": ["어구 삽입", "절 삽입", "콤마 삽입"],
+  "부연": ["부연 설명", "동격 부연", "추가 정보"],
 };
 
 const StatusPill = ({ status }: { status: StepStatus }) => {
@@ -305,6 +319,7 @@ export const AnalysisPanel = ({
   onAdjRoleChange,
   adv,
   onAdvFormChange,
+  onAdvSubtypeChange,
   onAdvRoleChange,
   etc,
   onEtcKindChange,
@@ -373,6 +388,7 @@ export const AnalysisPanel = ({
           answer={answer as AdvAnswer}
           adv={adv}
           onAdvFormChange={onAdvFormChange}
+          onAdvSubtypeChange={onAdvSubtypeChange}
           onAdvRoleChange={onAdvRoleChange}
         />
       );
@@ -600,6 +616,7 @@ interface AdvPanelProps {
   answer: AdvAnswer;
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
+  onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
 }
 
@@ -607,10 +624,16 @@ const AdvPanel = ({
   answer,
   adv,
   onAdvFormChange,
+  onAdvSubtypeChange,
   onAdvRoleChange,
 }: AdvPanelProps) => {
   const formCorrect = adv.formStatus === "correct";
+  // form === "부사"일 때만 subtype 단계가 존재
+  const needsSubtype = adv.form === "부사";
+  const subtypeCorrect = adv.subtypeStatus === "correct";
+  const roleUnlocked = formCorrect && (!needsSubtype || subtypeCorrect);
   const roleOptions = adv.form ? ADV_ROLES_BY_FORM[adv.form] : [];
+
   return (
     <>
       <FormRow
@@ -621,8 +644,18 @@ const AdvPanel = ({
         locked={formCorrect}
         onSelect={(k) => onAdvFormChange(k as AdvForm)}
       />
+      {needsSubtype && (
+        <FormRow
+          label="Layer 02b · 종류"
+          status={adv.subtypeStatus}
+          items={ADV_SUBTYPES}
+          selected={adv.subtype}
+          locked={subtypeCorrect}
+          onSelect={(k) => onAdvSubtypeChange(k as AdvSubtype)}
+        />
+      )}
       <RoleRow
-        unlocked={formCorrect}
+        unlocked={roleUnlocked}
         status={adv.roleStatus}
         options={roleOptions}
         selected={adv.role}

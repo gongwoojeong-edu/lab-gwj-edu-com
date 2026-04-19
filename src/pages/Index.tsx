@@ -18,6 +18,7 @@ import {
   type NounForm,
   type AdjForm,
   type AdvForm,
+  type AdvSubtype,
   type EtcKind,
   type SentenceElement,
   type VerbNumber,
@@ -69,8 +70,10 @@ const emptyAdj = (): AdjProgress => ({
 
 const emptyAdv = (): AdvProgress => ({
   form: null,
+  subtype: null,
   role: null,
   formStatus: "idle",
+  subtypeStatus: "idle",
   roleStatus: "idle",
 });
 
@@ -113,6 +116,15 @@ const Index = () => {
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ===== 드래그 청크 선택 =====
+  const [dragStart, setDragStart] = useState<number | null>(null);
+  const [dragEnd, setDragEnd] = useState<number | null>(null);
+  const isDragging = dragStart !== null;
+  const dragRange =
+    dragStart !== null && dragEnd !== null
+      ? [Math.min(dragStart, dragEnd), Math.max(dragStart, dragEnd)]
+      : null;
+
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
     if (isMobile && selectedId) setDrawerOpen(true);
@@ -148,6 +160,41 @@ const Index = () => {
       setProgressMap((prev) => ({ ...prev, [id]: emptyProgress() }));
     }
   };
+
+  // ===== Drag 처리 =====
+  const handleDragStart = (idx: number) => {
+    setDragStart(idx);
+    setDragEnd(idx);
+  };
+  const handleDragEnter = (idx: number) => {
+    if (dragStart !== null) setDragEnd(idx);
+  };
+  const handleDragEnd = () => {
+    if (dragStart === null || dragEnd === null) return;
+    const lo = Math.min(dragStart, dragEnd);
+    const hi = Math.max(dragStart, dragEnd);
+    // 범위 내 첫 번째 analyzable 토큰 선택
+    let pickedId: string | null = null;
+    for (let i = lo; i <= hi; i++) {
+      const t = sentence.tokens[i];
+      if (t && t.type === "analyzable") {
+        pickedId = t.id;
+        break;
+      }
+    }
+    setDragStart(null);
+    setDragEnd(null);
+    if (pickedId) handleSelect(pickedId);
+  };
+
+  // 전역 mouseup 보정 (드래그가 빈 영역에서 끝날 때)
+  useEffect(() => {
+    if (!isDragging) return;
+    const onUp = () => handleDragEnd();
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging, dragStart, dragEnd]);
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
@@ -273,6 +320,25 @@ const Index = () => {
         ...prev.adv,
         form: f,
         formStatus: correct ? "correct" : "wrong",
+        subtype: correct ? prev.adv.subtype : null,
+        subtypeStatus: "idle",
+        role: correct ? prev.adv.role : null,
+        roleStatus: "idle",
+      },
+      completed: false,
+    }));
+  };
+
+  const handleAdvSubtype = (s: AdvSubtype) => {
+    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    const ans = selectedToken.answer as AdvAnswer;
+    const correct = ans.subtype === s;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adv: {
+        ...prev.adv,
+        subtype: s,
+        subtypeStatus: correct ? "correct" : "wrong",
         role: correct ? prev.adv.role : null,
         roleStatus: "idle",
       },
@@ -384,6 +450,7 @@ const Index = () => {
     onAdjRoleChange: handleAdjRole,
     adv: progress.adv,
     onAdvFormChange: handleAdvForm,
+    onAdvSubtypeChange: handleAdvSubtype,
     onAdvRoleChange: handleAdvRole,
     etc: progress.etc,
     onEtcKindChange: handleEtcKind,
@@ -478,14 +545,27 @@ const Index = () => {
             />
           </div>
 
-          <div className="flex flex-wrap items-end gap-x-1.5 gap-y-7 pt-2 pb-1">
+          <div
+            className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1"
+            onMouseLeave={() => isDragging && handleDragEnd()}
+          >
             {sentence.tokens.map((token, idx) => {
+              const inDrag = !!dragRange && idx >= dragRange[0] && idx <= dragRange[1];
+              const dragHandlers = {
+                onMouseDown: (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  handleDragStart(idx);
+                },
+                onMouseEnter: () => handleDragEnter(idx),
+                onMouseUp: () => handleDragEnd(),
+              };
+
               if (token.type === "static") {
                 if (token.role === "bracket") {
                   return (
                     <span
                       key={idx}
-                      className="text-lg font-light text-primary/30 self-center select-none leading-none"
+                      className="text-lg font-light text-foreground/40 self-center select-none leading-none"
                       aria-hidden
                     >
                       {token.text}
@@ -496,7 +576,7 @@ const Index = () => {
                   return (
                     <span
                       key={idx}
-                      className="text-sm font-light text-muted-foreground self-center leading-none"
+                      className="text-base font-medium text-foreground self-end leading-tight"
                       aria-hidden
                     >
                       {token.text}
@@ -506,7 +586,11 @@ const Index = () => {
                 return (
                   <span
                     key={idx}
-                    className="px-1 py-0.5 text-[15px] font-medium text-muted-foreground/50 select-none tracking-tight leading-tight"
+                    {...dragHandlers}
+                    className={cn(
+                      "px-1 py-0.5 text-[16px] font-medium text-foreground select-none tracking-tight leading-tight rounded-sm cursor-pointer transition-colors",
+                      inDrag && "bg-primary/15",
+                    )}
                   >
                     {token.text}
                   </span>
@@ -518,20 +602,22 @@ const Index = () => {
               const isCompleted = wp?.completed;
               const state = isSelected ? "selected" : isCompleted ? "completed" : "active";
 
-              // 완료 시 element 배지 계산
+              // 완료 시 element 배지 계산 — 접속부사·삽입·부연은 Modifier로 표시 (S/V/O/C 카운트 제외)
               let completedElement: "S" | "V" | "O" | "C" | "M" | undefined;
               if (isCompleted) {
                 const a = token.answer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
-                  // 내부 목적어이면 배지 숨김
                   if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
                     completedElement = a.element;
                   }
                 } else if (a.pos === "형용사") {
                   completedElement = a.element;
+                } else if (a.pos === "부사" && a.subtype === "접속부사") {
+                  completedElement = "M";
+                } else if (a.pos === "기타" && (a.kind === "삽입" || a.kind === "부연")) {
+                  completedElement = "M";
                 }
-                // 부사·기타는 배지 없음
               }
 
               return (
@@ -541,7 +627,9 @@ const Index = () => {
                   koreanLabel={isCompleted ? token.answer.koreanLabel : undefined}
                   element={completedElement}
                   state={state}
+                  inDragRange={inDrag && !isSelected}
                   onClick={() => handleSelect(token.id)}
+                  {...dragHandlers}
                 />
               );
             })}
