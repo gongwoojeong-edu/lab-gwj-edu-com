@@ -979,7 +979,7 @@ const EtcPanel = ({
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
             Layer 02·03 · 종류 / 세부역할
           </p>
-          <StatusPill status={etc.roleStatus} />
+          <StatusPill status={etcRoleStatus} />
         </div>
         <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
           {ETC_KINDS.map(({ key: kind, label: kindLabel }) => {
