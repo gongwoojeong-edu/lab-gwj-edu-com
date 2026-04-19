@@ -614,6 +614,8 @@ const Index = () => {
             />
           </div>
 
+          {/* === 접SV 절 브래킷 정보 미리 계산 === */}
+          {(() => null)()}
           <div
             className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1 select-none"
             onMouseLeave={() => isDragging && finalizeSelection(selectedWordIndices)}
@@ -646,70 +648,157 @@ const Index = () => {
               const wp = tokenId ? progressMap[tokenId] : undefined;
               const isCompleted = !!wp?.completed;
               const isFirstOfToken = u.tokenLocalIdx === 0;
+              const isLastOfToken =
+                u.tokenLocalIdx !== undefined &&
+                u.totalInToken !== undefined &&
+                u.tokenLocalIdx === u.totalInToken - 1;
 
-              // 완료 시 element 배지 — 첫 단어에만 표시
-              let completedElement: "S" | "V" | "O" | "C" | "M" | undefined;
-              if (isCompleted && isFirstOfToken && token) {
+              // === 완료 시 element 결정 (M은 표시 안 함) ===
+              let completedElement: "S" | "V" | "O" | "C" | undefined;
+              let isModifier = false;
+              if (isCompleted && token) {
                 const a = token.answer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
-                  if (!INTERNAL_OBJECT_ROLES.has(a.role)) completedElement = a.element;
-                } else if (a.pos === "형용사") completedElement = a.element;
-                else if (a.pos === "부사" && a.subtype === "접속부사") completedElement = "M";
-                else if (a.pos === "기타" && (a.kind === "삽입" || a.kind === "부연")) completedElement = "M";
+                  if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
+                    if (a.element === "M") isModifier = true;
+                    else if (a.element) completedElement = a.element as "S" | "O" | "C";
+                  }
+                } else if (a.pos === "형용사") {
+                  if (a.element === "M") isModifier = true;
+                  else if (a.element === "C") completedElement = "C";
+                } else if (a.pos === "부사") {
+                  isModifier = true; // 부사 전체 modifier
+                } else if (a.pos === "기타") {
+                  if (a.kind === "삽입" || a.kind === "부연") isModifier = true;
+                }
               }
+
+              // === 접SV 절 브래킷 표시 여부 ===
+              // 명사절: 색상 브래킷, 형용/부사절: 회색 얇은 브래킷
+              let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
+              if (isCompleted && token && u.totalInToken && u.totalInToken > 1) {
+                const a = token.answer;
+                if (a.pos === "명사" && a.form === "접SV") {
+                  if (a.element === "S") bracketRole = "S";
+                  else if (a.element === "O") bracketRole = "O";
+                  else if (a.element === "C") bracketRole = "C";
+                  else bracketRole = "M";
+                } else if (a.pos === "형용사" && a.form === "접SV") {
+                  bracketRole = "M";
+                } else if (a.pos === "부사" && a.form === "접SV") {
+                  bracketRole = "M";
+                }
+              }
+
               const koreanLabel =
                 isCompleted && isFirstOfToken && token ? token.answer.koreanLabel : undefined;
 
+              const bracketColorClass =
+                bracketRole === "S"
+                  ? "text-element-s"
+                  : bracketRole === "V"
+                  ? "text-element-v"
+                  : bracketRole === "O"
+                  ? "text-element-o"
+                  : bracketRole === "C"
+                  ? "text-element-c"
+                  : "text-muted-foreground/60";
+              const bracketWeight =
+                bracketRole && bracketRole !== "M" ? "font-extrabold" : "font-normal";
+
               return (
-                <span
-                  key={idx}
-                  role="button"
-                  tabIndex={0}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleWordMouseDown(idx);
-                  }}
-                  onMouseEnter={() => handleWordMouseEnter(idx)}
-                  onMouseUp={handleWordMouseUp}
-                  className="relative inline-flex flex-col items-center cursor-pointer leading-none"
-                >
-                  {koreanLabel && (
-                    <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
-                      {koreanLabel}
+                <span key={idx} className="inline-flex items-end leading-none">
+                  {bracketRole && isFirstOfToken && (
+                    <span
+                      className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
+                      aria-hidden
+                    >
+                      [
                     </span>
                   )}
                   <span
-                    className={cn(
-                      "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
-                      // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
-                      "bg-muted/40",
-                      // 완료된 토큰의 단어들은 옅은 보라 배경
-                      isCompleted && !isSelected && "bg-primary/[0.08]",
-                      // 선택된 인덱스는 진한 보라 하이라이트
-                      isSelected && "bg-primary/20",
-                    )}
+                    role="button"
+                    tabIndex={0}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleWordMouseDown(idx, e);
+                    }}
+                    onMouseEnter={() => handleWordMouseEnter(idx)}
+                    onMouseUp={handleWordMouseUp}
+                    className="relative inline-flex flex-col items-center cursor-pointer leading-none"
                   >
-                    {word}
-                  </span>
-                  {completedElement && (
+                    {koreanLabel && (
+                      <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
+                        {koreanLabel}
+                      </span>
+                    )}
                     <span
                       className={cn(
-                        "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
-                        completedElement === "S" && "badge-s",
-                        completedElement === "V" && "badge-v",
-                        completedElement === "O" && "badge-o",
-                        completedElement === "C" && "badge-c",
-                        completedElement === "M" && "badge-m",
+                        "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
+                        // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
+                        "bg-muted/40",
+                        // 완료된 토큰의 단어들 — Modifier는 배경색 없음
+                        isCompleted && !isSelected && !isModifier && "bg-primary/[0.08]",
+                        // 선택된 인덱스 하이라이트
+                        isSelected && "bg-primary/20",
                       )}
                     >
-                      {completedElement}
+                      {word}
+                    </span>
+                    {completedElement && isFirstOfToken && (
+                      <span
+                        className={cn(
+                          "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
+                          completedElement === "S" && "badge-s",
+                          completedElement === "V" && "badge-v",
+                          completedElement === "O" && "badge-o",
+                          completedElement === "C" && "badge-c",
+                        )}
+                      >
+                        {completedElement}
+                      </span>
+                    )}
+                  </span>
+                  {bracketRole && isLastOfToken && (
+                    <span
+                      className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
+                      aria-hidden
+                    >
+                      ]
                     </span>
                   )}
                 </span>
               );
             })}
           </div>
+
+          {/* 선택 도구바: 지우개 + 선택 해제 */}
+          {selectedWordIndices.length > 0 && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+                선택됨 · {selectedWordIndices.length}개 단어
+              </span>
+              <button
+                type="button"
+                onClick={handleEraser}
+                className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+              >
+                🧽 지우개
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedWordIndices([]);
+                  setSelectedId(null);
+                  setDrawerOpen(false);
+                }}
+                className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-[11px] font-bold font-kr hover:bg-secondary/70 transition-colors"
+              >
+                선택 해제
+              </button>
+            </div>
+          )}
 
           <div
             className="absolute -bottom-10 -right-10 size-64 rounded-full blur-3xl opacity-40 pointer-events-none"
