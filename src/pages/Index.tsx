@@ -125,6 +125,21 @@ const Index = () => {
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ===== 정답 입력 모드 =====
+  const [answerInputMode, setAnswerInputMode] = useState(false);
+  const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
+
+  useEffect(() => {
+    setCustomAnswers(loadCustomAnswers());
+  }, []);
+
+  const resetCustomAnswers = () => {
+    clearCustomAnswers();
+    setCustomAnswers({});
+    setProgressMap({});
+    toast({ title: "저장된 정답을 초기화했습니다." });
+  };
+
   // ===== 단어 단위 다중 선택 =====
   // 문장을 공백 기준으로 분리 — 절대 단어를 그룹화하지 않는다.
   const wordUnits = useMemo(() => {
