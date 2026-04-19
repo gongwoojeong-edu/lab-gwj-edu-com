@@ -58,5 +58,5 @@ export const mergeAnswer = (
   custom: CustomAnswerPatch | undefined,
 ): WordAnswer => {
   if (!custom) return original;
-  return { ...(original as Record<string, unknown>), ...custom } as unknown as WordAnswer;
+  return { ...(original as unknown as Record<string, unknown>), ...custom } as unknown as WordAnswer;
 };
