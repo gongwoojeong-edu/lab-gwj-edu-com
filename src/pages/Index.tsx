@@ -31,13 +31,22 @@ import {
   type EtcAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, RotateCcw } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Switch } from "@/components/ui/switch";
+import {
+  loadCustomAnswers,
+  upsertCustomAnswer,
+  clearCustomAnswers,
+  mergeAnswer,
+  type CustomAnswerMap,
+} from "@/lib/customAnswers";
+import { toast } from "@/hooks/use-toast";
 
 type WordProgress = {
   pos: POS | null;
@@ -116,6 +125,21 @@ const Index = () => {
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ===== 정답 입력 모드 =====
+  const [answerInputMode, setAnswerInputMode] = useState(false);
+  const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
+
+  useEffect(() => {
+    setCustomAnswers(loadCustomAnswers());
+  }, []);
+
+  const resetCustomAnswers = () => {
+    clearCustomAnswers();
+    setCustomAnswers({});
+    setProgressMap({});
+    toast({ title: "저장된 정답을 초기화했습니다." });
+  };
+
   // ===== 단어 단위 다중 선택 =====
   // 문장을 공백 기준으로 분리 — 절대 단어를 그룹화하지 않는다.
   const wordUnits = useMemo(() => {
@@ -162,10 +186,14 @@ const Index = () => {
   const completedCount = analyzableIds.filter((id) => progressMap[id]?.completed).length;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
 
-  const selectedToken = sentence.tokens.find(
+  const selectedTokenRaw = sentence.tokens.find(
     (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
       t.type === "analyzable" && t.id === selectedId,
   );
+  // 정답 입력 모드에서 저장된 정답을 머지한 토큰
+  const selectedToken = selectedTokenRaw
+    ? { ...selectedTokenRaw, answer: mergeAnswer(selectedTokenRaw.answer, customAnswers[selectedTokenRaw.id]) }
+    : undefined;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
@@ -173,6 +201,12 @@ const Index = () => {
       ...prev,
       [id]: updater(prev[id] ?? emptyProgress()),
     }));
+  };
+
+  // 정답 입력 모드에서 한 필드를 저장
+  const saveCustom = (tokenId: string, patch: Record<string, unknown>) => {
+    const next = upsertCustomAnswer(tokenId, patch);
+    setCustomAnswers(next);
   };
 
   const handleSelect = (id: string) => {
@@ -265,6 +299,22 @@ const Index = () => {
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
     if (!selectedId || !selectedToken) return;
+    if (answerInputMode) {
+      // 정답 입력 모드: pos 변경 시 다른 필드는 비워서 새 pos에 맞게 다시 입력하도록 한다
+      saveCustom(selectedId, { pos: p });
+      updateProgress(selectedId, (prev) => ({
+        ...prev,
+        pos: p,
+        posStatus: "correct",
+        noun: emptyNoun(),
+        adj: emptyAdj(),
+        adv: emptyAdv(),
+        etc: emptyEtc(),
+        verb: emptyVerb(),
+        completed: false,
+      }));
+      return;
+    }
     const correct = selectedToken.answer.pos === p;
     updateProgress(selectedId, (prev) => ({
       ...prev,
@@ -282,8 +332,9 @@ const Index = () => {
   // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
     const ans = selectedToken.answer as NounAnswer;
-    const correct = ans.form === f;
+    const correct = answerInputMode || ans.form === f;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       noun: {
@@ -301,8 +352,9 @@ const Index = () => {
 
   const handleNounElement = (e: SentenceElement) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { element: e });
     const ans = selectedToken.answer as NounAnswer;
-    const correct = ans.element === e;
+    const correct = answerInputMode || ans.element === e;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       noun: {
@@ -318,8 +370,9 @@ const Index = () => {
 
   const handleNounRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
     const ans = selectedToken.answer as NounAnswer;
-    const correct = ans.role === r;
+    const correct = answerInputMode || ans.role === r;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       noun: { ...prev.noun, role: r, roleStatus: correct ? "correct" : "wrong" },
@@ -330,8 +383,9 @@ const Index = () => {
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
     const ans = selectedToken.answer as AdjAnswer;
-    const correct = ans.form === f;
+    const correct = answerInputMode || ans.form === f;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       adj: {
@@ -349,8 +403,9 @@ const Index = () => {
 
   const handleAdjElement = (e: "C" | "M") => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { element: e });
     const ans = selectedToken.answer as AdjAnswer;
-    const correct = ans.element === e;
+    const correct = answerInputMode || ans.element === e;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       adj: {
@@ -366,8 +421,9 @@ const Index = () => {
 
   const handleAdjRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
     const ans = selectedToken.answer as AdjAnswer;
-    const correct = ans.role === r;
+    const correct = answerInputMode || ans.role === r;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
@@ -378,8 +434,9 @@ const Index = () => {
   // ===== 부사 =====
   const handleAdvForm = (f: AdvForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
     const ans = selectedToken.answer as AdvAnswer;
-    const correct = ans.form === f;
+    const correct = answerInputMode || ans.form === f;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       adv: {
@@ -397,8 +454,9 @@ const Index = () => {
 
   const handleAdvSubtype = (s: AdvSubtype) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { subtype: s });
     const ans = selectedToken.answer as AdvAnswer;
-    const correct = ans.subtype === s;
+    const correct = answerInputMode || ans.subtype === s;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       adv: {
@@ -414,8 +472,9 @@ const Index = () => {
 
   const handleAdvRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
     const ans = selectedToken.answer as AdvAnswer;
-    const correct = ans.role === r;
+    const correct = answerInputMode || ans.role === r;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       adv: { ...prev.adv, role: r, roleStatus: correct ? "correct" : "wrong" },
@@ -426,8 +485,9 @@ const Index = () => {
   // ===== 기타 =====
   const handleEtcKind = (k: EtcKind) => {
     if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { kind: k });
     const ans = selectedToken.answer as EtcAnswer;
-    const correct = ans.kind === k;
+    const correct = answerInputMode || ans.kind === k;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       etc: {
@@ -443,8 +503,9 @@ const Index = () => {
 
   const handleEtcRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
     const ans = selectedToken.answer as EtcAnswer;
-    const correct = ans.role === r;
+    const correct = answerInputMode || ans.role === r;
     updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       etc: { ...prev.etc, role: r, roleStatus: correct ? "correct" : "wrong" },
@@ -476,8 +537,24 @@ const Index = () => {
 
   const handleVerbConfirm = () => {
     if (!selectedToken || selectedToken.answer.pos !== "동사") return;
-    const ans = selectedToken.answer as VerbAnswer;
     const v = progress.verb;
+    if (answerInputMode) {
+      // 정답 입력 모드: 현재 동사 진행 상태를 그대로 정답으로 저장
+      saveCustom(selectedToken.id, {
+        number: v.number ?? undefined,
+        tense: v.tense ?? undefined,
+        aspect: v.aspect,
+        voice: v.voice ? "수동" : undefined,
+        proVerb: v.proVerb,
+      });
+      updateProgress(selectedToken.id, (prev) => ({
+        ...prev,
+        verb: { ...prev.verb, confirmStatus: "correct" },
+        completed: true,
+      }));
+      return;
+    }
+    const ans = selectedToken.answer as VerbAnswer;
     const correct =
       (ans.number ?? null) === v.number &&
       (ans.tense ?? null) === v.tense &&
@@ -555,7 +632,37 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <label
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm cursor-pointer transition-colors",
+                answerInputMode
+                  ? "bg-primary/10 border-primary/40"
+                  : "bg-card border-border",
+              )}
+              title="정답 입력 모드: 클릭한 항목이 정답으로 저장됩니다"
+            >
+              <Pencil className={cn("size-3.5", answerInputMode ? "text-primary" : "text-muted-foreground")} />
+              <span className={cn("text-[11px] font-bold font-kr", answerInputMode ? "text-primary" : "text-muted-foreground")}>
+                정답 입력
+              </span>
+              <Switch
+                checked={answerInputMode}
+                onCheckedChange={setAnswerInputMode}
+                className="scale-75 -my-1"
+              />
+            </label>
+            {answerInputMode && (
+              <button
+                type="button"
+                onClick={resetCustomAnswers}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+                title="저장된 모든 정답을 지웁니다"
+              >
+                <RotateCcw className="size-3" />
+                정답 초기화
+              </button>
+            )}
             <AdminHintToggle />
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
               <div className="size-2 rounded-full bg-element-o animate-pulse" />
@@ -602,6 +709,15 @@ const Index = () => {
             </button>
           </div>
         </div>
+
+        {answerInputMode && (
+          <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 flex items-center gap-2">
+            <Pencil className="size-4 text-primary shrink-0" />
+            <p className="text-[12px] font-semibold text-primary font-kr">
+              정답 입력 모드 — 선택한 항목이 즉시 정답으로 저장됩니다 (채점 없음)
+            </p>
+          </div>
+        )}
 
         <section className="glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-0.5 bg-secondary">
