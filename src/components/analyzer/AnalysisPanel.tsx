@@ -687,9 +687,9 @@ const AdjPanel = ({
 const ElementRoleGrid = ({
   unlocked,
   element,
-  elementStatus,
+  elementStatus: rawElementStatus,
   role,
-  roleStatus,
+  roleStatus: rawRoleStatus,
   groups,
   onPick,
 }: {
@@ -701,6 +701,9 @@ const ElementRoleGrid = ({
   groups: { element: string; label: string; colorClass: string; options: RoleOption[] }[];
   onPick: (element: string, role: string | null) => void;
 }) => {
+  const mask = useMaskStatus();
+  const elementStatus = mask(rawElementStatus);
+  const roleStatus = mask(rawRoleStatus);
   const done = roleStatus === "correct";
 
   if (!unlocked) {
