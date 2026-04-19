@@ -406,6 +406,7 @@ const Index = () => {
     onAdjRoleChange: handleAdjRole,
     adv: progress.adv,
     onAdvFormChange: handleAdvForm,
+    onAdvSubtypeChange: handleAdvSubtype,
     onAdvRoleChange: handleAdvRole,
     etc: progress.etc,
     onEtcKindChange: handleEtcKind,
