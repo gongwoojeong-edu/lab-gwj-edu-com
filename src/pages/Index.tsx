@@ -718,6 +718,21 @@ const Index = () => {
     }));
   };
 
+  useEffect(() => {
+    if (!selectedId || !progress.completed) return;
+
+    finalizeCompletedAnalysis(selectedId, {
+      persistClause: shouldPersistClauseSelection(),
+    });
+  }, [
+    selectedId,
+    progress.completed,
+    progress.noun.form,
+    progress.adj.form,
+    progress.adv.form,
+    selectedToken,
+  ]);
+
   const goToSentence = (next: number) => {
     if (next < 0 || next >= SENTENCES.length) return;
     setSentenceIdx(next);
@@ -730,7 +745,10 @@ const Index = () => {
   };
 
   const panelProps = {
-    selectedWord: selectedToken?.text ?? null,
+    selectedWord:
+      selectedWordIndices.length > 0
+        ? selectedWordIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
+        : selectedToken?.text ?? null,
     answer: selectedToken?.answer ?? null,
     pos: progress.pos,
     posStatus: progress.posStatus,
