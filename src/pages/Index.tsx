@@ -226,19 +226,6 @@ const Index = () => {
       return Array.from(next).sort((a, b) => a - b);
     });
   };
-  const handleWordMouseEnter = (idx: number) => {
-    if (dragStart === null) return;
-    if (isPunct(wordUnits[idx].word)) return;
-    const lo = Math.min(dragStart, idx);
-    const hi = Math.max(dragStart, idx);
-    setSelectedWordIndices((prev) => {
-      const next = new Set(prev);
-      for (let i = lo; i <= hi; i++) {
-        if (!isPunct(wordUnits[i].word)) next.add(i);
-      }
-      return Array.from(next).sort((a, b) => a - b);
-    });
-  };
   const finalizeSelection = (indices: number[]) => {
     setDragStart(null);
     const tid = resolveTokenFromIndices(indices);
