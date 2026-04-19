@@ -183,6 +183,7 @@ const Index = () => {
   const isPunct = (w: string) => /^[\.,;:!?"'()\[\]{}]+$/.test(w);
 
   const [selectedWordIndices, setSelectedWordIndices] = useState<number[]>([]);
+  const [completedSelectionMap, setCompletedSelectionMap] = useState<Record<string, number[]>>({});
   const [dragStart, setDragStart] = useState<number | null>(null);
   const isDragging = dragStart !== null;
 
@@ -232,19 +233,31 @@ const Index = () => {
     }
   };
 
-  // ===== 단어 인덱스 → analyzable token 매칭 =====
-  const resolveTokenFromIndices = (indices: number[]): string | null => {
-    if (indices.length === 0) return null;
-    const sorted = [...indices].sort((a, b) => a - b);
-    const tokenIdCounts: Record<string, number> = {};
-    for (const i of sorted) {
-      const u = wordUnits[i];
-      if (u?.tokenId) tokenIdCounts[u.tokenId] = (tokenIdCounts[u.tokenId] ?? 0) + 1;
+  const clearActiveSelection = () => {
+    setSelectedWordIndices([]);
+    setSelectedId(null);
+    setDragStart(null);
+    setDrawerOpen(false);
+  };
+
+  const finalizeCompletedAnalysis = (tokenId: string, options?: { persistClause?: boolean }) => {
+    const indices = Array.from(new Set(selectedWordIndices)).sort((a, b) => a - b);
+
+    if (indices.length > 0) {
+      setCompletedSelectionMap((prev) => ({
+        ...prev,
+        [tokenId]: indices,
+      }));
     }
-    const tokenIds = Object.keys(tokenIdCounts);
-    if (tokenIds.length === 0) return null;
-    // 가장 많은 단어가 속한 토큰 선택
-    return tokenIds.sort((a, b) => tokenIdCounts[b] - tokenIdCounts[a])[0];
+
+    if (options?.persistClause && indices.length > 0) {
+      saveCustom(tokenId, {
+        clauseStart: indices[0],
+        clauseEnd: indices[indices.length - 1],
+      });
+    }
+
+    clearActiveSelection();
   };
 
   // ===== 단어 단위 선택 (누적 토글 + 드래그 누적) =====
@@ -253,6 +266,11 @@ const Index = () => {
   //       전체 해제는 [지우개] 또는 분석 완료 시에만 발생.
   const handleWordMouseDown = (idx: number, _e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
+
+    const tokenId = wordUnits[idx].tokenId;
+    if (tokenId) handleSelect(tokenId);
+    else setSelectedId(null);
+
     setDragStart(idx);
     setSelectedWordIndices((prev) => {
       // 토글: 이미 있으면 제거, 없으면 추가 (누적 유지)
@@ -276,15 +294,12 @@ const Index = () => {
       return Array.from(next).sort((a, b) => a - b);
     });
   };
-  const finalizeSelection = (indices: number[]) => {
+  const finalizeSelection = () => {
     setDragStart(null);
-    const tid = resolveTokenFromIndices(indices);
-    if (tid) handleSelect(tid);
-    else setSelectedId(null);
   };
   const handleWordMouseUp = () => {
     if (dragStart === null) return;
-    finalizeSelection(selectedWordIndices);
+    finalizeSelection();
   };
 
   // ===== 지우개: 선택된 단어들의 분석 결과 모두 초기화 =====
@@ -299,18 +314,21 @@ const Index = () => {
       tokenIds.forEach((id) => delete next[id]);
       return next;
     });
-    setSelectedWordIndices([]);
-    setSelectedId(null);
-    setDrawerOpen(false);
+    setCompletedSelectionMap((prev) => {
+      const next = { ...prev };
+      tokenIds.forEach((id) => delete next[id]);
+      return next;
+    });
+    clearActiveSelection();
   };
 
   useEffect(() => {
     if (!isDragging) return;
-    const onUp = () => finalizeSelection(selectedWordIndices);
+    const onUp = () => finalizeSelection();
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDragging, selectedWordIndices]);
+  }, [isDragging]);
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
