@@ -218,6 +218,7 @@ export const SENTENCES: Sentence[] = [
       A("s1-8", "soon", {
         pos: "부사",
         form: "부사",
+        subtype: "일반부사",
         role: "부사",
         koreanLabel: "부사",
       }),
@@ -420,6 +421,7 @@ export const SENTENCES: Sentence[] = [
       A("s3-7", "incredibly", {
         pos: "부사",
         form: "부사",
+        subtype: "일반부사",
         role: "부사",
         koreanLabel: "부사 · 형용사 수식",
       }),
