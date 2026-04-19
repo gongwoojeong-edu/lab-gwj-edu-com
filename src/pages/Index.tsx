@@ -116,14 +116,35 @@ const Index = () => {
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // ===== 드래그 청크 선택 =====
+  // ===== 단어 단위 다중 선택 =====
+  // 문장을 공백 기준으로 분리 — 절대 단어를 그룹화하지 않는다.
+  const wordUnits = useMemo(() => {
+    // analyzable 토큰의 text도 공백으로 쪼개서 평탄화
+    const out: { word: string; tokenId?: string; tokenLocalIdx?: number; totalInToken?: number }[] = [];
+    sentence.tokens.forEach((t) => {
+      if (t.type === "static" && (t.role === "bracket" || t.role === "punct")) {
+        // 구두점/괄호는 직전 단어에 붙이지 않고 별도 unit (선택 불가)
+        out.push({ word: t.text });
+        return;
+      }
+      const text = t.text;
+      const parts = text.split(/\s+/).filter(Boolean);
+      parts.forEach((p, i) => {
+        if (t.type === "analyzable") {
+          out.push({ word: p, tokenId: t.id, tokenLocalIdx: i, totalInToken: parts.length });
+        } else {
+          out.push({ word: p });
+        }
+      });
+    });
+    return out;
+  }, [sentence]);
+
+  const isPunct = (w: string) => /^[\.,;:!?"'()\[\]{}]+$/.test(w);
+
+  const [selectedWordIndices, setSelectedWordIndices] = useState<number[]>([]);
   const [dragStart, setDragStart] = useState<number | null>(null);
-  const [dragEnd, setDragEnd] = useState<number | null>(null);
   const isDragging = dragStart !== null;
-  const dragRange =
-    dragStart !== null && dragEnd !== null
-      ? [Math.min(dragStart, dragEnd), Math.max(dragStart, dragEnd)]
-      : null;
 
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
