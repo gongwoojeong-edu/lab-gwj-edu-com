@@ -11,6 +11,11 @@ interface WordChipProps {
   /** 정답 확정 후에만 표시되는 element 배지 */
   element?: ElementType;
   state: ChipState;
+  /** 드래그로 선택된 청크의 일부 — 연한 보라 배경 */
+  inDragRange?: boolean;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onMouseEnter?: (e: React.MouseEvent) => void;
+  onMouseUp?: (e: React.MouseEvent) => void;
   onClick?: () => void;
 }
 
@@ -22,37 +27,50 @@ const elementBadgeClass: Record<ElementType, string> = {
   M: "badge-m",
 };
 
-export const WordChip = ({ word, koreanLabel, element, state, onClick }: WordChipProps) => {
-  const interactive = state !== "locked";
+export const WordChip = ({
+  word,
+  koreanLabel,
+  element,
+  state,
+  inDragRange,
+  onMouseDown,
+  onMouseEnter,
+  onMouseUp,
+  onClick,
+}: WordChipProps) => {
   const completed = state === "completed";
   const selected = state === "selected";
+  const highlighted = selected || inDragRange;
 
   return (
-    <button
-      type="button"
-      onClick={interactive ? onClick : undefined}
-      disabled={!interactive}
-      className="group relative inline-flex flex-col items-center focus:outline-none disabled:cursor-not-allowed leading-none"
+    <span
+      role="button"
+      tabIndex={0}
+      onMouseDown={onMouseDown}
+      onMouseEnter={onMouseEnter}
+      onMouseUp={onMouseUp}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      className="group relative inline-flex flex-col items-center cursor-pointer focus:outline-none leading-none select-none"
       aria-pressed={selected}
     >
       {completed && koreanLabel && (
-        <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none">
+        <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
           {koreanLabel}
         </span>
       )}
 
       <span
         className={cn(
-          "px-1.5 py-0.5 rounded-md text-[15px] font-semibold tracking-tight transition-all duration-200 leading-tight",
-          selected &&
-            "word-chip-active text-primary-foreground ring-2 ring-primary/20",
-          completed &&
-            !selected &&
-            "bg-primary/10 text-primary ring-1 ring-primary/30",
-          state === "active" &&
-            "bg-card shadow-sm ring-1 ring-border hover:ring-primary/40 text-foreground",
-          state === "locked" &&
-            "bg-muted/40 text-muted-foreground/50 ring-1 ring-transparent"
+          "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight transition-colors duration-150 leading-tight text-foreground",
+          // 항상 진하게 보이는 본문 텍스트 — opacity 100 유지
+          highlighted && "bg-primary/15",
+          completed && !highlighted && "bg-primary/[0.06]",
         )}
       >
         {word}
@@ -61,13 +79,13 @@ export const WordChip = ({ word, koreanLabel, element, state, onClick }: WordChi
       {completed && element && (
         <span
           className={cn(
-            "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight",
+            "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
             elementBadgeClass[element],
           )}
         >
           {element}
         </span>
       )}
-    </button>
+    </span>
   );
 };
