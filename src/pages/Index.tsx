@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   AnalysisPanel,
+  AnswerInputModeProvider,
   type NounProgress,
   type AdjProgress,
   type AdvProgress,
