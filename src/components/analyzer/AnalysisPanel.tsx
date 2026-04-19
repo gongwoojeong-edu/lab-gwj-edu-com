@@ -92,11 +92,13 @@ interface AnalysisPanelProps {
   onNounFormChange: (f: NounForm) => void;
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
+  onNounElementRole: (e: SentenceElement, r: string | null) => void;
 
   adj: AdjProgress;
   onAdjFormChange: (f: AdjForm) => void;
   onAdjElementChange: (e: "C" | "M") => void;
   onAdjRoleChange: (r: string) => void;
+  onAdjElementRole: (e: "C" | "M", r: string | null) => void;
 
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
