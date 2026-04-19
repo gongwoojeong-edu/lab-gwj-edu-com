@@ -217,7 +217,7 @@ const FORM_BONUS_ROLES_BY_ELEMENT: Partial<
   "V-ing": { S: ["의미상주어"] },
 };
 
-const FORM_ONLY_ROLES: Partial<Record<NounForm, string[]>> = {
+const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
   "to V": [
     "의문사(to V)",
     "부정형",
@@ -228,7 +228,9 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, string[]>> = {
     "대부정사",
   ],
   "V-ing": ["부정형", "수동형", "완료형"],
-  "접SV": ["명사절that", "whether/if", "의SV", "관대what", "복합관대~ever"],
+  "접SV": [
+    { header: "명사절", items: ["that", "whether/if", "의SV", "관대what", "복합관대~ever"] },
+  ],
 };
 
 // ============================================================
