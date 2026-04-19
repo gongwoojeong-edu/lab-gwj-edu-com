@@ -197,21 +197,35 @@ const Index = () => {
     return tokenIds.sort((a, b) => tokenIdCounts[b] - tokenIdCounts[a])[0];
   };
 
-  // ===== 단어 단위 드래그 선택 =====
-  const handleWordMouseDown = (idx: number) => {
+  // ===== 단어 단위 선택 (토글 + 비연속 + 드래그) =====
+  const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     setDragStart(idx);
-    setSelectedWordIndices([idx]);
+    setSelectedWordIndices((prev) => {
+      // 이미 선택된 단어를 다시 클릭하면 해제 (토글)
+      if (prev.includes(idx) && !e.shiftKey) {
+        return prev.filter((i) => i !== idx);
+      }
+      // Shift+click: 기존 선택에 추가 (비연속 누적)
+      if (e.shiftKey) {
+        return prev.includes(idx) ? prev : [...prev, idx].sort((a, b) => a - b);
+      }
+      // 일반 클릭: 새 선택 시작 (드래그 가능성 있음)
+      return [idx];
+    });
   };
   const handleWordMouseEnter = (idx: number) => {
     if (dragStart === null) return;
+    if (isPunct(wordUnits[idx].word)) return;
     const lo = Math.min(dragStart, idx);
     const hi = Math.max(dragStart, idx);
-    const range: number[] = [];
-    for (let i = lo; i <= hi; i++) {
-      if (!isPunct(wordUnits[i].word)) range.push(i);
-    }
-    setSelectedWordIndices(range);
+    setSelectedWordIndices((prev) => {
+      const next = new Set(prev);
+      for (let i = lo; i <= hi; i++) {
+        if (!isPunct(wordUnits[i].word)) next.add(i);
+      }
+      return Array.from(next).sort((a, b) => a - b);
+    });
   };
   const finalizeSelection = (indices: number[]) => {
     setDragStart(null);
@@ -222,6 +236,23 @@ const Index = () => {
   const handleWordMouseUp = () => {
     if (dragStart === null) return;
     finalizeSelection(selectedWordIndices);
+  };
+
+  // ===== 지우개: 선택된 단어들의 분석 결과 모두 초기화 =====
+  const handleEraser = () => {
+    const tokenIds = new Set<string>();
+    selectedWordIndices.forEach((i) => {
+      const tid = wordUnits[i]?.tokenId;
+      if (tid) tokenIds.add(tid);
+    });
+    setProgressMap((prev) => {
+      const next = { ...prev };
+      tokenIds.forEach((id) => delete next[id]);
+      return next;
+    });
+    setSelectedWordIndices([]);
+    setSelectedId(null);
+    setDrawerOpen(false);
   };
 
   useEffect(() => {
