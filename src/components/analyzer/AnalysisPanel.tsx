@@ -616,6 +616,7 @@ interface AdvPanelProps {
   answer: AdvAnswer;
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
+  onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
 }
 
@@ -623,10 +624,16 @@ const AdvPanel = ({
   answer,
   adv,
   onAdvFormChange,
+  onAdvSubtypeChange,
   onAdvRoleChange,
 }: AdvPanelProps) => {
   const formCorrect = adv.formStatus === "correct";
+  // form === "부사"일 때만 subtype 단계가 존재
+  const needsSubtype = adv.form === "부사";
+  const subtypeCorrect = adv.subtypeStatus === "correct";
+  const roleUnlocked = formCorrect && (!needsSubtype || subtypeCorrect);
   const roleOptions = adv.form ? ADV_ROLES_BY_FORM[adv.form] : [];
+
   return (
     <>
       <FormRow
@@ -637,8 +644,18 @@ const AdvPanel = ({
         locked={formCorrect}
         onSelect={(k) => onAdvFormChange(k as AdvForm)}
       />
+      {needsSubtype && (
+        <FormRow
+          label="Layer 02b · 종류"
+          status={adv.subtypeStatus}
+          items={ADV_SUBTYPES}
+          selected={adv.subtype}
+          locked={subtypeCorrect}
+          onSelect={(k) => onAdvSubtypeChange(k as AdvSubtype)}
+        />
+      )}
       <RoleRow
-        unlocked={formCorrect}
+        unlocked={roleUnlocked}
         status={adv.roleStatus}
         options={roleOptions}
         selected={adv.role}
