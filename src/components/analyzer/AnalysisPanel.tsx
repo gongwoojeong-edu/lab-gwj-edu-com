@@ -12,6 +12,7 @@ import type {
   NounForm,
   AdjForm,
   AdvForm,
+  AdvSubtype,
   EtcKind,
   SentenceElement,
   VerbNumber,
@@ -50,8 +51,10 @@ export interface AdjProgress {
 // ============================================================
 export interface AdvProgress {
   form: AdvForm | null;
+  subtype: AdvSubtype | null;
   role: string | null;
   formStatus: StepStatus;
+  subtypeStatus: StepStatus;
   roleStatus: StepStatus;
 }
 
@@ -97,6 +100,7 @@ interface AnalysisPanelProps {
 
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
+  onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
 
   etc: EtcProgress;
