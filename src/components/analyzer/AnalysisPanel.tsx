@@ -1199,11 +1199,12 @@ const ElementRow = ({
       </div>
     )}
   </div>
-);
+  );
+};
 
 const RoleRow = ({
   unlocked,
-  status,
+  status: rawStatus,
   options,
   selected,
   onSelect,
@@ -1214,6 +1215,8 @@ const RoleRow = ({
   selected: string | null;
   onSelect: (r: string) => void;
 }) => {
+  const mask = useMaskStatus();
+  const status = mask(rawStatus);
   const renderButton = (value: string, displayLabel: string) => {
     const sel = selected === value;
     const ok = sel && status === "correct";
