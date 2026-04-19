@@ -185,9 +185,16 @@ const ADJ_ELEMENTS: { key: "C" | "M"; label: string; colorClass: string }[] = [
 ];
 
 // ============================================================
-// LAYER 03b: 명사 세부역할 매핑
+// LAYER 03b: 역할 옵션 표현
+// ----
+// RoleOption: 단일 버튼 또는 그룹(헤더 + 버튼 목록)
+// 그룹의 header는 클릭 불가능한 라벨, items만 선택 가능
 // ============================================================
-const COMMON_ROLES_BY_ELEMENT: Record<SentenceElement, string[]> = {
+export type RoleOption =
+  | string
+  | { header: string; items: string[] };
+
+const COMMON_ROLES_BY_ELEMENT: Record<SentenceElement, RoleOption[]> = {
   S: ["주어", "가주어", "진주어"],
   O: [
     "목적어(타동)",
@@ -210,7 +217,7 @@ const FORM_BONUS_ROLES_BY_ELEMENT: Partial<
   "V-ing": { S: ["의미상주어"] },
 };
 
-const FORM_ONLY_ROLES: Partial<Record<NounForm, string[]>> = {
+const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
   "to V": [
     "의문사(to V)",
     "부정형",
@@ -221,28 +228,30 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, string[]>> = {
     "대부정사",
   ],
   "V-ing": ["부정형", "수동형", "완료형"],
-  "접SV": ["명사절that", "whether/if", "의SV", "관대what", "복합관대~ever"],
+  "접SV": [
+    { header: "명사절", items: ["that", "whether/if", "의SV", "관대what", "복합관대~ever"] },
+  ],
 };
 
 // ============================================================
 // 형용사 세부역할 매핑
 // ============================================================
-const ADJ_ROLES_BY_FORM: Record<AdjForm, string[]> = {
+const ADJ_ROLES_BY_FORM: Record<AdjForm, RoleOption[]> = {
   "형용사": ["형용사", "a주격보어", "a목적격보어", "a명사수식"],
   "to V": ["to 명사뒤수식", "be to부정사"],
   "V-ing/PP": [
-    "ing명사앞수식",
-    "ing명사뒤수식",
-    "ing주격보어",
-    "ing목적격보어",
-    "pp명사앞수식",
-    "pp명사뒤수식",
-    "pp주격보어",
-    "pp목적격보어",
+    { header: "ing", items: ["명사앞수식", "명사뒤수식", "주격보어", "목적격보어"] },
+    { header: "pp", items: ["명사앞수식", "명사뒤수식", "주격보어", "목적격보어"] },
   ],
   "접SV": [
-    "관대(주격/목적격/소유격/전+RP/계속적/N of which/N of whom)",
-    "관부(where/when/why/how/that/계속적)",
+    {
+      header: "관대",
+      items: ["주격", "목적격", "소유격", "전+RP", "계속적", "N of which", "N of whom"],
+    },
+    {
+      header: "관부",
+      items: ["where", "when", "why", "how", "that", "계속적"],
+    },
   ],
   "전N": ["형용사 전치사구"],
 };
@@ -258,7 +267,7 @@ const ADJ_FORM_SKIPS_ELEMENT: Partial<Record<AdjForm, "C" | "M">> = {
 // ============================================================
 // 부사 세부역할 매핑
 // ============================================================
-const ADV_ROLES_BY_FORM: Record<AdvForm, string[]> = {
+const ADV_ROLES_BY_FORM: Record<AdvForm, RoleOption[]> = {
   "부사": ["부사"],
   "to V": ["목적", "감정의원인", "판단의근거", "조건", "결과", "형용사수식"],
   "ing/pp": ["분사구문", "완료", "부정", "독립", "with N 형부"],
@@ -275,14 +284,29 @@ const ADV_SUBTYPES: { key: "일반부사" | "접속부사"; label: string }[] = 
 // ============================================================
 // 기타 세부역할 매핑
 // ============================================================
-const ETC_ROLES_BY_KIND: Record<EtcKind, string[]> = {
+const ETC_ROLES_BY_KIND: Record<EtcKind, RoleOption[]> = {
   "비교": ["원급", "비교급", "최상급", "비교구문"],
   "의문문": ["의문대명사", "의문부사", "의문형용사", "간접의문"],
   "감탄문": ["What 감탄", "How 감탄"],
   "명령문": ["긍정명령", "부정명령", "Let 명령"],
   "접속": ["병렬", "상관", "유사관대"],
-  "가정법": ["가정법 현재", "가정법 과거", "가정법 과거완료", "혼합가정법"],
-  "도치/생략/동격": ["도치", "생략", "동격"],
+  "가정법": [
+    {
+      header: "가정법",
+      items: ["가정법 현재", "가정법 과거", "가정법 과거완료", "혼합가정법"],
+    },
+    {
+      header: "I wish",
+      items: ["가정법 과거", "가정법 과거완료"],
+    },
+    {
+      header: "as if",
+      items: ["가정법 과거", "가정법 과거완료"],
+    },
+  ],
+  "도치/생략/동격": [
+    { header: "기타", items: ["도치", "생략", "동격"] },
+  ],
   "삽입": ["어구 삽입", "절 삽입", "콤마 삽입"],
   "부연": ["부연 설명", "동격 부연", "추가 정보"],
 };
@@ -869,54 +893,92 @@ const RoleRow = ({
 }: {
   unlocked: boolean;
   status: StepStatus;
-  options: string[];
+  options: RoleOption[];
   selected: string | null;
   onSelect: (r: string) => void;
-}) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center justify-between">
-      <p
+}) => {
+  const renderButton = (value: string, displayLabel: string) => {
+    const sel = selected === value;
+    const ok = sel && status === "correct";
+    const ng = sel && status === "wrong";
+    return (
+      <button
+        key={value}
+        type="button"
+        onClick={() => onSelect(value)}
+        disabled={status === "correct" && !sel}
         className={cn(
-          "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
-          unlocked ? "text-muted-foreground" : "text-muted-foreground/40",
+          "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+          ok && "bg-primary/15 text-primary",
+          ng && "bg-destructive/10 text-destructive animate-pulse",
+          !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
         )}
       >
-        {!unlocked && <Lock className="size-2.5" />}
-        Layer 03b · 세부역할
-      </p>
-      <StatusPill status={status} />
-    </div>
-    {!unlocked ? (
-      <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
-        이전 단계 정답 후 열립니다.
-      </p>
-    ) : (
-      <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1 animate-in fade-in duration-200">
-        {options.map((r) => {
-          const sel = selected === r;
-          const ok = sel && status === "correct";
-          const ng = sel && status === "wrong";
-          return (
-            <button
-              key={r}
-              type="button"
-              onClick={() => onSelect(r)}
-              disabled={status === "correct" && !sel}
-              className={cn(
-                "px-2 py-1 rounded-md border text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
-                ok && "border-element-o bg-element-o-bg text-element-o",
-                ng && "border-destructive bg-destructive/10 text-destructive animate-pulse",
-                !sel && "border-border bg-card text-foreground hover:border-primary/30",
-              )}
-            >
-              {r}
-            </button>
-          );
-        })}
+        {displayLabel}
+      </button>
+    );
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <p
+          className={cn(
+            "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
+            unlocked ? "text-muted-foreground" : "text-muted-foreground/40",
+          )}
+        >
+          {!unlocked && <Lock className="size-2.5" />}
+          Layer 03b · 세부역할
+        </p>
+        <StatusPill status={status} />
       </div>
-    )}
-  </div>
-);
+      {!unlocked ? (
+        <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
+          이전 단계 정답 후 열립니다.
+        </p>
+      ) : (
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 animate-in fade-in duration-200">
+          {/* Flat (ungrouped) buttons together in a grid */}
+          {(() => {
+            const flat = options.filter((o): o is string => typeof o === "string");
+            if (flat.length === 0) return null;
+            return (
+              <div className="grid grid-cols-2 gap-1.5">
+                {flat.map((r) => renderButton(r, r))}
+              </div>
+            );
+          })()}
+
+          {/* Grouped sections: non-clickable header + grid of items */}
+          {options
+            .filter(
+              (o): o is { header: string; items: string[] } => typeof o !== "string",
+            )
+            .map((group) => (
+              <div
+                key={group.header}
+                className="flex items-start gap-2 py-0.5"
+              >
+                <span
+                  className="shrink-0 min-w-[40px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none"
+                  aria-hidden
+                >
+                  {group.header}
+                </span>
+                <div className="flex-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
+                  {group.items.map((item) => {
+                    const value = `${group.header} ${item}`;
+                    return renderButton(value, item);
+                  })}
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CompletionBlock = ({ label }: { label: string }) => (
   <div className="rounded-xl bg-element-o-bg border border-element-o/30 p-2.5 text-center">
