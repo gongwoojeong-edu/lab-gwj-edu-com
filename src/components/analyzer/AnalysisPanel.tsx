@@ -845,7 +845,9 @@ const AdvPanel = ({
   onAdvSubtypeChange,
   onAdvRoleChange,
 }: AdvPanelProps) => {
-  const done = adv.roleStatus === "correct";
+  const mask = useMaskStatus();
+  const advRoleStatus = mask(adv.roleStatus);
+  const done = advRoleStatus === "correct";
 
   // form 클릭 → 자동으로 form + (필요시 subtype은 별도 클릭) + role 한번에
   const handlePick = (form: AdvForm, value: string, subtype?: AdvSubtype) => {
