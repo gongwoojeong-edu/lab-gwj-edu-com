@@ -31,13 +31,22 @@ import {
   type EtcAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, RotateCcw } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Switch } from "@/components/ui/switch";
+import {
+  loadCustomAnswers,
+  upsertCustomAnswer,
+  clearCustomAnswers,
+  mergeAnswer,
+  type CustomAnswerMap,
+} from "@/lib/customAnswers";
+import { toast } from "@/hooks/use-toast";
 
 type WordProgress = {
   pos: POS | null;
