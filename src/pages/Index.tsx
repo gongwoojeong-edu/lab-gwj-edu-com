@@ -882,7 +882,9 @@ const Index = () => {
 
       {/* Desktop: fixed top-right panel */}
       <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)]">
-        <AnalysisPanel {...panelProps} />
+        <AnswerInputModeProvider value={answerInputMode}>
+          <AnalysisPanel {...panelProps} />
+        </AnswerInputModeProvider>
       </div>
 
       <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4">
