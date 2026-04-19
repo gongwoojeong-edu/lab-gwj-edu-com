@@ -958,7 +958,9 @@ const Index = () => {
               }
 
               const isSelected = selectedWordIndices.includes(idx);
-              const tokenId = u.tokenId;
+              const selectedTokenId = u.tokenId;
+              const completedOwnerId = completedSelectionOwnerByIndex[idx];
+              const tokenId = selectedTokenId ?? completedOwnerId;
               const token = tokenId
                 ? sentence.tokens.find(
                     (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
@@ -966,28 +968,32 @@ const Index = () => {
                   )
                 : undefined;
               const wp = tokenId ? progressMap[tokenId] : undefined;
-              const isCompleted = !!wp?.completed;
-              const isFirstOfToken = u.tokenLocalIdx === 0;
-              const isLastOfToken =
-                u.tokenLocalIdx !== undefined &&
-                u.totalInToken !== undefined &&
-                u.tokenLocalIdx === u.totalInToken - 1;
+              const completedIndices = tokenId ? completedSelectionMap[tokenId] ?? [] : [];
+              const isCompleted = completedIndices.includes(idx) && !!wp?.completed;
+              const clauseStart = completedIndices[0];
+              const clauseEnd = completedIndices[completedIndices.length - 1];
+              const isFirstOfSelection = isCompleted && idx === clauseStart;
+              const isLastOfSelection = isCompleted && idx === clauseEnd;
 
               // === 완료 시 element 결정 (M은 표시 안 함) ===
               let completedElement: "S" | "V" | "O" | "C" | undefined;
               let isModifier = false;
+              let isClauseSelection = false;
               if (isCompleted && token) {
                 const a = token.answer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
+                  isClauseSelection = a.form === "접SV";
                   if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
                     if (a.element === "M") isModifier = true;
                     else if (a.element) completedElement = a.element as "S" | "O" | "C";
                   }
                 } else if (a.pos === "형용사") {
+                  isClauseSelection = a.form === "접SV";
                   if (a.element === "M") isModifier = true;
                   else if (a.element === "C") completedElement = "C";
                 } else if (a.pos === "부사") {
+                  isClauseSelection = a.form === "접SV";
                   isModifier = true; // 부사 전체 modifier
                 } else if (a.pos === "기타") {
                   if (a.kind === "삽입" || a.kind === "부연") isModifier = true;
@@ -995,9 +1001,8 @@ const Index = () => {
               }
 
               // === 접SV 절 브래킷 표시 여부 ===
-              // 명사절: 색상 브래킷, 형용/부사절: 회색 얇은 브래킷
               let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
-              if (isCompleted && token && u.totalInToken && u.totalInToken > 1) {
+              if (isCompleted && token && completedIndices.length > 0) {
                 const a = token.answer;
                 if (a.pos === "명사" && a.form === "접SV") {
                   if (a.element === "S") bracketRole = "S";
@@ -1012,7 +1017,7 @@ const Index = () => {
               }
 
               const koreanLabel =
-                isCompleted && isFirstOfToken && token ? token.answer.koreanLabel : undefined;
+                isCompleted && isFirstOfSelection && token ? token.answer.koreanLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
@@ -1025,11 +1030,11 @@ const Index = () => {
                   ? "text-element-c"
                   : "text-muted-foreground/60";
               const bracketWeight =
-                bracketRole && bracketRole !== "M" ? "font-extrabold" : "font-normal";
+                bracketRole ? "font-extrabold" : "font-normal";
 
               return (
                 <span key={idx} className="inline-flex items-end leading-none">
-                  {bracketRole && isFirstOfToken && (
+                  {bracketRole && isFirstOfSelection && (
                     <span
                       className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -1058,15 +1063,15 @@ const Index = () => {
                         "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
                         // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
                         "bg-muted/40",
-                        // 완료된 토큰의 단어들 — Modifier는 배경색 없음
-                        isCompleted && !isSelected && !isModifier && "bg-primary/[0.08]",
+                        // 완료된 단어들 — 접SV/Modifier는 배경색 없음
+                        isCompleted && !isSelected && !isModifier && !isClauseSelection && "bg-primary/[0.08]",
                         // 선택된 인덱스 하이라이트
                         isSelected && "bg-primary/20",
                       )}
                     >
                       {word}
                     </span>
-                    {completedElement && isFirstOfToken && (
+                    {completedElement && isFirstOfSelection && !isClauseSelection && (
                       <span
                         className={cn(
                           "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
@@ -1080,7 +1085,7 @@ const Index = () => {
                       </span>
                     )}
                   </span>
-                  {bracketRole && isLastOfToken && (
+                  {bracketRole && isLastOfSelection && (
                     <span
                       className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
