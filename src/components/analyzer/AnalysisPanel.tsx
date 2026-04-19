@@ -185,9 +185,16 @@ const ADJ_ELEMENTS: { key: "C" | "M"; label: string; colorClass: string }[] = [
 ];
 
 // ============================================================
-// LAYER 03b: 명사 세부역할 매핑
+// LAYER 03b: 역할 옵션 표현
+// ----
+// RoleOption: 단일 버튼 또는 그룹(헤더 + 버튼 목록)
+// 그룹의 header는 클릭 불가능한 라벨, items만 선택 가능
 // ============================================================
-const COMMON_ROLES_BY_ELEMENT: Record<SentenceElement, string[]> = {
+export type RoleOption =
+  | string
+  | { header: string; items: string[] };
+
+const COMMON_ROLES_BY_ELEMENT: Record<SentenceElement, RoleOption[]> = {
   S: ["주어", "가주어", "진주어"],
   O: [
     "목적어(타동)",
