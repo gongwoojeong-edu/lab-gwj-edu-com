@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { WordChip } from "@/components/analyzer/WordChip";
+
 import {
   AnalysisPanel,
   type NounProgress,
