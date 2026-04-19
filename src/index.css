@@ -44,17 +44,18 @@
 
     --radius: 1rem;
 
-    /* Sentence Element semantic colors (S/V/O/C/M) */
-    --element-s: 235 80% 60%;       /* Subject — indigo */
-    --element-s-bg: 235 100% 96%;
-    --element-v: 350 80% 55%;       /* Verb — rose */
-    --element-v-bg: 350 100% 97%;
-    --element-o: 160 65% 40%;       /* Object — emerald */
-    --element-o-bg: 160 65% 95%;
-    --element-c: 30 90% 50%;        /* Complement — amber */
-    --element-c-bg: 30 100% 95%;
-    --element-m: 270 50% 55%;       /* Modifier — violet */
-    --element-m-bg: 270 50% 96%;
+    /* Sentence Element semantic colors (S/V/O/C/M)
+       Brand spec: S=Violet, V=Green, O=Yellow, C=Sky Blue, M=neutral (no tag) */
+    --element-s: 275 70% 45%;       /* Subject — violet */
+    --element-s-bg: 275 70% 94%;
+    --element-v: 145 60% 38%;       /* Verb — green */
+    --element-v-bg: 145 60% 93%;
+    --element-o: 42 95% 45%;        /* Object — yellow/amber */
+    --element-o-bg: 45 100% 92%;
+    --element-c: 200 85% 45%;       /* Complement — sky blue */
+    --element-c-bg: 200 90% 93%;
+    --element-m: 260 8% 55%;        /* Modifier — neutral grey (unused as tag) */
+    --element-m-bg: 260 10% 95%;
 
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, hsl(275 100% 25%), hsl(280 60% 52%));
