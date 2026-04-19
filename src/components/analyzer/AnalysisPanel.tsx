@@ -961,7 +961,9 @@ const EtcPanel = ({
   onEtcKindChange,
   onEtcRoleChange,
 }: EtcPanelProps) => {
-  const done = etc.roleStatus === "correct";
+  const mask = useMaskStatus();
+  const etcRoleStatus = mask(etc.roleStatus);
+  const done = etcRoleStatus === "correct";
 
   // 한 번 클릭으로 kind + role 동시 설정
   const handlePick = (kind: EtcKind, value: string) => {
