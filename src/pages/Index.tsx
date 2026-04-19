@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { WordChip } from "@/components/analyzer/WordChip";
+
 import {
   AnalysisPanel,
   type NounProgress,
@@ -116,14 +116,35 @@ const Index = () => {
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // ===== 드래그 청크 선택 =====
+  // ===== 단어 단위 다중 선택 =====
+  // 문장을 공백 기준으로 분리 — 절대 단어를 그룹화하지 않는다.
+  const wordUnits = useMemo(() => {
+    // analyzable 토큰의 text도 공백으로 쪼개서 평탄화
+    const out: { word: string; tokenId?: string; tokenLocalIdx?: number; totalInToken?: number }[] = [];
+    sentence.tokens.forEach((t) => {
+      if (t.type === "static" && (t.role === "bracket" || t.role === "punct")) {
+        // 구두점/괄호는 직전 단어에 붙이지 않고 별도 unit (선택 불가)
+        out.push({ word: t.text });
+        return;
+      }
+      const text = t.text;
+      const parts = text.split(/\s+/).filter(Boolean);
+      parts.forEach((p, i) => {
+        if (t.type === "analyzable") {
+          out.push({ word: p, tokenId: t.id, tokenLocalIdx: i, totalInToken: parts.length });
+        } else {
+          out.push({ word: p });
+        }
+      });
+    });
+    return out;
+  }, [sentence]);
+
+  const isPunct = (w: string) => /^[\.,;:!?"'()\[\]{}]+$/.test(w);
+
+  const [selectedWordIndices, setSelectedWordIndices] = useState<number[]>([]);
   const [dragStart, setDragStart] = useState<number | null>(null);
-  const [dragEnd, setDragEnd] = useState<number | null>(null);
   const isDragging = dragStart !== null;
-  const dragRange =
-    dragStart !== null && dragEnd !== null
-      ? [Math.min(dragStart, dragEnd), Math.max(dragStart, dragEnd)]
-      : null;
 
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
@@ -161,40 +182,55 @@ const Index = () => {
     }
   };
 
-  // ===== Drag 처리 =====
-  const handleDragStart = (idx: number) => {
-    setDragStart(idx);
-    setDragEnd(idx);
-  };
-  const handleDragEnter = (idx: number) => {
-    if (dragStart !== null) setDragEnd(idx);
-  };
-  const handleDragEnd = () => {
-    if (dragStart === null || dragEnd === null) return;
-    const lo = Math.min(dragStart, dragEnd);
-    const hi = Math.max(dragStart, dragEnd);
-    // 범위 내 첫 번째 analyzable 토큰 선택
-    let pickedId: string | null = null;
-    for (let i = lo; i <= hi; i++) {
-      const t = sentence.tokens[i];
-      if (t && t.type === "analyzable") {
-        pickedId = t.id;
-        break;
-      }
+  // ===== 단어 인덱스 → analyzable token 매칭 =====
+  const resolveTokenFromIndices = (indices: number[]): string | null => {
+    if (indices.length === 0) return null;
+    const sorted = [...indices].sort((a, b) => a - b);
+    const tokenIdCounts: Record<string, number> = {};
+    for (const i of sorted) {
+      const u = wordUnits[i];
+      if (u?.tokenId) tokenIdCounts[u.tokenId] = (tokenIdCounts[u.tokenId] ?? 0) + 1;
     }
-    setDragStart(null);
-    setDragEnd(null);
-    if (pickedId) handleSelect(pickedId);
+    const tokenIds = Object.keys(tokenIdCounts);
+    if (tokenIds.length === 0) return null;
+    // 가장 많은 단어가 속한 토큰 선택
+    return tokenIds.sort((a, b) => tokenIdCounts[b] - tokenIdCounts[a])[0];
   };
 
-  // 전역 mouseup 보정 (드래그가 빈 영역에서 끝날 때)
+  // ===== 단어 단위 드래그 선택 =====
+  const handleWordMouseDown = (idx: number) => {
+    if (isPunct(wordUnits[idx].word)) return;
+    setDragStart(idx);
+    setSelectedWordIndices([idx]);
+  };
+  const handleWordMouseEnter = (idx: number) => {
+    if (dragStart === null) return;
+    const lo = Math.min(dragStart, idx);
+    const hi = Math.max(dragStart, idx);
+    const range: number[] = [];
+    for (let i = lo; i <= hi; i++) {
+      if (!isPunct(wordUnits[i].word)) range.push(i);
+    }
+    setSelectedWordIndices(range);
+  };
+  const finalizeSelection = (indices: number[]) => {
+    setDragStart(null);
+    const tid = resolveTokenFromIndices(indices);
+    if (tid) handleSelect(tid);
+    else setSelectedId(null);
+  };
+  const handleWordMouseUp = () => {
+    if (dragStart === null) return;
+    finalizeSelection(selectedWordIndices);
+  };
+
   useEffect(() => {
     if (!isDragging) return;
-    const onUp = () => handleDragEnd();
+    const onUp = () => finalizeSelection(selectedWordIndices);
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDragging, dragStart, dragEnd]);
+  }, [isDragging, selectedWordIndices]);
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
@@ -430,6 +466,8 @@ const Index = () => {
     if (next < 0 || next >= SENTENCES.length) return;
     setSentenceIdx(next);
     setSelectedId(null);
+    setSelectedWordIndices([]);
+    setDragStart(null);
     setProgressMap({});
     setDrawerOpen(false);
   };
@@ -546,91 +584,98 @@ const Index = () => {
           </div>
 
           <div
-            className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1"
-            onMouseLeave={() => isDragging && handleDragEnd()}
+            className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1 select-none"
+            onMouseLeave={() => isDragging && finalizeSelection(selectedWordIndices)}
           >
-            {sentence.tokens.map((token, idx) => {
-              const inDrag = !!dragRange && idx >= dragRange[0] && idx <= dragRange[1];
-              const dragHandlers = {
-                onMouseDown: (e: React.MouseEvent) => {
-                  e.preventDefault();
-                  handleDragStart(idx);
-                },
-                onMouseEnter: () => handleDragEnter(idx),
-                onMouseUp: () => handleDragEnd(),
-              };
+            {wordUnits.map((u, idx) => {
+              const word = u.word;
+              const punct = isPunct(word);
 
-              if (token.type === "static") {
-                if (token.role === "bracket") {
-                  return (
-                    <span
-                      key={idx}
-                      className="text-lg font-light text-foreground/40 self-center select-none leading-none"
-                      aria-hidden
-                    >
-                      {token.text}
-                    </span>
-                  );
-                }
-                if (token.role === "punct") {
-                  return (
-                    <span
-                      key={idx}
-                      className="text-base font-medium text-foreground self-end leading-tight"
-                      aria-hidden
-                    >
-                      {token.text}
-                    </span>
-                  );
-                }
+              // 구두점/괄호: 비대화형
+              if (punct) {
                 return (
                   <span
                     key={idx}
-                    {...dragHandlers}
-                    className={cn(
-                      "px-1 py-0.5 text-[16px] font-medium text-foreground select-none tracking-tight leading-tight rounded-sm cursor-pointer transition-colors",
-                      inDrag && "bg-primary/15",
-                    )}
+                    className="text-base font-medium text-foreground self-end leading-tight"
+                    aria-hidden
                   >
-                    {token.text}
+                    {word}
                   </span>
                 );
               }
 
-              const wp = progressMap[token.id];
-              const isSelected = selectedId === token.id;
-              const isCompleted = wp?.completed;
-              const state = isSelected ? "selected" : isCompleted ? "completed" : "active";
+              const isSelected = selectedWordIndices.includes(idx);
+              const tokenId = u.tokenId;
+              const token = tokenId
+                ? sentence.tokens.find(
+                    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
+                      t.type === "analyzable" && t.id === tokenId,
+                  )
+                : undefined;
+              const wp = tokenId ? progressMap[tokenId] : undefined;
+              const isCompleted = !!wp?.completed;
+              const isFirstOfToken = u.tokenLocalIdx === 0;
 
-              // 완료 시 element 배지 계산 — 접속부사·삽입·부연은 Modifier로 표시 (S/V/O/C 카운트 제외)
+              // 완료 시 element 배지 — 첫 단어에만 표시
               let completedElement: "S" | "V" | "O" | "C" | "M" | undefined;
-              if (isCompleted) {
+              if (isCompleted && isFirstOfToken && token) {
                 const a = token.answer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
-                  if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
-                    completedElement = a.element;
-                  }
-                } else if (a.pos === "형용사") {
-                  completedElement = a.element;
-                } else if (a.pos === "부사" && a.subtype === "접속부사") {
-                  completedElement = "M";
-                } else if (a.pos === "기타" && (a.kind === "삽입" || a.kind === "부연")) {
-                  completedElement = "M";
-                }
+                  if (!INTERNAL_OBJECT_ROLES.has(a.role)) completedElement = a.element;
+                } else if (a.pos === "형용사") completedElement = a.element;
+                else if (a.pos === "부사" && a.subtype === "접속부사") completedElement = "M";
+                else if (a.pos === "기타" && (a.kind === "삽입" || a.kind === "부연")) completedElement = "M";
               }
+              const koreanLabel =
+                isCompleted && isFirstOfToken && token ? token.answer.koreanLabel : undefined;
 
               return (
-                <WordChip
-                  key={token.id}
-                  word={token.text}
-                  koreanLabel={isCompleted ? token.answer.koreanLabel : undefined}
-                  element={completedElement}
-                  state={state}
-                  inDragRange={inDrag && !isSelected}
-                  onClick={() => handleSelect(token.id)}
-                  {...dragHandlers}
-                />
+                <span
+                  key={idx}
+                  role="button"
+                  tabIndex={0}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleWordMouseDown(idx);
+                  }}
+                  onMouseEnter={() => handleWordMouseEnter(idx)}
+                  onMouseUp={handleWordMouseUp}
+                  className="relative inline-flex flex-col items-center cursor-pointer leading-none"
+                >
+                  {koreanLabel && (
+                    <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
+                      {koreanLabel}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
+                      // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
+                      "bg-muted/40",
+                      // 완료된 토큰의 단어들은 옅은 보라 배경
+                      isCompleted && !isSelected && "bg-primary/[0.08]",
+                      // 선택된 인덱스는 진한 보라 하이라이트
+                      isSelected && "bg-primary/20",
+                    )}
+                  >
+                    {word}
+                  </span>
+                  {completedElement && (
+                    <span
+                      className={cn(
+                        "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
+                        completedElement === "S" && "badge-s",
+                        completedElement === "V" && "badge-v",
+                        completedElement === "O" && "badge-o",
+                        completedElement === "C" && "badge-c",
+                        completedElement === "M" && "badge-m",
+                      )}
+                    >
+                      {completedElement}
+                    </span>
+                  )}
+                </span>
               );
             })}
           </div>

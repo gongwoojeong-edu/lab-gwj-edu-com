@@ -939,13 +939,23 @@ const RoleRow = ({
         </p>
       ) : (
         <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 animate-in fade-in duration-200">
-          {/* Flat (ungrouped) buttons together in a grid */}
+          {/* Flat (ungrouped) values — slash로 구분된 문자열은 개별 버튼으로 분리 */}
           {(() => {
             const flat = options.filter((o): o is string => typeof o === "string");
             if (flat.length === 0) return null;
+            // 각 flat 문자열을 '/'로 split → 개별 버튼
+            const buttons: { value: string; label: string }[] = [];
+            flat.forEach((s) => {
+              const parts = s.split("/").map((p) => p.trim()).filter(Boolean);
+              if (parts.length <= 1) {
+                buttons.push({ value: s, label: s });
+              } else {
+                parts.forEach((p) => buttons.push({ value: p, label: p }));
+              }
+            });
             return (
-              <div className="grid grid-cols-2 gap-1.5">
-                {flat.map((r) => renderButton(r, r))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {buttons.map((b) => renderButton(b.value, b.label))}
               </div>
             );
           })()}
@@ -961,15 +971,20 @@ const RoleRow = ({
                 className="flex items-start gap-2 py-0.5"
               >
                 <span
-                  className="shrink-0 min-w-[40px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none"
+                  className="shrink-0 min-w-[44px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none"
                   aria-hidden
                 >
                   {group.header}
                 </span>
-                <div className="flex-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
-                  {group.items.map((item) => {
-                    const value = `${group.header} ${item}`;
-                    return renderButton(value, item);
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  {group.items.flatMap((item) => {
+                    // 그룹 아이템도 '/' 분리 지원
+                    const parts = item.split("/").map((p) => p.trim()).filter(Boolean);
+                    const list = parts.length <= 1 ? [item] : parts;
+                    return list.map((p) => {
+                      const value = `${group.header} ${p}`;
+                      return renderButton(value, p);
+                    });
                   })}
                 </div>
               </div>
