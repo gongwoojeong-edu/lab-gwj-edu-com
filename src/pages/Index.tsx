@@ -116,6 +116,15 @@ const Index = () => {
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ===== 드래그 청크 선택 =====
+  const [dragStart, setDragStart] = useState<number | null>(null);
+  const [dragEnd, setDragEnd] = useState<number | null>(null);
+  const isDragging = dragStart !== null;
+  const dragRange =
+    dragStart !== null && dragEnd !== null
+      ? [Math.min(dragStart, dragEnd), Math.max(dragStart, dragEnd)]
+      : null;
+
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
     if (isMobile && selectedId) setDrawerOpen(true);
@@ -151,6 +160,41 @@ const Index = () => {
       setProgressMap((prev) => ({ ...prev, [id]: emptyProgress() }));
     }
   };
+
+  // ===== Drag 처리 =====
+  const handleDragStart = (idx: number) => {
+    setDragStart(idx);
+    setDragEnd(idx);
+  };
+  const handleDragEnter = (idx: number) => {
+    if (dragStart !== null) setDragEnd(idx);
+  };
+  const handleDragEnd = () => {
+    if (dragStart === null || dragEnd === null) return;
+    const lo = Math.min(dragStart, dragEnd);
+    const hi = Math.max(dragStart, dragEnd);
+    // 범위 내 첫 번째 analyzable 토큰 선택
+    let pickedId: string | null = null;
+    for (let i = lo; i <= hi; i++) {
+      const t = sentence.tokens[i];
+      if (t && t.type === "analyzable") {
+        pickedId = t.id;
+        break;
+      }
+    }
+    setDragStart(null);
+    setDragEnd(null);
+    if (pickedId) handleSelect(pickedId);
+  };
+
+  // 전역 mouseup 보정 (드래그가 빈 영역에서 끝날 때)
+  useEffect(() => {
+    if (!isDragging) return;
+    const onUp = () => handleDragEnd();
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging, dragStart, dragEnd]);
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
