@@ -386,6 +386,7 @@ export const AnalysisPanel = ({
           onNounFormChange={onNounFormChange}
           onNounElementChange={onNounElementChange}
           onNounRoleChange={onNounRoleChange}
+          onNounElementRole={onNounElementRole}
         />
       );
     if (isVerb)
@@ -408,6 +409,7 @@ export const AnalysisPanel = ({
           onAdjFormChange={onAdjFormChange}
           onAdjElementChange={onAdjElementChange}
           onAdjRoleChange={onAdjRoleChange}
+          onAdjElementRole={onAdjElementRole}
         />
       );
     if (isAdv)
