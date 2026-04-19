@@ -985,9 +985,14 @@ const Index = () => {
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
                   isClauseSelection = a.form === "접SV";
-                  if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
+                  // O 배지 숨김: 전치사의 o, to V, V-ing 등 (form/role 기준)
+                  const hideObjectBadge =
+                    INTERNAL_OBJECT_ROLES.has(a.role) || a.form === "to V" || a.form === "V-ing";
+                  if (!hideObjectBadge) {
                     if (a.element === "M") isModifier = true;
                     else if (a.element) completedElement = a.element as "S" | "O" | "C";
+                  } else if (a.element === "M") {
+                    isModifier = true;
                   }
                 } else if (a.pos === "형용사") {
                   isClauseSelection = a.form === "접SV";
