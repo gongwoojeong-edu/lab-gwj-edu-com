@@ -148,6 +148,7 @@ const Index = () => {
     clearCustomAnswers();
     setCustomAnswers({});
     setProgressMap({});
+    setCompletedSelectionMap({});
     setSelectedId(null);
     setSelectedWordIndices([]);
     toast({
@@ -238,6 +239,24 @@ const Index = () => {
     setSelectedId(null);
     setDragStart(null);
     setDrawerOpen(false);
+  };
+
+  const shouldPersistClauseSelection = () => {
+    if (!selectedToken) return false;
+
+    if (selectedToken.answer.pos === "명사") {
+      return (progress.noun.form ?? selectedToken.answer.form) === "접SV";
+    }
+
+    if (selectedToken.answer.pos === "형용사") {
+      return (progress.adj.form ?? selectedToken.answer.form) === "접SV";
+    }
+
+    if (selectedToken.answer.pos === "부사") {
+      return (progress.adv.form ?? selectedToken.answer.form) === "접SV";
+    }
+
+    return false;
   };
 
   const finalizeCompletedAnalysis = (tokenId: string, options?: { persistClause?: boolean }) => {
@@ -706,6 +725,7 @@ const Index = () => {
     setSelectedWordIndices([]);
     setDragStart(null);
     setProgressMap({});
+    setCompletedSelectionMap({});
     setDrawerOpen(false);
   };
 
