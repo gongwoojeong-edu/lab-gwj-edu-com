@@ -148,6 +148,7 @@ const Index = () => {
     clearCustomAnswers();
     setCustomAnswers({});
     setProgressMap({});
+    setCompletedSelectionMap({});
     setSelectedId(null);
     setSelectedWordIndices([]);
     toast({
@@ -183,6 +184,7 @@ const Index = () => {
   const isPunct = (w: string) => /^[\.,;:!?"'()\[\]{}]+$/.test(w);
 
   const [selectedWordIndices, setSelectedWordIndices] = useState<number[]>([]);
+  const [completedSelectionMap, setCompletedSelectionMap] = useState<Record<string, number[]>>({});
   const [dragStart, setDragStart] = useState<number | null>(null);
   const isDragging = dragStart !== null;
 
@@ -232,19 +234,49 @@ const Index = () => {
     }
   };
 
-  // ===== 단어 인덱스 → analyzable token 매칭 =====
-  const resolveTokenFromIndices = (indices: number[]): string | null => {
-    if (indices.length === 0) return null;
-    const sorted = [...indices].sort((a, b) => a - b);
-    const tokenIdCounts: Record<string, number> = {};
-    for (const i of sorted) {
-      const u = wordUnits[i];
-      if (u?.tokenId) tokenIdCounts[u.tokenId] = (tokenIdCounts[u.tokenId] ?? 0) + 1;
+  const clearActiveSelection = () => {
+    setSelectedWordIndices([]);
+    setSelectedId(null);
+    setDragStart(null);
+    setDrawerOpen(false);
+  };
+
+  const shouldPersistClauseSelection = () => {
+    if (!selectedToken) return false;
+
+    if (selectedToken.answer.pos === "명사") {
+      return (progress.noun.form ?? selectedToken.answer.form) === "접SV";
     }
-    const tokenIds = Object.keys(tokenIdCounts);
-    if (tokenIds.length === 0) return null;
-    // 가장 많은 단어가 속한 토큰 선택
-    return tokenIds.sort((a, b) => tokenIdCounts[b] - tokenIdCounts[a])[0];
+
+    if (selectedToken.answer.pos === "형용사") {
+      return (progress.adj.form ?? selectedToken.answer.form) === "접SV";
+    }
+
+    if (selectedToken.answer.pos === "부사") {
+      return (progress.adv.form ?? selectedToken.answer.form) === "접SV";
+    }
+
+    return false;
+  };
+
+  const finalizeCompletedAnalysis = (tokenId: string, options?: { persistClause?: boolean }) => {
+    const indices = Array.from(new Set(selectedWordIndices)).sort((a, b) => a - b);
+
+    if (indices.length > 0) {
+      setCompletedSelectionMap((prev) => ({
+        ...prev,
+        [tokenId]: indices,
+      }));
+    }
+
+    if (options?.persistClause && indices.length > 0) {
+      saveCustom(tokenId, {
+        clauseStart: indices[0],
+        clauseEnd: indices[indices.length - 1],
+      });
+    }
+
+    clearActiveSelection();
   };
 
   // ===== 단어 단위 선택 (누적 토글 + 드래그 누적) =====
@@ -253,6 +285,11 @@ const Index = () => {
   //       전체 해제는 [지우개] 또는 분석 완료 시에만 발생.
   const handleWordMouseDown = (idx: number, _e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
+
+    const tokenId = wordUnits[idx].tokenId;
+    if (tokenId) handleSelect(tokenId);
+    else setSelectedId(null);
+
     setDragStart(idx);
     setSelectedWordIndices((prev) => {
       // 토글: 이미 있으면 제거, 없으면 추가 (누적 유지)
@@ -276,15 +313,12 @@ const Index = () => {
       return Array.from(next).sort((a, b) => a - b);
     });
   };
-  const finalizeSelection = (indices: number[]) => {
+  const finalizeSelection = () => {
     setDragStart(null);
-    const tid = resolveTokenFromIndices(indices);
-    if (tid) handleSelect(tid);
-    else setSelectedId(null);
   };
   const handleWordMouseUp = () => {
     if (dragStart === null) return;
-    finalizeSelection(selectedWordIndices);
+    finalizeSelection();
   };
 
   // ===== 지우개: 선택된 단어들의 분석 결과 모두 초기화 =====
@@ -299,18 +333,21 @@ const Index = () => {
       tokenIds.forEach((id) => delete next[id]);
       return next;
     });
-    setSelectedWordIndices([]);
-    setSelectedId(null);
-    setDrawerOpen(false);
+    setCompletedSelectionMap((prev) => {
+      const next = { ...prev };
+      tokenIds.forEach((id) => delete next[id]);
+      return next;
+    });
+    clearActiveSelection();
   };
 
   useEffect(() => {
     if (!isDragging) return;
-    const onUp = () => finalizeSelection(selectedWordIndices);
+    const onUp = () => finalizeSelection();
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDragging, selectedWordIndices]);
+  }, [isDragging]);
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
@@ -681,6 +718,21 @@ const Index = () => {
     }));
   };
 
+  useEffect(() => {
+    if (!selectedId || !progress.completed) return;
+
+    finalizeCompletedAnalysis(selectedId, {
+      persistClause: shouldPersistClauseSelection(),
+    });
+  }, [
+    selectedId,
+    progress.completed,
+    progress.noun.form,
+    progress.adj.form,
+    progress.adv.form,
+    selectedToken,
+  ]);
+
   const goToSentence = (next: number) => {
     if (next < 0 || next >= SENTENCES.length) return;
     setSentenceIdx(next);
@@ -688,11 +740,15 @@ const Index = () => {
     setSelectedWordIndices([]);
     setDragStart(null);
     setProgressMap({});
+    setCompletedSelectionMap({});
     setDrawerOpen(false);
   };
 
   const panelProps = {
-    selectedWord: selectedToken?.text ?? null,
+    selectedWord:
+      selectedWordIndices.length > 0
+        ? selectedWordIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
+        : selectedToken?.text ?? null,
     answer: selectedToken?.answer ?? null,
     pos: progress.pos,
     posStatus: progress.posStatus,
@@ -722,6 +778,18 @@ const Index = () => {
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
   };
+
+  const completedSelectionOwnerByIndex = useMemo(() => {
+    const ownerMap: Record<number, string> = {};
+
+    Object.entries(completedSelectionMap).forEach(([ownerId, indices]) => {
+      indices.forEach((index) => {
+        ownerMap[index] = ownerId;
+      });
+    });
+
+    return ownerMap;
+  }, [completedSelectionMap]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -870,7 +938,7 @@ const Index = () => {
           {(() => null)()}
           <div
             className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1 select-none"
-            onMouseLeave={() => isDragging && finalizeSelection(selectedWordIndices)}
+            onMouseLeave={() => isDragging && finalizeSelection()}
           >
             {wordUnits.map((u, idx) => {
               const word = u.word;
@@ -890,7 +958,9 @@ const Index = () => {
               }
 
               const isSelected = selectedWordIndices.includes(idx);
-              const tokenId = u.tokenId;
+              const selectedTokenId = u.tokenId;
+              const completedOwnerId = completedSelectionOwnerByIndex[idx];
+              const tokenId = selectedTokenId ?? completedOwnerId;
               const token = tokenId
                 ? sentence.tokens.find(
                     (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
@@ -898,28 +968,32 @@ const Index = () => {
                   )
                 : undefined;
               const wp = tokenId ? progressMap[tokenId] : undefined;
-              const isCompleted = !!wp?.completed;
-              const isFirstOfToken = u.tokenLocalIdx === 0;
-              const isLastOfToken =
-                u.tokenLocalIdx !== undefined &&
-                u.totalInToken !== undefined &&
-                u.tokenLocalIdx === u.totalInToken - 1;
+              const completedIndices = tokenId ? completedSelectionMap[tokenId] ?? [] : [];
+              const isCompleted = completedIndices.includes(idx) && !!wp?.completed;
+              const clauseStart = completedIndices[0];
+              const clauseEnd = completedIndices[completedIndices.length - 1];
+              const isFirstOfSelection = isCompleted && idx === clauseStart;
+              const isLastOfSelection = isCompleted && idx === clauseEnd;
 
               // === 완료 시 element 결정 (M은 표시 안 함) ===
               let completedElement: "S" | "V" | "O" | "C" | undefined;
               let isModifier = false;
+              let isClauseSelection = false;
               if (isCompleted && token) {
                 const a = token.answer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
+                  isClauseSelection = a.form === "접SV";
                   if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
                     if (a.element === "M") isModifier = true;
                     else if (a.element) completedElement = a.element as "S" | "O" | "C";
                   }
                 } else if (a.pos === "형용사") {
+                  isClauseSelection = a.form === "접SV";
                   if (a.element === "M") isModifier = true;
                   else if (a.element === "C") completedElement = "C";
                 } else if (a.pos === "부사") {
+                  isClauseSelection = a.form === "접SV";
                   isModifier = true; // 부사 전체 modifier
                 } else if (a.pos === "기타") {
                   if (a.kind === "삽입" || a.kind === "부연") isModifier = true;
@@ -927,9 +1001,8 @@ const Index = () => {
               }
 
               // === 접SV 절 브래킷 표시 여부 ===
-              // 명사절: 색상 브래킷, 형용/부사절: 회색 얇은 브래킷
               let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
-              if (isCompleted && token && u.totalInToken && u.totalInToken > 1) {
+              if (isCompleted && token && completedIndices.length > 0) {
                 const a = token.answer;
                 if (a.pos === "명사" && a.form === "접SV") {
                   if (a.element === "S") bracketRole = "S";
@@ -944,7 +1017,7 @@ const Index = () => {
               }
 
               const koreanLabel =
-                isCompleted && isFirstOfToken && token ? token.answer.koreanLabel : undefined;
+                isCompleted && isFirstOfSelection && token ? token.answer.koreanLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
@@ -957,11 +1030,11 @@ const Index = () => {
                   ? "text-element-c"
                   : "text-muted-foreground/60";
               const bracketWeight =
-                bracketRole && bracketRole !== "M" ? "font-extrabold" : "font-normal";
+                bracketRole ? "font-extrabold" : "font-normal";
 
               return (
                 <span key={idx} className="inline-flex items-end leading-none">
-                  {bracketRole && isFirstOfToken && (
+                  {bracketRole && isFirstOfSelection && (
                     <span
                       className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -990,15 +1063,15 @@ const Index = () => {
                         "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
                         // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
                         "bg-muted/40",
-                        // 완료된 토큰의 단어들 — Modifier는 배경색 없음
-                        isCompleted && !isSelected && !isModifier && "bg-primary/[0.08]",
+                        // 완료된 단어들 — 접SV/Modifier는 배경색 없음
+                        isCompleted && !isSelected && !isModifier && !isClauseSelection && "bg-primary/[0.08]",
                         // 선택된 인덱스 하이라이트
                         isSelected && "bg-primary/20",
                       )}
                     >
                       {word}
                     </span>
-                    {completedElement && isFirstOfToken && (
+                    {completedElement && isFirstOfSelection && !isClauseSelection && (
                       <span
                         className={cn(
                           "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
@@ -1012,7 +1085,7 @@ const Index = () => {
                       </span>
                     )}
                   </span>
-                  {bracketRole && isLastOfToken && (
+                  {bracketRole && isLastOfSelection && (
                     <span
                       className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
