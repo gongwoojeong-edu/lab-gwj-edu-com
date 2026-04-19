@@ -1,6 +1,19 @@
 import { cn } from "@/lib/utils";
 import { Check, X, Lock } from "lucide-react";
+import { createContext, useContext } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+// ============================================================
+// 정답 입력 모드 — wrong 상태/스타일 일괄 차단
+// ============================================================
+const AnswerInputModeContext = createContext(false);
+export const AnswerInputModeProvider = AnswerInputModeContext.Provider;
+const useAnswerInputMode = () => useContext(AnswerInputModeContext);
+/** 정답 입력 모드면 "wrong" → "idle" 로 마스킹 */
+const useMaskStatus = () => {
+  const ans = useAnswerInputMode();
+  return (s: StepStatus): StepStatus => (ans && s === "wrong" ? "idle" : s);
+};
 import type {
   WordAnswer,
   NounAnswer,
