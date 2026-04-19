@@ -1090,7 +1090,10 @@ const FormRow = ({
   selected: string | null;
   locked: boolean;
   onSelect: (k: string) => void;
-}) => (
+}) => {
+  const mask = useMaskStatus();
+  status = mask(status);
+  return (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between">
       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
