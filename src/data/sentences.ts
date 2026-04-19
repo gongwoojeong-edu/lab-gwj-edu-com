@@ -1,15 +1,20 @@
 // ============================================================
-// 정답 데이터 스키마 (원장님 입력용 템플릿)
+// 정답 데이터 스키마 (NEW: 품사 → 형태 → 성분 → 세부역할)
 // ============================================================
-// 각 문장은 토큰 배열로 구성되며, 분석 대상 단어만 answer를 가집니다.
-// 분석 대상이 아닌 단어/구두점은 type: "static"으로 표기 → 비활성 표시.
+// LAYER 01: pos    (명사/형용사/부사/동사/기타)
+// LAYER 02: form   (명사일 때: 명사/to V/V-ing/접SV)
+// LAYER 03a: element (S/O/C/M) — 접SV·형태전용칩일 땐 생략
+// LAYER 03b: role  (세부 역할 또는 형태 전용 칩 텍스트)
 //
-// Element : S(주어) | V(동사) | O(목적어) | C(보어) | M(수식어)
-// POS     : Noun | Adjective | Adverb | Verb | Etc
-// Form    : N | "to v" | "v-ing" | "[SV] clause" | "Preposition+N" | "v-ed"
+// 동사(VerbAnswer)는 다중 속성. 학생이 모두 체크 후 ✱확정.
 // ============================================================
 
-export type ElementAnswer = "S" | "V" | "O" | "C" | "M";
+export type POS = "명사" | "형용사" | "부사" | "동사" | "기타";
+export type NounForm = "명사" | "to V" | "V-ing" | "접SV";
+export type SentenceElement = "S" | "O" | "C" | "M";
+
+// 하위호환용(기존 컴포넌트 import 깨짐 방지)
+export type ElementAnswer = SentenceElement | "V";
 export type POSAnswer = "Noun" | "Adjective" | "Adverb" | "Verb" | "Etc";
 export type FormAnswer =
   | "N"
@@ -19,13 +24,31 @@ export type FormAnswer =
   | "Preposition+N"
   | "v-ed";
 
-export interface WordAnswer {
-  element: ElementAnswer;
-  pos: POSAnswer;
-  form: FormAnswer;
-  /** 학생에게 보여줄 한국어 품사/역할 라벨 (정답 확정 후 표시) */
+export interface NounAnswer {
+  pos: "명사";
+  form: NounForm;
+  /** 접SV 또는 형태전용칩이면 undefined */
+  element?: SentenceElement;
+  /** 세부역할 또는 형태전용칩 텍스트 (예: "주어", "의문사(to V)", "명사절that") */
+  role: string;
   koreanLabel: string;
 }
+
+export type VerbNumber = "단수" | "복수" | "기타";
+export type VerbTense = "현재" | "과거" | "미래";
+export type VerbAspect = "진행" | "완료";
+
+export interface VerbAnswer {
+  pos: "동사";
+  number?: VerbNumber;
+  tense?: VerbTense;
+  aspect?: VerbAspect[];
+  voice?: "수동";
+  proVerb?: boolean;
+  koreanLabel: string;
+}
+
+export type WordAnswer = NounAnswer | VerbAnswer;
 
 export type SentenceToken =
   | {
@@ -37,7 +60,6 @@ export type SentenceToken =
   | {
       type: "static";
       text: string;
-      /** "[" / "]" 같은 구조 표시인 경우 */
       role?: "bracket" | "punct" | "word";
     };
 
@@ -46,13 +68,12 @@ export interface Sentence {
   no: number;
   english: string;
   korean: string;
-  structureTags: string[]; // 예: "SIMPLE SENTENCE", "ACTIVE VOICE"
+  structureTags: string[];
   tokens: SentenceToken[];
 }
 
 // ============================================================
-// 데모 데이터 — 원장님 정답 데이터 받기 전 임시 샘플
-// (받는 즉시 이 배열만 교체하면 됩니다)
+// 데모 데이터 — 새 스키마로 마이그레이션
 // ============================================================
 
 export const SENTENCES: Sentence[] = [
@@ -68,26 +89,49 @@ export const SENTENCES: Sentence[] = [
         type: "analyzable",
         id: "s1-w1",
         text: "She",
-        answer: { element: "S", pos: "Noun", form: "N", koreanLabel: "대명사" },
+        answer: {
+          pos: "명사",
+          form: "명사",
+          element: "S",
+          role: "주어",
+          koreanLabel: "주어 · 대명사",
+        },
       },
       {
         type: "analyzable",
         id: "s1-w2",
         text: "wanted",
-        answer: { element: "V", pos: "Verb", form: "v-ed", koreanLabel: "과거동사" },
+        answer: {
+          pos: "동사",
+          number: "단수",
+          tense: "과거",
+          koreanLabel: "과거동사",
+        },
       },
       {
         type: "analyzable",
         id: "s1-w3",
         text: "to improve",
-        answer: { element: "O", pos: "Noun", form: "to v", koreanLabel: "to부정사(명사)" },
+        answer: {
+          pos: "명사",
+          form: "to V",
+          element: "O",
+          role: "목적어(타동)",
+          koreanLabel: "to부정사 · 목적어",
+        },
       },
       { type: "static", text: "her", role: "word" },
       {
         type: "analyzable",
         id: "s1-w5",
         text: "English",
-        answer: { element: "O", pos: "Noun", form: "N", koreanLabel: "명사" },
+        answer: {
+          pos: "명사",
+          form: "명사",
+          element: "O",
+          role: "목적어(타동)",
+          koreanLabel: "목적어 · 명사",
+        },
       },
       { type: "static", text: "]", role: "bracket" },
       { type: "static", text: ".", role: "punct" },
@@ -106,30 +150,38 @@ export const SENTENCES: Sentence[] = [
         type: "analyzable",
         id: "s2-w2",
         text: "book",
-        answer: { element: "S", pos: "Noun", form: "N", koreanLabel: "명사" },
-      },
-      {
-        type: "analyzable",
-        id: "s2-w3",
-        text: "on the desk",
         answer: {
-          element: "M",
-          pos: "Adjective",
-          form: "Preposition+N",
-          koreanLabel: "전치사구(형용사)",
+          pos: "명사",
+          form: "명사",
+          element: "S",
+          role: "주어",
+          koreanLabel: "주어 · 명사",
         },
       },
+      // 전치사구 — 형용사 라인이 아직 미구현이므로 static 으로 일단 보류
+      { type: "static", text: "on the desk", role: "word" },
       {
         type: "analyzable",
         id: "s2-w4",
         text: "is",
-        answer: { element: "V", pos: "Verb", form: "v-ed", koreanLabel: "be동사" },
+        answer: {
+          pos: "동사",
+          number: "단수",
+          tense: "현재",
+          koreanLabel: "be동사",
+        },
       },
       {
         type: "analyzable",
         id: "s2-w5",
         text: "mine",
-        answer: { element: "C", pos: "Noun", form: "N", koreanLabel: "소유대명사" },
+        answer: {
+          pos: "명사",
+          form: "명사",
+          element: "C",
+          role: "주격보어",
+          koreanLabel: "주격보어 · 소유대명사",
+        },
       },
       { type: "static", text: "]", role: "bracket" },
       { type: "static", text: ".", role: "punct" },
