@@ -38,10 +38,13 @@ export const clearCustomAnswers = () => {
 
 export const upsertCustomAnswer = (
   tokenId: string,
-  patch: Partial<WordAnswer>,
+  patch: CustomAnswerPatch,
 ): CustomAnswerMap => {
   const cur = loadCustomAnswers();
-  const merged = { ...cur, [tokenId]: { ...(cur[tokenId] ?? {}), ...patch } };
+  const merged: CustomAnswerMap = {
+    ...cur,
+    [tokenId]: { ...(cur[tokenId] ?? {}), ...patch },
+  };
   saveCustomAnswers(merged);
   return merged;
 };
@@ -52,8 +55,8 @@ export const upsertCustomAnswer = (
  */
 export const mergeAnswer = (
   original: WordAnswer,
-  custom: Partial<WordAnswer> | undefined,
+  custom: CustomAnswerPatch | undefined,
 ): WordAnswer => {
   if (!custom) return original;
-  return { ...original, ...custom } as WordAnswer;
+  return { ...(original as Record<string, unknown>), ...custom } as unknown as WordAnswer;
 };
