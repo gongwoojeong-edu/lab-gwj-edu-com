@@ -1039,7 +1039,7 @@ const Index = () => {
                 bracketRole ? "font-extrabold" : "font-normal";
 
               return (
-                <span key={idx} className="inline-flex items-end leading-none">
+                <span key={idx} className="inline-flex items-end leading-none whitespace-nowrap">
                   {bracketRole && isFirstOfSelection && (
                     <span
                       className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
