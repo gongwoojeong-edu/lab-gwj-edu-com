@@ -1132,7 +1132,7 @@ const FormRow = ({
 const ElementRow = ({
   items,
   selected,
-  status,
+  status: rawStatus,
   unlocked,
   formCorrect,
   skipMessage,
@@ -1147,7 +1147,10 @@ const ElementRow = ({
   skipMessage?: string;
   elementCorrect: boolean;
   onSelect: (k: string) => void;
-}) => (
+}) => {
+  const mask = useMaskStatus();
+  const status = mask(rawStatus);
+  return (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between">
       <p
