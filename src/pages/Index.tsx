@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   AnalysisPanel,
+  AnswerInputModeProvider,
   type NounProgress,
   type AdjProgress,
   type AdvProgress,
@@ -881,7 +882,9 @@ const Index = () => {
 
       {/* Desktop: fixed top-right panel */}
       <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)]">
-        <AnalysisPanel {...panelProps} />
+        <AnswerInputModeProvider value={answerInputMode}>
+          <AnalysisPanel {...panelProps} />
+        </AnswerInputModeProvider>
       </div>
 
       <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4">
@@ -984,9 +987,14 @@ const Index = () => {
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
                   isClauseSelection = a.form === "접SV";
-                  if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
+                  // O 배지 숨김: 전치사의 o, to V, V-ing 등 (form/role 기준)
+                  const hideObjectBadge =
+                    INTERNAL_OBJECT_ROLES.has(a.role) || a.form === "to V" || a.form === "V-ing";
+                  if (!hideObjectBadge) {
                     if (a.element === "M") isModifier = true;
                     else if (a.element) completedElement = a.element as "S" | "O" | "C";
+                  } else if (a.element === "M") {
+                    isModifier = true;
                   }
                 } else if (a.pos === "형용사") {
                   isClauseSelection = a.form === "접SV";
@@ -1033,7 +1041,7 @@ const Index = () => {
                 bracketRole ? "font-extrabold" : "font-normal";
 
               return (
-                <span key={idx} className="inline-flex items-end leading-none">
+                <span key={idx} className="inline-flex items-end leading-none whitespace-nowrap">
                   {bracketRole && isFirstOfSelection && (
                     <span
                       className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
@@ -1063,8 +1071,12 @@ const Index = () => {
                         "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
                         // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
                         "bg-muted/40",
-                        // 완료된 단어들 — 접SV/Modifier는 배경색 없음
-                        isCompleted && !isSelected && !isModifier && !isClauseSelection && "bg-primary/[0.08]",
+                        // 완료된 단어들 — 일반: 옅은 보라 + 하단 라인으로 "처리됨" 표시
+                        isCompleted && !isSelected && !isModifier && !isClauseSelection &&
+                          "bg-primary/[0.10] border-b border-primary/30",
+                        // 완료된 modifier/접SV: 배경 없이 텍스트만 살짝 dim
+                        isCompleted && !isSelected && (isModifier || isClauseSelection) &&
+                          "text-foreground/75",
                         // 선택된 인덱스 하이라이트
                         isSelected && "bg-primary/20",
                       )}
@@ -1177,7 +1189,9 @@ const Index = () => {
           <DrawerContent className="max-h-[75vh]">
             <DrawerTitle className="sr-only">단어 분석</DrawerTitle>
             <div className="px-3 pb-4 pt-2 overflow-y-auto">
-              <AnalysisPanel {...panelProps} />
+              <AnswerInputModeProvider value={answerInputMode}>
+                <AnalysisPanel {...panelProps} />
+              </AnswerInputModeProvider>
             </div>
           </DrawerContent>
         </Drawer>

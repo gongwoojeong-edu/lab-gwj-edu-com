@@ -1,6 +1,19 @@
 import { cn } from "@/lib/utils";
 import { Check, X, Lock } from "lucide-react";
+import { createContext, useContext } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+// ============================================================
+// 정답 입력 모드 — wrong 상태/스타일 일괄 차단
+// ============================================================
+const AnswerInputModeContext = createContext(false);
+export const AnswerInputModeProvider = AnswerInputModeContext.Provider;
+const useAnswerInputMode = () => useContext(AnswerInputModeContext);
+/** 정답 입력 모드면 "wrong" → "idle" 로 마스킹 */
+const useMaskStatus = () => {
+  const ans = useAnswerInputMode();
+  return (s: StepStatus): StepStatus => (ans && s === "wrong" ? "idle" : s);
+};
 import type {
   WordAnswer,
   NounAnswer,
@@ -314,13 +327,15 @@ const ETC_ROLES_BY_KIND: Record<EtcKind, RoleOption[]> = {
 };
 
 const StatusPill = ({ status }: { status: StepStatus }) => {
-  if (status === "correct")
+  const mask = useMaskStatus();
+  const s = mask(status);
+  if (s === "correct")
     return (
       <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-element-o uppercase tracking-wider">
         <Check className="size-3" /> OK
       </span>
     );
-  if (status === "wrong")
+  if (s === "wrong")
     return (
       <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-destructive uppercase tracking-wider">
         <X className="size-3" /> Try
@@ -370,6 +385,7 @@ export const AnalysisPanel = ({
     );
   }
 
+  const answerInputMode = useAnswerInputMode();
   const posCorrect = posStatus === "correct";
   const isNoun = posCorrect && answer.pos === "명사";
   const isVerb = posCorrect && answer.pos === "동사";
@@ -452,7 +468,7 @@ export const AnalysisPanel = ({
           {POS_LIST.map(({ key, circle, label }) => {
             const isSelected = pos === key;
             const isCorrect = isSelected && posCorrect;
-            const isWrong = isSelected && posStatus === "wrong";
+            const isWrong = !answerInputMode && isSelected && posStatus === "wrong";
             const lockedOther = posCorrect && !isSelected;
             const disabled = lockedOther;
 
@@ -671,9 +687,9 @@ const AdjPanel = ({
 const ElementRoleGrid = ({
   unlocked,
   element,
-  elementStatus,
+  elementStatus: rawElementStatus,
   role,
-  roleStatus,
+  roleStatus: rawRoleStatus,
   groups,
   onPick,
 }: {
@@ -685,6 +701,9 @@ const ElementRoleGrid = ({
   groups: { element: string; label: string; colorClass: string; options: RoleOption[] }[];
   onPick: (element: string, role: string | null) => void;
 }) => {
+  const mask = useMaskStatus();
+  const elementStatus = mask(rawElementStatus);
+  const roleStatus = mask(rawRoleStatus);
   const done = roleStatus === "correct";
 
   if (!unlocked) {
@@ -826,7 +845,9 @@ const AdvPanel = ({
   onAdvSubtypeChange,
   onAdvRoleChange,
 }: AdvPanelProps) => {
-  const done = adv.roleStatus === "correct";
+  const mask = useMaskStatus();
+  const advRoleStatus = mask(adv.roleStatus);
+  const done = advRoleStatus === "correct";
 
   // form 클릭 → 자동으로 form + (필요시 subtype은 별도 클릭) + role 한번에
   const handlePick = (form: AdvForm, value: string, subtype?: AdvSubtype) => {
@@ -844,7 +865,7 @@ const AdvPanel = ({
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
             Layer 02·03 · 형태 / 세부역할
           </p>
-          <StatusPill status={adv.roleStatus} />
+          <StatusPill status={advRoleStatus} />
         </div>
         <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
           {ADV_FORMS.map(({ key: form, circle, label: formLabel }) => {
@@ -895,7 +916,7 @@ const AdvPanel = ({
                   {buttons.map((b) => {
                     const sel = adv.form === form && adv.role === b.value;
                     const ok = sel && done;
-                    const ng = sel && adv.roleStatus === "wrong";
+                    const ng = sel && advRoleStatus === "wrong";
                     return (
                       <button
                         key={`${form}-${b.value}`}
@@ -940,7 +961,9 @@ const EtcPanel = ({
   onEtcKindChange,
   onEtcRoleChange,
 }: EtcPanelProps) => {
-  const done = etc.roleStatus === "correct";
+  const mask = useMaskStatus();
+  const etcRoleStatus = mask(etc.roleStatus);
+  const done = etcRoleStatus === "correct";
 
   // 한 번 클릭으로 kind + role 동시 설정
   const handlePick = (kind: EtcKind, value: string) => {
@@ -956,7 +979,7 @@ const EtcPanel = ({
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
             Layer 02·03 · 종류 / 세부역할
           </p>
-          <StatusPill status={etc.roleStatus} />
+          <StatusPill status={etcRoleStatus} />
         </div>
         <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
           {ETC_KINDS.map(({ key: kind, label: kindLabel }) => {
@@ -1020,7 +1043,7 @@ const EtcPanel = ({
                         {items.map((b) => {
                           const sel = etc.kind === kind && etc.role === b.value;
                           const ok = sel && done;
-                          const ng = sel && etc.roleStatus === "wrong";
+                          const ng = sel && etcRoleStatus === "wrong";
                           return (
                             <button
                               key={`${kind}-${b.value}`}
@@ -1063,7 +1086,7 @@ interface FormItem {
 
 const FormRow = ({
   label,
-  status,
+  status: rawStatus,
   items,
   selected,
   locked,
@@ -1075,45 +1098,49 @@ const FormRow = ({
   selected: string | null;
   locked: boolean;
   onSelect: (k: string) => void;
-}) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center justify-between">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-        {label}
-      </p>
-      <StatusPill status={status} />
+}) => {
+  const mask = useMaskStatus();
+  const status = mask(rawStatus);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+          {label}
+        </p>
+        <StatusPill status={status} />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map(({ key, circle, label: l }) => {
+          const sel = selected === key;
+          const ok = sel && status === "correct";
+          const ng = sel && status === "wrong";
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              disabled={locked && !sel}
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all border disabled:opacity-30",
+                ok && "bg-primary/15 text-primary border-primary/40",
+                ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
+                !sel && "bg-secondary text-foreground border-transparent hover:bg-secondary/70",
+              )}
+            >
+              {circle && <span className="font-mono text-[12px] leading-none">{circle}</span>}
+              <span>{l}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
-    <div className="flex flex-wrap gap-1.5">
-      {items.map(({ key, circle, label: l }) => {
-        const sel = selected === key;
-        const ok = sel && status === "correct";
-        const ng = sel && status === "wrong";
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onSelect(key)}
-            disabled={locked && !sel}
-            className={cn(
-              "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all border disabled:opacity-30",
-              ok && "bg-primary/15 text-primary border-primary/40",
-              ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
-              !sel && "bg-secondary text-foreground border-transparent hover:bg-secondary/70",
-            )}
-          >
-            {circle && <span className="font-mono text-[12px] leading-none">{circle}</span>}
-            <span>{l}</span>
-          </button>
-        );
-      })}
-    </div>
-  </div>
-);
+  );
+};
 
 const ElementRow = ({
   items,
   selected,
-  status,
+  status: rawStatus,
   unlocked,
   formCorrect,
   skipMessage,
@@ -1128,7 +1155,10 @@ const ElementRow = ({
   skipMessage?: string;
   elementCorrect: boolean;
   onSelect: (k: string) => void;
-}) => (
+}) => {
+  const mask = useMaskStatus();
+  const status = mask(rawStatus);
+  return (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between">
       <p
@@ -1177,11 +1207,12 @@ const ElementRow = ({
       </div>
     )}
   </div>
-);
+  );
+};
 
 const RoleRow = ({
   unlocked,
-  status,
+  status: rawStatus,
   options,
   selected,
   onSelect,
@@ -1192,6 +1223,8 @@ const RoleRow = ({
   selected: string | null;
   onSelect: (r: string) => void;
 }) => {
+  const mask = useMaskStatus();
+  const status = mask(rawStatus);
   const renderButton = (value: string, displayLabel: string) => {
     const sel = selected === value;
     const ok = sel && status === "correct";
@@ -1325,8 +1358,10 @@ const VerbPanel = ({
   onVerbToggleProVerb,
   onVerbConfirm,
 }: VerbPanelProps) => {
-  const confirmed = verb.confirmStatus === "correct";
-  const wrong = verb.confirmStatus === "wrong";
+  const mask = useMaskStatus();
+  const verbConfirmStatus = mask(verb.confirmStatus);
+  const confirmed = verbConfirmStatus === "correct";
+  const wrong = verbConfirmStatus === "wrong";
 
   const Row = ({
     label,
@@ -1373,7 +1408,7 @@ const VerbPanel = ({
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
           동사 분석 · 다중 선택
         </p>
-        <StatusPill status={verb.confirmStatus} />
+        <StatusPill status={verbConfirmStatus} />
       </div>
 
       <div className="space-y-1.5">
