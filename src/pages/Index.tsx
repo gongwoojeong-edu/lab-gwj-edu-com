@@ -197,26 +197,25 @@ const Index = () => {
     return tokenIds.sort((a, b) => tokenIdCounts[b] - tokenIdCounts[a])[0];
   };
 
-  // ===== 단어 단위 선택 (토글 + 비연속 + 드래그) =====
-  const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
+  // ===== 단어 단위 선택 (누적 토글 + 드래그 누적) =====
+  // 규칙: 새 클릭/드래그가 기존 선택을 절대 비우지 않는다.
+  //       이미 선택된 단어를 다시 클릭하면 그 단어만 제거(토글).
+  //       전체 해제는 [지우개] 또는 분석 완료 시에만 발생.
+  const handleWordMouseDown = (idx: number, _e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     setDragStart(idx);
     setSelectedWordIndices((prev) => {
-      // 이미 선택된 단어를 다시 클릭하면 해제 (토글)
-      if (prev.includes(idx) && !e.shiftKey) {
+      // 토글: 이미 있으면 제거, 없으면 추가 (누적 유지)
+      if (prev.includes(idx)) {
         return prev.filter((i) => i !== idx);
       }
-      // Shift+click: 기존 선택에 추가 (비연속 누적)
-      if (e.shiftKey) {
-        return prev.includes(idx) ? prev : [...prev, idx].sort((a, b) => a - b);
-      }
-      // 일반 클릭: 새 선택 시작 (드래그 가능성 있음)
-      return [idx];
+      return [...prev, idx].sort((a, b) => a - b);
     });
   };
   const handleWordMouseEnter = (idx: number) => {
     if (dragStart === null) return;
     if (isPunct(wordUnits[idx].word)) return;
+    // 드래그: 시작점부터 현재까지를 기존 선택에 ADD (비우지 않음)
     const lo = Math.min(dragStart, idx);
     const hi = Math.max(dragStart, idx);
     setSelectedWordIndices((prev) => {
