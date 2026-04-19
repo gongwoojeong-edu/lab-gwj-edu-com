@@ -545,14 +545,27 @@ const Index = () => {
             />
           </div>
 
-          <div className="flex flex-wrap items-end gap-x-1.5 gap-y-7 pt-2 pb-1">
+          <div
+            className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1"
+            onMouseLeave={() => isDragging && handleDragEnd()}
+          >
             {sentence.tokens.map((token, idx) => {
+              const inDrag = !!dragRange && idx >= dragRange[0] && idx <= dragRange[1];
+              const dragHandlers = {
+                onMouseDown: (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  handleDragStart(idx);
+                },
+                onMouseEnter: () => handleDragEnter(idx),
+                onMouseUp: () => handleDragEnd(),
+              };
+
               if (token.type === "static") {
                 if (token.role === "bracket") {
                   return (
                     <span
                       key={idx}
-                      className="text-lg font-light text-primary/30 self-center select-none leading-none"
+                      className="text-lg font-light text-foreground/40 self-center select-none leading-none"
                       aria-hidden
                     >
                       {token.text}
@@ -563,7 +576,7 @@ const Index = () => {
                   return (
                     <span
                       key={idx}
-                      className="text-sm font-light text-muted-foreground self-center leading-none"
+                      className="text-base font-medium text-foreground self-end leading-tight"
                       aria-hidden
                     >
                       {token.text}
@@ -573,7 +586,11 @@ const Index = () => {
                 return (
                   <span
                     key={idx}
-                    className="px-1 py-0.5 text-[15px] font-medium text-muted-foreground/50 select-none tracking-tight leading-tight"
+                    {...dragHandlers}
+                    className={cn(
+                      "px-1 py-0.5 text-[16px] font-medium text-foreground select-none tracking-tight leading-tight rounded-sm cursor-pointer transition-colors",
+                      inDrag && "bg-primary/15",
+                    )}
                   >
                     {token.text}
                   </span>
@@ -585,20 +602,22 @@ const Index = () => {
               const isCompleted = wp?.completed;
               const state = isSelected ? "selected" : isCompleted ? "completed" : "active";
 
-              // 완료 시 element 배지 계산
+              // 완료 시 element 배지 계산 — 접속부사·삽입·부연은 Modifier로 표시 (S/V/O/C 카운트 제외)
               let completedElement: "S" | "V" | "O" | "C" | "M" | undefined;
               if (isCompleted) {
                 const a = token.answer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
-                  // 내부 목적어이면 배지 숨김
                   if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
                     completedElement = a.element;
                   }
                 } else if (a.pos === "형용사") {
                   completedElement = a.element;
+                } else if (a.pos === "부사" && a.subtype === "접속부사") {
+                  completedElement = "M";
+                } else if (a.pos === "기타" && (a.kind === "삽입" || a.kind === "부연")) {
+                  completedElement = "M";
                 }
-                // 부사·기타는 배지 없음
               }
 
               return (
@@ -608,7 +627,9 @@ const Index = () => {
                   koreanLabel={isCompleted ? token.answer.koreanLabel : undefined}
                   element={completedElement}
                   state={state}
+                  inDragRange={inDrag && !isSelected}
                   onClick={() => handleSelect(token.id)}
+                  {...dragHandlers}
                 />
               );
             })}
