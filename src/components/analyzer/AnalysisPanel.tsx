@@ -1043,7 +1043,7 @@ const EtcPanel = ({
                         {items.map((b) => {
                           const sel = etc.kind === kind && etc.role === b.value;
                           const ok = sel && done;
-                          const ng = sel && etc.roleStatus === "wrong";
+                          const ng = sel && etcRoleStatus === "wrong";
                           return (
                             <button
                               key={`${kind}-${b.value}`}
