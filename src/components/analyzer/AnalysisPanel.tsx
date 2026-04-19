@@ -916,7 +916,7 @@ const AdvPanel = ({
                   {buttons.map((b) => {
                     const sel = adv.form === form && adv.role === b.value;
                     const ok = sel && done;
-                    const ng = sel && adv.roleStatus === "wrong";
+                    const ng = sel && advRoleStatus === "wrong";
                     return (
                       <button
                         key={`${form}-${b.value}`}
