@@ -710,6 +710,15 @@ const Index = () => {
           </div>
         </div>
 
+        {answerInputMode && (
+          <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 flex items-center gap-2">
+            <Pencil className="size-4 text-primary shrink-0" />
+            <p className="text-[12px] font-semibold text-primary font-kr">
+              정답 입력 모드 — 선택한 항목이 즉시 정답으로 저장됩니다 (채점 없음)
+            </p>
+          </div>
+        )}
+
         <section className="glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-0.5 bg-secondary">
             <div
