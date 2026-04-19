@@ -466,6 +466,8 @@ const Index = () => {
     if (next < 0 || next >= SENTENCES.length) return;
     setSentenceIdx(next);
     setSelectedId(null);
+    setSelectedWordIndices([]);
+    setDragStart(null);
     setProgressMap({});
     setDrawerOpen(false);
   };
