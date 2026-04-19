@@ -380,6 +380,55 @@ const Index = () => {
     }));
   };
 
+  // 평탄화 핸들러: element + role 한 번에 처리 (M은 role=null로 즉시 완료)
+  const handleNounElementRole = (e: SentenceElement, r: string | null) => {
+    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (answerInputMode) {
+      saveCustom(selectedToken.id, { element: e, role: r ?? "수식어" });
+      updateProgress(selectedToken.id, (prev) => ({
+        ...prev,
+        noun: {
+          ...prev.noun,
+          element: e,
+          elementStatus: "correct",
+          role: r ?? "수식어",
+          roleStatus: "correct",
+        },
+        completed: true,
+      }));
+      return;
+    }
+    const ans = selectedToken.answer as NounAnswer;
+    const elementOk = ans.element === e;
+    if (e === "M") {
+      // M: role 없이 element만 맞으면 완료
+      updateProgress(selectedToken.id, (prev) => ({
+        ...prev,
+        noun: {
+          ...prev.noun,
+          element: e,
+          elementStatus: elementOk ? "correct" : "wrong",
+          role: elementOk ? (ans.role ?? "수식어") : null,
+          roleStatus: elementOk ? "correct" : "idle",
+        },
+        completed: elementOk,
+      }));
+      return;
+    }
+    const roleOk = elementOk && r !== null && ans.role === r;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      noun: {
+        ...prev.noun,
+        element: e,
+        elementStatus: elementOk ? "correct" : "wrong",
+        role: r,
+        roleStatus: !elementOk ? "idle" : roleOk ? "correct" : "wrong",
+      },
+      completed: roleOk,
+    }));
+  };
+
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
@@ -428,6 +477,53 @@ const Index = () => {
       ...prev,
       adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
+    }));
+  };
+
+  const handleAdjElementRole = (e: "C" | "M", r: string | null) => {
+    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (answerInputMode) {
+      saveCustom(selectedToken.id, { element: e, role: r ?? "수식어" });
+      updateProgress(selectedToken.id, (prev) => ({
+        ...prev,
+        adj: {
+          ...prev.adj,
+          element: e,
+          elementStatus: "correct",
+          role: r ?? "수식어",
+          roleStatus: "correct",
+        },
+        completed: true,
+      }));
+      return;
+    }
+    const ans = selectedToken.answer as AdjAnswer;
+    const elementOk = ans.element === e;
+    if (e === "M") {
+      updateProgress(selectedToken.id, (prev) => ({
+        ...prev,
+        adj: {
+          ...prev.adj,
+          element: e,
+          elementStatus: elementOk ? "correct" : "wrong",
+          role: elementOk ? (ans.role ?? "수식어") : null,
+          roleStatus: elementOk ? "correct" : "idle",
+        },
+        completed: elementOk,
+      }));
+      return;
+    }
+    const roleOk = elementOk && r !== null && ans.role === r;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adj: {
+        ...prev.adj,
+        element: e,
+        elementStatus: elementOk ? "correct" : "wrong",
+        role: r,
+        roleStatus: !elementOk ? "idle" : roleOk ? "correct" : "wrong",
+      },
+      completed: roleOk,
     }));
   };
 
@@ -589,10 +685,12 @@ const Index = () => {
     onNounFormChange: handleNounForm,
     onNounElementChange: handleNounElement,
     onNounRoleChange: handleNounRole,
+    onNounElementRole: handleNounElementRole,
     adj: progress.adj,
     onAdjFormChange: handleAdjForm,
     onAdjElementChange: handleAdjElement,
     onAdjRoleChange: handleAdjRole,
+    onAdjElementRole: handleAdjElementRole,
     adv: progress.adv,
     onAdvFormChange: handleAdvForm,
     onAdvSubtypeChange: handleAdvSubtype,
