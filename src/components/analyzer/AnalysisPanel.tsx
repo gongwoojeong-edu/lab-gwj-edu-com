@@ -162,9 +162,12 @@ export const AnalysisPanel = ({
                 <Popover key={key} defaultOpen>
                   <PopoverTrigger asChild>{trigger}</PopoverTrigger>
                   <PopoverContent
-                    align="end"
+                    align="center"
+                    side="bottom"
                     sideOffset={8}
-                    className="w-72 p-4 space-y-4"
+                    collisionPadding={12}
+                    avoidCollisions
+                    className="w-[min(92vw,320px)] p-3 space-y-3 z-[60]"
                   >
                     {/* Level 2 */}
                     <div className="space-y-2">
