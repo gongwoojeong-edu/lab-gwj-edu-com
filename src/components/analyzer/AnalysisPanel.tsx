@@ -651,43 +651,100 @@ const AdvPanel = ({
   onAdvSubtypeChange,
   onAdvRoleChange,
 }: AdvPanelProps) => {
-  const formCorrect = adv.formStatus === "correct";
-  // form === "부사"일 때만 subtype 단계가 존재
-  const needsSubtype = adv.form === "부사";
-  const subtypeCorrect = adv.subtypeStatus === "correct";
-  const roleUnlocked = formCorrect && (!needsSubtype || subtypeCorrect);
-  const roleOptions = adv.form ? ADV_ROLES_BY_FORM[adv.form] : [];
+  const done = adv.roleStatus === "correct";
+
+  // form 클릭 → 자동으로 form + (필요시 subtype은 별도 클릭) + role 한번에
+  const handlePick = (form: AdvForm, value: string, subtype?: AdvSubtype) => {
+    if (adv.form !== form) onAdvFormChange(form);
+    if (subtype && adv.subtype !== subtype) {
+      setTimeout(() => onAdvSubtypeChange(subtype), 0);
+    }
+    setTimeout(() => onAdvRoleChange(value), 0);
+  };
 
   return (
     <>
-      <FormRow
-        label="Layer 02 · 형태"
-        status={adv.formStatus}
-        items={ADV_FORMS}
-        selected={adv.form}
-        locked={formCorrect}
-        onSelect={(k) => onAdvFormChange(k as AdvForm)}
-      />
-      {needsSubtype && (
-        <FormRow
-          label="Layer 02b · 종류"
-          status={adv.subtypeStatus}
-          items={ADV_SUBTYPES}
-          selected={adv.subtype}
-          locked={subtypeCorrect}
-          onSelect={(k) => onAdvSubtypeChange(k as AdvSubtype)}
-        />
-      )}
-      <RoleRow
-        unlocked={roleUnlocked}
-        status={adv.roleStatus}
-        options={roleOptions}
-        selected={adv.role}
-        onSelect={onAdvRoleChange}
-      />
-      {adv.roleStatus === "correct" && (
-        <CompletionBlock label={answer.koreanLabel} />
-      )}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+            Layer 02·03 · 형태 / 세부역할
+          </p>
+          <StatusPill status={adv.roleStatus} />
+        </div>
+        <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
+          {ADV_FORMS.map(({ key: form, circle, label: formLabel }) => {
+            const options = ADV_ROLES_BY_FORM[form] ?? [];
+            const isPlainAdverb = form === "부사";
+
+            const buttons: { value: string; display: string; subtype?: AdvSubtype }[] = [];
+            if (isPlainAdverb) {
+              // 일반부사 / 접속부사를 직접 두 개 버튼으로
+              ADV_SUBTYPES.forEach((s) => {
+                buttons.push({ value: s.label, display: s.label, subtype: s.key });
+              });
+            } else {
+              options.forEach((opt) => {
+                if (typeof opt === "string") {
+                  opt
+                    .split("/")
+                    .map((p) => p.trim())
+                    .filter(Boolean)
+                    .forEach((p) => buttons.push({ value: p, display: p }));
+                } else {
+                  opt.items.forEach((item) =>
+                    item
+                      .split("/")
+                      .map((p) => p.trim())
+                      .filter(Boolean)
+                      .forEach((p) =>
+                        buttons.push({ value: `${opt.header} ${p}`, display: p }),
+                      ),
+                  );
+                }
+              });
+            }
+
+            return (
+              <div
+                key={form}
+                className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0"
+              >
+                <span
+                  className="shrink-0 w-[64px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1"
+                  aria-hidden
+                >
+                  {circle && <span className="font-mono text-[12px]">{circle}</span>}
+                  {formLabel}
+                </span>
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  {buttons.map((b) => {
+                    const sel = adv.form === form && adv.role === b.value;
+                    const ok = sel && done;
+                    const ng = sel && adv.roleStatus === "wrong";
+                    return (
+                      <button
+                        key={`${form}-${b.value}`}
+                        type="button"
+                        onClick={() => handlePick(form, b.value, b.subtype)}
+                        disabled={done && !sel}
+                        className={cn(
+                          "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+                          ok && "bg-primary/15 text-primary",
+                          ng && "bg-destructive/10 text-destructive animate-pulse",
+                          !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+                        )}
+                      >
+                        {b.display}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {done && <CompletionBlock label={answer.koreanLabel} />}
     </>
   );
 };
