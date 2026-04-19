@@ -1078,7 +1078,7 @@ interface FormItem {
 
 const FormRow = ({
   label,
-  status,
+  status: rawStatus,
   items,
   selected,
   locked,
@@ -1092,41 +1092,42 @@ const FormRow = ({
   onSelect: (k: string) => void;
 }) => {
   const mask = useMaskStatus();
-  status = mask(status);
+  const status = mask(rawStatus);
   return (
-  <div className="space-y-1.5">
-    <div className="flex items-center justify-between">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-        {label}
-      </p>
-      <StatusPill status={status} />
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+          {label}
+        </p>
+        <StatusPill status={status} />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map(({ key, circle, label: l }) => {
+          const sel = selected === key;
+          const ok = sel && status === "correct";
+          const ng = sel && status === "wrong";
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              disabled={locked && !sel}
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all border disabled:opacity-30",
+                ok && "bg-primary/15 text-primary border-primary/40",
+                ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
+                !sel && "bg-secondary text-foreground border-transparent hover:bg-secondary/70",
+              )}
+            >
+              {circle && <span className="font-mono text-[12px] leading-none">{circle}</span>}
+              <span>{l}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
-    <div className="flex flex-wrap gap-1.5">
-      {items.map(({ key, circle, label: l }) => {
-        const sel = selected === key;
-        const ok = sel && status === "correct";
-        const ng = sel && status === "wrong";
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onSelect(key)}
-            disabled={locked && !sel}
-            className={cn(
-              "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all border disabled:opacity-30",
-              ok && "bg-primary/15 text-primary border-primary/40",
-              ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
-              !sel && "bg-secondary text-foreground border-transparent hover:bg-secondary/70",
-            )}
-          >
-            {circle && <span className="font-mono text-[12px] leading-none">{circle}</span>}
-            <span>{l}</span>
-          </button>
-        );
-      })}
-    </div>
-  </div>
-);
+  );
+};
 
 const ElementRow = ({
   items,
