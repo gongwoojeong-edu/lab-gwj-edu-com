@@ -6,8 +6,9 @@ import type { WordAnswer } from "@/data/sentences";
 
 const STORAGE_KEY = "gwj.customAnswers.v1";
 
-// tokenId 기준 — Partial 로 부분 정답 저장 가능
-export type CustomAnswerMap = Record<string, Partial<WordAnswer>>;
+// tokenId 기준 — 자유 형태로 저장 (POS 변경 시 다른 필드 키들도 들어올 수 있음)
+export type CustomAnswerPatch = Record<string, unknown>;
+export type CustomAnswerMap = Record<string, CustomAnswerPatch>;
 
 export const loadCustomAnswers = (): CustomAnswerMap => {
   if (typeof window === "undefined") return {};
