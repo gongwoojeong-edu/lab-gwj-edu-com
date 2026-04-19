@@ -893,54 +893,92 @@ const RoleRow = ({
 }: {
   unlocked: boolean;
   status: StepStatus;
-  options: string[];
+  options: RoleOption[];
   selected: string | null;
   onSelect: (r: string) => void;
-}) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center justify-between">
-      <p
+}) => {
+  const renderButton = (value: string, displayLabel: string) => {
+    const sel = selected === value;
+    const ok = sel && status === "correct";
+    const ng = sel && status === "wrong";
+    return (
+      <button
+        key={value}
+        type="button"
+        onClick={() => onSelect(value)}
+        disabled={status === "correct" && !sel}
         className={cn(
-          "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
-          unlocked ? "text-muted-foreground" : "text-muted-foreground/40",
+          "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+          ok && "bg-primary/15 text-primary",
+          ng && "bg-destructive/10 text-destructive animate-pulse",
+          !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
         )}
       >
-        {!unlocked && <Lock className="size-2.5" />}
-        Layer 03b · 세부역할
-      </p>
-      <StatusPill status={status} />
-    </div>
-    {!unlocked ? (
-      <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
-        이전 단계 정답 후 열립니다.
-      </p>
-    ) : (
-      <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1 animate-in fade-in duration-200">
-        {options.map((r) => {
-          const sel = selected === r;
-          const ok = sel && status === "correct";
-          const ng = sel && status === "wrong";
-          return (
-            <button
-              key={r}
-              type="button"
-              onClick={() => onSelect(r)}
-              disabled={status === "correct" && !sel}
-              className={cn(
-                "px-2 py-1 rounded-md border text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
-                ok && "border-element-o bg-element-o-bg text-element-o",
-                ng && "border-destructive bg-destructive/10 text-destructive animate-pulse",
-                !sel && "border-border bg-card text-foreground hover:border-primary/30",
-              )}
-            >
-              {r}
-            </button>
-          );
-        })}
+        {displayLabel}
+      </button>
+    );
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <p
+          className={cn(
+            "text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 font-kr",
+            unlocked ? "text-muted-foreground" : "text-muted-foreground/40",
+          )}
+        >
+          {!unlocked && <Lock className="size-2.5" />}
+          Layer 03b · 세부역할
+        </p>
+        <StatusPill status={status} />
       </div>
-    )}
-  </div>
-);
+      {!unlocked ? (
+        <p className="text-[11px] text-muted-foreground/60 italic font-kr px-1">
+          이전 단계 정답 후 열립니다.
+        </p>
+      ) : (
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 animate-in fade-in duration-200">
+          {/* Flat (ungrouped) buttons together in a grid */}
+          {(() => {
+            const flat = options.filter((o): o is string => typeof o === "string");
+            if (flat.length === 0) return null;
+            return (
+              <div className="grid grid-cols-2 gap-1.5">
+                {flat.map((r) => renderButton(r, r))}
+              </div>
+            );
+          })()}
+
+          {/* Grouped sections: non-clickable header + grid of items */}
+          {options
+            .filter(
+              (o): o is { header: string; items: string[] } => typeof o !== "string",
+            )
+            .map((group) => (
+              <div
+                key={group.header}
+                className="flex items-start gap-2 py-0.5"
+              >
+                <span
+                  className="shrink-0 min-w-[40px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none"
+                  aria-hidden
+                >
+                  {group.header}
+                </span>
+                <div className="flex-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
+                  {group.items.map((item) => {
+                    const value = `${group.header} ${item}`;
+                    return renderButton(value, item);
+                  })}
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CompletionBlock = ({ label }: { label: string }) => (
   <div className="rounded-xl bg-element-o-bg border border-element-o/30 p-2.5 text-center">
