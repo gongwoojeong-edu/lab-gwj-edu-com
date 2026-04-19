@@ -194,9 +194,10 @@ export const SENTENCES: Sentence[] = [
       W("the era of patronage"),
       P(";"),
       A("s1-5", "however", {
-        pos: "기타",
-        kind: "접속",
-        role: "병렬",
+        pos: "부사",
+        form: "부사",
+        subtype: "접속부사",
+        role: "부사",
         koreanLabel: "접속부사",
       }),
       P(","),
