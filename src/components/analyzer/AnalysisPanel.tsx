@@ -468,7 +468,7 @@ export const AnalysisPanel = ({
           {POS_LIST.map(({ key, circle, label }) => {
             const isSelected = pos === key;
             const isCorrect = isSelected && posCorrect;
-            const isWrong = isSelected && posStatus === "wrong";
+            const isWrong = !answerInputMode && isSelected && posStatus === "wrong";
             const lockedOther = posCorrect && !isSelected;
             const disabled = lockedOther;
 
