@@ -1,45 +1,83 @@
 
-사용자 질문: "정답 입력을 내가 직접 하는 기능은 어디에 있어?"
+## 요청 정리
 
-## 현재 상황 파악
+누적 선택 로직은 그대로 두고, 나머지 4개 기능을 한 번에 통합:
+1. 정답 입력 모드 토글 + localStorage 저장
+2. 지우개 버튼 (선택 단어들의 분석 초기화)
+3. Layer 3A/3B 평탄화 (2-클릭 시스템) — 명사/형용사
+4. [접SV] 선택 시 절 범위에 굵은 [ ] 괄호 표시
 
-이전 대화에서 사용자가 여러 번 "Manual Input Mode" / "수동 정답 입력"을 요청했지만, 실제로는 구현되지 않았습니다. 현재 코드는:
+## 현재 상태 점검
 
-- `src/data/sentences.ts`에 정답이 하드코딩되어 있음
-- `Index.tsx`의 분석 패널은 **사용자가 고른 답이 정답과 맞는지 채점**만 함 (OK/Try 표시)
-- 사용자가 직접 "이게 정답이다"라고 저장하는 기능은 **없음**
+- ✅ `src/lib/customAnswers.ts` 이미 존재 (load/save/upsert/merge)
+- ✅ `Index.tsx`에 `answerInputMode` state, 헤더 토글, 노란 배너, 정답 초기화 버튼이 이전 승인된 플랜에서 구현됨 (요약 기준)
+- ❓ 지우개 버튼 — 이전에 추가된 듯하나 동작이 모호하다는 피드백 있었음. 현재 구현 점검 필요
+- ❌ Layer 3A/3B 평탄화 — 미구현 (직전 플랜은 거절됨, 이번 메시지로 재요청)
+- ❌ [접SV] 괄호 표시 — 미구현
 
-즉, 시뮬레이션 중에 사용자가 직접 정답을 입력/저장할 방법이 없습니다.
+## 구현 계획
 
-## 제안: "정답 직접 입력 모드" 추가
+### 1) 정답 입력 모드 (이미 있음 → 점검만)
+- 헤더 토글, 노란 배너, `[정답 초기화]` 버튼이 정상 동작하는지 코드 확인 후 누락 시 보완
+- 모든 핸들러(`handleNounElementRole` 신규 포함)가 `answerInputMode`일 때 `upsertCustomAnswer`로 즉시 저장
 
-화면 상단에 **[✏️ 정답 입력 모드]** 토글 버튼을 추가합니다.
+### 2) 지우개 (Eraser)
+- 헤더 또는 sentence 영역 위에 `[지우개]` 버튼
+- 동작: `selectedWordIndices`에 포함된 토큰들의 `progressMap` 항목 삭제 → SVOC 태그·색상·괄호 모두 사라짐
+- 선택 상태(보라 하이라이트)는 유지 → 사용자가 같은 단어로 다시 분석 가능
+- 선택 0개일 때 disabled
 
-### 동작 방식
+### 3) Layer 3A+3B 평탄화 (명사/형용사)
 
-| 모드 | 패널 클릭 시 동작 |
+`AnalysisPanel.tsx`의 `NounPanel`/`AdjPanel` 03 영역을 다음 구조로 교체:
+
+```text
+03 | Function & Role
+─────────────────────────────────
+[S 주어 ▸]   [주어] [가주어] [진주어]
+[O 목적어 ▸] [목적어] [간접목적어] [직접목적어]
+[C 보어 ▸]   [주격보어] [목적격보어]
+[M 수식어]   ← 단독 클릭 = 즉시 완료
+─────────────────────────────────
+```
+
+- 좌측: element 라벨(클릭 불가, 헤더 역할)
+- 우측: 그 element의 role 후보 버튼들 (form별로 동적 계산)
+- 모든 role 후보를 form 선택 직후 한 화면에 노출
+- role 버튼 클릭 1회로 element+role 동시 저장 + `completed: true` (Shape → Role = 2클릭)
+- M은 단일 버튼이며 클릭 즉시 완료, 색상/태그 미부여
+
+`Index.tsx`에 신규 핸들러:
+```ts
+handleNounElementRole(element, role)  // 두 단계를 한 번에 처리
+handleAdjElementRole(element, role)
+```
+- 채점 모드: 둘 다 정답이면 correct + completed, 아니면 wrong
+- 정답 입력 모드: 채점 없이 둘 다 저장 + completed
+- M: role 없이 element만 저장 + completed, 색/태그 부여 안 함
+
+### 4) [접SV] 괄호 표시
+
+- 동사의 특수 분류 또는 별도 POS 선택지로 `접SV`(접속사+SV 절) 처리
+- 선택된 단어 범위(연속이든 비연속이든 포함된 인덱스의 min~max)를 절 범위로 저장: `clauseRanges: { start, end }[]`
+- 렌더 시 절 시작 토큰 앞에 `[ `, 끝 토큰 뒤에 `]` 출력 (굵게, 보라색)
+- `progressMap`에 `clause: true` 또는 `Index.tsx` state `clauseBrackets`에 저장 → 정답 입력 모드면 `customAnswers`에도 보관
+
+확인이 필요한 점: 현재 `POS` 목록에 `접SV`가 있는지, 아니면 신규 추가해야 하는지. 코드 점검 후 결정.
+
+## 변경 파일
+
+| 파일 | 변경 |
 |---|---|
-| **학습 모드** (기본) | 현재처럼 채점 (OK / Try 표시) |
-| **정답 입력 모드** (ON) | 클릭한 항목이 즉시 그 단어의 "정답"으로 저장됨. 채점 없음. |
+| `src/pages/Index.tsx` | 지우개 버튼+핸들러, `handleNounElementRole`/`handleAdjElementRole` 신규, [접SV] 절 범위 state·저장·렌더, 정답 모드 보강 |
+| `src/components/analyzer/AnalysisPanel.tsx` | `NounPanel`/`AdjPanel` 03 영역을 element-header + role-buttons 평탄 그리드로 교체. M 단독 버튼. `[접SV]` 옵션이 동사 패널에 없으면 추가 |
+| `src/lib/customAnswers.ts` | 절 범위 저장용 헬퍼 추가(필요 시) |
 
-### 저장 위치
-- 브라우저 `localStorage`에 세션 단위로 저장 (`customAnswers` 키)
-- 새로고침해도 유지, 원할 때 `[정답 초기화]` 버튼으로 리셋
-- 원본 `sentences.ts`는 건드리지 않음 — 런타임 오버레이만
-
-### UI 변경
-1. 헤더 우측에 토글 스위치: `정답 입력 모드 [OFF/ON]`
-2. ON일 때 패널 상단에 노란 배너 표시: `"정답 입력 모드 — 선택한 항목이 정답으로 저장됩니다"`
-3. ON일 때 채점 표시(OK/Try) 숨김, 단어에는 `bg-yellow-100` 같은 옅은 표시
-4. 헤더에 `[저장된 정답 초기화]` 버튼 (정답 입력 모드일 때만 노출)
-
-### 변경 파일
-- `src/pages/Index.tsx` — 모드 상태, localStorage 훅, 헤더 토글 추가, 답 저장/머지 로직
-- `src/components/analyzer/AnalysisPanel.tsx` — 모드 prop 받아서 채점 대신 즉시 저장 호출
-- 작은 헬퍼 `src/lib/customAnswers.ts` — load/save/clear 유틸
-
-### 진행 범위
-- ✅ 정답 입력 토글 + localStorage 저장
-- ✅ 두 모드 전환 (학습/정답입력)
-- ✅ 정답 초기화 버튼
-- ❌ 정답을 파일로 export 하거나 서버 저장은 제외 (요청 시 추후 추가)
+## 진행 범위
+- ✅ 정답 입력 모드 점검·보완
+- ✅ 지우개(분석만 지움, 선택 유지)
+- ✅ 명사/형용사 03 평탄화 (2클릭)
+- ✅ M 즉시 완료(태그·색 없음)
+- ✅ [접SV] 절 굵은 [ ] 괄호 + 데이터 저장
+- ❌ 부사·기타 패널은 이미 평탄 → 변경 없음
+- ❌ 누적 선택 로직은 손대지 않음
