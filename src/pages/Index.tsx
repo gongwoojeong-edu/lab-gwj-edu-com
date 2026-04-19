@@ -1189,7 +1189,9 @@ const Index = () => {
           <DrawerContent className="max-h-[75vh]">
             <DrawerTitle className="sr-only">단어 분석</DrawerTitle>
             <div className="px-3 pb-4 pt-2 overflow-y-auto">
-              <AnalysisPanel {...panelProps} />
+              <AnswerInputModeProvider value={answerInputMode}>
+                <AnalysisPanel {...panelProps} />
+              </AnswerInputModeProvider>
             </div>
           </DrawerContent>
         </Drawer>
