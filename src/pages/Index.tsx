@@ -182,40 +182,55 @@ const Index = () => {
     }
   };
 
-  // ===== Drag 처리 =====
-  const handleDragStart = (idx: number) => {
-    setDragStart(idx);
-    setDragEnd(idx);
-  };
-  const handleDragEnter = (idx: number) => {
-    if (dragStart !== null) setDragEnd(idx);
-  };
-  const handleDragEnd = () => {
-    if (dragStart === null || dragEnd === null) return;
-    const lo = Math.min(dragStart, dragEnd);
-    const hi = Math.max(dragStart, dragEnd);
-    // 범위 내 첫 번째 analyzable 토큰 선택
-    let pickedId: string | null = null;
-    for (let i = lo; i <= hi; i++) {
-      const t = sentence.tokens[i];
-      if (t && t.type === "analyzable") {
-        pickedId = t.id;
-        break;
-      }
+  // ===== 단어 인덱스 → analyzable token 매칭 =====
+  const resolveTokenFromIndices = (indices: number[]): string | null => {
+    if (indices.length === 0) return null;
+    const sorted = [...indices].sort((a, b) => a - b);
+    const tokenIdCounts: Record<string, number> = {};
+    for (const i of sorted) {
+      const u = wordUnits[i];
+      if (u?.tokenId) tokenIdCounts[u.tokenId] = (tokenIdCounts[u.tokenId] ?? 0) + 1;
     }
-    setDragStart(null);
-    setDragEnd(null);
-    if (pickedId) handleSelect(pickedId);
+    const tokenIds = Object.keys(tokenIdCounts);
+    if (tokenIds.length === 0) return null;
+    // 가장 많은 단어가 속한 토큰 선택
+    return tokenIds.sort((a, b) => tokenIdCounts[b] - tokenIdCounts[a])[0];
   };
 
-  // 전역 mouseup 보정 (드래그가 빈 영역에서 끝날 때)
+  // ===== 단어 단위 드래그 선택 =====
+  const handleWordMouseDown = (idx: number) => {
+    if (isPunct(wordUnits[idx].word)) return;
+    setDragStart(idx);
+    setSelectedWordIndices([idx]);
+  };
+  const handleWordMouseEnter = (idx: number) => {
+    if (dragStart === null) return;
+    const lo = Math.min(dragStart, idx);
+    const hi = Math.max(dragStart, idx);
+    const range: number[] = [];
+    for (let i = lo; i <= hi; i++) {
+      if (!isPunct(wordUnits[i].word)) range.push(i);
+    }
+    setSelectedWordIndices(range);
+  };
+  const finalizeSelection = (indices: number[]) => {
+    setDragStart(null);
+    const tid = resolveTokenFromIndices(indices);
+    if (tid) handleSelect(tid);
+    else setSelectedId(null);
+  };
+  const handleWordMouseUp = () => {
+    if (dragStart === null) return;
+    finalizeSelection(selectedWordIndices);
+  };
+
   useEffect(() => {
     if (!isDragging) return;
-    const onUp = () => handleDragEnd();
+    const onUp = () => finalizeSelection(selectedWordIndices);
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDragging, dragStart, dragEnd]);
+  }, [isDragging, selectedWordIndices]);
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
