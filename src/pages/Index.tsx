@@ -40,6 +40,17 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Switch } from "@/components/ui/switch";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   loadCustomAnswers,
   upsertCustomAnswer,
   clearCustomAnswers,
@@ -137,7 +148,12 @@ const Index = () => {
     clearCustomAnswers();
     setCustomAnswers({});
     setProgressMap({});
-    toast({ title: "저장된 정답을 초기화했습니다." });
+    setSelectedId(null);
+    setSelectedWordIndices([]);
+    toast({
+      title: "정답 데이터를 모두 삭제했습니다",
+      description: "이제 처음부터 새로 입력할 수 있습니다.",
+    });
   };
 
   // ===== 단어 단위 다중 선택 =====
@@ -751,15 +767,38 @@ const Index = () => {
               />
             </label>
             {answerInputMode && (
-              <button
-                type="button"
-                onClick={resetCustomAnswers}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-                title="저장된 모든 정답을 지웁니다"
-              >
-                <RotateCcw className="size-3" />
-                정답 초기화
-              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+                    title="저장된 모든 정답을 지웁니다"
+                  >
+                    <RotateCcw className="size-3" />
+                    정답 초기화
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="font-kr">
+                      모든 정답 데이터를 삭제할까요?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="font-kr">
+                      저장된 모든 customAnswers가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+                      처음부터 다시 입력하시겠습니까?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="font-kr">취소</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={resetCustomAnswers}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-kr"
+                    >
+                      모두 삭제
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
             <AdminHintToggle />
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
