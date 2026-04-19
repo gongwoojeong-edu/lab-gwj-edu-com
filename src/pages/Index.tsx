@@ -779,6 +779,18 @@ const Index = () => {
     onVerbConfirm: handleVerbConfirm,
   };
 
+  const completedSelectionOwnerByIndex = useMemo(() => {
+    const ownerMap: Record<number, string> = {};
+
+    Object.entries(completedSelectionMap).forEach(([ownerId, indices]) => {
+      indices.forEach((index) => {
+        ownerMap[index] = ownerId;
+      });
+    });
+
+    return ownerMap;
+  }, [completedSelectionMap]);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -926,7 +938,7 @@ const Index = () => {
           {(() => null)()}
           <div
             className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1 select-none"
-            onMouseLeave={() => isDragging && finalizeSelection(selectedWordIndices)}
+            onMouseLeave={() => isDragging && finalizeSelection()}
           >
             {wordUnits.map((u, idx) => {
               const word = u.word;
