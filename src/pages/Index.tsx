@@ -276,6 +276,25 @@ const Index = () => {
         ...prev.adv,
         form: f,
         formStatus: correct ? "correct" : "wrong",
+        subtype: correct ? prev.adv.subtype : null,
+        subtypeStatus: "idle",
+        role: correct ? prev.adv.role : null,
+        roleStatus: "idle",
+      },
+      completed: false,
+    }));
+  };
+
+  const handleAdvSubtype = (s: AdvSubtype) => {
+    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    const ans = selectedToken.answer as AdvAnswer;
+    const correct = ans.subtype === s;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adv: {
+        ...prev.adv,
+        subtype: s,
+        subtypeStatus: correct ? "correct" : "wrong",
         role: correct ? prev.adv.role : null,
         roleStatus: "idle",
       },
