@@ -186,10 +186,14 @@ const Index = () => {
   const completedCount = analyzableIds.filter((id) => progressMap[id]?.completed).length;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
 
-  const selectedToken = sentence.tokens.find(
+  const selectedTokenRaw = sentence.tokens.find(
     (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
       t.type === "analyzable" && t.id === selectedId,
   );
+  // 정답 입력 모드에서 저장된 정답을 머지한 토큰
+  const selectedToken = selectedTokenRaw
+    ? { ...selectedTokenRaw, answer: mergeAnswer(selectedTokenRaw.answer, customAnswers[selectedTokenRaw.id]) }
+    : undefined;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
@@ -197,6 +201,12 @@ const Index = () => {
       ...prev,
       [id]: updater(prev[id] ?? emptyProgress()),
     }));
+  };
+
+  // 정답 입력 모드에서 한 필드를 저장
+  const saveCustom = (tokenId: string, patch: Record<string, unknown>) => {
+    const next = upsertCustomAnswer(tokenId, patch);
+    setCustomAnswers(next);
   };
 
   const handleSelect = (id: string) => {
