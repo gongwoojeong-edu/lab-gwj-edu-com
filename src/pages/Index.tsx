@@ -142,7 +142,7 @@ const Index = () => {
         </div>
       </nav>
 
-      <div className="lg:hidden sticky top-[68px] z-40 px-4 pt-2">
+      <div className="lg:hidden px-4 pt-2 pb-1">
         <div className="max-w-7xl mx-auto">
           <AnalysisPanel
             selectedWord={selectedToken?.text ?? null}
