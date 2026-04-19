@@ -319,6 +319,7 @@ export const AnalysisPanel = ({
   onAdjRoleChange,
   adv,
   onAdvFormChange,
+  onAdvSubtypeChange,
   onAdvRoleChange,
   etc,
   onEtcKindChange,
@@ -387,6 +388,7 @@ export const AnalysisPanel = ({
           answer={answer as AdvAnswer}
           adv={adv}
           onAdvFormChange={onAdvFormChange}
+          onAdvSubtypeChange={onAdvSubtypeChange}
           onAdvRoleChange={onAdvRoleChange}
         />
       );
