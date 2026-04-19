@@ -18,6 +18,7 @@ import {
   type NounForm,
   type AdjForm,
   type AdvForm,
+  type AdvSubtype,
   type EtcKind,
   type SentenceElement,
   type VerbNumber,
@@ -69,8 +70,10 @@ const emptyAdj = (): AdjProgress => ({
 
 const emptyAdv = (): AdvProgress => ({
   form: null,
+  subtype: null,
   role: null,
   formStatus: "idle",
+  subtypeStatus: "idle",
   roleStatus: "idle",
 });
 
