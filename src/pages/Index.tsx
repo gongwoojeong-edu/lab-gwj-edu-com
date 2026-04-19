@@ -632,7 +632,37 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <label
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm cursor-pointer transition-colors",
+                answerInputMode
+                  ? "bg-primary/10 border-primary/40"
+                  : "bg-card border-border",
+              )}
+              title="정답 입력 모드: 클릭한 항목이 정답으로 저장됩니다"
+            >
+              <Pencil className={cn("size-3.5", answerInputMode ? "text-primary" : "text-muted-foreground")} />
+              <span className={cn("text-[11px] font-bold font-kr", answerInputMode ? "text-primary" : "text-muted-foreground")}>
+                정답 입력
+              </span>
+              <Switch
+                checked={answerInputMode}
+                onCheckedChange={setAnswerInputMode}
+                className="scale-75 -my-1"
+              />
+            </label>
+            {answerInputMode && (
+              <button
+                type="button"
+                onClick={resetCustomAnswers}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+                title="저장된 모든 정답을 지웁니다"
+              >
+                <RotateCcw className="size-3" />
+                정답 초기화
+              </button>
+            )}
             <AdminHintToggle />
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
               <div className="size-2 rounded-full bg-element-o animate-pulse" />
