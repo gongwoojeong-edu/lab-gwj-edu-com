@@ -708,51 +708,114 @@ const EtcPanel = ({
   onEtcKindChange,
   onEtcRoleChange,
 }: EtcPanelProps) => {
-  const kindCorrect = etc.kindStatus === "correct";
-  const roleOptions = etc.kind ? ETC_ROLES_BY_KIND[etc.kind] : [];
+  const done = etc.roleStatus === "correct";
+
+  // 한 번 클릭으로 kind + role 동시 설정
+  const handlePick = (kind: EtcKind, value: string) => {
+    if (etc.kind !== kind) onEtcKindChange(kind);
+    // kind change가 비동기일 수 있어, 다음 tick에 role 설정
+    setTimeout(() => onEtcRoleChange(value), 0);
+  };
+
   return (
     <>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-            Layer 02 · 종류
+            Layer 02·03 · 종류 / 세부역할
           </p>
-          <StatusPill status={etc.kindStatus} />
+          <StatusPill status={etc.roleStatus} />
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {ETC_KINDS.map(({ key, label }) => {
-            const sel = etc.kind === key;
-            const ok = sel && etc.kindStatus === "correct";
-            const ng = sel && etc.kindStatus === "wrong";
+        <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
+          {ETC_KINDS.map(({ key: kind, label: kindLabel }) => {
+            const options = ETC_ROLES_BY_KIND[kind] ?? [];
+            // 평탄화: 모든 옵션을 { value, display } 버튼 목록으로
+            const buttons: { value: string; display: string; group?: string }[] = [];
+            options.forEach((opt) => {
+              if (typeof opt === "string") {
+                opt
+                  .split("/")
+                  .map((p) => p.trim())
+                  .filter(Boolean)
+                  .forEach((p) => buttons.push({ value: p, display: p }));
+              } else {
+                opt.items.forEach((item) => {
+                  item
+                    .split("/")
+                    .map((p) => p.trim())
+                    .filter(Boolean)
+                    .forEach((p) =>
+                      buttons.push({
+                        value: `${opt.header} ${p}`,
+                        display: p,
+                        group: opt.header,
+                      }),
+                    );
+                });
+              }
+            });
+
+            // group이 있는 경우 group별로 묶기
+            const grouped = new Map<string | undefined, typeof buttons>();
+            buttons.forEach((b) => {
+              const arr = grouped.get(b.group) ?? [];
+              arr.push(b);
+              grouped.set(b.group, arr);
+            });
+
             return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onEtcKindChange(key)}
-                disabled={kindCorrect && !sel}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-[11px] font-bold font-kr transition-all border disabled:opacity-30",
-                  ok && "bg-primary/15 text-primary border-primary/40",
-                  ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
-                  !sel && "bg-secondary text-foreground border-transparent hover:bg-secondary/70",
-                )}
+              <div
+                key={kind}
+                className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0"
               >
-                {label}
-              </button>
+                {/* 좌측 고정 헤더 (클릭 불가) */}
+                <span
+                  className="shrink-0 w-[58px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none"
+                  aria-hidden
+                >
+                  {kindLabel}
+                </span>
+                {/* 우측 버튼 그리드 */}
+                <div className="flex-1 space-y-1">
+                  {Array.from(grouped.entries()).map(([groupHeader, items]) => (
+                    <div key={groupHeader ?? "_flat"} className="flex items-start gap-1.5">
+                      {groupHeader && (
+                        <span className="shrink-0 w-[52px] pt-1 text-[10px] font-semibold font-kr text-muted-foreground/70 select-none">
+                          {groupHeader}
+                        </span>
+                      )}
+                      <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                        {items.map((b) => {
+                          const sel = etc.kind === kind && etc.role === b.value;
+                          const ok = sel && done;
+                          const ng = sel && etc.roleStatus === "wrong";
+                          return (
+                            <button
+                              key={`${kind}-${b.value}`}
+                              type="button"
+                              onClick={() => handlePick(kind, b.value)}
+                              disabled={done && !sel}
+                              className={cn(
+                                "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+                                ok && "bg-primary/15 text-primary",
+                                ng && "bg-destructive/10 text-destructive animate-pulse",
+                                !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+                              )}
+                            >
+                              {b.display}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             );
           })}
         </div>
       </div>
-      <RoleRow
-        unlocked={kindCorrect}
-        status={etc.roleStatus}
-        options={roleOptions}
-        selected={etc.role}
-        onSelect={onEtcRoleChange}
-      />
-      {etc.roleStatus === "correct" && (
-        <CompletionBlock label={answer.koreanLabel} />
-      )}
+      {done && <CompletionBlock label={answer.koreanLabel} />}
     </>
   );
 };
