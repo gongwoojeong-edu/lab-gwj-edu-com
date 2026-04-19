@@ -1358,8 +1358,10 @@ const VerbPanel = ({
   onVerbToggleProVerb,
   onVerbConfirm,
 }: VerbPanelProps) => {
-  const confirmed = verb.confirmStatus === "correct";
-  const wrong = verb.confirmStatus === "wrong";
+  const mask = useMaskStatus();
+  const verbConfirmStatus = mask(verb.confirmStatus);
+  const confirmed = verbConfirmStatus === "correct";
+  const wrong = verbConfirmStatus === "wrong";
 
   const Row = ({
     label,
