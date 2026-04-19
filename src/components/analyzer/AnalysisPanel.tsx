@@ -385,6 +385,7 @@ export const AnalysisPanel = ({
     );
   }
 
+  const answerInputMode = useAnswerInputMode();
   const posCorrect = posStatus === "correct";
   const isNoun = posCorrect && answer.pos === "명사";
   const isVerb = posCorrect && answer.pos === "동사";
