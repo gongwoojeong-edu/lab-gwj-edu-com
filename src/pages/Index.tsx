@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { WordChip } from "@/components/analyzer/WordChip";
 import {
   AnalysisPanel,
   type NounProgress,
+  type AdjProgress,
+  type AdvProgress,
+  type EtcProgress,
   type VerbProgress,
   type StepStatus,
 } from "@/components/analyzer/AnalysisPanel";
@@ -10,22 +13,38 @@ import { KoreanHintButton } from "@/components/analyzer/KoreanHintButton";
 import { AdminHintToggle } from "@/components/analyzer/AdminHintToggle";
 import {
   SENTENCES,
+  INTERNAL_OBJECT_ROLES,
   type POS,
   type NounForm,
+  type AdjForm,
+  type AdvForm,
+  type EtcKind,
   type SentenceElement,
   type VerbNumber,
   type VerbTense,
   type VerbAspect,
   type NounAnswer,
   type VerbAnswer,
+  type AdjAnswer,
+  type AdvAnswer,
+  type EtcAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type WordProgress = {
   pos: POS | null;
   posStatus: StepStatus;
   noun: NounProgress;
+  adj: AdjProgress;
+  adv: AdvProgress;
+  etc: EtcProgress;
   verb: VerbProgress;
   completed: boolean;
 };
@@ -36,6 +55,29 @@ const emptyNoun = (): NounProgress => ({
   role: null,
   formStatus: "idle",
   elementStatus: "idle",
+  roleStatus: "idle",
+});
+
+const emptyAdj = (): AdjProgress => ({
+  form: null,
+  element: null,
+  role: null,
+  formStatus: "idle",
+  elementStatus: "idle",
+  roleStatus: "idle",
+});
+
+const emptyAdv = (): AdvProgress => ({
+  form: null,
+  role: null,
+  formStatus: "idle",
+  roleStatus: "idle",
+});
+
+const emptyEtc = (): EtcProgress => ({
+  kind: null,
+  role: null,
+  kindStatus: "idle",
   roleStatus: "idle",
 });
 
@@ -52,6 +94,9 @@ const emptyProgress = (): WordProgress => ({
   pos: null,
   posStatus: "idle",
   noun: emptyNoun(),
+  adj: emptyAdj(),
+  adv: emptyAdv(),
+  etc: emptyEtc(),
   verb: emptyVerb(),
   completed: false,
 });
@@ -60,11 +105,18 @@ const arraysEqualSet = <T,>(a: T[], b: T[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
 
 const Index = () => {
+  const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const sentence = SENTENCES[sentenceIdx];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // 모바일에서 단어 선택 시 Drawer open
+  useEffect(() => {
+    if (isMobile && selectedId) setDrawerOpen(true);
+  }, [isMobile, selectedId]);
 
   const analyzableIds = useMemo(
     () =>
@@ -106,23 +158,25 @@ const Index = () => {
       pos: p,
       posStatus: correct ? "correct" : "wrong",
       noun: correct ? prev.noun : emptyNoun(),
+      adj: correct ? prev.adj : emptyAdj(),
+      adv: correct ? prev.adv : emptyAdv(),
+      etc: correct ? prev.etc : emptyEtc(),
       verb: correct ? prev.verb : emptyVerb(),
       completed: false,
     }));
   };
 
-  // ===== 명사 라인 =====
+  // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
-    if (!selectedId || !selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
     const ans = selectedToken.answer as NounAnswer;
     const correct = ans.form === f;
-    updateProgress(selectedId, (prev) => ({
+    updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
         form: f,
         formStatus: correct ? "correct" : "wrong",
-        // 다음 단계 리셋
         element: correct ? prev.noun.element : null,
         elementStatus: "idle",
         role: correct ? prev.noun.role : null,
@@ -133,10 +187,10 @@ const Index = () => {
   };
 
   const handleNounElement = (e: SentenceElement) => {
-    if (!selectedId || !selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
     const ans = selectedToken.answer as NounAnswer;
     const correct = ans.element === e;
-    updateProgress(selectedId, (prev) => ({
+    updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -150,24 +204,126 @@ const Index = () => {
   };
 
   const handleNounRole = (r: string) => {
-    if (!selectedId || !selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
     const ans = selectedToken.answer as NounAnswer;
     const correct = ans.role === r;
-    updateProgress(selectedId, (prev) => ({
+    updateProgress(selectedToken.id, (prev) => ({
       ...prev,
-      noun: {
-        ...prev.noun,
-        role: r,
-        roleStatus: correct ? "correct" : "wrong",
-      },
+      noun: { ...prev.noun, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
     }));
   };
 
-  // ===== 동사 라인 =====
+  // ===== 형용사 =====
+  const handleAdjForm = (f: AdjForm) => {
+    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    const ans = selectedToken.answer as AdjAnswer;
+    const correct = ans.form === f;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adj: {
+        ...prev.adj,
+        form: f,
+        formStatus: correct ? "correct" : "wrong",
+        element: correct ? prev.adj.element : null,
+        elementStatus: "idle",
+        role: correct ? prev.adj.role : null,
+        roleStatus: "idle",
+      },
+      completed: false,
+    }));
+  };
+
+  const handleAdjElement = (e: "C" | "M") => {
+    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    const ans = selectedToken.answer as AdjAnswer;
+    const correct = ans.element === e;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adj: {
+        ...prev.adj,
+        element: e,
+        elementStatus: correct ? "correct" : "wrong",
+        role: correct ? prev.adj.role : null,
+        roleStatus: "idle",
+      },
+      completed: false,
+    }));
+  };
+
+  const handleAdjRole = (r: string) => {
+    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    const ans = selectedToken.answer as AdjAnswer;
+    const correct = ans.role === r;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
+      completed: correct,
+    }));
+  };
+
+  // ===== 부사 =====
+  const handleAdvForm = (f: AdvForm) => {
+    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    const ans = selectedToken.answer as AdvAnswer;
+    const correct = ans.form === f;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adv: {
+        ...prev.adv,
+        form: f,
+        formStatus: correct ? "correct" : "wrong",
+        role: correct ? prev.adv.role : null,
+        roleStatus: "idle",
+      },
+      completed: false,
+    }));
+  };
+
+  const handleAdvRole = (r: string) => {
+    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    const ans = selectedToken.answer as AdvAnswer;
+    const correct = ans.role === r;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      adv: { ...prev.adv, role: r, roleStatus: correct ? "correct" : "wrong" },
+      completed: correct,
+    }));
+  };
+
+  // ===== 기타 =====
+  const handleEtcKind = (k: EtcKind) => {
+    if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    const ans = selectedToken.answer as EtcAnswer;
+    const correct = ans.kind === k;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      etc: {
+        ...prev.etc,
+        kind: k,
+        kindStatus: correct ? "correct" : "wrong",
+        role: correct ? prev.etc.role : null,
+        roleStatus: "idle",
+      },
+      completed: false,
+    }));
+  };
+
+  const handleEtcRole = (r: string) => {
+    if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    const ans = selectedToken.answer as EtcAnswer;
+    const correct = ans.role === r;
+    updateProgress(selectedToken.id, (prev) => ({
+      ...prev,
+      etc: { ...prev.etc, role: r, roleStatus: correct ? "correct" : "wrong" },
+      completed: correct,
+    }));
+  };
+
+  // ===== 동사 =====
   const toggleVerb = (mut: (v: VerbProgress) => VerbProgress) => {
-    if (!selectedId || !selectedToken || selectedToken.answer.pos !== "동사") return;
-    updateProgress(selectedId, (prev) => ({
+    if (!selectedToken || selectedToken.answer.pos !== "동사") return;
+    updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       verb: { ...mut(prev.verb), confirmStatus: "idle" },
       completed: false,
@@ -187,7 +343,7 @@ const Index = () => {
   const handleVerbProVerb = () => toggleVerb((v) => ({ ...v, proVerb: !v.proVerb }));
 
   const handleVerbConfirm = () => {
-    if (!selectedId || !selectedToken || selectedToken.answer.pos !== "동사") return;
+    if (!selectedToken || selectedToken.answer.pos !== "동사") return;
     const ans = selectedToken.answer as VerbAnswer;
     const v = progress.verb;
     const correct =
@@ -197,7 +353,7 @@ const Index = () => {
       (ans.voice === "수동") === v.voice &&
       (ans.proVerb ?? false) === v.proVerb;
 
-    updateProgress(selectedId, (prev) => ({
+    updateProgress(selectedToken.id, (prev) => ({
       ...prev,
       verb: { ...prev.verb, confirmStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -209,6 +365,7 @@ const Index = () => {
     setSentenceIdx(next);
     setSelectedId(null);
     setProgressMap({});
+    setDrawerOpen(false);
   };
 
   const panelProps = {
@@ -221,6 +378,16 @@ const Index = () => {
     onNounFormChange: handleNounForm,
     onNounElementChange: handleNounElement,
     onNounRoleChange: handleNounRole,
+    adj: progress.adj,
+    onAdjFormChange: handleAdjForm,
+    onAdjElementChange: handleAdjElement,
+    onAdjRoleChange: handleAdjRole,
+    adv: progress.adv,
+    onAdvFormChange: handleAdvForm,
+    onAdvRoleChange: handleAdvRole,
+    etc: progress.etc,
+    onEtcKindChange: handleEtcKind,
+    onEtcRoleChange: handleEtcRole,
     verb: progress.verb,
     onVerbToggleNumber: handleVerbNumber,
     onVerbToggleTense: handleVerbTense,
@@ -265,12 +432,7 @@ const Index = () => {
         </div>
       </nav>
 
-      <div className="lg:hidden px-4 pt-2 pb-1">
-        <div className="max-w-7xl mx-auto">
-          <AnalysisPanel {...panelProps} />
-        </div>
-      </div>
-
+      {/* Desktop: fixed top-right panel */}
       <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)]">
         <AnalysisPanel {...panelProps} />
       </div>
@@ -356,12 +518,21 @@ const Index = () => {
               const isCompleted = wp?.completed;
               const state = isSelected ? "selected" : isCompleted ? "completed" : "active";
 
-              // 완료 시 element 배지: 명사면 element, 동사면 "V"
-              const completedElement = isCompleted
-                ? token.answer.pos === "동사"
-                  ? "V"
-                  : (token.answer as NounAnswer).element
-                : undefined;
+              // 완료 시 element 배지 계산
+              let completedElement: "S" | "V" | "O" | "C" | "M" | undefined;
+              if (isCompleted) {
+                const a = token.answer;
+                if (a.pos === "동사") completedElement = "V";
+                else if (a.pos === "명사") {
+                  // 내부 목적어이면 배지 숨김
+                  if (!INTERNAL_OBJECT_ROLES.has(a.role)) {
+                    completedElement = a.element;
+                  }
+                } else if (a.pos === "형용사") {
+                  completedElement = a.element;
+                }
+                // 부사·기타는 배지 없음
+              }
 
               return (
                 <WordChip
@@ -416,10 +587,28 @@ const Index = () => {
         </div>
       </main>
 
+      {/* Mobile: bottom-sheet drawer */}
+      {isMobile && (
+        <Drawer
+          open={drawerOpen}
+          onOpenChange={(open) => {
+            setDrawerOpen(open);
+            if (!open) setSelectedId(null);
+          }}
+        >
+          <DrawerContent className="max-h-[75vh]">
+            <DrawerTitle className="sr-only">단어 분석</DrawerTitle>
+            <div className="px-3 pb-4 pt-2 overflow-y-auto">
+              <AnalysisPanel {...panelProps} />
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
+
       <footer className="max-w-7xl mx-auto px-6 lg:px-8 pb-10 pt-4">
         <div className="flex justify-between items-center border-t border-border pt-6 text-[11px] text-muted-foreground font-kr">
           <span className="font-bold tracking-widest font-kr">
-            공우정바른학원 · GWJ Syntax Master · v0.4
+            공우정바른학원 · GWJ Syntax Master · v0.5
           </span>
           <span className="italic">설명할 수 있어야 진짜 아는 것이다</span>
         </div>
