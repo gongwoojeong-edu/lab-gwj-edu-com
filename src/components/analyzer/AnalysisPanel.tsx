@@ -865,7 +865,7 @@ const AdvPanel = ({
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
             Layer 02·03 · 형태 / 세부역할
           </p>
-          <StatusPill status={adv.roleStatus} />
+          <StatusPill status={advRoleStatus} />
         </div>
         <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
           {ADV_FORMS.map(({ key: form, circle, label: formLabel }) => {
