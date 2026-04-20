@@ -430,16 +430,22 @@ const Index = () => {
       return;
     }
 
-    // 일반 경로: 새 빈 분석 시작 (다중 토큰 완료 영역과 충돌해도 상속 X)
+    // 일반 경로: 새 빈 분석 시작 — 단일 클릭은 항상 그 인덱스만 선택 (toggle X)
+    // shift/ctrl/meta 가 눌려있을 때만 기존 선택에 추가/토글
     setDragStart(idx);
+    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
     setSelectedWordIndices((prev) => {
       let next: number[];
-      if (prev.includes(idx)) {
-        next = prev.filter((i) => i !== idx);
+      if (additive) {
+        if (prev.includes(idx)) {
+          next = prev.filter((i) => i !== idx);
+        } else {
+          next = [...prev, idx].sort((a, b) => a - b);
+        }
       } else {
-        next = [...prev, idx].sort((a, b) => a - b);
+        // 단일 클릭: 무조건 그 인덱스 하나만 선택
+        next = [idx];
       }
-      // selectedId는 현재 선택의 동사 토큰 우선
       const sid = pickSelectedIdFromIndices(next);
       if (sid) {
         setSelectedId(sid);
