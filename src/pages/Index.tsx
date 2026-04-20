@@ -399,6 +399,24 @@ const Index = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // 데스크톱에서 분석 패널 강제 숨김/복구 토글 (`?` 단축키 / 플로팅 버튼)
+  const [analysisPanelHidden, setAnalysisPanelHidden] = useState(false);
+
+  // ===== `?` (Shift+/) 단축키로 분석 패널 토글 =====
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "?") return;
+      const t = e.target as HTMLElement | null;
+      if (t) {
+        const tag = t.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable) return;
+      }
+      e.preventDefault();
+      setAnalysisPanelHidden((v) => !v);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   // ===== 정답 입력 모드 =====
   // 관리자 편의: localStorage에 상태를 보존해 페이지/HMR 새로고침 후에도 유지
