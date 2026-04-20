@@ -1538,9 +1538,40 @@ const Index = () => {
                     }
                   >
                     {koreanLabel && (
-                      <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
-                        {koreanLabel}
-                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={cn(
+                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
+                              `sub-badge-pill-${innerLayerNum}`,
+                            )}
+                            style={{ top: `${innerBadgeTop}px` }}
+                          >
+                            {koreanLabel}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs font-kr">
+                          {koreanLabel}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {outerKoreanLabel && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={cn(
+                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
+                              `sub-badge-pill-${outerLayerNum}`,
+                            )}
+                            style={{ top: `${outerBadgeTop}px` }}
+                          >
+                            {outerKoreanLabel}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs font-kr">
+                          {outerKoreanLabel}
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     <span
                       className={cn(
