@@ -380,18 +380,34 @@ export const AnalysisPanel = ({
   onVerbToggleVoice,
   onVerbToggleProVerb,
   onVerbConfirm,
+  idiomEnabled,
+  idiomExistingMeaning,
+  onIdiomSave,
+  onIdiomRemove,
 }: AnalysisPanelProps) => {
+  const answerInputMode = useAnswerInputMode();
+
   if (!selectedWord || !answer) {
     return (
-      <aside className="glass-panel rounded-xl px-3 py-1.5 flex items-center justify-center text-center h-11">
-        <p className="text-[11px] text-muted-foreground font-kr">
-          단어를 선택하면 분석 메뉴가 활성화됩니다.
-        </p>
+      <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto">
+        {idiomEnabled && (
+          <IdiomSection
+            surface={selectedWord ?? ""}
+            existingMeaning={idiomExistingMeaning}
+            answerInputMode={answerInputMode}
+            onSave={onIdiomSave}
+            onRemove={onIdiomRemove}
+          />
+        )}
+        <div className="flex items-center justify-center text-center h-11">
+          <p className="text-[11px] text-muted-foreground font-kr">
+            단어를 선택하면 분석 메뉴가 활성화됩니다.
+          </p>
+        </div>
       </aside>
     );
   }
 
-  const answerInputMode = useAnswerInputMode();
   const posCorrect = posStatus === "correct";
   const isNoun = posCorrect && answer.pos === "명사";
   const isVerb = posCorrect && answer.pos === "동사";
