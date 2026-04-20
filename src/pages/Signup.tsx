@@ -25,7 +25,7 @@ const Signup = () => {
     e.preventDefault();
     const parsed = signupSchema.safeParse({ studentNo, displayName, password });
     if (!parsed.success) {
-      toast({ title: parsed.error.errors[0]?.message ?? "입력 오류", variant: "destructive" });
+      toast({ title: parsed.error.issues[0]?.message ?? "입력 오류", variant: "destructive" });
       return;
     }
     setSubmitting(true);

@@ -5,7 +5,7 @@ export type LearningStep = "pre" | "analysis" | "translation" | "wordtest" | "pa
 
 interface Props {
   current: LearningStep;
-  preDone: boolean;
+  preDone?: boolean;
   analysisDone: boolean;
   translationDone: boolean;
   wordTestDone: boolean;
@@ -21,7 +21,7 @@ const STEPS: { key: LearningStep; label: string }[] = [
 
 export const StepProgressBar = ({
   current,
-  preDone,
+  preDone = false,
   analysisDone,
   translationDone,
   wordTestDone,
