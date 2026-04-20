@@ -483,21 +483,36 @@ const Index = () => {
     finalizeSelection();
   };
 
-  // ===== 지우개: 선택된 단어들의 분석만 초기화 (숙어 마크는 유지) =====
+  // ===== 지우개: 선택된 인덱스를 덮는 모든 완료 owner를 일괄 삭제 =====
   const handleEraser = () => {
     const ownerIds = new Set<string>();
-    const indices = activeSelectionIndices.slice();
-    indices.forEach((i) => {
+    // active 또는 완료 영역 인덱스 모두 수집
+    const indices = new Set<number>(activeSelectionIndices);
+    // selectedId가 있고 그것의 완료 영역이 있다면 거기 인덱스도 추가
+    if (selectedId && completedSelectionMap[selectedId]) {
+      completedSelectionMap[selectedId].forEach((i) => indices.add(i));
+    }
+    const indicesArr = Array.from(indices);
+
+    // 1) 선택된 owner 자체
+    if (selectedId) ownerIds.add(selectedId);
+    // 2) 단일 토큰 owner들
+    indicesArr.forEach((i) => {
       const ownerId = buildOwnerId([i]);
       if (ownerId) ownerIds.add(ownerId);
     });
-    // 추가: 완료된 토큰 owner도 모두 포함 (selectedWordIndices가 완료 영역의 일부일 때)
-    indices.forEach((i) => {
-      const owner = Object.entries(completedSelectionMap).find(([, idxs]) =>
-        idxs.includes(i),
-      )?.[0];
-      if (owner) ownerIds.add(owner);
+    // 3) 어떤 인덱스라도 덮는 모든 완료 owner (단일/구/절 전부)
+    Object.entries(completedSelectionMap).forEach(([oid, idxs]) => {
+      if (idxs.some((i) => indicesArr.includes(i))) ownerIds.add(oid);
     });
+    // 4) progressMap에 진행 중이지만 아직 미완료인 owner도 (완료 없이 시작만 한 케이스)
+    if (selectedId && progressMap[selectedId]) ownerIds.add(selectedId);
+
+    if (ownerIds.size === 0) {
+      clearActiveSelection();
+      return;
+    }
+
     setProgressMap((prev) => {
       const next = { ...prev };
       ownerIds.forEach((id) => delete next[id]);
@@ -509,41 +524,23 @@ const Index = () => {
       return next;
     });
     // clauseStart/clauseEnd customAnswer도 함께 정리
-    if (ownerIds.size > 0) {
-      const nextCustom = { ...customAnswers };
-      let touched = false;
-      ownerIds.forEach((id) => {
-        const cur = nextCustom[id];
-        if (cur && ("clauseStart" in cur || "clauseEnd" in cur)) {
-          const { clauseStart: _cs, clauseEnd: _ce, ...rest } = cur as Record<string, unknown>;
-          nextCustom[id] = rest;
-          touched = true;
-        }
-      });
-      if (touched) {
-        setCustomAnswers(nextCustom);
-        // localStorage에도 반영
-        try {
-          window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
-        } catch {
-          /* ignore */
-        }
+    const nextCustom = { ...customAnswers };
+    let touched = false;
+    ownerIds.forEach((id) => {
+      if (nextCustom[id]) {
+        delete nextCustom[id];
+        touched = true;
+      }
+    });
+    if (touched) {
+      setCustomAnswers(nextCustom);
+      try {
+        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
+      } catch {
+        /* ignore */
       }
     }
-    // 관용구(브라운톤) — active 인덱스를 덮는 idiom 마크도 함께 제거
-    if (indices.length > 0) {
-      const sentenceMarks = idiomMap[sentence.id] ?? [];
-      const toRemove = sentenceMarks.filter((m) =>
-        m.indices.some((i) => indices.includes(i)),
-      );
-      if (toRemove.length > 0) {
-        let nextMap = idiomMap;
-        toRemove.forEach((m) => {
-          nextMap = removeIdiom(sentence.id, m.indices);
-        });
-        setIdiomMap(nextMap);
-      }
-    }
+    // 관용구는 별도 핸들러에서만 삭제 (지우개는 SVOC만)
     clearActiveSelection();
   };
 
