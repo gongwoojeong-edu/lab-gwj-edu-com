@@ -12,8 +12,10 @@ import {
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchAllStudents,
+  fetchStudentStatsMap,
   updateStudentStartLevel,
   type StudentProfile,
+  type StudentStats,
 } from "@/lib/studentProfile";
 import { useAuth, signOut } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
