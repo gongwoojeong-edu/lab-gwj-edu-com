@@ -358,12 +358,16 @@ const Index = () => {
   const [modifierMap, setModifierMap] = useState<ModifierTargetMap>({});
   /** [수식 대상 지정] 버튼이 켜진 source ownerId — 다음 단어 클릭이 target으로 캡처됨 */
   const [pendingModifierSource, setPendingModifierSource] = useState<string | null>(null);
-  const { showModifierArrows } = useHintSettings();
+  // ===== 지시어 화살표 (Referent Target, 대명사 전용) =====
+  const [referentMap, setReferentMap] = useState<ReferentTargetMap>({});
+  const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
+  const { showModifierArrows, showReferentArrows } = useHintSettings();
 
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
+    setReferentMap(loadReferentTargets());
   }, []);
 
   const resetCustomAnswers = () => {
