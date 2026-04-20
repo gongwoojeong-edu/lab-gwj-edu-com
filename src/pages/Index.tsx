@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AnalysisPanel,
   AnswerInputModeProvider,
+  IdiomSection,
   type NounProgress,
   type AdjProgress,
   type AdvProgress,
@@ -10,6 +11,7 @@ import {
   type VerbProgress,
   type StepStatus,
 } from "@/components/analyzer/AnalysisPanel";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { KoreanHintButton } from "@/components/analyzer/KoreanHintButton";
 import { AdminHintToggle } from "@/components/analyzer/AdminHintToggle";
 import {
