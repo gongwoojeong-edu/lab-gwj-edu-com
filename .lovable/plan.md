@@ -1,134 +1,185 @@
 
+
 ## 목표
 
-다음 3가지를 한 번에 정리합니다.
+1. 학습 흐름 제어 — 구문 분석 → 한글 해석 입력 → 단어 테스트(POST) → Pass 기록
+2. 우측 상단 `관용구` 버튼 제거 → 분석 메뉴 `기타` 항목 안으로 이동
+3. 부배지 마우스 드래그로 좌우 수동 조절 + 새로고침 후에도 위치 유지
+4. 형용사 분석 메뉴 하단에 `수식선 표시` 버튼 → 클릭 시 명사로 화살표 그리기
+5. 모든 데이터(분석 결과, 해석, 테스트, 부배지 위치, 진행 상태)를 Supabase에 실시간 저장
 
-1. `this day` 같은 단어에 남는 보라 배경이 지우개 후 완전히 사라지도록 수정
-2. `that has influenced`처럼 접속절 내부 다층 부배지가 겹치지 않도록 간격/배치 개선
-3. 명사의 `지시어` 버튼, 형용사의 `수식어 대상 지정` 버튼을 Layer 3 하단으로 내려 선택 가능하게 재배치
-
----
-
-## 1. 지우개 후 `this day` 보라 배경 잔상 제거
-
-### 원인
-현재 본문 배경은 `completedSelectionMap` 기준으로 레이어를 다시 그리는데, 지우개는 클릭한 위치의 owner만 지우더라도 같은 구간에 걸친 다른 owner/hydrated owner가 남아 있으면 `buildLayerBg()`가 계속 보라색을 생성할 수 있습니다. 특히 span owner와 단일 owner가 겹친 경우 잔상이 생기기 쉽습니다.
-
-### 변경
-`src/pages/Index.tsx`
-- 지우개 클릭 시 해당 인덱스를 덮는 완료 owner를 전부 수집하는 로직을 더 엄격하게 정리
-- 삭제 기준을 `completedSelectionMap` + `progressMap.completed` + 현재 문장 범위 owner로 통일
-- `eraseOwner()`에서 아래 상태를 반드시 함께 정리
-  - `progressMap`
-  - `completedSelectionMap`
-  - `customAnswers`
-  - `pendingPatchMap`
-  - `savedOwnerSet`
-  - `userLinkedOwnerSet`
-  - modifier / referent 관계
-- 삭제 직후 렌더에 남은 owner가 실제로 있는 경우만 배경이 그려지도록 `buildLayerBg()` 방어 조건 강화
-- 구두점/스페이서 배경 계산도 동일한 살아있는 owner 목록만 사용하도록 맞춤
-
-### 기대 결과
-- `to this day`, `solidify`처럼 이전에 분석했다가 지운 단어의 보라 배경이 완전히 사라짐
-- 단어/스페이서/구두점 중 일부만 남는 잔상도 같이 제거됨
+이 작업은 Lovable Cloud(Supabase) 활성화가 필요합니다. 승인 시 자동으로 활성화됩니다.
 
 ---
 
-## 2. 접속절 내부 다층 부배지 겹침 해결
+## 1. 학습 흐름 — 분석 → 해석 → 단어 테스트 → Pass
 
-### 원인
-현재 부배지는 같은 anchor 단어에 2개가 붙을 때만 단순히 좌우로 `±28px` 이동합니다. 실제 pill 너비나 단어 위치는 반영하지 않아 `that has influenced` 같은 구간에서 여전히 겹칩니다.
+### UI 흐름
+문장 상단에 단계 진행 바 추가:
+```
+[1. 구문 분석] → [2. 한글 해석] → [3. 단어 테스트] → ✅ Pass
+```
 
-### 변경
+### Step 1: 구문 분석
+- 기존 분석 화면 그대로
+- 모든 owner가 `completed`이고 미저장 변경 0개일 때 "다음: 한글 해석" 버튼 활성
+
+### Step 2: 한글 해석 입력
+- 문장 아래 `Textarea` + `해석 제출` 버튼
+- 제출 전엔 Step 3 버튼 잠금
+- 제출 시 `sentence_translations` 테이블에 저장
+
+### Step 3: 단어 테스트 (POST)
+- 해당 문장의 분석 owner 중 `명사/동사/형용사/부사` 단어를 자동 추출
+- 영단어 → 한글 의미 입력 카드 N개
+- 80% 이상 정답 시 통과
+- 결과를 `word_test_results`에 저장
+
+### Step 4: Pass 기록
+- 3단계 모두 완료 시 `sentence_progress` row의 `status='pass'`, `passed_at=now()` 업데이트
+- 헤더에 `✅ Pass` 뱃지
+
+### 신규 파일
+- `src/components/learning/StepProgressBar.tsx`
+- `src/components/learning/TranslationStep.tsx`
+- `src/components/learning/WordTestStep.tsx`
+- `src/lib/wordTestBuilder.ts` — 분석 결과에서 테스트 단어 추출
+
+---
+
+## 2. 관용구 버튼 → 분석 메뉴 `기타` 안으로
+
 `src/pages/Index.tsx`
-- 부배지 배치를 “2개면 left/right” 수준이 아니라, anchor 기준으로 각 pill의 순서별 오프셋을 계산하는 방식으로 변경
-- 같은 단어에 2개 이상 부배지가 걸리면 다음 규칙 적용
-  - Layer 1/외곽 badge는 anchor 근처 유지
-  - Layer 2, 3, 4 badge는 누적 간격으로 더 멀리 이동
-  - 단어가 문장 왼쪽에 가까우면 오른쪽 위주, 오른쪽에 가까우면 왼쪽 위주, 중앙이면 양쪽 분산
-- `data-shift="left|right"` 한 단계 대신, 예: `data-shift-step="0|1|2"` 또는 inline transform 값으로 거리 누적
-- anchor 단위로 부배지 개수를 세서 2개, 3개, 4개 모두 처리
+- 우측 상단 `📚 관용구 N` 버튼 + 다이얼로그 제거
+- 본문 하단 toolbar `🟫 관용구` Popover 제거
+
+`src/components/analyzer/AnalysisPanel.tsx`
+- `EtcPanel` 안에 관용구 섹션 추가
+  - 현재 선택 단어 → 관용구 등록/수정/삭제
+  - `📚 등록된 관용구 보기` 토글 → 전체 목록 노출 + 점프
+- props: `idiomEnabled`, `idiomExistingMeaning`, `onIdiomSave`, `onIdiomRemove`, `allIdioms`, `onJumpToIdiom`
+
+---
+
+## 3. 부배지 수동 드래그
+
+`src/pages/Index.tsx`
+- 부배지 pill에 `pointerdown / pointermove / pointerup` 핸들러 추가
+- 좌우(±)만 이동, 상하 잠금, 최대 ±150px
+- 더블클릭 시 `dx=0` 리셋
+- 지우개 모드일 땐 드래그 비활성
+- 적용: `style={{ transform: 'translateX({dx}px)' }}`
 
 `src/index.css`
-- `.sub-badge-row` gap 확대
-- `.sub-badge-pill` 좌우 margin/max-width 조정
-- shift 거리 1단계/2단계 규칙 추가
-- 필요 시 row의 top 위치를 소폭 더 위로 올려 badge와 본문 충돌도 완화
+- `.sub-badge-pill { cursor: grab; touch-action: none; }`
+- `.sub-badge-pill:active { cursor: grabbing; }`
 
-### 기대 결과
-- `that has influenced` 같은 다층 접속절 내부 부배지가 서로 겹치지 않음
-- 2층/3층 이상이 한 단어에 걸려도 간격이 유지됨
-- 기존 layer 색상/번호색은 그대로 유지
+저장: Supabase `badge_offsets` 테이블 (아래 5번)
 
 ---
 
-## 3. `지시어`, `수식어 대상 지정` 버튼을 Layer 3 하단으로 이동
+## 4. 형용사 `수식선 표시` 버튼
 
-### 원인
-현재 이 두 기능은 `AnalysisPanel` 상단 공통 영역에 렌더되어, Popover 내부의 Layer 02/03 버튼들 뒤쪽으로 밀리거나 선택 동선이 어색합니다.
+`src/components/analyzer/AnalysisPanel.tsx` `AdjPanel`
+- Layer 3 하단에 `🎯 수식선 표시` 버튼 추가
+- 노출 조건: `adj.role`이 `명사수식 / 명사앞수식 / 명사뒤수식` 계열일 때 (`roleStatus`와 무관하게 노출)
+- 클릭 → 부모에 `onStartModifierTarget(ownerId)` 전달 → 대상 명사 클릭 모드 진입 → 단어 클릭 시 화살표 생성
 
-### 변경
-`src/components/analyzer/AnalysisPanel.tsx`
-
-#### 명사 패널
-- 공통 상단의 `지시어 (대명사)` 블록을 제거
-- `NounPanel` 안에서 Layer 03 역할 선택 이후 하단에 별도 섹션으로 렌더
-- 노출 조건
-  - 명사 role이 `대명사`이거나 지시 대상이 필요한 명사 해석일 때만 표시
-- 위치
-  - `ElementRoleGrid` 바로 아래, 완료 라벨 위 또는 완료 라벨 바로 아래로 고정
-
-#### 형용사 패널
-- 현재 상단 공통의 `수식 화살표` 블록을 제거
-- `AdjPanel` 안에서 형용사 role이 `명사수식 / 명사앞수식 / 명사뒤수식`일 때 Layer 03 하단에 버튼 노출
-- 기존 안내문만 있는 카드 대신 실제 버튼/상태 UI까지 이 위치로 이동
-  - 지정
-  - 변경
-  - 삭제
-  - 취소
-  - 현재 대상 라벨
-
-#### 공통 구조 정리
-- `AnalysisPanel` 상단에는 품사/저장/선택 정보만 남기고
-- modifier/referent UI는 각 품사 패널의 문맥 안에서 렌더
-- 기존 prop 구조는 유지하고 렌더 위치만 품사별 하위 컴포넌트로 이동
-
-### 기대 결과
-- `대명사 지시어`, `형용사 수식어` 버튼이 뒤에 가려지지 않음
-- 사용 흐름이 “Layer 02/03 선택 → 바로 아래에서 대상 지정”으로 자연스러워짐
+`src/pages/Index.tsx`
+- 기존 `ArrowOverlay`가 modifier/referent 화살표를 이미 그리므로 트리거만 연결
+- 화살표 데이터는 `modifier_relations`, `referent_relations` 테이블로 저장
 
 ---
 
-## 변경 파일
+## 5. Supabase 실시간 저장 (Lovable Cloud)
 
-- `src/pages/Index.tsx`
-  - 지우개 삭제 범위 정리
-  - 살아있는 owner 기준 배경 계산 보강
-  - 부배지 오프셋 계산 로직 개선
-- `src/components/analyzer/AnalysisPanel.tsx`
-  - 지시어/수식어 대상 지정 UI를 상단 공통 영역에서 제거
-  - 명사/형용사 패널 내부 Layer 3 하단으로 재배치
-- `src/index.css`
-  - 부배지 row/pill 간격 확대
-  - 다단계 shift 스타일 추가
+### 신규 테이블
+
+#### `sentence_progress`
+| 컬럼 | 타입 |
+|---|---|
+| id | uuid pk |
+| user_id | uuid (auth.uid) |
+| sentence_id | text |
+| analysis_done | bool |
+| translation_done | bool |
+| word_test_done | bool |
+| status | text ('in_progress' / 'pass') |
+| passed_at | timestamptz |
+| updated_at | timestamptz |
+
+#### `owner_progress` (구문 분석 결과)
+| 컬럼 | 타입 |
+|---|---|
+| id | uuid pk |
+| user_id | uuid |
+| sentence_id | text |
+| owner_id | text |
+| progress | jsonb (POS, form, role, status 등) |
+| custom_answer | jsonb |
+| completed | bool |
+| updated_at | timestamptz |
+
+#### `sentence_translations`
+| user_id, sentence_id, text, submitted_at |
+
+#### `word_test_results`
+| user_id, sentence_id, items jsonb, score numeric, passed bool, taken_at |
+
+#### `badge_offsets`
+| user_id, sentence_id, owner_id, dx int |
+
+#### `modifier_relations` / `referent_relations`
+| user_id, sentence_id, source_owner_id, target_owner_id |
+
+#### `idioms`
+| user_id, sentence_id, indices int[], surface, meaning, created_at |
+
+#### `user_sentences` (책장 — 추후 확장 대비)
+| user_id, text, level, code, created_at |
+
+### RLS
+- 모든 테이블: `user_id = auth.uid()`만 select/insert/update/delete
+- 인증 미사용 시(현재 비로그인) `user_id = null` 허용 정책 추가, 또는 익명 로그인 자동 활성
+
+### 동기화 전략
+- 기존 `localStorage` 유틸(`customAnswers.ts`, `idioms.ts`, `modifierTargets.ts`, `referentTargets.ts`) → Supabase 클라이언트로 교체
+- 변경 시 `debounce 500ms`로 upsert
+- 페이지 진입 시 `sentence_id` 기준 모든 관련 row 로드 → 메모리 hydration
+- localStorage는 오프라인 캐시로만 유지 (선택)
+
+### 신규 파일
+- `src/integrations/supabase/storage.ts` — 위 7개 테이블 CRUD 래퍼
+- `src/hooks/useSentenceSync.ts` — 마운트 시 로드 + 변경 시 debounced 저장
 
 ---
 
-## 기술 세부사항
+## 변경 파일 요약
 
-- 배경은 “현재 살아있는 완료 owner”만 기준으로 계산하도록 통일
-- 부배지 배치는 단순 좌/우 토글이 아니라 anchor 기준 누적 오프셋 방식으로 변경
-- 기능 prop은 재사용하되 렌더 위치만 품사 패널 내부로 이동해 회귀를 최소화
-- 병렬/절 언더라인 규칙은 이번 작업에서 건드리지 않고 유지
+신규
+- `src/components/learning/StepProgressBar.tsx`
+- `src/components/learning/TranslationStep.tsx`
+- `src/components/learning/WordTestStep.tsx`
+- `src/lib/wordTestBuilder.ts`
+- `src/integrations/supabase/storage.ts`
+- `src/hooks/useSentenceSync.ts`
+- DB 마이그레이션 (위 7개 테이블 + RLS)
+
+수정
+- `src/pages/Index.tsx` — 학습 단계 통합, 관용구 버튼 제거, 부배지 드래그, Supabase hydration
+- `src/components/analyzer/AnalysisPanel.tsx` — `EtcPanel`에 관용구, `AdjPanel`에 수식선 버튼
+- `src/index.css` — grab 커서
+- `src/lib/customAnswers.ts`, `idioms.ts`, `modifierTargets.ts`, `referentTargets.ts` — Supabase 래퍼로 위임
 
 ---
 
 ## 검증
 
-1. `this day` 분석 후 지우개 클릭 시 단어 배경, 스페이서 배경, 주변 잔상이 모두 사라짐
-2. `solidify`도 동일하게 보라 잔상 없이 완전히 삭제됨
-3. `that has influenced`에서 부배지 2개 이상이 겹치지 않고 읽을 수 있음
-4. 명사에서 `대명사` 선택 후 `지시어 지정` 버튼이 Layer 3 하단에 보여 바로 클릭 가능
-5. 형용사에서 `명사수식/명사앞수식/명사뒤수식` 선택 후 `수식 대상 지정` UI가 Layer 3 하단에 노출
-6. 저장 버튼, 지우개, 절/병렬 표시 등 기존 동작은 유지
+1. 구문 분석 완료 → "한글 해석" 단계 활성, 미완 시 잠금
+2. 해석 제출 → "단어 테스트" 단계 활성
+3. 단어 테스트 80% 이상 → `Pass` 뱃지 + DB `status='pass'` 기록
+4. 우측 상단 관용구 버튼 사라지고 분석 메뉴 `기타`에서 등록/조회 가능
+5. `that has influenced` 부배지를 마우스로 끌면 좌우 이동, 새로고침 후 위치 유지
+6. 형용사 명사수식 role 선택 시 하단 `🎯 수식선 표시` 버튼 노출, 클릭 → 명사 클릭 → 화살표 생성
+7. 브라우저/PC 재시작 후에도 분석 결과, 해석, 테스트 결과, 화살표, 관용구, 부배지 위치 모두 복원
+
