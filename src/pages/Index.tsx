@@ -1702,7 +1702,9 @@ const Index = () => {
                 </span>
               );
             })}
-          </div>
+              </div>
+            );
+          })()}
 
           {/* 선택 도구바: 지우개 + 관용구 — 항상 노출 */}
           <div className="mt-4 flex items-center gap-2 flex-wrap">
