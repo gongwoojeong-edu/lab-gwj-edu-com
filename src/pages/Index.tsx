@@ -482,6 +482,23 @@ const Index = () => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
+    // === [수식 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
+    if (pendingModifierSource) {
+      const tid = wordUnits[idx]?.tokenId;
+      const targetOwnerId = tid ? `${tid}${OWNER_KEY_SEPARATOR}${idx}` : null;
+      if (targetOwnerId && targetOwnerId !== pendingModifierSource) {
+        setModifierMap((prev) =>
+          upsertModifierTarget(prev, sentence.id, {
+            source: pendingModifierSource,
+            target: targetOwnerId,
+          }),
+        );
+        toast({ title: "🎯 수식 대상 지정 완료" });
+      }
+      setPendingModifierSource(null);
+      return;
+    }
+
     // 이 인덱스를 포함하는 완료 owner들 (좁은 layer 우선)
     const owners = Object.entries(completedSelectionMap)
       .filter(([oid, indices]) => indices.includes(idx) && progressMap[oid]?.completed)
