@@ -2154,7 +2154,10 @@ const Index = () => {
             <button
               type="button"
               onClick={() => setAnalysisPanelHidden(false)}
-              className="hidden lg:flex fixed bottom-4 right-4 z-40 items-center gap-2 px-3 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+              className={cn(
+                "hidden lg:flex fixed right-4 z-40 items-center gap-2 px-3 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors",
+                isAdmin ? "bottom-20" : "bottom-4",
+              )}
               aria-label="분석 패널 열기"
             >
               <PanelRightOpen className="size-4" />
