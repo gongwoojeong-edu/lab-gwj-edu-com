@@ -1313,7 +1313,7 @@ const Index = () => {
                 idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
 
               // 외곽 절(보라) 배경: outer layer의 모든 토큰
-              const inOuterClause = outerIsClause;
+              const outerIsClauseLocal = outerIsClauseLocal;
               // 안쪽 완료(보라 진하게) 배경
               const innerCompleteBg =
                 isCompleted && !isSelected && !isModifier && !isClauseSelection;
@@ -1324,10 +1324,10 @@ const Index = () => {
                   className={cn(
                     "inline-flex items-end leading-none whitespace-nowrap",
                     // 외곽 절 배경 — 시작/끝에 좌/우 패딩으로 시각화, 사이 공백은 별도 span이 처리
-                    inOuterClause && "bg-primary/[0.06]",
+                    outerIsClauseLocal && "bg-primary/[0.06]",
                   )}
                 >
-                  {bracketRole && outerIsFirst && (
+                  {bracketRole && outerIsFirstLocal && (
                     <span
                       className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -1399,7 +1399,7 @@ const Index = () => {
                       </span>
                     )}
                   </span>
-                  {bracketRole && outerIsLast && (
+                  {bracketRole && outerIsLastLocal && (
                     <span
                       className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -1413,9 +1413,9 @@ const Index = () => {
               // 토큰 사이 공백 span — 다음 단어와 같은 owner를 공유하면 보라로 채움
               const isLastWord = idx === wordUnits.length - 1;
               const spacerBg =
-                !isLastWord && (sharedWithNext || (inOuterClause && ownersNext.includes(outerOwnerId ?? "")))
+                !isLastWord && (sharedWithNext || (outerIsClauseLocal && ownersNext.includes(outerOwnerId ?? "")))
                   ? "bg-primary/[0.10]"
-                  : sharedWithNext === undefined && inOuterClause && outerOwnerByIndex[idx + 1] === outerOwnerId
+                  : sharedWithNext === undefined && outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId
                   ? "bg-primary/[0.06]"
                   : "";
               const spacerNode = !isLastWord ? (
