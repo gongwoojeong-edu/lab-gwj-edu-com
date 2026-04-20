@@ -1288,6 +1288,7 @@ const Index = () => {
     setDrawerOpen(false);
     setEraserMode(false);
     setPendingModifierSource(null);
+    setPendingReferentSource(null);
     // 토큰 ref는 컴포넌트가 새 wordUnits로 다시 마운트하면서 자연 초기화
     tokenRefs.current.clear();
   };
@@ -1341,6 +1342,8 @@ const Index = () => {
     isPendingModifier: !!selectedId && pendingModifierSource === selectedId,
     onAssignModifierTarget: () => {
       if (!selectedId) return;
+      // 다른 모드 토글이 켜져있다면 먼저 끔
+      setPendingReferentSource(null);
       setPendingModifierSource((cur) => (cur === selectedId ? null : selectedId));
     },
     onClearModifierTarget: () => {
@@ -1351,6 +1354,23 @@ const Index = () => {
     hasModifierTarget:
       !!selectedId &&
       getTargetsForSentence(modifierMap, sentence.id).some((r) => r.source === selectedId),
+    // ===== 지시어 화살표 — 명사 owner에서만 활성 (대명사/일반 명사 모두 가리키는 대상 지정 가능) =====
+    canAssignReferentTarget: !!selectedId && progress.pos === "명사",
+    isPendingReferent: !!selectedId && pendingReferentSource === selectedId,
+    onAssignReferentTarget: () => {
+      if (!selectedId) return;
+      // 다른 모드 토글이 켜져있다면 먼저 끔
+      setPendingModifierSource(null);
+      setPendingReferentSource((cur) => (cur === selectedId ? null : selectedId));
+    },
+    onClearReferentTarget: () => {
+      if (!selectedId) return;
+      setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, selectedId));
+      setPendingReferentSource(null);
+    },
+    hasReferentTarget:
+      !!selectedId &&
+      getReferentsForSentence(referentMap, sentence.id).some((r) => r.source === selectedId),
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
@@ -1621,15 +1641,29 @@ const Index = () => {
               </button>
             </div>
           )}
+          {pendingReferentSource && (
+            <div className="mb-2 px-3 py-1.5 rounded-lg bg-muted border border-border text-[11px] font-bold font-kr text-foreground inline-flex items-center gap-2">
+              👉 가리키는(지시) 대상 단어를 클릭하세요
+              <button
+                type="button"
+                onClick={() => setPendingReferentSource(null)}
+                className="text-[10px] underline underline-offset-2 font-semibold"
+              >
+                취소
+              </button>
+            </div>
+          )}
           <div
             ref={sentenceContainerRef}
             className="relative flex flex-wrap items-end pb-1 pt-8 gap-y-7 select-none"
             onMouseLeave={() => isDragging && finalizeSelection()}
           >
-            {/* === 수식 화살표 SVG overlay === */}
-            <ModifierArrowOverlay
-              show={showModifierArrows}
-              relations={getTargetsForSentence(modifierMap, sentence.id)}
+            {/* === 수식 / 지시어 화살표 SVG overlay === */}
+            <ArrowOverlay
+              showModifier={showModifierArrows}
+              showReferent={showReferentArrows}
+              modifierRelations={getTargetsForSentence(modifierMap, sentence.id)}
+              referentRelations={getReferentsForSentence(referentMap, sentence.id)}
               tokenRefs={tokenRefs.current}
               containerRef={sentenceContainerRef}
               layoutVersion={arrowLayoutVersion}
