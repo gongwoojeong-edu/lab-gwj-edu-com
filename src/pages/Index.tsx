@@ -325,46 +325,30 @@ const Index = () => {
 
   // ===== 단어 단위 선택 =====
   // 완료 영역 클릭 정책:
-  //   1) 클릭한 영역의 완료 owner의 모든 인덱스가 이미 selection에 정확히 있으면 → owner 복원 (수정/지우개 모드)
-  //   2) 그 외에는 → 새 selection 시작 (다층 추가 분석 진입)
+  //   - 단일 토큰 클릭은 항상 새 빈 분석으로 시작 (인접 완료 토큰 owner 자동 복원 X)
+  //   - owner 복원은 사용자가 명시적으로 완료 토큰 묶음 전체를 다시 드래그/클릭으로 선택했을 때만
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
-    // 이 인덱스를 포함하는 완료 owner들 (다층 가능)
+    // 이 인덱스를 포함하는 완료 owner들
     const owners = Object.entries(completedSelectionMap).filter(([, indices]) =>
       indices.includes(idx),
     );
 
-    // 정확히 같은 indices가 이미 selection에 있는 owner를 찾으면 → 패널 로드(수정 모드)
-    const matchedOwner = owners.find(([ownerId, indices]) => {
-      if (!progressMap[ownerId]?.completed) return false;
-      if (selectedId !== ownerId) return false;
-      const sortedSel = [...selectedWordIndices].sort((a, b) => a - b);
-      const sortedIdx = [...indices].sort((a, b) => a - b);
-      return arraysEqualSet(sortedSel, sortedIdx);
-    });
-    if (matchedOwner) {
-      // 두번째 클릭 → 수정/지우개 모드 유지 (이미 로드돼있으니 no-op)
+    // 단일 토큰 owner(자기 자신만)인 경우에만 owner 복원 — 다중 토큰 owner는 자동 복원 X
+    const singleSelfOwner = owners.find(
+      ([, indices]) => indices.length === 1 && indices[0] === idx,
+    );
+    if (singleSelfOwner && progressMap[singleSelfOwner[0]]?.completed) {
+      const [ownerId] = singleSelfOwner;
+      setSelectedId(ownerId);
+      setSelectedWordIndices([idx]);
       setDragStart(idx);
       return;
     }
 
-    // 완료 영역의 첫 클릭 → owner 복원 (한 번 클릭으로 즉시 수정 가능하게)
-    if (owners.length > 0) {
-      // 가장 좁은(가장 안쪽) owner 우선
-      const [ownerId, ownerIndices] = owners.sort(
-        (a, b) => a[1].length - b[1].length,
-      )[0];
-      if (progressMap[ownerId]?.completed) {
-        setSelectedId(ownerId);
-        setSelectedWordIndices([...ownerIndices].sort((a, b) => a - b));
-        setDragStart(idx);
-        return;
-      }
-    }
-
-    // 일반 경로: 토글/누적 selection
+    // 일반 경로: 새 빈 분석 시작 (다중 토큰 완료 영역과 충돌해도 상속 X)
     setDragStart(idx);
     setSelectedWordIndices((prev) => {
       let next: number[];
