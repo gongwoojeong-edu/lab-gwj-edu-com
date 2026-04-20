@@ -89,6 +89,9 @@ import {
   type ReferentTargetMap,
 } from "@/lib/referentTargets";
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
+import { Link } from "react-router-dom";
+import { LEVEL_LABEL, formatSentenceCode } from "@/lib/levels";
+import { GraduationCap } from "lucide-react";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -361,15 +364,22 @@ const Index = () => {
   // OFF (기본): 완료 owner 클릭 → 다층 분석 진입. Shift+클릭은 삭제 단축키.
   const [eraserMode, setEraserMode] = useState(false);
 
-  // ESC로 지우개 모드 해제
+  // ESC로 지우개 모드 해제 + body class 토글 (커스텀 커서 적용)
   useEffect(() => {
+    document.body.classList.toggle("eraser-active", eraserMode);
     if (!eraserMode) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setEraserMode(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [eraserMode]);
+  // 언마운트 시 body class 정리
+  useEffect(() => () => {
+    document.body.classList.remove("eraser-active");
+  }, []);
 
   // ===== 숙어 / Phrase store (SVOC와 독립) =====
   const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
@@ -381,7 +391,7 @@ const Index = () => {
   // ===== 지시어 화살표 (Referent Target, 대명사 전용) =====
   const [referentMap, setReferentMap] = useState<ReferentTargetMap>({});
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
-  const { showModifierArrows, showReferentArrows } = useHintSettings();
+  const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
 
   // ESC: pending modifier/referent 즉시 취소
   useEffect(() => {
@@ -464,6 +474,9 @@ const Index = () => {
   const [completedSelectionMap, setCompletedSelectionMap] = useState<Record<string, number[]>>({});
   const [dragStart, setDragStart] = useState<number | null>(null);
   const isDragging = dragStart !== null;
+  // 사용자가 직접 단어들을 드래그/Shift+클릭으로 묶어 만든 owner — spacer 채우기 허용
+  // (자동 복원/단일 토큰 owner는 미포함). 세션 한정.
+  const [userLinkedOwnerSet, setUserLinkedOwnerSet] = useState<Set<string>>(new Set());
 
   // owner별 자동 finalize 1회 처리 플래그 — 완료 owner를 재선택해도 selection이 사라지지 않도록
   // (hydration effect가 finalizedOwnersRef를 참조하므로 미리 선언)
@@ -806,6 +819,15 @@ const Index = () => {
         ...prev,
         [tokenId]: indices,
       }));
+      // 2개 이상 단어를 묶어 만든 owner는 "사용자 직접 연결"로 등록 → spacer 채우기 허용
+      if (indices.length >= 2) {
+        setUserLinkedOwnerSet((prev) => {
+          if (prev.has(tokenId)) return prev;
+          const n = new Set(prev);
+          n.add(tokenId);
+          return n;
+        });
+      }
     }
 
     if (options?.persistClause && indices.length > 0) {
@@ -871,6 +893,12 @@ const Index = () => {
       saveSavedOwners(Array.from(n));
       return n;
     });
+    setUserLinkedOwnerSet((prev) => {
+      if (!prev.has(ownerId)) return prev;
+      const n = new Set(prev);
+      n.delete(ownerId);
+      return n;
+    });
     // 수식/지시어 관계도 같이 삭제 (source가 owner인 항목)
     setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
     setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, ownerId));
@@ -932,14 +960,15 @@ const Index = () => {
 
     const hasCompletedOwner = owners.length > 0;
 
-    // === 지우개 모드 — 유일한 삭제 진입점 ===
+    // === 지우개 모드 — 1회용. 클릭 후 자동 해제. ===
     if (eraserMode) {
       if (hasCompletedOwner) {
         const [ownerId] = owners[0];
         eraseOwner(ownerId);
         toast({ title: "🧽 삭제됨" });
       }
-      // 미분석 토큰: 아무 동작 X
+      // 미분석 토큰을 클릭해도 모드 해제 (헛클릭 방지)
+      setEraserMode(false);
       return;
     }
 
@@ -1519,6 +1548,7 @@ const Index = () => {
     setDragStart(null);
     setProgressMap({});
     setCompletedSelectionMap({});
+    setUserLinkedOwnerSet(new Set());
     setDrawerOpen(false);
     setEraserMode(false);
     setPendingModifierSource(null);
@@ -1876,11 +1906,26 @@ const Index = () => {
       </div>
 
       <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="text-[10px] font-bold text-primary-glow tracking-widest uppercase font-kr">
-              문장 분석 · No. {String(sentence.no).padStart(3, "0")}
-            </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-[10px] font-bold text-primary-glow tracking-widest uppercase font-kr">
+                문장 분석 · {formatSentenceCode(sentence.level, sentence.no)}
+              </p>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold font-kr bg-primary/10 text-primary border border-primary/20">
+                {LEVEL_LABEL[sentence.level]}
+              </span>
+              {isAdmin && (
+                <Link
+                  to="/teacher"
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold font-kr bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors"
+                  title="선생님 모드 진입"
+                >
+                  <GraduationCap className="size-3" />
+                  선생님 모드
+                </Link>
+              )}
+            </div>
             <KoreanHintButton korean={sentence.korean} />
           </div>
           <div className="flex items-center gap-1.5 ml-2">
@@ -1918,7 +1963,7 @@ const Index = () => {
         {eraserMode && (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
             <p className="text-[12px] font-semibold text-destructive font-kr">
-              🧽 지우개 모드 — 분석된 항목 클릭 시 즉시 삭제됩니다 (ESC 또는 다시 버튼 클릭으로 종료)
+              🧽 지우개 모드 — 다음 클릭 1회만 삭제 후 자동 해제됩니다 (ESC로 즉시 취소)
             </p>
             <button
               type="button"
@@ -2202,12 +2247,25 @@ const Index = () => {
                         : undefined
                     }
                   >
-                    {(koreanLabel || outerKoreanLabel) && (
+                    {(koreanLabel || outerKoreanLabel) && (() => {
+                      // 부배지 자동 시프트: 같은 단어에 2개 anchor 시 좌우 빈 공간 더 큰 쪽으로 분산
+                      const bothPills = !!koreanLabel && !!outerKoreanLabel;
+                      const totalWords = wordUnits.length;
+                      const leftSpace = idx;
+                      const rightSpace = Math.max(0, totalWords - 1 - idx);
+                      const innerShift = bothPills
+                        ? leftSpace >= rightSpace ? "left" : undefined
+                        : undefined;
+                      const outerShift = bothPills
+                        ? rightSpace > leftSpace ? "right" : "left"
+                        : undefined;
+                      return (
                       <span className="sub-badge-row" style={{ top: "-18px" }}>
                         {koreanLabel && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
+                                data-shift={innerShift}
                                 className={cn(
                                   "sub-badge-pill",
                                   `sub-badge-pill-${innerLayerNum}`,
@@ -2229,6 +2287,7 @@ const Index = () => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
+                                data-shift={outerShift}
                                 className={cn(
                                   "sub-badge-pill",
                                   `sub-badge-pill-${outerLayerNum}`,
@@ -2247,7 +2306,8 @@ const Index = () => {
                           </Tooltip>
                         )}
                       </span>
-                    )}
+                      );
+                    })()}
 
                     <span
                       className={cn(
@@ -2302,23 +2362,25 @@ const Index = () => {
                 </span>
               );
 
-              // 토큰 사이 공백 — 양쪽 단어가 공유하는 owner의 layer 색을 동일하게 누적
-              // 단, clause owner는 spacer 언더라인을 이어 그림. 병렬은 spacer를 끊어 단어별 독립 박스로.
+              // 토큰 사이 공백 — 사용자가 직접 단어 연결로 만든 owner만 spacer 채움.
+              // 자동 복원/단일 토큰 owner는 spacer 비움 (배경/언더라인만).
+              // 병렬은 spacer를 끊어 단어별 독립 박스로 표시.
               const isLastWord = idx === wordUnits.length - 1;
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
-              const spacerBgImage = buildLayerBg(sharedOwners);
-              // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결
+              const linkedSharedOwners = sharedOwners.filter((o) => userLinkedOwnerSet.has(o));
+              const spacerBgImage = buildLayerBg(linkedSharedOwners);
+              // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결 (사용자 액션이므로 채움)
               const isNextSelected = !isLastWord && selectedWordIndices.includes(idx + 1);
               const spacerSelectedBridge = isSelected && isNextSelected;
-              // 완료(general) bridge: 양쪽 모두 같은 general owner의 완료 인덱스에 속하면 spacer도 동일 색·하단 보더
-              const generalSharedOwner = sharedOwners.find((oid) => {
+              // 완료(general) bridge: user-linked owner인 경우에만 spacer도 동일 색·하단 보더
+              const generalSharedOwner = linkedSharedOwners.find((oid) => {
                 const op = progressMap[oid];
                 return !!op && !isClauseProgress(op) && !isParallelProgress(op);
               });
               const spacerCompletedBridge = !!generalSharedOwner && !spacerSelectedBridge;
-              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 clause owner에 속하면 spacer 하단도 같은 색 라인
+              // 절(clause) 언더라인 bridge — clause는 의미 단위라 user-linked 여부와 무관하게 이어 그림
               const clauseSharedOwner = sharedOwners.find((oid) => {
                 const op = progressMap[oid];
                 return !!op && isClauseProgress(op);
@@ -2385,11 +2447,11 @@ const Index = () => {
               )}
               title={
                 eraserMode
-                  ? "지우개 모드 ON — 분석된 항목 클릭 시 삭제 (ESC 또는 다시 클릭으로 종료)"
-                  : "지우개 모드 OFF — 클릭 시 활성화"
+                  ? "지우개 모드 ON — 한 번 클릭 후 자동 해제 (ESC 취소)"
+                  : "지우개 활성화 — 한 번만 사용"
               }
             >
-              🧽 지우개{eraserMode ? " ON" : ""}
+              🧽 지우개 — 한 번만 사용{eraserMode ? " · ON" : ""}
             </button>
             {selectedWordIndices.length > 0 && (
               <button

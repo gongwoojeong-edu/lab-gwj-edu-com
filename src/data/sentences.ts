@@ -110,9 +110,13 @@ export type SentenceToken =
       role?: "bracket" | "punct" | "word";
     };
 
+import type { LevelCode } from "@/lib/levels";
+
 export interface Sentence {
   id: string;
   no: number;
+  /** 학습 레벨 (초3=L01 ~ 고3=L10). 코드 표기에 사용. */
+  level: LevelCode;
   english: string;
   korean: string;
   structureTags: string[];
@@ -157,6 +161,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s1",
     no: 1,
+    level: "L10",
     english:
       "Radio provided the driving force to solidify the era of patronage; however, the invention that soon followed remains to this day the most significant communication medium that has influenced and aided the development of sports.",
     korean:
@@ -305,6 +310,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s2",
     no: 2,
+    level: "L10",
     english:
       "Who knew that sportscaster Bill Stern questioned and introduced in 1939 would enhance the growth and development of sports marketing practices for decades?",
     korean:
@@ -382,6 +388,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s3",
     no: 3,
+    level: "L10",
     english:
       "The display platform, the television, though airing two average baseball teams battling for fourth place, providing an incredibly formidable and profitable union between sports and the American public.",
     korean:
@@ -474,6 +481,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s4",
     no: 4,
+    level: "L10",
     english:
       "The television provided a means for sports organizations to expand their market presence and a unique opportunity for marketers to engage their publics.",
     korean:
@@ -570,6 +578,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s5",
     no: 5,
+    level: "L10",
     english:
       'The notion of a "picture being worth a thousand words" became a reality with the invention and its intervention and presentation of sports.',
     korean:
