@@ -13,7 +13,7 @@ interface KoreanHintButtonProps {
  * 한국어 번역을 잠깐 보여주고 자동으로 페이드아웃되는 버튼.
  * 학생별 권한이 꺼져 있으면 잠금 상태로 표시된다.
  */
-export const KoreanHintButton = ({ korean, durationMs = 2500 }: KoreanHintButtonProps) => {
+export const KoreanHintButton = ({ korean, durationMs = 5000 }: KoreanHintButtonProps) => {
   const { hintEnabled } = useHintSettings();
   const [shown, setShown] = useState(false);
   const [fading, setFading] = useState(false);
