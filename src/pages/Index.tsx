@@ -2838,7 +2838,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
           />
         </section>
 
-        {/* ========== 학습 흐름 진행 바 + 단계별 카드 ========== */}
+        {/* ========== 학습 흐름 진행 바 + 단계별 카드 — embedMode에서 숨김 (외부 컨테이너에서 관리) ========== */}
+        {!embedMode && (
         <div className="glass-panel rounded-2xl p-4 space-y-3">
           <StepProgressBar
             current={learningStep}
