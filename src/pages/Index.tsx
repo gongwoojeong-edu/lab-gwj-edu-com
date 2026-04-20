@@ -454,11 +454,11 @@ const Index = () => {
   };
 
   // ===== 단어 단위 선택 =====
-  // 클릭 분기:
+  // 클릭 분기 (삭제는 오직 지우개 모드에서만):
   //   - eraserMode ON + 완료 owner 클릭 → 즉시 삭제
   //   - eraserMode ON + 미분석 토큰    → 무시
-  //   - Shift/Meta/Ctrl + 완료 owner   → 즉시 삭제 (보조 단축키)
-  //   - eraserMode OFF + 완료 owner 클릭 → 클릭한 토큰만 selection으로 → 다층 분석 진입
+  //   - Shift+클릭 (선택 진행 중)      → 누적 선택 (삭제 아님)
+  //   - eraserMode OFF + 완료 owner 클릭 → 클릭한 토큰 1개만 selection → 다층 분석 진입
   //   - 일반 클릭/드래그 → 새 분석 시작
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
@@ -470,9 +470,8 @@ const Index = () => {
       .sort(([, a], [, b]) => a.length - b.length);
 
     const hasCompletedOwner = owners.length > 0;
-    const modifierErase = e.shiftKey || e.metaKey || e.ctrlKey;
 
-    // === 지우개 모드 ===
+    // === 지우개 모드 — 유일한 삭제 진입점 ===
     if (eraserMode) {
       if (hasCompletedOwner) {
         const [ownerId] = owners[0];
@@ -483,11 +482,15 @@ const Index = () => {
       return;
     }
 
-    // === Shift+클릭 단축키 — 완료 owner 즉시 삭제 ===
-    if (modifierErase && hasCompletedOwner) {
-      const [ownerId] = owners[0];
-      eraseOwner(ownerId);
-      toast({ title: "🧽 삭제됨" });
+    // === Shift+클릭 = 누적 선택 (삭제 아님) ===
+    if (e.shiftKey && selectedWordIndices.length > 0) {
+      const next = Array.from(new Set([...selectedWordIndices, idx])).sort((a, b) => a - b);
+      setSelectedWordIndices(next);
+      const sid = pickSelectedIdFromIndices(next);
+      if (sid) {
+        setSelectedId(sid);
+        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+      }
       return;
     }
 
@@ -1466,11 +1469,11 @@ const Index = () => {
               const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
               const buildLayerBg = (owners: string[]): string | undefined => {
                 if (owners.length === 0) return undefined;
-                // 안쪽(좁은) → depth 0 (Layer 1)
+                // 안쪽(좁은) → depth 0 (Layer 1). 누적 시 진해짐.
                 return owners
                   .map((_, i) => {
                     const v = layerVars[i % layerVars.length];
-                    return `linear-gradient(hsl(var(${v}) / 0.18), hsl(var(${v}) / 0.18))`;
+                    return `linear-gradient(hsl(var(${v}) / 0.32), hsl(var(${v}) / 0.32))`;
                   })
                   .join(", ");
               };
@@ -1553,7 +1556,7 @@ const Index = () => {
                         {completedElement}
                       </span>
                     )}
-                    {/* 절(접SV) — 단어와 동일한 SVOC 배지 + 부배지 (Item 4) */}
+                    {/* 절(접SV) — SVOC 배지만 표시 (부배지 문구는 상단 koreanLabel에서만) */}
                     {outerIsClauseLocal && outerIsBadgeAnchor && outerBadge && outerBadge !== "M" && (
                       <span
                         className={cn(
@@ -1565,12 +1568,6 @@ const Index = () => {
                         )}
                       >
                         {outerBadge}
-                        {outerSubLabel ? ` · ${outerSubLabel}` : ""}
-                      </span>
-                    )}
-                    {outerIsClauseLocal && outerIsBadgeAnchor && (!outerBadge || outerBadge === "M") && outerSubLabel && (
-                      <span className="absolute -bottom-7 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none whitespace-nowrap bg-primary/15 text-primary">
-                        {outerSubLabel}
                       </span>
                     )}
                   </span>
@@ -1648,11 +1645,25 @@ const Index = () => {
               title={
                 eraserMode
                   ? "지우개 모드 ON — 분석된 항목 클릭 시 삭제 (ESC 또는 다시 클릭으로 종료)"
-                  : "지우개 모드 OFF — 클릭 시 활성화. Shift+클릭으로도 단일 삭제 가능"
+                  : "지우개 모드 OFF — 클릭 시 활성화"
               }
             >
               🧽 지우개{eraserMode ? " ON" : ""}
             </button>
+            {selectedWordIndices.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedWordIndices([]);
+                  setSelectedId(null);
+                  setDragStart(null);
+                }}
+                className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
+                title="현재 선택을 모두 해제 (분석은 유지)"
+              >
+                ✕ 선택 해제
+              </button>
+            )}
             <Popover>
               <PopoverTrigger asChild>
                 <button
