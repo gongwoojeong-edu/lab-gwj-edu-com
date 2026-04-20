@@ -2276,11 +2276,11 @@ const Index = () => {
                         {completedElement}
                       </span>
                     )}
-                    {/* 절(접SV) — SVOC 배지만 표시 (부배지 문구는 상단 koreanLabel에서만) */}
-                    {outerIsClauseLocal && outerIsBadgeAnchor && outerBadge && outerBadge !== "M" && (
+                    {/* 절(접SV) — SVOC 배지: 절 시작 단어 아래 1회 (언더라인과 분리) */}
+                    {outerIsClauseLocal && outerIsFirstLocal && outerBadge && outerBadge !== "M" && (
                       <span
                         className={cn(
-                          "absolute -bottom-7 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none whitespace-nowrap",
+                          "absolute -bottom-6 px-1.5 py-0.5 rounded text-[10px] font-extrabold leading-none tracking-tight pointer-events-none whitespace-nowrap shadow-sm",
                           outerBadge === "S" && "badge-s",
                           outerBadge === "V" && "badge-v",
                           outerBadge === "O" && "badge-o",
