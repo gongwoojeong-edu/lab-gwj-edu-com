@@ -161,6 +161,12 @@ interface AnalysisPanelProps {
   onAssignReferentTarget?: () => void;
   onClearReferentTarget?: () => void;
   onCancelPendingReferent?: () => void;
+
+  // ===== 정답 저장 워크플로우 =====
+  answerInputMode?: boolean;
+  ownerStatus?: "empty" | "dirty" | "saved";
+  onSaveAnswer?: () => void;
+  onDiscardAnswer?: () => void;
 }
 
 // ============================================================
@@ -426,6 +432,9 @@ export const AnalysisPanel = ({
   onAssignReferentTarget,
   onClearReferentTarget,
   onCancelPendingReferent,
+  ownerStatus = "empty",
+  onSaveAnswer,
+  onDiscardAnswer,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
   const hasSelection = !!selectedWord;
@@ -499,6 +508,62 @@ export const AnalysisPanel = ({
 
   return (
     <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+      {answerInputMode && hasSelection && (
+        <div className="flex items-center justify-between gap-2 mb-1.5 px-1.5 py-1 rounded-lg bg-primary/5 border border-primary/15">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {ownerStatus === "saved" && (
+              <>
+                <span className="inline-flex items-center justify-center size-4 rounded-full bg-element-v text-white">
+                  <Check className="size-3" strokeWidth={3} />
+                </span>
+                <span className="text-[11px] font-bold font-kr text-element-v truncate">분석 완료</span>
+              </>
+            )}
+            {ownerStatus === "dirty" && (
+              <>
+                <span className="size-2 rounded-full bg-destructive animate-pulse" aria-hidden />
+                <span className="text-[11px] font-bold font-kr text-destructive truncate">미저장 변경</span>
+              </>
+            )}
+            {ownerStatus === "empty" && (
+              <span className="text-[11px] font-kr text-muted-foreground truncate">
+                선택 후 분석을 시작하세요
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {ownerStatus === "dirty" && (
+              <button
+                type="button"
+                onClick={onDiscardAnswer}
+                className="px-2 py-1 rounded-md text-[10px] font-bold font-kr text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                변경 취소
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onSaveAnswer}
+              disabled={ownerStatus !== "dirty"}
+              className={cn(
+                "px-2.5 py-1 rounded-md text-[10px] font-bold font-kr transition-colors",
+                ownerStatus === "dirty"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                  : "bg-muted text-muted-foreground/60 cursor-not-allowed",
+              )}
+              title={
+                ownerStatus === "saved"
+                  ? "변경사항이 없습니다"
+                  : ownerStatus === "dirty"
+                  ? "이 단어의 분석을 정답으로 확정 저장합니다"
+                  : "변경사항이 없습니다"
+              }
+            >
+              {ownerStatus === "saved" ? "재저장" : "정답 저장"}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2 flex-wrap justify-between">
         {/* Selected word — 항상 노출, 미선택 시 placeholder */}
         <div className="flex items-baseline gap-1.5 min-w-0">

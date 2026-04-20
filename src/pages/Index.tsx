@@ -57,8 +57,11 @@ import {
 import {
   loadCustomAnswers,
   upsertCustomAnswer,
+  removeCustomAnswer,
   clearCustomAnswers,
   mergeAnswer,
+  loadSavedOwners,
+  saveSavedOwners,
   type CustomAnswerMap,
 } from "@/lib/customAnswers";
 import {
@@ -326,7 +329,7 @@ const Index = () => {
       return false;
     }
   });
-  const setAnswerInputMode = (v: boolean) => {
+  const _persistAnswerInputMode = (v: boolean) => {
     _setAnswerInputMode(v);
     try {
       window.localStorage.setItem(ANSWER_INPUT_MODE_KEY, v ? "1" : "0");
@@ -334,7 +337,24 @@ const Index = () => {
       /* noop */
     }
   };
+  // 모드 OFF 시 미저장 patch가 있으면 확인 다이얼로그
+  const setAnswerInputMode = (v: boolean) => {
+    if (!v && Object.keys(pendingPatchMap).length > 0) {
+      setPendingNavAction(() => () => {
+        setPendingPatchMap({});
+        _persistAnswerInputMode(false);
+      });
+      return;
+    }
+    _persistAnswerInputMode(v);
+  };
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
+  // 정답 입력 모드 — 미저장 patch 누적 (owner별)
+  const [pendingPatchMap, setPendingPatchMap] = useState<Record<string, Record<string, unknown>>>({});
+  // [정답 저장] 클릭으로 "분석 완료 확정"된 owner 집합
+  const [savedOwnerSet, setSavedOwnerSet] = useState<Set<string>>(() => new Set());
+  // 저장 확인 다이얼로그(다른 owner로 이동 / 모드 OFF 시 dirty 처리)
+  const [pendingNavAction, setPendingNavAction] = useState<null | (() => void)>(null);
 
   // ===== 지우개 모드 (toggle) =====
   // ON: 완료 owner 클릭 시 즉시 삭제. 미분석 토큰 클릭은 무시.
@@ -393,6 +413,7 @@ const Index = () => {
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
     setReferentMap(loadReferentTargets());
+    setSavedOwnerSet(new Set(loadSavedOwners()));
   }, []);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
@@ -404,6 +425,9 @@ const Index = () => {
     setCompletedSelectionMap({});
     setSelectedId(null);
     setSelectedWordIndices([]);
+    setPendingPatchMap({});
+    setSavedOwnerSet(new Set());
+    saveSavedOwners([]);
     toast({
       title: "정답 데이터를 모두 삭제했습니다",
       description: "이제 처음부터 새로 입력할 수 있습니다.",
@@ -629,13 +653,17 @@ const Index = () => {
   } as WordAnswer;
 
   const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken | undefined) => {
+    const pending = pendingPatchMap[ownerId];
     if (isSpanOwnerId(ownerId)) {
-      return mergeAnswer(SPAN_VIRTUAL_ANSWER, customAnswers[ownerId]);
+      return mergeAnswer(mergeAnswer(SPAN_VIRTUAL_ANSWER, customAnswers[ownerId]), pending);
     }
     if (token && ownerId === token.id) {
-      return mergeAnswer(token.answer, customAnswers[token.id]);
+      return mergeAnswer(mergeAnswer(token.answer, customAnswers[token.id]), pending);
     }
-    return mergeAnswer((token?.answer ?? SPAN_VIRTUAL_ANSWER), customAnswers[ownerId]);
+    return mergeAnswer(
+      mergeAnswer((token?.answer ?? SPAN_VIRTUAL_ANSWER), customAnswers[ownerId]),
+      pending,
+    );
   };
 
   const completedCount = new Set(
@@ -697,6 +725,55 @@ const Index = () => {
   const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
     const next = upsertCustomAnswer(ownerId, patch);
     setCustomAnswers(next);
+  };
+
+  // ===== 정답 저장 워크플로우 =====
+  // stagePatch: 변경사항을 메모리에만 누적 (localStorage 저장 X)
+  const stagePatch = (ownerId: string, patch: Record<string, unknown>) => {
+    setPendingPatchMap((prev) => ({
+      ...prev,
+      [ownerId]: { ...(prev[ownerId] ?? {}), ...patch },
+    }));
+  };
+  // commitPatch: 누적된 patch를 localStorage에 저장 + savedOwnerSet 추가
+  const commitPatch = (ownerId: string) => {
+    const pending = pendingPatchMap[ownerId];
+    if (pending && Object.keys(pending).length > 0) {
+      const next = upsertCustomAnswer(ownerId, pending);
+      setCustomAnswers(next);
+      setPendingPatchMap((prev) => {
+        const n = { ...prev };
+        delete n[ownerId];
+        return n;
+      });
+    }
+    setSavedOwnerSet((prev) => {
+      const n = new Set(prev);
+      n.add(ownerId);
+      saveSavedOwners(Array.from(n));
+      return n;
+    });
+    toast({ title: "분석 완료 저장됨", description: "이 단어의 정답이 저장되었습니다." });
+  };
+  // discardPatch: 누적된 patch만 버림 (savedOwnerSet은 그대로)
+  const discardPatch = (ownerId: string) => {
+    setPendingPatchMap((prev) => {
+      if (!prev[ownerId]) return prev;
+      const n = { ...prev };
+      delete n[ownerId];
+      return n;
+    });
+  };
+  const hasPendingPatch = (ownerId: string | null | undefined): boolean => {
+    if (!ownerId) return false;
+    const p = pendingPatchMap[ownerId];
+    return !!p && Object.keys(p).length > 0;
+  };
+  const getOwnerStatus = (ownerId: string | null | undefined): "empty" | "dirty" | "saved" => {
+    if (!ownerId) return "empty";
+    if (hasPendingPatch(ownerId)) return "dirty";
+    if (savedOwnerSet.has(ownerId)) return "saved";
+    return "empty";
   };
 
   const handleSelect = (id: string) => {
@@ -780,6 +857,20 @@ const Index = () => {
         /* ignore */
       }
     }
+    // pending patch / saved owner 표시도 정리
+    setPendingPatchMap((prev) => {
+      if (!prev[ownerId]) return prev;
+      const n = { ...prev };
+      delete n[ownerId];
+      return n;
+    });
+    setSavedOwnerSet((prev) => {
+      if (!prev.has(ownerId)) return prev;
+      const n = new Set(prev);
+      n.delete(ownerId);
+      saveSavedOwners(Array.from(n));
+      return n;
+    });
     // 수식/지시어 관계도 같이 삭제 (source가 owner인 항목)
     setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
     setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, ownerId));
@@ -964,7 +1055,24 @@ const Index = () => {
         /* ignore */
       }
     }
-    // 관용구는 별도 핸들러에서만 삭제 (지우개는 SVOC만)
+    // pending/saved도 같이 정리
+    setPendingPatchMap((prev) => {
+      let changed = false;
+      const n = { ...prev };
+      ownerIds.forEach((id) => {
+        if (n[id]) { delete n[id]; changed = true; }
+      });
+      return changed ? n : prev;
+    });
+    setSavedOwnerSet((prev) => {
+      let changed = false;
+      const n = new Set(prev);
+      ownerIds.forEach((id) => {
+        if (n.has(id)) { n.delete(id); changed = true; }
+      });
+      if (changed) saveSavedOwners(Array.from(n));
+      return changed ? n : prev;
+    });
     clearActiveSelection();
   };
 
@@ -1014,7 +1122,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode) {
       // 정답 입력 모드: pos 변경 시 다른 필드는 비워서 새 pos에 맞게 다시 입력하도록 한다
-      saveCustom(selectedId, { pos: p });
+      stagePatch(selectedId, { pos: p });
       updateProgress(selectedId, (prev) => ({
         ...prev,
         pos: p,
@@ -1045,7 +1153,7 @@ const Index = () => {
   // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
     const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
@@ -1065,7 +1173,7 @@ const Index = () => {
 
   const handleNounElement = (e: SentenceElement) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { element: e });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
     const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
@@ -1083,7 +1191,7 @@ const Index = () => {
 
   const handleNounRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
@@ -1097,7 +1205,7 @@ const Index = () => {
   const handleNounElementRole = (e: SentenceElement, r: string | null) => {
     if (!selectedId) return;
     if (answerInputMode) {
-      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      if (selectedId) stagePatch(selectedId, { element: e, role: r ?? "수식어" });
       updateProgress(selectedId, (prev) => ({
         ...prev,
         noun: {
@@ -1145,7 +1253,7 @@ const Index = () => {
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
     const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
@@ -1165,7 +1273,7 @@ const Index = () => {
 
   const handleAdjElement = (e: "C" | "M") => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { element: e });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
     const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
@@ -1183,7 +1291,7 @@ const Index = () => {
 
   const handleAdjRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
@@ -1196,7 +1304,7 @@ const Index = () => {
   const handleAdjElementRole = (e: "C" | "M", r: string | null) => {
     if (!selectedId) return;
     if (answerInputMode) {
-      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      if (selectedId) stagePatch(selectedId, { element: e, role: r ?? "수식어" });
       updateProgress(selectedId, (prev) => ({
         ...prev,
         adj: {
@@ -1243,7 +1351,7 @@ const Index = () => {
   // ===== 부사 =====
   const handleAdvForm = (f: AdvForm) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
     const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
@@ -1263,7 +1371,7 @@ const Index = () => {
 
   const handleAdvSubtype = (s: AdvSubtype) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { subtype: s });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { subtype: s });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
     const correct = answerInputMode || ans?.subtype === s;
     updateProgress(selectedId, (prev) => ({
@@ -1281,7 +1389,7 @@ const Index = () => {
 
   const handleAdvRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
@@ -1294,7 +1402,7 @@ const Index = () => {
   // ===== 기타 =====
   const handleEtcKind = (k: EtcKind) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { kind: k });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { kind: k });
     const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
     const correct = answerInputMode || ans?.kind === k;
     updateProgress(selectedId, (prev) => ({
@@ -1312,7 +1420,7 @@ const Index = () => {
 
   const handleEtcRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
@@ -1349,7 +1457,7 @@ const Index = () => {
     const v = progress.verb;
     if (answerInputMode) {
       // 정답 입력 모드: 현재 동사 진행 상태를 그대로 정답으로 저장
-      if (selectedId) saveCustom(selectedId, {
+      if (selectedId) stagePatch(selectedId, {
         number: v.number ?? undefined,
         tense: v.tense ?? undefined,
         aspect: v.aspect,
@@ -1519,6 +1627,15 @@ const Index = () => {
       return wordUnits[idx]?.word ?? null;
     })(),
     onCancelPendingReferent: () => setPendingReferentSource(null),
+    // ===== 정답 저장 워크플로우 =====
+    answerInputMode,
+    ownerStatus: getOwnerStatus(selectedId),
+    onSaveAnswer: () => {
+      if (selectedId) commitPatch(selectedId);
+    },
+    onDiscardAnswer: () => {
+      if (selectedId) discardPatch(selectedId);
+    },
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
@@ -1720,6 +1837,36 @@ const Index = () => {
           </div>
         </div>
       </nav>
+
+      {/* 미저장 변경 — 모드 OFF 확인 다이얼로그 */}
+      <AlertDialog
+        open={!!pendingNavAction}
+        onOpenChange={(open) => {
+          if (!open) setPendingNavAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-kr">저장하지 않은 정답이 있습니다</AlertDialogTitle>
+            <AlertDialogDescription className="font-kr">
+              아직 [정답 저장]을 누르지 않은 변경사항이 있습니다. 저장하지 않고 정답 입력 모드를 끌까요?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-kr">취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-kr"
+              onClick={() => {
+                const act = pendingNavAction;
+                setPendingNavAction(null);
+                act?.();
+              }}
+            >
+              버리고 끄기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Desktop: fixed top-right panel */}
       <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)] max-h-[calc(100vh-92px)] overflow-y-auto overscroll-contain rounded-2xl">
@@ -2050,7 +2197,12 @@ const Index = () => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
-                                className={cn("sub-badge-pill", `sub-badge-pill-${innerLayerNum}`)}
+                                className={cn(
+                                  "sub-badge-pill",
+                                  `sub-badge-pill-${innerLayerNum}`,
+                                  answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
+                                  answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
+                                )}
                               >
                                 <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{koreanLabel}</span>
@@ -2065,7 +2217,12 @@ const Index = () => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
-                                className={cn("sub-badge-pill", `sub-badge-pill-${outerLayerNum}`)}
+                                className={cn(
+                                  "sub-badge-pill",
+                                  `sub-badge-pill-${outerLayerNum}`,
+                                  answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
+                                  answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
+                                )}
                               >
                                 <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>

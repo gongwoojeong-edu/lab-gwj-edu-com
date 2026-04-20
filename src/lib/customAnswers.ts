@@ -49,6 +49,41 @@ export const upsertCustomAnswer = (
   return merged;
 };
 
+export const removeCustomAnswer = (tokenId: string): CustomAnswerMap => {
+  const cur = loadCustomAnswers();
+  if (!(tokenId in cur)) return cur;
+  const next = { ...cur };
+  delete next[tokenId];
+  saveCustomAnswers(next);
+  return next;
+};
+
+// ============================================================
+// savedOwners — [정답 저장] 버튼으로 "분석 완료 확정"된 owner 집합
+// ============================================================
+const SAVED_OWNERS_KEY = "gwj.savedOwners.v1";
+
+export const loadSavedOwners = (): string[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SAVED_OWNERS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveSavedOwners = (ids: string[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SAVED_OWNERS_KEY, JSON.stringify(Array.from(new Set(ids))));
+  } catch {
+    // ignore
+  }
+};
+
 /**
  * 원본 정답에 사용자 입력을 머지.
  * 사용자가 어떤 키를 입력했다면 그 키만 덮어쓴다.
