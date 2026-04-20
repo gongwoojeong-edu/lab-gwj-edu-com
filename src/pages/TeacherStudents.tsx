@@ -1,0 +1,268 @@
+import { Link } from "react-router-dom";
+import { ChevronLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import { toast } from "@/hooks/use-toast";
+
+interface Student {
+  id: string;
+  name: string;
+  level: LevelCode;
+  createdAt: string;
+}
+
+const STUDENTS_KEY = "gwj.students.v1";
+
+const seedStudents = (): Student[] => [
+  { id: "demo-1", name: "김민준", level: "L05", createdAt: new Date(Date.now() - 86400000 * 30).toISOString() },
+  { id: "demo-2", name: "이서연", level: "L08", createdAt: new Date(Date.now() - 86400000 * 21).toISOString() },
+  { id: "demo-3", name: "박지호", level: "L03", createdAt: new Date(Date.now() - 86400000 * 14).toISOString() },
+  { id: "demo-4", name: "최예린", level: "L10", createdAt: new Date(Date.now() - 86400000 * 7).toISOString() },
+  { id: "demo-5", name: "정우진", level: "L07", createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
+];
+
+const loadStudents = (): Student[] => {
+  try {
+    const raw = window.localStorage.getItem(STUDENTS_KEY);
+    if (raw) return JSON.parse(raw) as Student[];
+  } catch {
+    /* ignore */
+  }
+  const seeded = seedStudents();
+  try {
+    window.localStorage.setItem(STUDENTS_KEY, JSON.stringify(seeded));
+  } catch {
+    /* ignore */
+  }
+  return seeded;
+};
+
+const persist = (list: Student[]) => {
+  try {
+    window.localStorage.setItem(STUDENTS_KEY, JSON.stringify(list));
+  } catch {
+    /* ignore */
+  }
+};
+
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const TeacherStudents = () => {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Student | null>(null);
+  const [name, setName] = useState("");
+  const [level, setLevel] = useState<LevelCode>("L05");
+
+  useEffect(() => {
+    setStudents(loadStudents());
+  }, []);
+
+  const sorted = useMemo(
+    () => [...students].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+    [students],
+  );
+
+  const openCreate = () => {
+    setEditing(null);
+    setName("");
+    setLevel("L05");
+    setOpen(true);
+  };
+
+  const openEdit = (s: Student) => {
+    setEditing(s);
+    setName(s.name);
+    setLevel(s.level);
+    setOpen(true);
+  };
+
+  const submit = () => {
+    if (!name.trim()) {
+      toast({ title: "이름을 입력해주세요" });
+      return;
+    }
+    if (editing) {
+      const next = students.map((s) =>
+        s.id === editing.id ? { ...s, name: name.trim(), level } : s,
+      );
+      setStudents(next);
+      persist(next);
+      toast({ title: "✏️ 학생 정보가 수정되었습니다" });
+    } else {
+      const next: Student[] = [
+        ...students,
+        {
+          id: `st-${Date.now()}`,
+          name: name.trim(),
+          level,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      setStudents(next);
+      persist(next);
+      toast({ title: "✅ 학생이 등록되었습니다" });
+    }
+    setOpen(false);
+  };
+
+  const remove = (id: string) => {
+    const next = students.filter((s) => s.id !== id);
+    setStudents(next);
+    persist(next);
+    toast({ title: "🗑️ 학생이 삭제되었습니다" });
+  };
+
+  return (
+    <main className="max-w-6xl mx-auto p-4 lg:p-8 flex flex-col gap-6 font-kr">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Link
+            to="/teacher"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ChevronLeft className="size-3.5" /> 대시보드
+          </Link>
+          <h1 className="text-2xl font-extrabold tracking-tight mt-1">학생 관리</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            학생을 등록하고 레벨을 지정하세요. (로컬 저장 — 백엔드 연결 예정)
+          </p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openCreate}>
+              <Plus className="size-4" />
+              학생 추가
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="font-kr">
+            <DialogHeader>
+              <DialogTitle>{editing ? "학생 정보 수정" : "새 학생 등록"}</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-4 py-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="student-name">이름</Label>
+                <Input
+                  id="student-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="홍길동"
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>레벨</Label>
+                <Select value={level} onValueChange={(v) => setLevel(v as LevelCode)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEVELS.map((l) => (
+                      <SelectItem key={l.code} value={l.code}>
+                        {l.code} · {l.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                취소
+              </Button>
+              <Button onClick={submit}>{editing ? "수정" : "등록"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="glass-panel rounded-2xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>이름</TableHead>
+              <TableHead>레벨</TableHead>
+              <TableHead>등록일</TableHead>
+              <TableHead>상태</TableHead>
+              <TableHead className="text-right">작업</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                  등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
+                </TableCell>
+              </TableRow>
+            )}
+            {sorted.map((s) => (
+              <TableRow key={s.id}>
+                <TableCell className="font-semibold">{s.name}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="font-bold">
+                    {s.level} · {LEVEL_LABEL[s.level]}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground tabular-nums">
+                  {formatDate(s.createdAt)}
+                </TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center gap-1 text-xs text-element-v font-bold">
+                    <span className="size-1.5 rounded-full bg-element-v" /> 활성
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="inline-flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
+                      <Pencil className="size-3.5" /> 수정
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => remove(s.id)}
+                    >
+                      <Trash2 className="size-3.5" /> 삭제
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </main>
+  );
+};
+
+export default TeacherStudents;
