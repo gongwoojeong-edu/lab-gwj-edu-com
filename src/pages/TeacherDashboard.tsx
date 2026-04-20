@@ -17,15 +17,32 @@ import {
   type StudentProfile,
   type StudentStats,
 } from "@/lib/studentProfile";
-import { useAuth, signOut } from "@/hooks/useAuth";
+import { useAuth, signOut, type AppRole } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { LogOut, ChevronLeft } from "lucide-react";
+import { LogOut, ChevronLeft, Shield, ShieldCheck, GraduationCap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { addUserRole, fetchAllUserRoles, removeUserRole } from "@/lib/userRoles";
+
+const ROLE_OPTIONS: { value: AppRole; label: string; icon: typeof Shield }[] = [
+  { value: "student", label: "학생", icon: GraduationCap },
+  { value: "teacher", label: "선생님", icon: Shield },
+  { value: "admin", label: "관리자", icon: ShieldCheck },
+];
 
 const TeacherDashboard = () => {
-  const { user } = useAuth();
+  const { user, roles: myRoles } = useAuth();
+  const isAdmin = myRoles.includes("admin");
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [stats, setStats] = useState<Record<string, StudentStats>>({});
+  const [rolesMap, setRolesMap] = useState<Record<string, AppRole[]>>({});
   const [loading, setLoading] = useState(true);
+
+  const refreshRoles = () => {
+    if (!isAdmin) return;
+    fetchAllUserRoles().then(setRolesMap).catch(() => {
+      /* ignore — non-admin이거나 권한 없음 */
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -40,6 +57,26 @@ const TeacherDashboard = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    refreshRoles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  const handleToggleRole = async (userId: string, role: AppRole, has: boolean) => {
+    try {
+      if (has) {
+        await removeUserRole(userId, role);
+        toast({ title: `${role} 역할이 제거되었습니다` });
+      } else {
+        await addUserRole(userId, role);
+        toast({ title: `${role} 역할이 부여되었습니다` });
+      }
+      refreshRoles();
+    } catch (e) {
+      toast({ title: "권한 변경 실패", description: (e as Error).message, variant: "destructive" });
+    }
+  };
 
   const formatLastActivity = (iso: string | null): string => {
     if (!iso) return "-";
