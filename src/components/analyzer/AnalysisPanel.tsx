@@ -1402,7 +1402,16 @@ const EtcPanel = ({
 
   return (
     <>
-      <div className="space-y-1">
+      {/* 관용구 등록 — 기타 패널 상단 */}
+      <IdiomSection
+        surface={idiomSurface}
+        existingMeaning={idiomExistingMeaning}
+        answerInputMode={answerInputMode}
+        onSave={onIdiomSave}
+        onRemove={onIdiomRemove}
+        enabled={idiomEnabled}
+      />
+      <div className="space-y-1 mt-2">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
             Layer 02·03 · 종류 / 세부역할
