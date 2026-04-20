@@ -2010,7 +2010,7 @@ const Index = () => {
                 >
                   {bracketRole && outerIsFirstLocal && (
                     <span
-                      className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
+                      className={cn("self-end pr-0.5 clause-bracket", bracketColorClass, bracketWeight)}
                       aria-hidden
                     >
                       [
@@ -2052,7 +2052,7 @@ const Index = () => {
                               <span
                                 className={cn("sub-badge-pill", `sub-badge-pill-${innerLayerNum}`)}
                               >
-                                <span className="sub-badge-num">{innerLayerNum}</span>
+                                <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{koreanLabel}</span>
                               </span>
                             </TooltipTrigger>
@@ -2067,7 +2067,7 @@ const Index = () => {
                               <span
                                 className={cn("sub-badge-pill", `sub-badge-pill-${outerLayerNum}`)}
                               >
-                                <span className="sub-badge-num">{outerLayerNum}</span>
+                                <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
                               </span>
                             </TooltipTrigger>
@@ -2097,7 +2097,7 @@ const Index = () => {
                     >
                       {word}
                     </span>
-                    {completedElement && isFirstOfSelection && !isClauseSelection && (
+                    {completedElement && isElementBadgeAnchor && !isClauseSelection && (
                       <span
                         className={cn(
                           "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
@@ -2127,7 +2127,7 @@ const Index = () => {
                   </span>
                   {bracketRole && outerIsLastLocal && (
                     <span
-                      className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
+                      className={cn("self-end pl-0.5 clause-bracket", bracketColorClass, bracketWeight)}
                       aria-hidden
                     >
                       ]
