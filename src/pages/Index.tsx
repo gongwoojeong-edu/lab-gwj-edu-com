@@ -68,6 +68,7 @@ import {
   type IdiomMap,
   type IdiomMark,
 } from "@/lib/idioms";
+import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -313,20 +314,10 @@ const Index = () => {
   };
 
   const shouldPersistClauseSelection = () => {
-    if (!selectedToken) return false;
-
-    if (selectedToken.answer.pos === "명사") {
-      return (progress.noun.form ?? selectedToken.answer.form) === "접SV";
-    }
-
-    if (selectedToken.answer.pos === "형용사") {
-      return (progress.adj.form ?? selectedToken.answer.form) === "접SV";
-    }
-
-    if (selectedToken.answer.pos === "부사") {
-      return (progress.adv.form ?? selectedToken.answer.form) === "접SV";
-    }
-
+    // 100% progress 기반 — 원본 answer 추론 금지 (Item 3)
+    if (progress.pos === "명사" && progress.noun.form === "접SV") return true;
+    if (progress.pos === "형용사" && progress.adj.form === "접SV") return true;
+    if (progress.pos === "부사" && progress.adv.form === "접SV") return true;
     return false;
   };
 
@@ -536,7 +527,7 @@ const Index = () => {
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
-    if (!selectedId || !selectedToken) return;
+    if (!selectedId) return;
     if (answerInputMode) {
       // 정답 입력 모드: pos 변경 시 다른 필드는 비워서 새 pos에 맞게 다시 입력하도록 한다
       saveCustom(selectedId, { pos: p });
@@ -553,7 +544,7 @@ const Index = () => {
       }));
       return;
     }
-    const correct = selectedToken.answer.pos === p;
+    const correct = answerInputMode || selectedToken?.answer.pos === p;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       pos: p,
@@ -569,11 +560,11 @@ const Index = () => {
 
   // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
-    const ans = selectedToken.answer as NounAnswer;
-    const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
+    const correct = answerInputMode || ans?.form === f;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -589,11 +580,11 @@ const Index = () => {
   };
 
   const handleNounElement = (e: SentenceElement) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
-    const ans = selectedToken.answer as NounAnswer;
-    const correct = answerInputMode || ans.element === e;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
+    const correct = answerInputMode || ans?.element === e;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -607,11 +598,11 @@ const Index = () => {
   };
 
   const handleNounRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
-    const ans = selectedToken.answer as NounAnswer;
-    const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
+    const correct = answerInputMode || ans?.role === r;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: { ...prev.noun, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -620,10 +611,10 @@ const Index = () => {
 
   // 평탄화 핸들러: element + role 한 번에 처리 (M은 role=null로 즉시 완료)
   const handleNounElementRole = (e: SentenceElement, r: string | null) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode) {
       if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
-      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+      updateProgress(selectedId, (prev) => ({
         ...prev,
         noun: {
           ...prev.noun,
@@ -636,25 +627,25 @@ const Index = () => {
       }));
       return;
     }
-    const ans = selectedToken.answer as NounAnswer;
-    const elementOk = ans.element === e;
+    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
+    const elementOk = ans?.element === e;
     if (e === "M") {
       // M: role 없이 element만 맞으면 완료
-      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+      updateProgress(selectedId, (prev) => ({
         ...prev,
         noun: {
           ...prev.noun,
           element: e,
           elementStatus: elementOk ? "correct" : "wrong",
-          role: elementOk ? (ans.role ?? "수식어") : null,
+          role: elementOk ? (ans?.role ?? "수식어") : null,
           roleStatus: elementOk ? "correct" : "idle",
         },
         completed: elementOk,
       }));
       return;
     }
-    const roleOk = elementOk && r !== null && ans.role === r;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const roleOk = elementOk && r !== null && ans?.role === r;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -669,11 +660,11 @@ const Index = () => {
 
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
-    const ans = selectedToken.answer as AdjAnswer;
-    const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
+    const correct = answerInputMode || ans?.form === f;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -689,11 +680,11 @@ const Index = () => {
   };
 
   const handleAdjElement = (e: "C" | "M") => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
-    const ans = selectedToken.answer as AdjAnswer;
-    const correct = answerInputMode || ans.element === e;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
+    const correct = answerInputMode || ans?.element === e;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -707,11 +698,11 @@ const Index = () => {
   };
 
   const handleAdjRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
-    const ans = selectedToken.answer as AdjAnswer;
-    const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
+    const correct = answerInputMode || ans?.role === r;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -719,10 +710,10 @@ const Index = () => {
   };
 
   const handleAdjElementRole = (e: "C" | "M", r: string | null) => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode) {
       if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
-      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+      updateProgress(selectedId, (prev) => ({
         ...prev,
         adj: {
           ...prev.adj,
@@ -735,24 +726,24 @@ const Index = () => {
       }));
       return;
     }
-    const ans = selectedToken.answer as AdjAnswer;
-    const elementOk = ans.element === e;
+    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
+    const elementOk = ans?.element === e;
     if (e === "M") {
-      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+      updateProgress(selectedId, (prev) => ({
         ...prev,
         adj: {
           ...prev.adj,
           element: e,
           elementStatus: elementOk ? "correct" : "wrong",
-          role: elementOk ? (ans.role ?? "수식어") : null,
+          role: elementOk ? (ans?.role ?? "수식어") : null,
           roleStatus: elementOk ? "correct" : "idle",
         },
         completed: elementOk,
       }));
       return;
     }
-    const roleOk = elementOk && r !== null && ans.role === r;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const roleOk = elementOk && r !== null && ans?.role === r;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -767,11 +758,11 @@ const Index = () => {
 
   // ===== 부사 =====
   const handleAdvForm = (f: AdvForm) => {
-    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
-    const ans = selectedToken.answer as AdvAnswer;
-    const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
+    const correct = answerInputMode || ans?.form === f;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
@@ -787,11 +778,11 @@ const Index = () => {
   };
 
   const handleAdvSubtype = (s: AdvSubtype) => {
-    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { subtype: s });
-    const ans = selectedToken.answer as AdvAnswer;
-    const correct = answerInputMode || ans.subtype === s;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
+    const correct = answerInputMode || ans?.subtype === s;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
@@ -805,11 +796,11 @@ const Index = () => {
   };
 
   const handleAdvRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
-    const ans = selectedToken.answer as AdvAnswer;
-    const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
+    const correct = answerInputMode || ans?.role === r;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: { ...prev.adv, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -818,11 +809,11 @@ const Index = () => {
 
   // ===== 기타 =====
   const handleEtcKind = (k: EtcKind) => {
-    if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { kind: k });
-    const ans = selectedToken.answer as EtcAnswer;
-    const correct = answerInputMode || ans.kind === k;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
+    const correct = answerInputMode || ans?.kind === k;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       etc: {
         ...prev.etc,
@@ -836,11 +827,11 @@ const Index = () => {
   };
 
   const handleEtcRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
-    const ans = selectedToken.answer as EtcAnswer;
-    const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
+    const correct = answerInputMode || ans?.role === r;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       etc: { ...prev.etc, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -849,8 +840,8 @@ const Index = () => {
 
   // ===== 동사 =====
   const toggleVerb = (mut: (v: VerbProgress) => VerbProgress) => {
-    if (!selectedToken || selectedToken.answer.pos !== "동사") return;
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    if (!selectedId) return;
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       verb: { ...mut(prev.verb), confirmStatus: "idle" },
       completed: false,
@@ -870,7 +861,7 @@ const Index = () => {
   const handleVerbProVerb = () => toggleVerb((v) => ({ ...v, proVerb: !v.proVerb }));
 
   const handleVerbConfirm = () => {
-    if (!selectedToken || selectedToken.answer.pos !== "동사") return;
+    if (!selectedId) return;
     const v = progress.verb;
     if (answerInputMode) {
       // 정답 입력 모드: 현재 동사 진행 상태를 그대로 정답으로 저장
@@ -881,22 +872,22 @@ const Index = () => {
         voice: v.voice ? "수동" : undefined,
         proVerb: v.proVerb,
       });
-      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+      updateProgress(selectedId, (prev) => ({
         ...prev,
         verb: { ...prev.verb, confirmStatus: "correct" },
         completed: true,
       }));
       return;
     }
-    const ans = selectedToken.answer as VerbAnswer;
-    const correct =
+    const ans = (selectedToken?.answer ?? null) as VerbAnswer | null;
+    const correct = !!ans &&
       (ans.number ?? null) === v.number &&
       (ans.tense ?? null) === v.tense &&
       arraysEqualSet(ans.aspect ?? [], v.aspect) &&
       (ans.voice === "수동") === v.voice &&
       (ans.proVerb ?? false) === v.proVerb;
 
-    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
+    updateProgress(selectedId, (prev) => ({
       ...prev,
       verb: { ...prev.verb, confirmStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -1261,89 +1252,47 @@ const Index = () => {
               const isFirstOfSelection = isCompleted && idx === selStart;
               const isLastOfSelection = isCompleted && idx === selEnd;
 
-              // 외곽 layer (절) — 별도
+              // 외곽 layer (절) — 인덱스 범위만 잡고, 의미는 progress 에서.
               const outerOwnerId = outerOwnerByIndex[idx];
-               const outerToken = outerOwnerId ? getTokenById(getOwnerTokenId(outerOwnerId)) : undefined;
-               const outerAnswer =
-                 outerOwnerId && outerToken ? getMergedAnswerForOwner(outerOwnerId, outerToken) : undefined;
               const outerIndices = outerOwnerId
                 ? completedSelectionMap[outerOwnerId] ?? []
                 : [];
-              const outerIsClause =
-                 !!outerAnswer &&
-                 ((outerAnswer.pos === "명사" && outerAnswer.form === "접SV") ||
-                   (outerAnswer.pos === "형용사" && outerAnswer.form === "접SV") ||
-                   (outerAnswer.pos === "부사" && outerAnswer.form === "접SV"));
-              const outerIsFirst = outerIsClause && idx === outerIndices[0];
-              const outerIsLast =
-                outerIsClause && idx === outerIndices[outerIndices.length - 1];
 
-              // === 안쪽 layer element 결정 (M은 표시 안 함) ===
+              // === 안쪽 layer element 결정 — 100% progress 기반 (Item 3, 4) ===
+              // 원본 ownerAnswer.koreanLabel/pos 추론 금지.
+              const innerBadge = wp ? buildElementBadge(wp) : undefined;
+              const innerSubLabel = wp ? buildSubBadgeLabel(wp) : undefined;
+              const isClauseSelection = wp ? isClauseProgress(wp) : false;
               let completedElement: "S" | "V" | "O" | "C" | undefined;
               let isModifier = false;
-              let isClauseSelection = false;
-               if (isCompleted && ownerAnswer) {
-                 const a = ownerAnswer;
-                if (a.pos === "동사") completedElement = "V";
-                else if (a.pos === "명사") {
-                  isClauseSelection = a.form === "접SV";
-                  const hideObjectBadge =
-                    INTERNAL_OBJECT_ROLES.has(a.role) || a.form === "to V" || a.form === "V-ing";
-                  if (!hideObjectBadge) {
-                    if (a.element === "M") isModifier = true;
-                    else if (a.element) completedElement = a.element as "S" | "O" | "C";
-                  } else if (a.element === "M") {
-                    isModifier = true;
-                  }
-                } else if (a.pos === "형용사") {
-                  isClauseSelection = a.form === "접SV";
-                  if (a.element === "M") isModifier = true;
-                  else if (a.element === "C") completedElement = "C";
-                } else if (a.pos === "부사") {
-                  isClauseSelection = a.form === "접SV";
-                  isModifier = true;
-                } else if (a.pos === "기타") {
-                  if (a.kind === "삽입" || a.kind === "부연") isModifier = true;
+              if (isCompleted && innerBadge) {
+                if (innerBadge === "M") isModifier = true;
+                else if (!isClauseSelection) {
+                  completedElement = innerBadge;
                 }
               }
 
-              // === 절 브래킷: 외곽 layer 기준 ===
-              let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
-               if (outerIsClause && outerAnswer) {
-                 const a = outerAnswer;
-                if (a.pos === "명사") {
-                  if (a.element === "S") bracketRole = "S";
-                  else if (a.element === "O") bracketRole = "O";
-                  else if (a.element === "C") bracketRole = "C";
-                  else bracketRole = "M";
-                } else {
-                  bracketRole = "M";
-                }
-              }
+              // === 절(외곽 layer) 정보도 동일 progress 기반 ===
+              const outerProgress = outerOwnerId ? progressMap[outerOwnerId] : undefined;
+              const outerIsClauseLocal =
+                !!outerProgress && isClauseProgress(outerProgress) && outerOwnerId !== ownerId;
+              const outerBadge = outerProgress ? buildElementBadge(outerProgress) : undefined;
+              const outerSubLabel = outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
+              const outerIsFirstLocal = outerIsClauseLocal && idx === outerIndices[0];
+              const outerIsLastLocal =
+                outerIsClauseLocal && idx === outerIndices[outerIndices.length - 1];
+              const outerMidIdx = outerIndices.length
+                ? outerIndices[Math.floor((outerIndices.length - 1) / 2)]
+                : -1;
+              const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerMidIdx;
 
-              let koreanLabel =
-                 isCompleted && isFirstOfSelection && ownerAnswer
-                   ? ownerAnswer.koreanLabel
-                  : undefined;
-              if (koreanLabel && (completedElement || (token?.answer.pos === "동사"))) {
-                const stripPatterns = [
-                  /^주어\s*·\s*/,
-                  /^동사\s*·\s*/,
-                  /^목적어\s*·\s*/,
-                  /^간접목적어\s*·\s*/,
-                  /^직접목적어\s*·\s*/,
-                  /^주격보어\s*·\s*/,
-                  /^목적격보어\s*·\s*/,
-                  /^보어\s*·\s*/,
-                ];
-                for (const re of stripPatterns) {
-                  if (re.test(koreanLabel)) {
-                    koreanLabel = koreanLabel.replace(re, "");
-                    break;
-                  }
-                }
-                if (!koreanLabel.trim()) koreanLabel = undefined;
-              }
+              // === 절 브래킷: 외곽 progress의 element badge 기준 ===
+              const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
+                outerIsClauseLocal ? outerBadge ?? "M" : undefined;
+
+              // 부배지(품사 라벨) — 단어 layer 우선
+              const koreanLabel =
+                isCompleted && isFirstOfSelection ? innerSubLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
@@ -1363,8 +1312,7 @@ const Index = () => {
               const idiomLast =
                 idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
 
-              // 외곽 절(보라) 배경: outer layer의 모든 토큰
-              const inOuterClause = outerIsClause;
+              // 외곽 절(보라) 배경은 outerIsClauseLocal 로 처리.
               // 안쪽 완료(보라 진하게) 배경
               const innerCompleteBg =
                 isCompleted && !isSelected && !isModifier && !isClauseSelection;
@@ -1375,10 +1323,10 @@ const Index = () => {
                   className={cn(
                     "inline-flex items-end leading-none whitespace-nowrap",
                     // 외곽 절 배경 — 시작/끝에 좌/우 패딩으로 시각화, 사이 공백은 별도 span이 처리
-                    inOuterClause && "bg-primary/[0.06]",
+                    outerIsClauseLocal && "bg-primary/[0.06]",
                   )}
                 >
-                  {bracketRole && outerIsFirst && (
+                  {bracketRole && outerIsFirstLocal && (
                     <span
                       className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -1449,8 +1397,28 @@ const Index = () => {
                         {completedElement}
                       </span>
                     )}
+                    {/* 절(접SV) — 단어와 동일한 SVOC 배지 + 부배지 (Item 4) */}
+                    {outerIsClauseLocal && outerIsBadgeAnchor && outerBadge && outerBadge !== "M" && (
+                      <span
+                        className={cn(
+                          "absolute -bottom-7 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none whitespace-nowrap",
+                          outerBadge === "S" && "badge-s",
+                          outerBadge === "V" && "badge-v",
+                          outerBadge === "O" && "badge-o",
+                          outerBadge === "C" && "badge-c",
+                        )}
+                      >
+                        {outerBadge}
+                        {outerSubLabel ? ` · ${outerSubLabel}` : ""}
+                      </span>
+                    )}
+                    {outerIsClauseLocal && outerIsBadgeAnchor && (!outerBadge || outerBadge === "M") && outerSubLabel && (
+                      <span className="absolute -bottom-7 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none whitespace-nowrap bg-primary/15 text-primary">
+                        {outerSubLabel}
+                      </span>
+                    )}
                   </span>
-                  {bracketRole && outerIsLast && (
+                  {bracketRole && outerIsLastLocal && (
                     <span
                       className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -1464,9 +1432,9 @@ const Index = () => {
               // 토큰 사이 공백 span — 다음 단어와 같은 owner를 공유하면 보라로 채움
               const isLastWord = idx === wordUnits.length - 1;
               const spacerBg =
-                !isLastWord && (sharedWithNext || (inOuterClause && ownersNext.includes(outerOwnerId ?? "")))
+                !isLastWord && (sharedWithNext || (outerIsClauseLocal && ownersNext.includes(outerOwnerId ?? "")))
                   ? "bg-primary/[0.10]"
-                  : sharedWithNext === undefined && inOuterClause && outerOwnerByIndex[idx + 1] === outerOwnerId
+                  : sharedWithNext === undefined && outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId
                   ? "bg-primary/[0.06]"
                   : "";
               const spacerNode = !isLastWord ? (
@@ -1503,32 +1471,36 @@ const Index = () => {
             })}
           </div>
 
-          {/* 선택 도구바: 지우개 + 선택 해제 */}
-          {selectedWordIndices.length > 0 && (
-            <div className="mt-4 flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-                선택됨 · {selectedWordIndices.length}개 단어
-              </span>
-              <button
-                type="button"
-                onClick={handleEraser}
-                className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-              >
-                🧽 지우개
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedWordIndices([]);
-                  setSelectedId(null);
-                  setDrawerOpen(false);
-                }}
-                className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-[11px] font-bold font-kr hover:bg-secondary/70 transition-colors"
-              >
-                선택 해제
-              </button>
-            </div>
-          )}
+          {/* 선택 도구바: 지우개 + 선택 해제 — 항상 노출 (Item 2, 5) */}
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+              {selectedWordIndices.length > 0
+                ? `선택됨 · ${selectedWordIndices.length}개 단어`
+                : "선택 없음"}
+            </span>
+            <button
+              type="button"
+              onClick={handleEraser}
+              disabled={activeSelectionIndices.length === 0}
+              className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
+            >
+              🧽 지우개
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedWordIndices([]);
+                setSelectedId(null);
+                setDrawerOpen(false);
+              }}
+              disabled={selectedWordIndices.length === 0 && !selectedId}
+              className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-[11px] font-bold font-kr hover:bg-secondary/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="하이라이트만 해제 (저장 데이터 유지)"
+            >
+              선택 해제
+            </button>
+          </div>
 
           <div
             className="absolute -bottom-10 -right-10 size-64 rounded-full blur-3xl opacity-40 pointer-events-none"

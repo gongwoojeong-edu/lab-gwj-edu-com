@@ -390,29 +390,11 @@ export const AnalysisPanel = ({
   onEraseSelection,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
+  const hasSelection = !!selectedWord;
 
-  if (!selectedWord) {
-    return (
-      <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto">
-        {idiomEnabled && (
-          <IdiomSection
-            surface={selectedWord ?? ""}
-            existingMeaning={idiomExistingMeaning}
-            answerInputMode={answerInputMode}
-            onSave={onIdiomSave}
-            onRemove={onIdiomRemove}
-          />
-        )}
-        <div className="flex items-center justify-center text-center h-11">
-          <p className="text-[11px] text-muted-foreground font-kr">
-            단어를 선택하면 분석 메뉴가 활성화됩니다.
-          </p>
-        </div>
-      </aside>
-    );
-  }
-
-  const currentPos = pos ?? answer?.pos ?? null;
+  // ALWAYS-ON 정책: selection 이 없어도 메뉴/지우개/관용구 카드는 항상 노출.
+  // 원본 answer 의 pos 는 표시에 사용하지 않는다 (AI 추론 0%).
+  const currentPos = pos ?? null;
   const posCorrect = posStatus === "correct";
   const isNoun = currentPos === "명사";
   const isVerb = currentPos === "동사";
@@ -421,11 +403,10 @@ export const AnalysisPanel = ({
   const isEtc = currentPos === "기타";
 
   const renderSubPanel = () => {
-    if (!answer) return null;
     if (isNoun)
       return (
         <NounPanel
-          answer={answer as NounAnswer}
+          answer={(answer as NounAnswer | null) ?? undefined}
           noun={noun}
           onNounFormChange={onNounFormChange}
           onNounElementChange={onNounElementChange}
@@ -448,7 +429,7 @@ export const AnalysisPanel = ({
     if (isAdj)
       return (
         <AdjPanel
-          answer={answer as AdjAnswer}
+          answer={(answer as AdjAnswer | null) ?? undefined}
           adj={adj}
           onAdjFormChange={onAdjFormChange}
           onAdjElementChange={onAdjElementChange}
@@ -459,7 +440,7 @@ export const AnalysisPanel = ({
     if (isAdv)
       return (
         <AdvPanel
-          answer={answer as AdvAnswer}
+          answer={(answer as AdvAnswer | null) ?? undefined}
           adv={adv}
           onAdvFormChange={onAdvFormChange}
           onAdvSubtypeChange={onAdvSubtypeChange}
@@ -469,7 +450,7 @@ export const AnalysisPanel = ({
     if (isEtc)
       return (
         <EtcPanel
-          answer={answer as EtcAnswer}
+          answer={(answer as EtcAnswer | null) ?? undefined}
           etc={etc}
           onEtcKindChange={onEtcKindChange}
           onEtcRoleChange={onEtcRoleChange}
@@ -481,24 +462,28 @@ export const AnalysisPanel = ({
   return (
     <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center gap-2 flex-wrap justify-between">
-        {/* Selected word */}
+        {/* Selected word — 항상 노출, 미선택 시 placeholder */}
         <div className="flex items-baseline gap-1.5 min-w-0">
           <span className="text-[9px] font-bold text-primary-glow uppercase tracking-widest">
             Sel
           </span>
-          <span className="text-xs font-bold text-foreground truncate max-w-[160px]">
-            "{selectedWord}"
+          <span
+            className={cn(
+              "text-xs font-bold truncate max-w-[180px]",
+              hasSelection ? "text-foreground" : "text-muted-foreground/60 italic font-kr",
+            )}
+          >
+            {hasSelection ? `"${selectedWord}"` : "단어를 선택하세요"}
           </span>
         </div>
 
-        {/* LAYER 01 — 품사 */}
+        {/* LAYER 01 — 품사 (항상 활성, 완료 후에도 재선택 허용) */}
         <div className="flex items-center gap-1 flex-wrap">
           {POS_LIST.map(({ key, circle, label }) => {
             const isSelected = pos === key;
             const isCorrect = isSelected && posCorrect;
             const isWrong = !answerInputMode && isSelected && posStatus === "wrong";
-            const lockedOther = posCorrect && !isSelected;
-            const disabled = lockedOther;
+            const disabled = !hasSelection;
 
             const trigger = (
               <button
@@ -514,7 +499,7 @@ export const AnalysisPanel = ({
                   "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary",
                   isCorrect && "bg-primary/10 text-primary border-primary/40",
                   isWrong && "border-destructive bg-destructive/10 text-destructive animate-pulse",
-                  lockedOther && "opacity-30 cursor-not-allowed",
+                  disabled && "opacity-40 cursor-not-allowed",
                 )}
               >
                 <span className="font-mono text-[13px] leading-none">{circle}</span>
@@ -522,7 +507,7 @@ export const AnalysisPanel = ({
               </button>
             );
 
-            if (isSelected && (isNoun || isVerb || isAdj || isAdv || isEtc) && answer) {
+            if (hasSelection && isSelected && (isNoun || isVerb || isAdj || isAdv || isEtc)) {
               return (
                 <Popover key={key} defaultOpen>
                   <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -549,35 +534,35 @@ export const AnalysisPanel = ({
         </div>
       </div>
 
-      {canErase && onEraseSelection && (
-        <div className="mt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={onEraseSelection}
-            className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-          >
-            🧽 지우개
-          </button>
-        </div>
-      )}
+      {/* 지우개 — 항상 노출 (Item 2, 5) */}
+      <div className="mt-2 flex justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={onEraseSelection}
+          disabled={!canErase || !onEraseSelection}
+          className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="현재 선택된 분석을 모두 삭제"
+        >
+          🧽 지우개
+        </button>
+      </div>
 
-      {idiomEnabled && (
-        <IdiomSection
-          surface={selectedWord}
-          existingMeaning={idiomExistingMeaning}
-          answerInputMode={answerInputMode}
-          onSave={onIdiomSave}
-          onRemove={onIdiomRemove}
-        />
-      )}
+      {/* 관용구 카드 — 항상 별도 영역, SVOC 메뉴와 독립 (Item 6) */}
+      <IdiomSection
+        surface={selectedWord ?? ""}
+        existingMeaning={idiomExistingMeaning}
+        answerInputMode={answerInputMode}
+        onSave={onIdiomSave}
+        onRemove={onIdiomRemove}
+        enabled={!!idiomEnabled}
+      />
     </aside>
   );
 };
 
 // ============================================================
 // Idiom / Phrase Section — SVOC 분석과 독립
-// 정답 모드: 의미 입력 + 저장 / 기존 마크 시 수정·삭제
-// 일반 모드: 등록된 의미만 표시
+// 항상 패널 하단에 별도 카드로 노출. enabled=false 면 안내 메시지만 표시.
 // ============================================================
 const IdiomSection = ({
   surface,
@@ -585,12 +570,14 @@ const IdiomSection = ({
   answerInputMode,
   onSave,
   onRemove,
+  enabled,
 }: {
   surface: string;
   existingMeaning?: string;
   answerInputMode: boolean;
   onSave?: (meaning: string) => void;
   onRemove?: () => void;
+  enabled: boolean;
 }) => {
   const [draft, setDraft] = useState(existingMeaning ?? "");
 
@@ -626,7 +613,11 @@ const IdiomSection = ({
         )}
       </div>
 
-      {answerInputMode ? (
+      {!enabled ? (
+        <p className="text-[10px] text-muted-foreground/70 italic font-kr px-1">
+          2개 이상 단어를 선택하면 관용구로 등록할 수 있습니다.
+        </p>
+      ) : answerInputMode ? (
         <div className="space-y-1.5">
           <input
             type="text"
@@ -689,7 +680,7 @@ const IdiomSection = ({
 // 명사 패널
 // ============================================================
 interface NounPanelProps {
-  answer: NounAnswer;
+  answer?: NounAnswer;
   noun: NounProgress;
   onNounFormChange: (f: NounForm) => void;
   onNounElementChange: (e: SentenceElement) => void;
@@ -709,7 +700,7 @@ const NounPanel = ({
     formCorrect &&
     !!noun.form &&
     (noun.form === "접SV" ||
-      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && answer.element === undefined));
+      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && answer?.element === undefined));
 
   // 형태전용(접SV 등): 평탄 element-role 그리드 대신 기존 RoleRow 재사용
   const formOnlyRoleOptions = formOnlyMode && noun.form ? FORM_ONLY_ROLES[noun.form] ?? [] : [];
@@ -753,7 +744,7 @@ const NounPanel = ({
         />
       )}
       {noun.roleStatus === "correct" && (
-        <CompletionBlock label={answer.koreanLabel} />
+        <CompletionBlock label={answer?.koreanLabel ?? noun.role ?? "완료"} />
       )}
     </>
   );
@@ -763,7 +754,7 @@ const NounPanel = ({
 // 형용사 패널
 // ============================================================
 interface AdjPanelProps {
-  answer: AdjAnswer;
+  answer?: AdjAnswer;
   adj: AdjProgress;
   onAdjFormChange: (f: AdjForm) => void;
   onAdjElementChange: (e: "C" | "M") => void;
@@ -833,7 +824,7 @@ const AdjPanel = ({
         />
       )}
       {adj.roleStatus === "correct" && (
-        <CompletionBlock label={answer.koreanLabel} />
+        <CompletionBlock label={answer?.koreanLabel ?? adj.role ?? "완료"} />
       )}
     </>
   );
@@ -992,7 +983,7 @@ const ElementRoleGrid = ({
 // 부사 패널 (LAYER 02 → 03 / 03a 없음)
 // ============================================================
 interface AdvPanelProps {
-  answer: AdvAnswer;
+  answer?: AdvAnswer;
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
   onAdvSubtypeChange: (s: AdvSubtype) => void;
@@ -1101,7 +1092,7 @@ const AdvPanel = ({
           })}
         </div>
       </div>
-      {done && <CompletionBlock label={answer.koreanLabel} />}
+      {done && <CompletionBlock label={answer?.koreanLabel ?? adv.role ?? "완료"} />}
     </>
   );
 };
@@ -1110,7 +1101,7 @@ const AdvPanel = ({
 // 기타 패널 (LAYER 02 종류 → LAYER 03 세부)
 // ============================================================
 interface EtcPanelProps {
-  answer: EtcAnswer;
+  answer?: EtcAnswer;
   etc: EtcProgress;
   onEtcKindChange: (k: EtcKind) => void;
   onEtcRoleChange: (r: string) => void;
@@ -1231,7 +1222,7 @@ const EtcPanel = ({
           })}
         </div>
       </div>
-      {done && <CompletionBlock label={answer.koreanLabel} />}
+      {done && <CompletionBlock label={answer?.koreanLabel ?? etc.role ?? "완료"} />}
     </>
   );
 };
