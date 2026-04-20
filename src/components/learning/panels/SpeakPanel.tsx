@@ -11,6 +11,10 @@ interface Props {
   onFinish: (score: number) => void;
 }
 
+type RecInstance = NonNullable<ReturnType<typeof getSpeechRecognition>> extends new () => infer R
+  ? R
+  : never;
+
 /** 2단계 — 영어 STT 발화. 1회 100, 2회 90, 3+ 80, 건너뛰기 60 */
 export const SpeakPanel = ({ word, onFinish }: Props) => {
   const supported = speechSupported();
@@ -18,9 +22,7 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
   const [heard, setHeard] = useState<string>("");
   const [attempts, setAttempts] = useState(0);
   const finishedRef = useRef(false);
-  const recRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSpeechRecognition>>> | null>(
-    null,
-  );
+  const recRef = useRef<RecInstance | null>(null);
 
   // 음소표 폴백: 음절을 하이픈으로 표시 (실데이터 phonics 추가는 다음 라운드)
   const phonics = useMemo(() => splitIntoSyllables(word).join(" · "), [word]);

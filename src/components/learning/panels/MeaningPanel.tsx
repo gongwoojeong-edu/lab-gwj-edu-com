@@ -11,6 +11,10 @@ interface Props {
   onFinish: (score: number) => void;
 }
 
+type RecInstance = NonNullable<ReturnType<typeof getSpeechRecognition>> extends new () => infer R
+  ? R
+  : never;
+
 /** 4단계 — 한국어 STT 의미인출. 1회 100, 2회 90, 3+ 80, 건너뛰기 60 */
 export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
   const supported = speechSupported();
@@ -18,9 +22,7 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
   const [heard, setHeard] = useState("");
   const [attempts, setAttempts] = useState(0);
   const finishedRef = useRef(false);
-  const recRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSpeechRecognition>>> | null>(
-    null,
-  );
+  const recRef = useRef<RecInstance | null>(null);
 
   useEffect(() => {
     finishedRef.current = false;
