@@ -165,10 +165,10 @@
   /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill).
      수직 stacking 폐기 → 한 단어 anchor에 여러 부배지가 anchor되면 inline 가로 정렬 */
   .sub-badge-row {
-    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none;
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none;
   }
   .sub-badge-pill {
-    @apply relative inline-flex items-center gap-0 px-1 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
+    @apply relative inline-flex items-center gap-0 px-1.5 py-0 mx-1 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
   .sub-badge-pill .sub-badge-num {
@@ -180,6 +180,15 @@
   }
   /* layer 1 owner: 단층(혼자) 또는 외곽층 — 숫자 표기 숨김 */
   .sub-badge-pill .sub-badge-num.is-hidden { display: none; }
+
+  /* 단층(혼자) owner — 강조 제거: 텍스트만 muted 톤으로 깔끔하게 */
+  .sub-badge-pill.is-solo {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: hsl(var(--muted-foreground)) !important;
+    @apply font-medium;
+  }
+  .sub-badge-pill.is-solo .sub-badge-num { display: none; }
 
   /* === 정답 입력 모드 — 미저장 / 저장 완료 시각 마킹 === */
   .sub-badge-pill.is-dirty {
