@@ -1252,22 +1252,11 @@ const Index = () => {
               const isFirstOfSelection = isCompleted && idx === selStart;
               const isLastOfSelection = isCompleted && idx === selEnd;
 
-              // 외곽 layer (절) — 별도
+              // 외곽 layer (절) — 인덱스 범위만 잡고, 의미는 progress 에서.
               const outerOwnerId = outerOwnerByIndex[idx];
-               const outerToken = outerOwnerId ? getTokenById(getOwnerTokenId(outerOwnerId)) : undefined;
-               const outerAnswer =
-                 outerOwnerId && outerToken ? getMergedAnswerForOwner(outerOwnerId, outerToken) : undefined;
               const outerIndices = outerOwnerId
                 ? completedSelectionMap[outerOwnerId] ?? []
                 : [];
-              const outerIsClause =
-                 !!outerAnswer &&
-                 ((outerAnswer.pos === "명사" && outerAnswer.form === "접SV") ||
-                   (outerAnswer.pos === "형용사" && outerAnswer.form === "접SV") ||
-                   (outerAnswer.pos === "부사" && outerAnswer.form === "접SV"));
-              const outerIsFirst = outerIsClause && idx === outerIndices[0];
-              const outerIsLast =
-                outerIsClause && idx === outerIndices[outerIndices.length - 1];
 
               // === 안쪽 layer element 결정 — 100% progress 기반 (Item 3, 4) ===
               // 원본 ownerAnswer.koreanLabel/pos 추론 금지.
