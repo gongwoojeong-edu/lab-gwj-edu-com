@@ -1,71 +1,55 @@
 
-## 요청 정리 — 8개 통합 보강 (최종 블루프린트)
+## 의도 확인
 
-| # | 항목 | 현재 상태 |
+5번 항목 보강:
+- **idiom(관용구) 안의 단어도 개별 클릭 + 분석 가능**
+- 즉 클릭만 되는 게 아니라 mousedown/enter/up 드래그 선택, POS·element·role 분석까지 idiom 외곽 wrapper와 무관하게 정상 동작해야 함
+
+기존 5번은 "클릭 가능"으로만 적었는데, 실제로는 분석 패널 입력까지 막힘 없이 되도록 모든 이벤트가 inner WordChip으로 전달돼야 한다는 뜻.
+
+## 7개 사항 통합 처리 (5번 보강 반영)
+
+| # | 항목 | 처리 |
 |---|---|---|
-| 1 | 정답 모드 채점 차단 | ✅ 직전 작업으로 `useMaskStatus` 적용 완료 — 추가로 wrong 토스트/animation 잔존 여부만 점검 |
-| 2 | 다층 레이어 공존 | ⚠️ 현재 token당 단일 progress. Clause/Parallel/SVOC/Idiom을 별도 namespace로 분리 필요 |
-| 3 | 정확 인덱스 기반 | ✅ 직전 작업으로 smart grouping 제거 완료 — 회귀 점검만 |
-| 4 | 닫는 `]` | ✅ 직전 작업 — 회귀 점검 |
-| 5 | 완료 단어 재선택/편집 | ⚠️ 현재 완료 토큰 클릭 시 새 selection으로 시작은 되지만, 기존 분석을 패널에 다시 로드하는 경로가 약함 — 재진입 시 progress 복원 필요 |
-| 6 | 지우개 vs 선택해제 분리 | ⚠️ 일부 혼용. 명확히 두 버튼·두 핸들러로 분리 |
-| 7 | 모바일 패널 잘림 | ⚠️ Drawer content에 스크롤·padding 안전영역 보강 필요 |
-| 8 | 숙어 레이어 (신규) | ❌ 미구현 — 이전 플랜의 데이터모델/UI 그대로 적용 |
-
-## 데이터 구조 변경 (Item 2)
-
-`progressMap`은 그대로 유지하되 **Idiom은 완전 별도 store**로 분리해 SVOC와 절대 간섭 안 하게:
-- `src/lib/idioms.ts` 신규 — `gwj.idioms.v1` localStorage
-- `customAnswers`(SVOC 분석)와 `idioms`는 같은 단어에 동시 존재 가능
-- 렌더링: idiom = outer wrapper (sepia background + tooltip), SVOC = inner span (기존 그대로) → 시각적 공존
-
-Clause/Parallel은 이미 `completedSelectionMap`으로 토큰별 분리 저장 중 → 변경 없음.
+| 1 | 연속 완료 토큰 배경 병합 | `WordChip.groupPosition` + 공백 span 배경 |
+| 2 | 완료 토큰 클릭 → 재선택·수정·삭제 | mousedown 시 selectedId·indices 복원 |
+| 3 | 종속절(접SV) 하단 SVOC 배지 | clause wrapper 아래 element 배지 1개 |
+| 4 | 지우개 정상화 | progress + completedSelectionMap + clause start/end + customAnswers 정리 |
+| 5 | **idiom 안 단어 개별 클릭·드래그·분석 모두 가능** | outer wrapper `pointer-events-none`, inner WordChip `pointer-events-auto`, 모든 mouse/touch 이벤트 inner에서 처리 — 분석 패널·POS·element·role 입력까지 정상 동작 |
+| 6 | 부속배지에서 품사(명/형/동/부/기타) 전체 제거 | POS 라벨 렌더 분기 제거 |
+| 7 | "숙어" 문구 → "관용구" | UI 한글 라벨만 교체 (식별자·키 유지) |
 
 ## 변경 파일
 
-### `src/lib/idioms.ts` (신규)
-```ts
-type IdiomMark = { id, sentenceId, indices[], surface, meaning, createdAt }
-loadIdioms / saveIdioms / upsertIdiom / removeIdiom
-getIdiomsForSentence(sentenceId) / getAllIdiomsFlat()  // 테스트 세션용
-findIdiomCoveringIndex(sentenceId, idx)
-```
-
-### `src/index.css`
-```css
---idiom-bg: 30 35% 90%;
---idiom-border: 28 40% 70%;
---idiom-fg: 25 35% 30%;
-/* dark mode 변형 포함 */
-```
-
-### `src/components/analyzer/AnalysisPanel.tsx`
-- **신규 섹션 "🟫 숙어 / Phrase"** — 항상 노출 (selectedWordIndices ≥ 1)
-  - 정답 모드: meaning 입력 + `[숙어 저장]` / 기존 마크 시 `[수정]`·`[삭제]`
-  - 일반 모드: 등록된 숙어 hover 안내만
-- **회귀 점검**: `useMaskStatus`가 모든 wrong 경로(POS/element/role/verb confirm)에서 동작하는지 확인
-- **모바일 보강**: 패널 root에 `max-h-[calc(100dvh-3.5rem)] overflow-y-auto pb-[env(safe-area-inset-bottom)]` + 간격 축소
+### `src/components/analyzer/WordChip.tsx`
+- `groupPosition?: "single" | "start" | "middle" | "end"` prop 추가
+  - single: `px-1 rounded-sm`
+  - start: `pl-1 pr-0 rounded-l-sm rounded-r-none`
+  - middle: `px-0 rounded-none`
+  - end: `pl-0 pr-1 rounded-r-sm rounded-l-none`
 
 ### `src/pages/Index.tsx`
-- **숙어 lookup**: 렌더 루프에서 `findIdiomCoveringIndex` → 외곽 wrapper로 sepia 배경 + `Tooltip`(meaning)
-  - SVOC 배경은 inner span 유지 → 두 색 동시 표시
-  - 같은 idiom 연속 토큰: 첫 토큰 `rounded-l pl-1`, 마지막 `rounded-r pr-1`
-- **재선택 (Item 5)**: 완료 토큰 클릭 시
-  - 해당 토큰의 `progressMap` 엔트리를 그대로 `selectedId`에 복원 → 패널이 기존 분석 로드 (이미 데이터 있으므로 자동)
-  - 새 `selectedWordIndices`는 해당 토큰의 저장된 `completedSelectionMap` 인덱스로 세팅
-- **버튼 분리 (Item 6)**:
-  - `[🧽 지우개]` → progress + completedSelectionMap + idiom mark(겹치는 경우 별도 확인) 삭제
-  - `[✕ 선택해제]` → `selectedWordIndices`만 비우기
-  - 자동 deselect: `progress.completed === true` 시 `clearActiveSelection()` (이미 동작)
-- **헤더**: `📚 등록 숙어 N` 카운터 + 클릭 시 모달로 전체 리스트 (sentenceId·surface·meaning) — 추후 `/test` 라우트가 `getAllIdiomsFlat()`으로 동일 데이터 사용
-- **모바일 Drawer**: `max-h-[85dvh]` + 내부 스크롤 영역, `pb-safe` 클래스
+- 렌더 루프: 같은 owner의 연속 인덱스 판정 → `groupPosition` 전달, 토큰 사이 공백도 같은 그룹이면 `bg-primary/[0.06]` 채움
+- 완료 토큰 mousedown: `selectedId = ownerId`, `selectedWordIndices = completedSelectionMap[ownerId]` 복원 → 패널이 기존 progress 그대로 로드, 수정·삭제 가능
+- **idiom outer wrapper**: `pointer-events-none` (배경/툴팁만 담당)  
+  → inner WordChip은 정상적으로 mousedown/enter/up 받아 분석 흐름에 진입
+  → 툴팁 트리거는 별도 hover-only 영역으로 분리해 클릭 차단 안 함
+- 절(clause) 묶음 wrapper 아래 absolute로 element 배지(`badge-s/o/c/m`) 1개 — owner token element 사용
+- POS 배지(명/형/동/부/기타) 렌더 분기 제거
+- `handleEraser`: progress + completedSelectionMap + clause start/end customAnswer 정리, idiom mark는 유지
+- 헤더 카운터 "📚 등록 숙어 N" → "📚 등록 관용구 N"
+
+### `src/components/analyzer/AnalysisPanel.tsx`
+- `IdiomSection` 한글 문구 "숙어" → "관용구" (제목/버튼/플레이스홀더/토스트)
+- 필요 시 절 element 저장값 노출 보정
+
+## 손대지 않을 것
+- 하단 SVOC 배지 (S/V/O/C/M) — 그대로
+- 부속성분 배지 (to V의o, V-ing의o, 전치사의o 등) — 그대로
+- 한국어 라벨 — 그대로
+- idiom 식별자/localStorage key/타입명 — 영문 그대로
+- 데이터·테스트 페이지 — 변경 없음
 
 ## 진행 범위
-- ✅ Item 1·3·4 회귀 점검 (이미 적용됨)
-- ✅ Item 2 — Idiom store 분리로 SVOC와 공존
-- ✅ Item 5 — 완료 토큰 재선택 시 progress 복원
-- ✅ Item 6 — 지우개/선택해제 명확히 두 버튼으로 분리
-- ✅ Item 7 — 모바일 Drawer/Panel 스크롤·safe-area 보강
-- ✅ Item 8 — Idiom 레이어 (마킹·tooltip·헤더 카운터·테스트용 export API)
-- ❌ `/test` 어휘 테스트 페이지 자체는 별도 작업 (요청 시 진행) — 이번엔 데이터 source만 준비
-- ❌ SENTENCES 데이터 변경 없음
+- ✅ 7개 항목 모두 한 번에 처리 (5번은 클릭+드래그+분석 입력까지 전부 작동)
+- ❌ 데이터/테스트 페이지/식별자 변경 없음
