@@ -680,7 +680,7 @@ const IdiomSection = ({
 // 명사 패널
 // ============================================================
 interface NounPanelProps {
-  answer: NounAnswer;
+  answer?: NounAnswer;
   noun: NounProgress;
   onNounFormChange: (f: NounForm) => void;
   onNounElementChange: (e: SentenceElement) => void;
@@ -700,7 +700,7 @@ const NounPanel = ({
     formCorrect &&
     !!noun.form &&
     (noun.form === "접SV" ||
-      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && answer.element === undefined));
+      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && answer?.element === undefined));
 
   // 형태전용(접SV 등): 평탄 element-role 그리드 대신 기존 RoleRow 재사용
   const formOnlyRoleOptions = formOnlyMode && noun.form ? FORM_ONLY_ROLES[noun.form] ?? [] : [];
@@ -744,7 +744,7 @@ const NounPanel = ({
         />
       )}
       {noun.roleStatus === "correct" && (
-        <CompletionBlock label={answer.koreanLabel} />
+        <CompletionBlock label={answer?.koreanLabel ?? noun.role ?? "완료"} />
       )}
     </>
   );
@@ -754,7 +754,7 @@ const NounPanel = ({
 // 형용사 패널
 // ============================================================
 interface AdjPanelProps {
-  answer: AdjAnswer;
+  answer?: AdjAnswer;
   adj: AdjProgress;
   onAdjFormChange: (f: AdjForm) => void;
   onAdjElementChange: (e: "C" | "M") => void;
@@ -824,7 +824,7 @@ const AdjPanel = ({
         />
       )}
       {adj.roleStatus === "correct" && (
-        <CompletionBlock label={answer.koreanLabel} />
+        <CompletionBlock label={answer?.koreanLabel ?? adj.role ?? "완료"} />
       )}
     </>
   );
@@ -983,7 +983,7 @@ const ElementRoleGrid = ({
 // 부사 패널 (LAYER 02 → 03 / 03a 없음)
 // ============================================================
 interface AdvPanelProps {
-  answer: AdvAnswer;
+  answer?: AdvAnswer;
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
   onAdvSubtypeChange: (s: AdvSubtype) => void;
@@ -1092,7 +1092,7 @@ const AdvPanel = ({
           })}
         </div>
       </div>
-      {done && <CompletionBlock label={answer.koreanLabel} />}
+      {done && <CompletionBlock label={answer?.koreanLabel ?? adv.role ?? "완료"} />}
     </>
   );
 };
@@ -1101,7 +1101,7 @@ const AdvPanel = ({
 // 기타 패널 (LAYER 02 종류 → LAYER 03 세부)
 // ============================================================
 interface EtcPanelProps {
-  answer: EtcAnswer;
+  answer?: EtcAnswer;
   etc: EtcProgress;
   onEtcKindChange: (k: EtcKind) => void;
   onEtcRoleChange: (r: string) => void;
@@ -1222,7 +1222,7 @@ const EtcPanel = ({
           })}
         </div>
       </div>
-      {done && <CompletionBlock label={answer.koreanLabel} />}
+      {done && <CompletionBlock label={answer?.koreanLabel ?? etc.role ?? "완료"} />}
     </>
   );
 };
