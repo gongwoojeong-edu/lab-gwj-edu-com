@@ -857,28 +857,34 @@ const Index = () => {
   };
 
   // ===== 단일 owner 즉시 삭제 (지우개 모드 / Shift 단축키 공용) =====
+  // 모든 관련 state를 동시에 정리 — 보라 잔상이 남지 않도록 customAnswers, pendingPatch,
+  // savedOwner, userLinkedOwnerSet, modifier/referent 관계까지 모두 제거.
   const eraseOwner = (ownerId: string) => {
     setProgressMap((prev) => {
+      if (!(ownerId in prev)) return prev;
       const next = { ...prev };
       delete next[ownerId];
       finalizedOwnersRef.current.delete(ownerId);
       return next;
     });
     setCompletedSelectionMap((prev) => {
+      if (!(ownerId in prev)) return prev;
       const next = { ...prev };
       delete next[ownerId];
       return next;
     });
-    if (customAnswers[ownerId]) {
-      const nextCustom = { ...customAnswers };
+    // customAnswers는 항상 제거 (재hydrate 방지) + localStorage 동기화
+    setCustomAnswers((prev) => {
+      if (!(ownerId in prev)) return prev;
+      const nextCustom = { ...prev };
       delete nextCustom[ownerId];
-      setCustomAnswers(nextCustom);
       try {
         window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
       } catch {
         /* ignore */
       }
-    }
+      return nextCustom;
+    });
     // pending patch / saved owner 표시도 정리
     setPendingPatchMap((prev) => {
       if (!prev[ownerId]) return prev;
