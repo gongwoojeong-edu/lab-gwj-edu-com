@@ -90,6 +90,8 @@ type WordProgress = {
   completed: boolean;
 };
 
+type AnalyzableToken = Extract<(typeof SENTENCES)[number]["tokens"][number], { type: "analyzable" }>;
+
 const emptyNoun = (): NounProgress => ({
   form: null,
   element: null,
@@ -225,17 +227,37 @@ const Index = () => {
     [sentence],
   );
 
-  const completedCount = analyzableIds.filter((id) => progressMap[id]?.completed).length;
+  const OWNER_KEY_SEPARATOR = "::";
+
+  const getOwnerTokenId = (ownerId: string) => ownerId.split(OWNER_KEY_SEPARATOR)[0] ?? ownerId;
+
+  const getTokenById = (tokenId: string | null | undefined): AnalyzableToken | undefined =>
+    sentence.tokens.find(
+      (t): t is AnalyzableToken => t.type === "analyzable" && t.id === tokenId,
+    );
+
+  const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken) => {
+    if (ownerId === token.id) {
+      return mergeAnswer(token.answer, customAnswers[token.id]);
+    }
+
+    return mergeAnswer(token.answer, customAnswers[ownerId]);
+  };
+
+  const completedCount = new Set(
+    Object.entries(progressMap)
+      .filter(([, value]) => value.completed)
+      .map(([ownerId]) => getOwnerTokenId(ownerId)),
+  ).size;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
 
-  const selectedTokenRaw = sentence.tokens.find(
-    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-      t.type === "analyzable" && t.id === selectedId,
-  );
+  const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
+  const selectedTokenRaw = getTokenById(selectedTokenId);
   // 정답 입력 모드에서 저장된 정답을 머지한 토큰
-  const selectedToken = selectedTokenRaw
-    ? { ...selectedTokenRaw, answer: mergeAnswer(selectedTokenRaw.answer, customAnswers[selectedTokenRaw.id]) }
-    : undefined;
+  const selectedToken =
+    selectedId && selectedTokenRaw
+      ? { ...selectedTokenRaw, answer: getMergedAnswerForOwner(selectedId, selectedTokenRaw) }
+      : undefined;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
@@ -246,8 +268,21 @@ const Index = () => {
   };
 
   // 정답 입력 모드에서 한 필드를 저장
-  const saveCustom = (tokenId: string, patch: Record<string, unknown>) => {
-    const next = upsertCustomAnswer(tokenId, patch);
+  const buildOwnerId = (indices: number[]) => {
+    const sorted = Array.from(new Set(indices)).sort((a, b) => a - b);
+    const tokenIds = Array.from(
+      new Set(sorted.map((index) => wordUnits[index]?.tokenId).filter(Boolean)),
+    ) as string[];
+
+    if (tokenIds.length !== 1 || sorted.length !== 1) {
+      return pickSelectedIdFromIndices(sorted);
+    }
+
+    return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+  };
+
+  const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
+    const next = upsertCustomAnswer(ownerId, patch);
     setCustomAnswers(next);
   };
 
@@ -312,12 +347,12 @@ const Index = () => {
       if (tid && !tokenIds.includes(tid)) tokenIds.push(tid);
     });
     if (tokenIds.length === 0) return null;
+    if (tokenIds.length === 1 && indices.length === 1) {
+      return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${indices[0]}`;
+    }
     // 동사 토큰 우선 (절 분석 진입에 필수)
     const verbTid = tokenIds.find((tid) => {
-      const tk = sentence.tokens.find(
-        (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-          t.type === "analyzable" && t.id === tid,
-      );
+      const tk = getTokenById(tid);
       return tk?.answer.pos === "동사";
     });
     return verbTid ?? tokenIds[0];
@@ -397,34 +432,34 @@ const Index = () => {
 
   // ===== 지우개: 선택된 단어들의 분석만 초기화 (숙어 마크는 유지) =====
   const handleEraser = () => {
-    const tokenIds = new Set<string>();
+    const ownerIds = new Set<string>();
     const indices = selectedWordIndices.slice();
     indices.forEach((i) => {
-      const tid = wordUnits[i]?.tokenId;
-      if (tid) tokenIds.add(tid);
+      const ownerId = buildOwnerId([i]);
+      if (ownerId) ownerIds.add(ownerId);
     });
     // 추가: 완료된 토큰 owner도 모두 포함 (selectedWordIndices가 완료 영역의 일부일 때)
     indices.forEach((i) => {
       const owner = Object.entries(completedSelectionMap).find(([, idxs]) =>
         idxs.includes(i),
       )?.[0];
-      if (owner) tokenIds.add(owner);
+      if (owner) ownerIds.add(owner);
     });
     setProgressMap((prev) => {
       const next = { ...prev };
-      tokenIds.forEach((id) => delete next[id]);
+      ownerIds.forEach((id) => delete next[id]);
       return next;
     });
     setCompletedSelectionMap((prev) => {
       const next = { ...prev };
-      tokenIds.forEach((id) => delete next[id]);
+      ownerIds.forEach((id) => delete next[id]);
       return next;
     });
     // clauseStart/clauseEnd customAnswer도 함께 정리
-    if (tokenIds.size > 0) {
+    if (ownerIds.size > 0) {
       const nextCustom = { ...customAnswers };
       let touched = false;
-      tokenIds.forEach((id) => {
+      ownerIds.forEach((id) => {
         const cur = nextCustom[id];
         if (cur && ("clauseStart" in cur || "clauseEnd" in cur)) {
           const { clauseStart: _cs, clauseEnd: _ce, ...rest } = cur as Record<string, unknown>;
@@ -523,10 +558,10 @@ const Index = () => {
   // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -543,10 +578,10 @@ const Index = () => {
 
   const handleNounElement = (e: SentenceElement) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { element: e });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.element === e;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -561,10 +596,10 @@ const Index = () => {
 
   const handleNounRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: { ...prev.noun, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -575,8 +610,8 @@ const Index = () => {
   const handleNounElementRole = (e: SentenceElement, r: string | null) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
     if (answerInputMode) {
-      saveCustom(selectedToken.id, { element: e, role: r ?? "수식어" });
-      updateProgress(selectedToken.id, (prev) => ({
+      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         noun: {
           ...prev.noun,
@@ -593,7 +628,7 @@ const Index = () => {
     const elementOk = ans.element === e;
     if (e === "M") {
       // M: role 없이 element만 맞으면 완료
-      updateProgress(selectedToken.id, (prev) => ({
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         noun: {
           ...prev.noun,
@@ -607,7 +642,7 @@ const Index = () => {
       return;
     }
     const roleOk = elementOk && r !== null && ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -623,10 +658,10 @@ const Index = () => {
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -643,10 +678,10 @@ const Index = () => {
 
   const handleAdjElement = (e: "C" | "M") => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { element: e });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.element === e;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -661,10 +696,10 @@ const Index = () => {
 
   const handleAdjRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -674,8 +709,8 @@ const Index = () => {
   const handleAdjElementRole = (e: "C" | "M", r: string | null) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
     if (answerInputMode) {
-      saveCustom(selectedToken.id, { element: e, role: r ?? "수식어" });
-      updateProgress(selectedToken.id, (prev) => ({
+      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         adj: {
           ...prev.adj,
@@ -691,7 +726,7 @@ const Index = () => {
     const ans = selectedToken.answer as AdjAnswer;
     const elementOk = ans.element === e;
     if (e === "M") {
-      updateProgress(selectedToken.id, (prev) => ({
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         adj: {
           ...prev.adj,
@@ -705,7 +740,7 @@ const Index = () => {
       return;
     }
     const roleOk = elementOk && r !== null && ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -721,10 +756,10 @@ const Index = () => {
   // ===== 부사 =====
   const handleAdvForm = (f: AdvForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
@@ -741,10 +776,10 @@ const Index = () => {
 
   const handleAdvSubtype = (s: AdvSubtype) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { subtype: s });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { subtype: s });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.subtype === s;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
@@ -759,10 +794,10 @@ const Index = () => {
 
   const handleAdvRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adv: { ...prev.adv, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -772,10 +807,10 @@ const Index = () => {
   // ===== 기타 =====
   const handleEtcKind = (k: EtcKind) => {
     if (!selectedToken || selectedToken.answer.pos !== "기타") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { kind: k });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { kind: k });
     const ans = selectedToken.answer as EtcAnswer;
     const correct = answerInputMode || ans.kind === k;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       etc: {
         ...prev.etc,
@@ -790,10 +825,10 @@ const Index = () => {
 
   const handleEtcRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "기타") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as EtcAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       etc: { ...prev.etc, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -803,7 +838,7 @@ const Index = () => {
   // ===== 동사 =====
   const toggleVerb = (mut: (v: VerbProgress) => VerbProgress) => {
     if (!selectedToken || selectedToken.answer.pos !== "동사") return;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       verb: { ...mut(prev.verb), confirmStatus: "idle" },
       completed: false,
@@ -827,14 +862,14 @@ const Index = () => {
     const v = progress.verb;
     if (answerInputMode) {
       // 정답 입력 모드: 현재 동사 진행 상태를 그대로 정답으로 저장
-      saveCustom(selectedToken.id, {
+      if (selectedId) saveCustom(selectedId, {
         number: v.number ?? undefined,
         tense: v.tense ?? undefined,
         aspect: v.aspect,
         voice: v.voice ? "수동" : undefined,
         proVerb: v.proVerb,
       });
-      updateProgress(selectedToken.id, (prev) => ({
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         verb: { ...prev.verb, confirmStatus: "correct" },
         completed: true,
@@ -849,7 +884,7 @@ const Index = () => {
       (ans.voice === "수동") === v.voice &&
       (ans.proVerb ?? false) === v.proVerb;
 
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       verb: { ...prev.verb, confirmStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -1203,12 +1238,8 @@ const Index = () => {
                   )
                 : undefined;
               const wp = ownerId ? progressMap[ownerId] : undefined;
-              const ownerToken = ownerId
-                ? sentence.tokens.find(
-                    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-                      t.type === "analyzable" && t.id === ownerId,
-                  )
-                : undefined;
+               const ownerToken = ownerId ? getTokenById(getOwnerTokenId(ownerId)) : undefined;
+               const ownerAnswer = ownerId && ownerToken ? getMergedAnswerForOwner(ownerId, ownerToken) : undefined;
               const completedIndices = ownerId ? completedSelectionMap[ownerId] ?? [] : [];
               const isCompleted = completedIndices.includes(idx) && !!wp?.completed;
               const selStart = completedIndices[0];
@@ -1218,20 +1249,17 @@ const Index = () => {
 
               // 외곽 layer (절) — 별도
               const outerOwnerId = outerOwnerByIndex[idx];
-              const outerToken = outerOwnerId
-                ? sentence.tokens.find(
-                    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-                      t.type === "analyzable" && t.id === outerOwnerId,
-                  )
-                : undefined;
+               const outerToken = outerOwnerId ? getTokenById(getOwnerTokenId(outerOwnerId)) : undefined;
+               const outerAnswer =
+                 outerOwnerId && outerToken ? getMergedAnswerForOwner(outerOwnerId, outerToken) : undefined;
               const outerIndices = outerOwnerId
                 ? completedSelectionMap[outerOwnerId] ?? []
                 : [];
               const outerIsClause =
-                !!outerToken &&
-                ((outerToken.answer.pos === "명사" && outerToken.answer.form === "접SV") ||
-                  (outerToken.answer.pos === "형용사" && outerToken.answer.form === "접SV") ||
-                  (outerToken.answer.pos === "부사" && outerToken.answer.form === "접SV"));
+                 !!outerAnswer &&
+                 ((outerAnswer.pos === "명사" && outerAnswer.form === "접SV") ||
+                   (outerAnswer.pos === "형용사" && outerAnswer.form === "접SV") ||
+                   (outerAnswer.pos === "부사" && outerAnswer.form === "접SV"));
               const outerIsFirst = outerIsClause && idx === outerIndices[0];
               const outerIsLast =
                 outerIsClause && idx === outerIndices[outerIndices.length - 1];
@@ -1240,8 +1268,8 @@ const Index = () => {
               let completedElement: "S" | "V" | "O" | "C" | undefined;
               let isModifier = false;
               let isClauseSelection = false;
-              if (isCompleted && token && ownerToken && token.id === ownerToken.id) {
-                const a = token.answer;
+               if (isCompleted && ownerAnswer) {
+                 const a = ownerAnswer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
                   isClauseSelection = a.form === "접SV";
@@ -1267,8 +1295,8 @@ const Index = () => {
 
               // === 절 브래킷: 외곽 layer 기준 ===
               let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
-              if (outerIsClause && outerToken) {
-                const a = outerToken.answer;
+               if (outerIsClause && outerAnswer) {
+                 const a = outerAnswer;
                 if (a.pos === "명사") {
                   if (a.element === "S") bracketRole = "S";
                   else if (a.element === "O") bracketRole = "O";
@@ -1280,8 +1308,8 @@ const Index = () => {
               }
 
               let koreanLabel =
-                isCompleted && isFirstOfSelection && token && token.id === ownerId
-                  ? token.answer.koreanLabel
+                 isCompleted && isFirstOfSelection && ownerAnswer
+                   ? ownerAnswer.koreanLabel
                   : undefined;
               if (koreanLabel && (completedElement || (token?.answer.pos === "동사"))) {
                 const stripPatterns = [
