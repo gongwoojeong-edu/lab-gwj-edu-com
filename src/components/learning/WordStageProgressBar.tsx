@@ -3,20 +3,12 @@ import { cn } from "@/lib/utils";
 
 export type StageKey = "syllable" | "speak" | "spell" | "meaning";
 
-export interface StageScores {
-  syllable: number;
-  speak: number;
-  spell: number;
-  meaning: number;
-}
-
 interface Props {
-  scores: StageScores;
-  wordIndex: number; // 0-based
   totalWords: number;
   currentStage: StageKey;
   currentWord: string;
-  passedWords: number; // count of fully-passed words
+  wordIndex: number; // 0-based within current stage round
+  passedPerStage: Record<StageKey, number>;
 }
 
 const STAGE_LABELS: Record<StageKey, string> = {
@@ -27,28 +19,29 @@ const STAGE_LABELS: Record<StageKey, string> = {
 };
 
 const STAGE_ORDER: StageKey[] = ["syllable", "speak", "spell", "meaning"];
-const PASS_THRESHOLD = 90;
 
 const Bar = ({
   label,
-  score,
-  active,
+  passed,
+  total,
+  state,
 }: {
   label: string;
-  score: number;
-  active: boolean;
+  passed: number;
+  total: number;
+  state: "done" | "active" | "todo";
 }) => {
-  const passed = score >= PASS_THRESHOLD;
+  const pct = total ? (passed / total) * 100 : 0;
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       <div className="flex items-center gap-1.5 w-28 shrink-0">
-        {active && (
+        {state === "active" && (
           <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" aria-hidden />
         )}
         <span
           className={cn(
             "text-sm font-semibold tracking-tight truncate",
-            active ? "text-primary" : "text-foreground/80",
+            state === "active" ? "text-primary" : state === "done" ? "text-emerald-600" : "text-foreground/60",
           )}
         >
           {label}
@@ -58,36 +51,34 @@ const Bar = ({
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full transition-all duration-300",
-            passed ? "bg-emerald-500" : "bg-primary",
+            state === "done" ? "bg-emerald-500" : "bg-primary",
           )}
-          style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+          style={{ width: `${pct}%` }}
         />
       </div>
       <div
         className={cn(
-          "w-14 text-right text-sm font-mono font-semibold shrink-0 flex items-center justify-end gap-0.5",
-          passed ? "text-emerald-600" : "text-muted-foreground",
+          "w-16 text-right text-sm font-mono font-semibold shrink-0 flex items-center justify-end gap-0.5",
+          state === "done" ? "text-emerald-600" : "text-muted-foreground",
         )}
       >
-        {Math.round(score)}%
-        {passed && <Check className="w-3.5 h-3.5" />}
+        {passed}/{total}
+        {state === "done" && <Check className="w-3.5 h-3.5" />}
       </div>
     </div>
   );
 };
 
 export const WordStageProgressBar = ({
-  scores,
-  wordIndex,
   totalWords,
   currentStage,
   currentWord,
-  passedWords,
+  wordIndex,
+  passedPerStage,
 }: Props) => {
-  const currentSum =
-    (scores.syllable + scores.speak + scores.spell + scores.meaning) / 100;
+  const currentStageIdx = STAGE_ORDER.indexOf(currentStage);
   const overall = totalWords
-    ? Math.min(100, ((passedWords * 4 + currentSum) / (totalWords * 4)) * 100)
+    ? (STAGE_ORDER.reduce((sum, k) => sum + passedPerStage[k], 0) / (totalWords * 4)) * 100
     : 0;
 
   return (
@@ -95,7 +86,7 @@ export const WordStageProgressBar = ({
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-foreground">
-            단어 {Math.min(wordIndex + 1, totalWords)} / {totalWords}
+            {currentStageIdx + 1}단계 {STAGE_LABELS[currentStage].replace(/^[①②③④]\s*/, "")} · 단어 {Math.min(wordIndex + 1, totalWords)} / {totalWords}
           </span>
           <span className="font-mono font-bold text-primary truncate ml-2">
             {currentWord}
@@ -103,14 +94,19 @@ export const WordStageProgressBar = ({
         </div>
 
         <div className="flex flex-col gap-2">
-          {STAGE_ORDER.map((k) => (
-            <Bar
-              key={k}
-              label={STAGE_LABELS[k]}
-              score={scores[k]}
-              active={currentStage === k}
-            />
-          ))}
+          {STAGE_ORDER.map((k, i) => {
+            const state: "done" | "active" | "todo" =
+              i < currentStageIdx ? "done" : i === currentStageIdx ? "active" : "todo";
+            return (
+              <Bar
+                key={k}
+                label={STAGE_LABELS[k]}
+                passed={passedPerStage[k]}
+                total={totalWords}
+                state={state}
+              />
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-2.5 pt-1">
@@ -123,7 +119,7 @@ export const WordStageProgressBar = ({
               style={{ width: `${overall}%` }}
             />
           </div>
-          <span className="w-14 text-right text-xs font-mono font-semibold text-muted-foreground shrink-0">
+          <span className="w-16 text-right text-xs font-mono font-semibold text-muted-foreground shrink-0">
             {Math.round(overall)}%
           </span>
         </div>
@@ -132,4 +128,5 @@ export const WordStageProgressBar = ({
   );
 };
 
-export { PASS_THRESHOLD };
+export const PASS_THRESHOLD = 90;
+export type StageScores = Record<StageKey, number>;
