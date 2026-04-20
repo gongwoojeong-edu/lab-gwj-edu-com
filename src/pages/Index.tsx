@@ -470,9 +470,8 @@ const Index = () => {
       .sort(([, a], [, b]) => a.length - b.length);
 
     const hasCompletedOwner = owners.length > 0;
-    const modifierErase = e.shiftKey || e.metaKey || e.ctrlKey;
 
-    // === 지우개 모드 ===
+    // === 지우개 모드 — 유일한 삭제 진입점 ===
     if (eraserMode) {
       if (hasCompletedOwner) {
         const [ownerId] = owners[0];
@@ -483,11 +482,15 @@ const Index = () => {
       return;
     }
 
-    // === Shift+클릭 단축키 — 완료 owner 즉시 삭제 ===
-    if (modifierErase && hasCompletedOwner) {
-      const [ownerId] = owners[0];
-      eraseOwner(ownerId);
-      toast({ title: "🧽 삭제됨" });
+    // === Shift+클릭 = 누적 선택 (삭제 아님) ===
+    if (e.shiftKey && selectedWordIndices.length > 0) {
+      const next = Array.from(new Set([...selectedWordIndices, idx])).sort((a, b) => a - b);
+      setSelectedWordIndices(next);
+      const sid = pickSelectedIdFromIndices(next);
+      if (sid) {
+        setSelectedId(sid);
+        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+      }
       return;
     }
 
