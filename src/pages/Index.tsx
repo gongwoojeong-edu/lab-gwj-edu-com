@@ -1502,13 +1502,19 @@ const Index = () => {
                 </span>
               );
 
-              // 토큰 사이 공백 span — 다음 단어와 같은 owner를 공유하면 보라로 채움 (톤 더 연하게)
+              // 토큰 사이 공백 span — 다음 단어와 공유하는 owner 개수에 따라 깊이 색
               const isLastWord = idx === wordUnits.length - 1;
+              const sharedOwnersCount = !isLastWord
+                ? ownersHere.filter((o) => ownersNext.includes(o)).length +
+                  (outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId ? 1 : 0)
+                : 0;
               const spacerBg =
-                !isLastWord && (sharedWithNext || (outerIsClauseLocal && ownersNext.includes(outerOwnerId ?? "")))
+                sharedOwnersCount >= 3
+                  ? "bg-primary/[0.18]"
+                  : sharedOwnersCount === 2
+                  ? "bg-primary/[0.12]"
+                  : sharedOwnersCount === 1
                   ? "bg-primary/[0.06]"
-                  : sharedWithNext === undefined && outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId
-                  ? "bg-primary/[0.04]"
                   : "";
               const spacerNode = !isLastWord ? (
                 <span
