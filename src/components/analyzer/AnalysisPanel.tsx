@@ -432,6 +432,9 @@ export const AnalysisPanel = ({
   onAssignReferentTarget,
   onClearReferentTarget,
   onCancelPendingReferent,
+  ownerStatus = "empty",
+  onSaveAnswer,
+  onDiscardAnswer,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
   const hasSelection = !!selectedWord;
