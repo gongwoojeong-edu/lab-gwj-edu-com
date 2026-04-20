@@ -1365,10 +1365,22 @@ const Index = () => {
               </div>
             );
           })()}
-          <div
-            className="flex flex-wrap items-end gap-y-7 pt-8 pb-1 select-none"
-            onMouseLeave={() => isDragging && finalizeSelection()}
-          >
+          {(() => {
+            // 부배지 stacking 높이에 맞춰 줄 간격(line gap)과 상단 padding을 동적으로 확보
+            // 각 layer당 14px씩 위로 올라가므로, 깊이가 깊어질수록 더 많은 헤드룸 필요
+            const maxDepth = Object.values(completedOwnersByIndex).reduce(
+              (max, owners) => Math.max(max, owners?.length ?? 0),
+              0,
+            );
+            // base 28px + (depth-1) * 16px 정도 헤드룸이면 깔끔
+            const rowGapPx = Math.max(28, 14 + maxDepth * 18);
+            const topPadPx = Math.max(32, 14 + maxDepth * 18);
+            return (
+              <div
+                className="flex flex-wrap items-end pb-1 select-none"
+                style={{ rowGap: `${rowGapPx}px`, paddingTop: `${topPadPx}px` }}
+                onMouseLeave={() => isDragging && finalizeSelection()}
+              >
             {wordUnits.map((u, idx) => {
               const word = u.word;
               const punct = isPunct(word);
