@@ -558,10 +558,10 @@ const Index = () => {
   // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -578,10 +578,10 @@ const Index = () => {
 
   const handleNounElement = (e: SentenceElement) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { element: e });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.element === e;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -596,10 +596,10 @@ const Index = () => {
 
   const handleNounRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: { ...prev.noun, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -610,8 +610,8 @@ const Index = () => {
   const handleNounElementRole = (e: SentenceElement, r: string | null) => {
     if (!selectedToken || selectedToken.answer.pos !== "명사") return;
     if (answerInputMode) {
-      saveCustom(selectedToken.id, { element: e, role: r ?? "수식어" });
-      updateProgress(selectedToken.id, (prev) => ({
+      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         noun: {
           ...prev.noun,
@@ -628,7 +628,7 @@ const Index = () => {
     const elementOk = ans.element === e;
     if (e === "M") {
       // M: role 없이 element만 맞으면 완료
-      updateProgress(selectedToken.id, (prev) => ({
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         noun: {
           ...prev.noun,
@@ -642,7 +642,7 @@ const Index = () => {
       return;
     }
     const roleOk = elementOk && r !== null && ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
@@ -658,10 +658,10 @@ const Index = () => {
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -678,10 +678,10 @@ const Index = () => {
 
   const handleAdjElement = (e: "C" | "M") => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { element: e });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.element === e;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
@@ -696,10 +696,10 @@ const Index = () => {
 
   const handleAdjRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -709,8 +709,8 @@ const Index = () => {
   const handleAdjElementRole = (e: "C" | "M", r: string | null) => {
     if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
     if (answerInputMode) {
-      saveCustom(selectedToken.id, { element: e, role: r ?? "수식어" });
-      updateProgress(selectedToken.id, (prev) => ({
+      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         adj: {
           ...prev.adj,
@@ -726,7 +726,7 @@ const Index = () => {
     const ans = selectedToken.answer as AdjAnswer;
     const elementOk = ans.element === e;
     if (e === "M") {
-      updateProgress(selectedToken.id, (prev) => ({
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         adj: {
           ...prev.adj,
@@ -740,7 +740,7 @@ const Index = () => {
       return;
     }
     const roleOk = elementOk && r !== null && ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
