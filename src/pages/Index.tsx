@@ -329,13 +329,24 @@ const Index = () => {
       return false;
     }
   });
-  const setAnswerInputMode = (v: boolean) => {
+  const _persistAnswerInputMode = (v: boolean) => {
     _setAnswerInputMode(v);
     try {
       window.localStorage.setItem(ANSWER_INPUT_MODE_KEY, v ? "1" : "0");
     } catch {
       /* noop */
     }
+  };
+  // 모드 OFF 시 미저장 patch가 있으면 확인 다이얼로그
+  const setAnswerInputMode = (v: boolean) => {
+    if (!v && Object.keys(pendingPatchMap).length > 0) {
+      setPendingNavAction(() => () => {
+        setPendingPatchMap({});
+        _persistAnswerInputMode(false);
+      });
+      return;
+    }
+    _persistAnswerInputMode(v);
   };
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
   // 정답 입력 모드 — 미저장 patch 누적 (owner별)
