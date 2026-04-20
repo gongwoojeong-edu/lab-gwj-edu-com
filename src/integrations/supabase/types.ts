@@ -14,7 +14,273 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      badge_offsets: {
+        Row: {
+          dx: number
+          id: string
+          owner_id: string
+          sentence_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          dx?: number
+          id?: string
+          owner_id: string
+          sentence_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          dx?: number
+          id?: string
+          owner_id?: string
+          sentence_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      idioms: {
+        Row: {
+          created_at: string
+          id: string
+          indices: number[]
+          meaning: string
+          sentence_id: string
+          surface: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          indices: number[]
+          meaning: string
+          sentence_id: string
+          surface: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          indices?: number[]
+          meaning?: string
+          sentence_id?: string
+          surface?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      modifier_relations: {
+        Row: {
+          created_at: string
+          id: string
+          sentence_id: string
+          source_owner_id: string
+          target_owner_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sentence_id: string
+          source_owner_id: string
+          target_owner_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sentence_id?: string
+          source_owner_id?: string
+          target_owner_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      owner_progress: {
+        Row: {
+          completed: boolean
+          created_at: string
+          custom_answer: Json | null
+          id: string
+          owner_id: string
+          progress: Json | null
+          sentence_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          custom_answer?: Json | null
+          id?: string
+          owner_id: string
+          progress?: Json | null
+          sentence_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          custom_answer?: Json | null
+          id?: string
+          owner_id?: string
+          progress?: Json | null
+          sentence_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      referent_relations: {
+        Row: {
+          created_at: string
+          id: string
+          sentence_id: string
+          source_owner_id: string
+          target_owner_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sentence_id: string
+          source_owner_id: string
+          target_owner_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sentence_id?: string
+          source_owner_id?: string
+          target_owner_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      sentence_progress: {
+        Row: {
+          analysis_done: boolean
+          created_at: string
+          id: string
+          passed_at: string | null
+          sentence_id: string
+          status: string
+          translation_done: boolean
+          updated_at: string
+          user_id: string | null
+          word_test_done: boolean
+        }
+        Insert: {
+          analysis_done?: boolean
+          created_at?: string
+          id?: string
+          passed_at?: string | null
+          sentence_id: string
+          status?: string
+          translation_done?: boolean
+          updated_at?: string
+          user_id?: string | null
+          word_test_done?: boolean
+        }
+        Update: {
+          analysis_done?: boolean
+          created_at?: string
+          id?: string
+          passed_at?: string | null
+          sentence_id?: string
+          status?: string
+          translation_done?: boolean
+          updated_at?: string
+          user_id?: string | null
+          word_test_done?: boolean
+        }
+        Relationships: []
+      }
+      sentence_translations: {
+        Row: {
+          id: string
+          sentence_id: string
+          submitted_at: string
+          text: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          sentence_id: string
+          submitted_at?: string
+          text: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          sentence_id?: string
+          submitted_at?: string
+          text?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_sentences: {
+        Row: {
+          code: string | null
+          created_at: string
+          id: string
+          level: string | null
+          text: string
+          user_id: string | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          id?: string
+          level?: string | null
+          text: string
+          user_id?: string | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          id?: string
+          level?: string | null
+          text?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      word_test_results: {
+        Row: {
+          id: string
+          items: Json
+          passed: boolean
+          score: number
+          sentence_id: string
+          taken_at: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          items: Json
+          passed: boolean
+          score: number
+          sentence_id: string
+          taken_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          items?: Json
+          passed?: boolean
+          score?: number
+          sentence_id?: string
+          taken_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
