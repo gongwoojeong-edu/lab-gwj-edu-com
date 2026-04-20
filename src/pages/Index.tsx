@@ -1888,11 +1888,9 @@ const Index = () => {
               const selEnd = completedIndices[completedIndices.length - 1];
               const isFirstOfSelection = isCompleted && idx === selStart;
               const isLastOfSelection = isCompleted && idx === selEnd;
-              // 안쪽 부배지 anchor — owner 청크의 중간 인덱스
-              const innerMidIdx = completedIndices.length
-                ? completedIndices[Math.floor((completedIndices.length - 1) / 2)]
-                : -1;
-              const isInnerBadgeAnchor = isCompleted && idx === innerMidIdx;
+              // 안쪽 부배지 anchor — owner의 첫 인덱스 (병렬은 등위접속사 위치)
+              const innerAnchorIdx = findAnchorIdx(completedIndices, wp);
+              const isInnerBadgeAnchor = isCompleted && idx === innerAnchorIdx;
 
               // 외곽 layer (절) — 인덱스 범위만 잡고, 의미는 progress 에서.
               const outerOwnerId = outerOwnerByIndex[idx];
@@ -1900,47 +1898,49 @@ const Index = () => {
                 ? completedSelectionMap[outerOwnerId] ?? []
                 : [];
 
-              // === 안쪽 layer element 결정 — 100% progress 기반 (Item 3, 4) ===
-              // 원본 ownerAnswer.koreanLabel/pos 추론 금지.
+              // === 안쪽 layer element 결정 — 100% progress 기반 ===
               const innerBadge = wp ? buildElementBadge(wp) : undefined;
               const innerSubLabel = wp ? buildSubBadgeLabel(wp) : undefined;
               const isClauseSelection = wp ? isClauseProgress(wp) : false;
+              const isParallelSelection = isParallelProgress(wp);
               let completedElement: "S" | "V" | "O" | "C" | undefined;
-              let isModifier = false;
               if (isCompleted && innerBadge) {
-                if (innerBadge === "M") isModifier = true;
-                else if (!isClauseSelection) {
+                if (innerBadge !== "M" && !isClauseSelection) {
                   completedElement = innerBadge;
                 }
               }
+              // SVOC 배지 anchor도 첫 단어(또는 등위접속사)
+              const isElementBadgeAnchor = isCompleted && idx === innerAnchorIdx;
 
               // === 절(외곽 layer) 정보도 동일 progress 기반 ===
               const outerProgress = outerOwnerId ? progressMap[outerOwnerId] : undefined;
               const outerIsClauseLocal =
                 !!outerProgress && isClauseProgress(outerProgress);
+              const outerIsParallelLocal = isParallelProgress(outerProgress);
               const outerBadge = outerProgress ? buildElementBadge(outerProgress) : undefined;
               const outerSubLabel = outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
               const outerIsFirstLocal = outerIsClauseLocal && idx === outerIndices[0];
               const outerIsLastLocal =
                 outerIsClauseLocal && idx === outerIndices[outerIndices.length - 1];
-              const outerMidIdx = outerIndices.length
-                ? outerIndices[Math.floor((outerIndices.length - 1) / 2)]
-                : -1;
-              const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerMidIdx;
+              const outerAnchorIdx = findAnchorIdx(outerIndices, outerProgress);
+              const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerAnchorIdx;
 
               // === 절 브래킷: 외곽 progress의 element badge 기준 ===
               const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
                 outerIsClauseLocal ? outerBadge ?? "M" : undefined;
 
               // === 부배지 layer depth 계산 ===
-              // ownersHere 순서: 안쪽(좁은) → 외곽(넓은).
+              // ownersHere 순서: 외곽(긴 범위, Layer 1) → 안쪽(짧은 범위, Layer N).
+              const totalLayers = ownersHere.length;
               const innerLayerIdx = ownerId ? ownersHere.indexOf(ownerId) : -1;
               const outerLayerIdx = outerOwnerId ? ownersHere.indexOf(outerOwnerId) : -1;
-              const innerLayerNum = innerLayerIdx >= 0 ? (innerLayerIdx % 4) + 1 : 1;
-              const outerLayerNum = outerLayerIdx >= 0 ? (outerLayerIdx % 4) + 1 : 2;
-              // (수직 stacking 폐기 — 부배지는 한 줄 가로 정렬, top 고정)
+              const innerLayerNum = innerLayerIdx >= 0 ? innerLayerIdx + 1 : 1;
+              const outerLayerNum = outerLayerIdx >= 0 ? outerLayerIdx + 1 : 1;
+              // Layer 번호 표기 규칙: 단층(혼자)이거나 Layer 1이면 숫자 숨김. 2부터만.
+              const showInnerLayerNum = totalLayers >= 2 && innerLayerNum >= 2;
+              const showOuterLayerNum = totalLayers >= 2 && outerLayerNum >= 2;
 
-              // 부배지(품사 라벨) — owner 중간 인덱스에만, 절은 별도 외곽 부배지로 처리
+              // 부배지(품사 라벨) — owner 첫 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
                 isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
               const outerKoreanLabel =
@@ -1964,26 +1964,38 @@ const Index = () => {
               const idiomLast =
                 idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
 
-              // 외곽 절(보라) 배경은 outerIsClauseLocal 로 처리.
-              // 안쪽 완료 배경 — 수식어/일반 모두 동일 톤 (배지 유무로만 구분)
+              // 안쪽 완료 배경 — clause/parallel은 별도 처리, 일반(general)만 옅은 보라
               const innerCompleteBg =
-                isCompleted && !isSelected && !isClauseSelection;
+                isCompleted && !isSelected && !isClauseSelection && !isParallelSelection;
 
-              // === 다층 depth 색 stacking ===
-              // ownersHere는 좁은 layer(=안쪽) 순으로 정렬됨.
-              // 각 owner마다 layer-1/2/3/4 색을 cycle해서 반투명으로 누적 → 겹칠수록 자연스럽게 진해짐.
+              // === Owner 종류별 배경 분기 ===
+              // clause: 배경 거의 제거 (대괄호로 표현) / parallel: 진한 박스 / general: 옅은 보라 누적
               const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
               const buildLayerBg = (owners: string[]): string | undefined => {
                 if (owners.length === 0) return undefined;
-                // 안쪽(좁은) → depth 0 (Layer 1). 누적 시 진해짐.
-                return owners
-                  .map((_, i) => {
+                const layers = owners
+                  .map((oid, i) => {
+                    const op = progressMap[oid];
+                    if (!op) return null;
+                    if (isClauseProgress(op)) return null; // clause는 배경 X
+                    if (isParallelProgress(op)) return null; // parallel은 별도 .parallel-box
                     const v = layerVars[i % layerVars.length];
-                    return `linear-gradient(hsl(var(${v}) / 0.32), hsl(var(${v}) / 0.32))`;
+                    return `linear-gradient(hsl(var(${v}) / 0.20), hsl(var(${v}) / 0.20))`;
                   })
-                  .join(", ");
+                  .filter((x): x is string => !!x);
+                if (layers.length === 0) return undefined;
+                return layers.join(", ");
               };
               const wordLayerBg = buildLayerBg(ownersHere);
+
+              // 병렬 owner가 이 인덱스를 포함하면 박스 시각화
+              const parallelOwnerHere = ownersHere.find((oid) => isParallelProgress(progressMap[oid]));
+              const parallelIndices = parallelOwnerHere
+                ? completedSelectionMap[parallelOwnerHere] ?? []
+                : [];
+              const isParallelHere = parallelIndices.includes(idx);
+              const isParallelStart = isParallelHere && idx === parallelIndices[0];
+              const isParallelEnd = isParallelHere && idx === parallelIndices[parallelIndices.length - 1];
 
               const wordNode = (
                 <span
