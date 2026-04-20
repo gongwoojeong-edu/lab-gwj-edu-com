@@ -1645,11 +1645,25 @@ const Index = () => {
               title={
                 eraserMode
                   ? "지우개 모드 ON — 분석된 항목 클릭 시 삭제 (ESC 또는 다시 클릭으로 종료)"
-                  : "지우개 모드 OFF — 클릭 시 활성화. Shift+클릭으로도 단일 삭제 가능"
+                  : "지우개 모드 OFF — 클릭 시 활성화"
               }
             >
               🧽 지우개{eraserMode ? " ON" : ""}
             </button>
+            {selectedWordIndices.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedWordIndices([]);
+                  setSelectedId(null);
+                  setDragStart(null);
+                }}
+                className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
+                title="현재 선택을 모두 해제 (분석은 유지)"
+              >
+                ✕ 선택 해제
+              </button>
+            )}
             <Popover>
               <PopoverTrigger asChild>
                 <button
