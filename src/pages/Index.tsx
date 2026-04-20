@@ -2076,6 +2076,42 @@ const Index = () => {
         </AnswerInputModeProvider>
       </div>
 
+      {allDone && (
+        <main className="max-w-3xl mx-auto p-6 lg:p-12 pt-12 lg:pt-32">
+          <div className="glass-panel rounded-3xl p-10 text-center space-y-6">
+            <div className="mx-auto size-20 rounded-full bg-element-o-bg flex items-center justify-center text-4xl">
+              🎓
+            </div>
+            <h1 className="text-2xl lg:text-3xl font-extrabold font-kr">
+              모든 학습을 완료했습니다!
+            </h1>
+            <p className="text-sm text-muted-foreground font-kr leading-relaxed">
+              고3(L10)까지 모든 문장을 Pass하셨습니다.
+              <br />
+              훌륭합니다 — 진짜 아는 것을 증명하셨습니다.
+            </p>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="px-4 py-2 rounded-md text-sm font-bold bg-secondary text-foreground hover:bg-secondary/80 font-kr"
+              >
+                로그아웃
+              </button>
+              {isAdmin && (
+                <Link
+                  to="/teacher"
+                  className="px-4 py-2 rounded-md text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 font-kr"
+                >
+                  선생님 대시보드 →
+                </Link>
+              )}
+            </div>
+          </div>
+        </main>
+      )}
+
+      {!allDone && (
       <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col gap-0.5">
