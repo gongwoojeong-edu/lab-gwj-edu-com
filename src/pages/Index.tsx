@@ -1420,43 +1420,31 @@ const Index = () => {
 
           {/* === 토큰 사이 인접 완료 layer 검사용 헬퍼 === */}
           {(() => null)()}
-          {(() => {
-            const maxDepth = Object.values(completedOwnersByIndex).reduce(
-              (max, owners) => Math.max(max, owners?.length ?? 0),
-              0,
-            );
-            if (maxDepth < 2) return null;
-            const labels = ["단어/구", "절(2층)", "3층", "4층"];
-            return (
-              <div className="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-kr text-muted-foreground">
-                <span className="font-semibold">Layer:</span>
-                {Array.from({ length: Math.min(maxDepth, 4) }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={cn("sub-badge-pill", `sub-badge-pill-${i + 1}`)}
-                  >
-                    {i + 1}. {labels[i]}
-                  </span>
-                ))}
-              </div>
-            );
-          })()}
-          {(() => {
-            // 부배지 stacking 높이에 맞춰 줄 간격(line gap)과 상단 padding을 동적으로 확보
-            // 각 layer당 14px씩 위로 올라가므로, 깊이가 깊어질수록 더 많은 헤드룸 필요
-            const maxDepth = Object.values(completedOwnersByIndex).reduce(
-              (max, owners) => Math.max(max, owners?.length ?? 0),
-              0,
-            );
-            // base 28px + (depth-1) * 16px 정도 헤드룸이면 깔끔
-            const rowGapPx = Math.max(28, 14 + maxDepth * 18);
-            const topPadPx = Math.max(32, 14 + maxDepth * 18);
-            return (
-              <div
-                className="flex flex-wrap items-end pb-1 select-none"
-                style={{ rowGap: `${rowGapPx}px`, paddingTop: `${topPadPx}px` }}
-                onMouseLeave={() => isDragging && finalizeSelection()}
+          {pendingModifierSource && (
+            <div className="mb-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/40 text-[11px] font-bold font-kr text-primary inline-flex items-center gap-2">
+              🎯 수식 대상이 될 단어를 클릭하세요
+              <button
+                type="button"
+                onClick={() => setPendingModifierSource(null)}
+                className="text-[10px] underline underline-offset-2 font-semibold"
               >
+                취소
+              </button>
+            </div>
+          )}
+          <div
+            ref={sentenceContainerRef}
+            className="relative flex flex-wrap items-end pb-1 pt-8 gap-y-7 select-none"
+            onMouseLeave={() => isDragging && finalizeSelection()}
+          >
+            {/* === 수식 화살표 SVG overlay === */}
+            <ModifierArrowOverlay
+              show={showModifierArrows}
+              relations={getTargetsForSentence(modifierMap, sentence.id)}
+              tokenRefs={tokenRefs.current}
+              containerRef={sentenceContainerRef}
+              layoutVersion={arrowLayoutVersion}
+            />
             {wordUnits.map((u, idx) => {
               const word = u.word;
               const punct = isPunct(word);
