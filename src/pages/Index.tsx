@@ -1944,7 +1944,12 @@ const Index = () => {
     <div className={cn("min-h-screen bg-background", isAdmin && "pb-20")}>
       {/* Header */}
       <nav className="glass-panel sticky top-0 z-50 border-b px-6 lg:px-8 py-3">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+        <div
+          className={cn(
+            "max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4",
+            !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
+          )}
+        >
           <div className="flex items-center gap-4 lg:gap-6">
             <div className="flex flex-col">
               <h1 className="font-kr font-bold text-base lg:text-lg text-primary leading-tight">
@@ -1994,7 +1999,12 @@ const Index = () => {
               "px-4 py-2",
             )}
           >
-            <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
+            <div
+              className={cn(
+                "max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto",
+                !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
+              )}
+            >
               {/* 좌측: 정답 입력 / 저장 / 초기화 */}
               <label
                 className={cn(
@@ -2125,7 +2135,7 @@ const Index = () => {
         <div
           className={cn(
             "hidden lg:flex flex-col fixed top-[64px] right-4 z-30",
-            "w-[min(34vw,460px)]",
+            "w-[min(30vw,420px)]",
             isAdmin ? "bottom-20" : "bottom-4",
             "overflow-y-auto overscroll-contain rounded-2xl",
             "border border-border/60 bg-background/85 backdrop-blur-sm shadow-lg",
@@ -2206,7 +2216,12 @@ const Index = () => {
       )}
 
       {!allDone && (
-      <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4">
+      <main
+        className={cn(
+          "max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4",
+          !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
+        )}
+      >
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2 flex-wrap">
