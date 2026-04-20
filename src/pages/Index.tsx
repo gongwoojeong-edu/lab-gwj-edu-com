@@ -266,7 +266,24 @@ const Index = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // ===== 정답 입력 모드 =====
-  const [answerInputMode, setAnswerInputMode] = useState(false);
+  // 관리자 편의: localStorage에 상태를 보존해 페이지/HMR 새로고침 후에도 유지
+  const ANSWER_INPUT_MODE_KEY = "gts.answerInputMode";
+  const [answerInputMode, _setAnswerInputMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(ANSWER_INPUT_MODE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const setAnswerInputMode = (v: boolean) => {
+    _setAnswerInputMode(v);
+    try {
+      window.localStorage.setItem(ANSWER_INPUT_MODE_KEY, v ? "1" : "0");
+    } catch {
+      /* noop */
+    }
+  };
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
 
   // ===== 지우개 모드 (toggle) =====
