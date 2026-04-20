@@ -2048,9 +2048,52 @@ const Index = () => {
                 </>
               );
             })()}
-            <AdminHintToggle />
-            <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
-            <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
+            {/* ── 구분선: 분석 워크플로우 ↔ 선생님 도구 ── */}
+            {isAdmin && (
+              <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
+            )}
+
+            {/* 선생님 도구 (데스크톱 ≥md): AI추출 / 단어목록 / 힌트 */}
+            {isAdmin && (
+              <div className="hidden md:flex items-center gap-2">
+                <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
+                <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
+                <AdminHintToggle />
+              </div>
+            )}
+
+            {/* 선생님 도구 (모바일 <md): ⋯ 도구 메뉴로 접기 */}
+            {isAdmin && (
+              <div className="md:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 h-8 px-2.5"
+                      aria-label="선생님 도구"
+                    >
+                      <MoreHorizontal className="size-4" />
+                      <span className="font-kr text-[11px] font-bold">도구</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60">
+                    <DropdownMenuLabel className="font-kr text-[11px]">선생님 도구</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <div className="flex flex-col gap-2 p-2">
+                      <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
+                      <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
+                      <AdminHintToggle />
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
+            {/* ── 구분선: 도구 ↔ 진행 상태/사용자 ── */}
+            <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
+
             {/* 관용구 버튼은 분석 메뉴 '기타' 항목 안으로 이동됨 */}
             {autoLoading && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 shadow-sm">
