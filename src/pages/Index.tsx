@@ -2287,6 +2287,7 @@ const Index = () => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
+                                data-shift={outerShift}
                                 className={cn(
                                   "sub-badge-pill",
                                   `sub-badge-pill-${outerLayerNum}`,
@@ -2305,7 +2306,8 @@ const Index = () => {
                           </Tooltip>
                         )}
                       </span>
-                    )}
+                      );
+                    })()}
 
                     <span
                       className={cn(
