@@ -2865,6 +2865,7 @@ const Index = () => {
           </div>
         </div>
       </main>
+      )}
 
       {/* Mobile: bottom-sheet drawer */}
       {isMobile && (
