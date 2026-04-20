@@ -24,13 +24,15 @@ import { LogOut, ChevronLeft } from "lucide-react";
 const TeacherDashboard = () => {
   const { user } = useAuth();
   const [students, setStudents] = useState<StudentProfile[]>([]);
+  const [stats, setStats] = useState<Record<string, StudentStats>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    fetchAllStudents().then((s) => {
+    Promise.all([fetchAllStudents(), fetchStudentStatsMap()]).then(([s, st]) => {
       if (mounted) {
         setStudents(s);
+        setStats(st);
         setLoading(false);
       }
     });
@@ -38,6 +40,20 @@ const TeacherDashboard = () => {
       mounted = false;
     };
   }, []);
+
+  const formatLastActivity = (iso: string | null): string => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    const now = Date.now();
+    const diffMin = Math.floor((now - d.getTime()) / 60000);
+    if (diffMin < 1) return "방금 전";
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}시간 전`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 30) return `${diffDay}일 전`;
+    return d.toLocaleDateString("ko-KR");
+  };
 
   const handleStartLevel = async (userId: string, level: LevelCode) => {
     await updateStudentStartLevel(userId, level);
