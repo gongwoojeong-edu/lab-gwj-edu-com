@@ -5,6 +5,7 @@ import { Check, RotateCcw } from "lucide-react";
 import type { WordTestEntry } from "@/lib/wordTestBuilder";
 import { fetchLatestWordPre, insertWordPreResult, type AssistEntry } from "@/lib/wordPre";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   WordStageProgressBar,
   PASS_THRESHOLD,
