@@ -450,6 +450,26 @@ export const AnalysisPanel = ({
   const isAdv = currentPos === "부사";
   const isEtc = currentPos === "기타";
 
+  // 수식/지시어 props 묶음 — Noun/Adj 패널 내부 Layer 3 하단에서 사용
+  const modifierSectionProps = {
+    canAssignModifierTarget: !!canAssignModifierTarget,
+    isPendingModifier: !!isPendingModifier,
+    hasModifierTarget: !!hasModifierTarget,
+    currentModifierTargetLabel: currentModifierTargetLabel ?? null,
+    onAssignModifierTarget,
+    onClearModifierTarget,
+    onCancelPendingModifier,
+  };
+  const referentSectionProps = {
+    canAssignReferentTarget: !!canAssignReferentTarget,
+    isPendingReferent: !!isPendingReferent,
+    hasReferentTarget: !!hasReferentTarget,
+    currentReferentTargetLabel: currentReferentTargetLabel ?? null,
+    onAssignReferentTarget,
+    onClearReferentTarget,
+    onCancelPendingReferent,
+  };
+
   const renderSubPanel = () => {
     if (isNoun)
       return (
@@ -460,6 +480,7 @@ export const AnalysisPanel = ({
           onNounElementChange={onNounElementChange}
           onNounRoleChange={onNounRoleChange}
           onNounElementRole={onNounElementRole}
+          referent={referentSectionProps}
         />
       );
     if (isVerb)
@@ -483,6 +504,7 @@ export const AnalysisPanel = ({
           onAdjElementChange={onAdjElementChange}
           onAdjRoleChange={onAdjRoleChange}
           onAdjElementRole={onAdjElementRole}
+          modifier={modifierSectionProps}
         />
       );
     if (isAdv)
