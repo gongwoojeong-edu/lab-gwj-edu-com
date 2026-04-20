@@ -165,10 +165,10 @@
   /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill).
      수직 stacking 폐기 → 한 단어 anchor에 여러 부배지가 anchor되면 inline 가로 정렬 */
   .sub-badge-row {
-    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-6 pointer-events-none;
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none;
   }
   .sub-badge-pill {
-    @apply relative inline-flex items-center gap-0 px-2.5 py-0 mx-3 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
+    @apply relative inline-flex items-center gap-0 px-2 py-0 mx-0.5 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
   .sub-badge-pill .sub-badge-num {
