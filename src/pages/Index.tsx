@@ -325,46 +325,30 @@ const Index = () => {
 
   // ===== 단어 단위 선택 =====
   // 완료 영역 클릭 정책:
-  //   1) 클릭한 영역의 완료 owner의 모든 인덱스가 이미 selection에 정확히 있으면 → owner 복원 (수정/지우개 모드)
-  //   2) 그 외에는 → 새 selection 시작 (다층 추가 분석 진입)
+  //   - 단일 토큰 클릭은 항상 새 빈 분석으로 시작 (인접 완료 토큰 owner 자동 복원 X)
+  //   - owner 복원은 사용자가 명시적으로 완료 토큰 묶음 전체를 다시 드래그/클릭으로 선택했을 때만
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
-    // 이 인덱스를 포함하는 완료 owner들 (다층 가능)
+    // 이 인덱스를 포함하는 완료 owner들
     const owners = Object.entries(completedSelectionMap).filter(([, indices]) =>
       indices.includes(idx),
     );
 
-    // 정확히 같은 indices가 이미 selection에 있는 owner를 찾으면 → 패널 로드(수정 모드)
-    const matchedOwner = owners.find(([ownerId, indices]) => {
-      if (!progressMap[ownerId]?.completed) return false;
-      if (selectedId !== ownerId) return false;
-      const sortedSel = [...selectedWordIndices].sort((a, b) => a - b);
-      const sortedIdx = [...indices].sort((a, b) => a - b);
-      return arraysEqualSet(sortedSel, sortedIdx);
-    });
-    if (matchedOwner) {
-      // 두번째 클릭 → 수정/지우개 모드 유지 (이미 로드돼있으니 no-op)
+    // 단일 토큰 owner(자기 자신만)인 경우에만 owner 복원 — 다중 토큰 owner는 자동 복원 X
+    const singleSelfOwner = owners.find(
+      ([, indices]) => indices.length === 1 && indices[0] === idx,
+    );
+    if (singleSelfOwner && progressMap[singleSelfOwner[0]]?.completed) {
+      const [ownerId] = singleSelfOwner;
+      setSelectedId(ownerId);
+      setSelectedWordIndices([idx]);
       setDragStart(idx);
       return;
     }
 
-    // 완료 영역의 첫 클릭 → owner 복원 (한 번 클릭으로 즉시 수정 가능하게)
-    if (owners.length > 0) {
-      // 가장 좁은(가장 안쪽) owner 우선
-      const [ownerId, ownerIndices] = owners.sort(
-        (a, b) => a[1].length - b[1].length,
-      )[0];
-      if (progressMap[ownerId]?.completed) {
-        setSelectedId(ownerId);
-        setSelectedWordIndices([...ownerIndices].sort((a, b) => a - b));
-        setDragStart(idx);
-        return;
-      }
-    }
-
-    // 일반 경로: 토글/누적 selection
+    // 일반 경로: 새 빈 분석 시작 (다중 토큰 완료 영역과 충돌해도 상속 X)
     setDragStart(idx);
     setSelectedWordIndices((prev) => {
       let next: number[];
@@ -482,7 +466,7 @@ const Index = () => {
     const next = upsertIdiom(sentence.id, sorted, surface, meaning);
     setIdiomMap(next);
     toast({
-      title: "🟫 숙어 저장됨",
+      title: "🟫 관용구 저장됨",
       description: `"${surface}" — ${meaning}`,
     });
   };
@@ -492,7 +476,7 @@ const Index = () => {
     const sorted = [...selectedWordIndices].sort((a, b) => a - b);
     const next = removeIdiom(sentence.id, sorted);
     setIdiomMap(next);
-    toast({ title: "숙어를 삭제했습니다" });
+    toast({ title: "관용구를 삭제했습니다" });
   };
 
   useEffect(() => {
@@ -931,8 +915,8 @@ const Index = () => {
     onVerbToggleVoice: handleVerbVoice,
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
-    // Idiom layer
-    idiomEnabled: selectedWordIndices.length >= 1,
+    // 관용구는 2단어 이상에서만 노출 (분석 레이어와 별개 영역)
+    idiomEnabled: selectedWordIndices.length >= 2,
     idiomExistingMeaning: currentSelectionIdiom()?.meaning,
     onIdiomSave: handleIdiomSave,
     onIdiomRemove: handleIdiomRemove,
@@ -1065,19 +1049,19 @@ const Index = () => {
                     color: "hsl(var(--idiom-fg))",
                     borderColor: "hsl(var(--idiom-border))",
                   }}
-                  title="등록된 숙어 전체 보기"
+                  title="등록된 관용구 전체 보기"
                 >
                   <BookMarked className="size-3" />
-                  숙어 {allIdiomsCount}
+                  관용구 {allIdiomsCount}
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="font-kr">📚 등록된 숙어 / Phrase</DialogTitle>
+                  <DialogTitle className="font-kr">📚 등록된 관용구 / Phrase</DialogTitle>
                 </DialogHeader>
                 {allIdiomsCount === 0 ? (
                   <p className="text-sm text-muted-foreground font-kr py-6 text-center">
-                    아직 등록된 숙어가 없습니다. 정답 입력 모드에서 단어를 선택하고 숙어를 저장하세요.
+                    아직 등록된 관용구가 없습니다. 정답 입력 모드에서 단어를 선택하고 관용구를 저장하세요.
                   </p>
                 ) : (
                   <ul className="space-y-2">
