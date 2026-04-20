@@ -721,6 +721,13 @@ const Index = () => {
       .map(([ownerId]) => getOwnerTokenId(ownerId)),
   ).size;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
+  const analysisDone = sentenceComplete && Object.keys(pendingPatchMap).length === 0;
+
+  // 분석 완료 상태를 Supabase에 동기화
+  useEffect(() => {
+    if (!analysisDone) return;
+    upsertSentenceProgress(sentence.id, { analysis_done: true }).catch(() => {});
+  }, [analysisDone, sentence.id]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
