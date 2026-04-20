@@ -1,50 +1,49 @@
 
 
-## 현재까지 합의된/누락된 항목 정리
+## 문제
 
-이번 턴 기준 다음 플랜으로 한 번에 묶어서 처리합니다. "선택 해제 버튼 복구"는 명시적으로 포함합니다.
+부배지(품사·역할 라벨)가:
+1. **수직 겹침**: 안쪽 layer 부배지 + 외곽 절(clause) 부배지가 같은 `-top-3.5` 위치에 배치되어 겹침
+2. **수평 겹침**: 인접한 단어들의 긴 한글 라벨이 옆 단어 라벨과 겹쳐 읽기 어려움
+3. **색 단서 부족**: 부배지가 모두 `text-primary` 한 가지 색이라 어느 layer 소속인지 시각적으로 구분 불가
 
-## 구현 계획
+## 해결 아이디어
 
-### 1) 삭제 게이트 단일화 (`src/pages/Index.tsx`)
-- `handleWordMouseDown`에서 `Shift/Ctrl/Meta + 완료 owner 클릭 → eraseOwner` 분기 **완전 제거**
-- 삭제 진입 조건은 **오직** `eraserMode === true && 완료 owner 클릭` 하나
-- 결과: 추가분석 의도 클릭이 절대 삭제로 이어지지 않음
+### A) Layer별 색·세로 위치 분리
+- 안쪽 layer 부배지: `--layer-1` 색, `top: -14px`
+- 외곽 절(clause) 부배지: `--layer-2` 색, `top: -28px` (한 줄 위로 띄움)
+- 3층 이상이면 layer-3, top -42px … (layer index × 14px 만큼 위로)
+- 각 부배지는 자기 owner의 layer 색 칩 배경(연하게) + 진한 글자색 → 본문 색띠와 매칭
 
-### 2) 완료 owner 클릭 시 다층 분석 진입 보장
-- eraserMode OFF + 완료 owner 클릭:
-  - 기존 owner 보존
-  - 클릭한 토큰 1개만 새 selection으로 시작 → 새 ownerId로 새 layer 생성
-- Shift+클릭은 기존 selection에 토큰 누적 (확장 선택, 삭제 아님)
+### B) 수평 겹침 방지
+- 부배지를 `absolute` + `left: 0` 대신 **owner 청크의 가운데 단어**에만 1번 표시 (현재 안쪽은 첫 단어, 절은 중간 단어에 표시 — 이걸 통일해서 둘 다 **중간 인덱스**에 anchor)
+- 길어질 경우 `max-width` + ellipsis 대신, 부배지를 **작은 알약(pill) 형태**로 만들고 hover 시 tooltip으로 풀 텍스트 노출
+- 인접 owner끼리는 layer가 다르면 세로 위치가 자동으로 분리됨 (위 A) → 가로 충돌도 자연스럽게 완화
 
-### 3) "선택 해제" 버튼 복구
-- 위치: 분석 패널 / 하단 toolbar (지우개 버튼 옆)
-- 표시 조건: `activeSelectionIndices.length > 0` 일 때만 노출
-- 동작: `setActiveSelectionIndices([])` + `setSelectedId(null)` (진행 중 임시 progress도 초기화)
-- 라벨: "선택 해제" + X 아이콘
+### C) 부배지 디자인 토큰화
+- `pill` 스타일: `px-1.5 py-0 rounded-full text-[9px] font-semibold`
+- 배경: `hsl(var(--layer-N) / 0.18)`, 글자: `hsl(var(--layer-N))`
+- 본문 stacking 색과 동일 토큰 사용 → "이 라벨은 이 색띠 소속"이 즉시 보임
 
-### 4) 다층 색 가시성 (`WordChip.tsx` + `Index.tsx` + `index.css`)
-- owner별 layer depth(1·2·3) 계산해서 `WordChip`에 prop으로 전달
-- 이미 정의된 `--layer-1 ~ --layer-4` 토큰을 layer depth에 맞춰 적용
-- 누적 시 좌측 또는 하단에 얇은 색 막대(2px)로 layer 개수 표시
-- stacking opacity 상향 (예: 0.18 → 0.32)
-
-### 5) 하단 배지 = SVOC 전용 (`WordChip.tsx` + `labels.ts`)
-- 하단 큰 배지에는 `buildElementBadge` 결과(S/V/O/C/M)만 표시
-- 부배지(품사·역할 라벨) 문구는 하단에서 제거하고 상단/툴팁으로만 노출
+### D) 본문 우측에 layer 범례(legend) 한 줄
+- 분석 패널 또는 본문 상단에 `■ Layer 1: 단어  ■ Layer 2: 절  ■ Layer 3: …` 작은 색 범례 표시
+- 다층 색이 무엇을 의미하는지 사용자가 즉시 인지
 
 ## 수정 파일
-- `src/pages/Index.tsx` — 삭제 게이트 단일화, 선택 해제 버튼 연결, layer depth 계산
-- `src/components/analyzer/AnalysisPanel.tsx` — "선택 해제" 버튼 footer 추가
-- `src/components/analyzer/WordChip.tsx` — layer depth별 색, 하단 배지 SVOC만
-- `src/index.css` — stacking opacity 조정, layer 막대 스타일
-- (필요 시) `src/lib/labels.ts` — SVOC/부배지 분리 유틸 정리
+
+- `src/pages/Index.tsx` (라인 1438~1572 부근)
+  - 안쪽 부배지(koreanLabel)와 외곽 절 부배지를 **layer depth 기반 top offset + layer 색**으로 렌더
+  - 두 부배지 모두 owner의 **중간 인덱스**에 anchor (양쪽 다 한 곳에서만 노출)
+  - pill 스타일로 통일, hover tooltip으로 풀 텍스트
+- `src/index.css`
+  - `.sub-badge-pill` 컴포넌트 클래스 추가 (layer별 색 변형)
+- 본문 컨테이너 상단에 Layer Legend 1줄 추가 (Index.tsx)
 
 ## 검증 기준
-1. Shift/Ctrl/Cmd 클릭으로 절대 삭제되지 않음
-2. 지우개 OFF + 완료 owner 클릭 → 다층 분석 진입
-3. 2층/3층 쌓일 때 색이 명확히 다르게 보임
-4. 지우개 ON + 완료 owner 클릭 시에만 삭제
-5. 분석 중 "선택 해제" 버튼으로 selection 즉시 비우기 가능
-6. 하단 배지에 S/V/O/C/M 만 노출 (부배지 문구 없음)
+
+1. 절 + 안쪽 단어가 겹친 영역에서 두 부배지가 **세로로 분리**되어 둘 다 읽힘
+2. 부배지 색이 본문 layer 색과 일치 (1층=violet, 2층=indigo, 3층=sky …)
+3. 인접 owner의 부배지가 가로로 겹치지 않음 (anchor를 청크 중앙에 배치)
+4. 라벨이 길면 줄임표 + hover로 풀 텍스트 확인 가능
+5. 본문 상단 legend로 색의 의미 파악 가능
 
