@@ -58,6 +58,25 @@ import {
   mergeAnswer,
   type CustomAnswerMap,
 } from "@/lib/customAnswers";
+import {
+  loadIdioms,
+  upsertIdiom,
+  removeIdiom,
+  findIdiomCoveringIndex,
+  findIdiomByIndices,
+  getAllIdiomsFlat,
+  type IdiomMap,
+  type IdiomMark,
+} from "@/lib/idioms";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { BookMarked } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 type WordProgress = {
