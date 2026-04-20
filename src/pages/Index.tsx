@@ -89,6 +89,9 @@ import {
   type ReferentTargetMap,
 } from "@/lib/referentTargets";
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
+import { Link } from "react-router-dom";
+import { LEVEL_LABEL, formatSentenceCode } from "@/lib/levels";
+import { GraduationCap } from "lucide-react";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -388,7 +391,7 @@ const Index = () => {
   // ===== 지시어 화살표 (Referent Target, 대명사 전용) =====
   const [referentMap, setReferentMap] = useState<ReferentTargetMap>({});
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
-  const { showModifierArrows, showReferentArrows } = useHintSettings();
+  const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
 
   // ESC: pending modifier/referent 즉시 취소
   useEffect(() => {
@@ -1903,11 +1906,26 @@ const Index = () => {
       </div>
 
       <main className="max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="text-[10px] font-bold text-primary-glow tracking-widest uppercase font-kr">
-              문장 분석 · No. {String(sentence.no).padStart(3, "0")}
-            </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-[10px] font-bold text-primary-glow tracking-widest uppercase font-kr">
+                문장 분석 · {formatSentenceCode(sentence.level, sentence.no)}
+              </p>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold font-kr bg-primary/10 text-primary border border-primary/20">
+                {LEVEL_LABEL[sentence.level]}
+              </span>
+              {isAdmin && (
+                <Link
+                  to="/teacher"
+                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold font-kr bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors"
+                  title="선생님 모드 진입"
+                >
+                  <GraduationCap className="size-3" />
+                  선생님 모드
+                </Link>
+              )}
+            </div>
             <KoreanHintButton korean={sentence.korean} />
           </div>
           <div className="flex items-center gap-1.5 ml-2">
