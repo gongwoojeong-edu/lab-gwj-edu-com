@@ -895,7 +895,7 @@ const ElementRoleGrid = ({
                   <button
                     type="button"
                     onClick={() => onPick(g.element, null)}
-                    disabled={done && !sel}
+                    disabled={false}
                     className={cn(
                       "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30",
                       ok && g.colorClass,
@@ -951,7 +951,7 @@ const ElementRoleGrid = ({
                       key={`${g.element}-${b.value}`}
                       type="button"
                       onClick={() => onPick(g.element, b.value)}
-                      disabled={done && !sel}
+                      disabled={false}
                       className={cn(
                         "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
                         ok && "bg-primary/15 text-primary",
@@ -1067,7 +1067,7 @@ const AdvPanel = ({
                         key={`${form}-${b.value}`}
                         type="button"
                         onClick={() => handlePick(form, b.value, b.subtype)}
-                        disabled={done && !sel}
+                        disabled={false}
                         className={cn(
                           "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
                           ok && "bg-primary/15 text-primary",
@@ -1194,7 +1194,7 @@ const EtcPanel = ({
                               key={`${kind}-${b.value}`}
                               type="button"
                               onClick={() => handlePick(kind, b.value)}
-                              disabled={done && !sel}
+                              disabled={false}
                               className={cn(
                                 "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
                                 ok && "bg-primary/15 text-primary",
@@ -1336,7 +1336,7 @@ const ElementRow = ({
               key={key}
               type="button"
               onClick={() => onSelect(key)}
-              disabled={elementCorrect && !sel}
+              disabled={false}
               className={cn(
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all disabled:opacity-30",
                 ok && colorClass,
@@ -1379,7 +1379,7 @@ const RoleRow = ({
         key={value}
         type="button"
         onClick={() => onSelect(value)}
-        disabled={status === "correct" && !sel}
+        disabled={false}
         className={cn(
           "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
           ok && "bg-primary/15 text-primary",
