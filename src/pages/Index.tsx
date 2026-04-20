@@ -376,9 +376,22 @@ const Index = () => {
   const sentence = SENTENCES[sentenceIdx];
 
   // 로그인 사용자의 다음 학습 문장 자동 선택
+  // (?sentence=ID 쿼리가 있으면 그 문장으로 우선 점프 — SentenceLearn에서 분석기 호출)
   useEffect(() => {
     let cancelled = false;
     setAutoLoading(true);
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedId = params.get("sentence");
+    if (requestedId) {
+      const idx = SENTENCES.findIndex((s) => s.id === requestedId);
+      if (idx >= 0) {
+        setSentenceIdx(idx);
+        setAutoLoading(false);
+        return;
+      }
+    }
+
     void import("@/lib/nextSentence").then(({ resolveNextSentence }) =>
       resolveNextSentence().then((res) => {
         if (cancelled) return;

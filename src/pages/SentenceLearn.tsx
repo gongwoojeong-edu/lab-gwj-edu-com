@@ -2,16 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, LogOut, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, LogOut, Lock, Sparkles, ExternalLink, Check } from "lucide-react";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut } from "@/hooks/useAuth";
 import { LEVEL_LABEL } from "@/lib/levels";
-import { fetchOwnerProgressForSentence } from "@/integrations/supabase/storage";
+import {
+  fetchOwnerProgressForSentence,
+  fetchSentenceProgress,
+  upsertSentenceProgress,
+} from "@/integrations/supabase/storage";
 import { buildWordTest, type WordTestEntry } from "@/lib/wordTestBuilder";
-import { fetchSentenceProgress } from "@/integrations/supabase/storage";
 import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
+import { TranslationStep } from "@/components/learning/TranslationStep";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 
 type Step = "pre" | "analysis" | "post";
 
@@ -204,15 +210,93 @@ const SentenceLearn = () => {
         )}
 
         {step === "analysis" && (
-          <Card className="p-6 space-y-3 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
-            <div className="text-sm font-bold text-primary">
-              구문 분석 + 한글 해석 (다음 라운드에서 통합)
+          <div className="space-y-4">
+            {/* 분석기 안내 + 점프 카드 */}
+            <Card className="p-5 sm:p-6 space-y-4 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+              <div className="space-y-1.5">
+                <div className="text-xs font-bold text-primary uppercase tracking-wider">
+                  ① 구문 분석
+                </div>
+                <div className="text-sm text-foreground/80 leading-relaxed">
+                  단어별 품사·문장 성분·역할을 정독 분석기에서 확인하세요. 분석을 마친 뒤 아래
+                  버튼으로 분석 완료를 표시합니다.
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild size="sm" variant="default">
+                  <Link to={`/?sentence=${encodeURIComponent(sentence.id)}`}>
+                    <ExternalLink className="w-4 h-4 mr-1.5" />
+                    분석기 열기
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant={analysisDone ? "outline" : "secondary"}
+                  onClick={async () => {
+                    try {
+                      const next = !analysisDone;
+                      await upsertSentenceProgress(sentence.id, { analysis_done: next });
+                      setAnalysisDone(next);
+                      toast({
+                        title: next ? "분석 완료로 표시했어요" : "분석 완료 해제",
+                      });
+                    } catch (e) {
+                      toast({
+                        title: "저장 실패",
+                        description: String(e),
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  {analysisDone ? (
+                    <>
+                      <Check className="w-4 h-4 mr-1.5 text-emerald-600 dark:text-emerald-400" />
+                      분석 완료됨 (해제)
+                    </>
+                  ) : (
+                    "분석 완료로 표시"
+                  )}
+                </Button>
+              </div>
+            </Card>
+
+            {/* 한글 해석 입력 */}
+            <div className="space-y-1.5">
+              <div className="text-xs font-bold text-primary uppercase tracking-wider px-1">
+                ② 한글 해석
+              </div>
+              <TranslationStep
+                sentenceId={sentence.id}
+                englishSentence={sentence.english}
+                onSubmitted={async () => {
+                  try {
+                    await upsertSentenceProgress(sentence.id, { translation_done: true });
+                    setTranslationDone(true);
+                  } catch (e) {
+                    toast({
+                      title: "저장 실패",
+                      description: String(e),
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              />
             </div>
-            <p className="text-sm text-foreground/80">
-              본 라운드에서는 PRE 단어학습만 동작합니다. 다음 라운드에서 분석기를 임베드하고 하단에
-              해석 입력창을 통합합니다.
-            </p>
-          </Card>
+
+            {/* 다음 단계로 */}
+            {analysisDone && translationDone && (
+              <Card className="p-4 border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-500/10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                  <Check className="w-4 h-4" />
+                  분석 + 해석 완료
+                </div>
+                <Button size="sm" onClick={() => setStep("post")}>
+                  다음: 단어 테스트 →
+                </Button>
+              </Card>
+            )}
+          </div>
         )}
 
         {step === "post" && (
