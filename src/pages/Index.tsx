@@ -2094,25 +2094,9 @@ const Index = () => {
             <KoreanHintButton korean={sentence.korean} />
           </div>
           <div className="flex items-center gap-1.5 ml-2">
-            <button
-              onClick={() => goToSentence(sentenceIdx - 1)}
-              disabled={sentenceIdx === 0}
-              className="size-8 rounded-lg bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-              aria-label="이전 문장"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-1">
-              {sentenceIdx + 1} / {SENTENCES.length}
+            <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-2 py-1 rounded-md bg-secondary">
+              자동 순차 학습
             </span>
-            <button
-              onClick={() => goToSentence(sentenceIdx + 1)}
-              disabled={sentenceIdx === SENTENCES.length - 1}
-              className="size-8 rounded-lg bg-secondary text-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-              aria-label="다음 문장"
-            >
-              <ChevronRight className="size-4" />
-            </button>
           </div>
         </div>
 
