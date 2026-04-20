@@ -296,10 +296,19 @@ const Index = () => {
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
   // 정답 입력 모드에서 저장된 정답을 머지한 토큰
-  const selectedToken =
-    selectedId && selectedTokenRaw
+  // span owner: selectedTokenRaw 가 없을 수 있다 → 가상 토큰으로 wrap
+  const selectedToken = selectedId
+    ? selectedTokenRaw
       ? { ...selectedTokenRaw, answer: getMergedAnswerForOwner(selectedId, selectedTokenRaw) }
-      : undefined;
+      : isSpanOwnerId(selectedId)
+        ? {
+            type: "analyzable" as const,
+            id: selectedId,
+            text: "",
+            answer: getMergedAnswerForOwner(selectedId, undefined),
+          }
+        : undefined
+    : undefined;
   const selectedAnswer = selectedToken?.answer ?? null;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
   const activeSelectionIndices = useMemo(() => {
