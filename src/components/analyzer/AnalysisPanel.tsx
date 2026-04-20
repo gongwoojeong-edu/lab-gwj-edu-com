@@ -588,12 +588,12 @@ const IdiomSection = ({
   };
 
   return (
-    <div className="mt-2 pt-2 border-t border-border/60">
+    <div className="mt-2 pt-2 border-t-2 border-dashed border-border">
       <div className="flex items-center justify-between mb-1">
         <p className="text-[10px] font-bold uppercase tracking-widest font-kr"
           style={{ color: "hsl(var(--idiom-fg))" }}
         >
-          🟫 Layer 9 · 숙어 / Phrase
+          🟫 관용구 / Phrase
         </p>
         {existingMeaning && (
           <span
@@ -635,7 +635,7 @@ const IdiomSection = ({
                 border: "1px solid hsl(var(--idiom-border))",
               }}
             >
-              {existingMeaning ? "수정 저장" : "🟫 숙어 저장"}
+              {existingMeaning ? "수정 저장" : "🟫 관용구 저장"}
             </button>
             {existingMeaning && (
               <button
@@ -660,7 +660,7 @@ const IdiomSection = ({
         </p>
       ) : (
         <p className="text-[10px] text-muted-foreground/70 italic font-kr px-1">
-          정답 입력 모드에서 숙어로 등록할 수 있습니다.
+          정답 입력 모드에서 관용구로 등록할 수 있습니다.
         </p>
       )}
     </div>
