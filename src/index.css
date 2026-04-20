@@ -63,11 +63,11 @@
     --idiom-fg: 25 35% 30%;
 
     /* Layer stacking colors — Layer1은 브랜드 보라(통일성), 2층부터 hue를 크게 벌려 구분
-       Layer1 violet(brand) / Layer2 amber / Layer3 crimson / Layer4 teal */
+       Layer1 violet(brand) / Layer2 amber / Layer3 crimson(340) / Layer4 teal(185) */
     --layer-1: 275 70% 45%;   /* brand violet */
     --layer-2: 38 95% 48%;    /* amber */
-    --layer-3: 350 78% 50%;   /* crimson */
-    --layer-4: 175 75% 38%;   /* teal */
+    --layer-3: 340 80% 50%;   /* crimson — 보라와 hue 거리 ↑ */
+    --layer-4: 185 78% 36%;   /* teal — crimson 보색 거리 ↑ */
 
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, hsl(275 100% 25%), hsl(280 60% 52%));
@@ -165,10 +165,10 @@
   /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill).
      수직 stacking 폐기 → 한 단어 anchor에 여러 부배지가 anchor되면 inline 가로 정렬 */
   .sub-badge-row {
-    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none;
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none;
   }
   .sub-badge-pill {
-    @apply relative inline-flex items-center gap-0 px-1 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
+    @apply relative inline-flex items-center gap-0 px-1.5 py-0 mx-1 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
   .sub-badge-pill .sub-badge-num {
@@ -180,6 +180,15 @@
   }
   /* layer 1 owner: 단층(혼자) 또는 외곽층 — 숫자 표기 숨김 */
   .sub-badge-pill .sub-badge-num.is-hidden { display: none; }
+
+  /* 단층(혼자) owner — 강조 제거: 텍스트만 muted 톤으로 깔끔하게 */
+  .sub-badge-pill.is-solo {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: hsl(var(--muted-foreground)) !important;
+    @apply font-medium;
+  }
+  .sub-badge-pill.is-solo .sub-badge-num { display: none; }
 
   /* === 정답 입력 모드 — 미저장 / 저장 완료 시각 마킹 === */
   .sub-badge-pill.is-dirty {
@@ -211,21 +220,17 @@
     border-radius: 9999px;
   }
 
-  /* === 병렬(parallel) owner 전용 박스 === */
+  /* === 병렬(parallel) — 각 단어 개별 박스, 두꺼운 테두리 === */
   .parallel-box {
-    background: hsl(var(--primary) / 0.12);
-    border-top: 1.5px solid hsl(var(--primary) / 0.45);
-    border-bottom: 1.5px solid hsl(var(--primary) / 0.45);
+    background: hsl(var(--primary) / 0.10);
+    border: 2px solid hsl(var(--primary) / 0.6);
+    border-radius: 0.5rem;
+    padding: 0 2px;
   }
-  .parallel-box-start {
-    border-left: 1.5px solid hsl(var(--primary) / 0.45);
-    border-top-left-radius: 0.4rem;
-    border-bottom-left-radius: 0.4rem;
-  }
+  /* 각 단어가 독립 박스이므로 start/end 구분 없이 동일 (호환 유지) */
+  .parallel-box-start,
   .parallel-box-end {
-    border-right: 1.5px solid hsl(var(--primary) / 0.45);
-    border-top-right-radius: 0.4rem;
-    border-bottom-right-radius: 0.4rem;
+    border-radius: 0.5rem;
   }
 
   /* clause bracket 강조 — 박스 제거에 따른 가독성 보강 */
@@ -233,8 +238,22 @@
     @apply text-[22px] font-extrabold;
     text-shadow: 0 1px 0 hsl(var(--background));
   }
+
+  /* === 종속절 언더라인 — 절 owner의 모든 단어 + spacer 하단 연속선 === */
+  .clause-underline {
+    border-bottom-width: 2.5px;
+    border-bottom-style: solid;
+    padding-bottom: 1px;
+  }
+  .clause-underline-s { border-bottom-color: hsl(var(--element-s)); }
+  .clause-underline-v { border-bottom-color: hsl(var(--element-v)); }
+  .clause-underline-o { border-bottom-color: hsl(var(--element-o)); }
+  .clause-underline-c { border-bottom-color: hsl(var(--element-c)); }
+  .clause-underline-m { border-bottom-color: hsl(var(--element-m)); }
+
+  /* Layer pill 색상 — 본문 layer 색칠과 hue 매칭, 텍스트도 동일 hue */
   .sub-badge-pill-1 {
-    background: hsl(var(--layer-1) / 0.18);
+    background: hsl(var(--layer-1) / 0.20);
     color: hsl(275 70% 32%);
     border-color: hsl(var(--layer-1) / 0.7);
   }
@@ -243,30 +262,30 @@
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-2 {
-    background: hsl(var(--layer-2) / 0.22);
-    color: hsl(38 95% 28%);
-    border-color: hsl(var(--layer-2) / 0.7);
+    background: hsl(38 95% 48% / 0.28);
+    color: hsl(38 95% 30%);
+    border-color: hsl(38 95% 48% / 0.75);
   }
   .sub-badge-pill-2 .sub-badge-num {
     background: hsl(38 95% 45%);
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-3 {
-    background: hsl(var(--layer-3) / 0.20);
-    color: hsl(350 78% 32%);
-    border-color: hsl(var(--layer-3) / 0.7);
+    background: hsl(340 80% 50% / 0.22);
+    color: hsl(340 80% 36%);
+    border-color: hsl(340 80% 50% / 0.75);
   }
   .sub-badge-pill-3 .sub-badge-num {
-    background: hsl(350 78% 48%);
+    background: hsl(340 80% 50%);
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-4 {
-    background: hsl(var(--layer-4) / 0.20);
-    color: hsl(175 75% 22%);
-    border-color: hsl(var(--layer-4) / 0.7);
+    background: hsl(185 78% 36% / 0.24);
+    color: hsl(185 78% 22%);
+    border-color: hsl(185 78% 36% / 0.75);
   }
   .sub-badge-pill-4 .sub-badge-num {
-    background: hsl(175 75% 36%);
+    background: hsl(185 78% 36%);
     color: hsl(0 0% 100%);
   }
 }
