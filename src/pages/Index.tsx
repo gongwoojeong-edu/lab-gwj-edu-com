@@ -1469,10 +1469,10 @@ const Index = () => {
                 );
 
               return (
-                <>
+                <span key={`u-${idx}`} className="contents">
                   {node}
                   {spacerNode}
-                </>
+                </span>
               );
             })}
           </div>
