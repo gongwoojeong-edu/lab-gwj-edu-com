@@ -268,8 +268,21 @@ const Index = () => {
   };
 
   // 정답 입력 모드에서 한 필드를 저장
-  const saveCustom = (tokenId: string, patch: Record<string, unknown>) => {
-    const next = upsertCustomAnswer(tokenId, patch);
+  const buildOwnerId = (indices: number[]) => {
+    const sorted = Array.from(new Set(indices)).sort((a, b) => a - b);
+    const tokenIds = Array.from(
+      new Set(sorted.map((index) => wordUnits[index]?.tokenId).filter(Boolean)),
+    ) as string[];
+
+    if (tokenIds.length !== 1 || sorted.length !== 1) {
+      return pickSelectedIdFromIndices(sorted);
+    }
+
+    return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+  };
+
+  const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
+    const next = upsertCustomAnswer(ownerId, patch);
     setCustomAnswers(next);
   };
 
@@ -334,12 +347,12 @@ const Index = () => {
       if (tid && !tokenIds.includes(tid)) tokenIds.push(tid);
     });
     if (tokenIds.length === 0) return null;
+    if (tokenIds.length === 1 && indices.length === 1) {
+      return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${indices[0]}`;
+    }
     // 동사 토큰 우선 (절 분석 진입에 필수)
     const verbTid = tokenIds.find((tid) => {
-      const tk = sentence.tokens.find(
-        (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-          t.type === "analyzable" && t.id === tid,
-      );
+      const tk = getTokenById(tid);
       return tk?.answer.pos === "동사";
     });
     return verbTid ?? tokenIds[0];
