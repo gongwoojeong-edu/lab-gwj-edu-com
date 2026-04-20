@@ -27,13 +27,16 @@ const Bar = ({
   passed,
   total,
   state,
+  teacherSkips,
 }: {
   label: string;
   passed: number;
   total: number;
   state: "done" | "active" | "todo";
+  teacherSkips: number;
 }) => {
   const pct = total ? (passed / total) * 100 : 0;
+  const skipPct = total ? (teacherSkips / total) * 100 : 0;
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       <div className="flex items-center gap-1.5 w-28 shrink-0">
@@ -57,14 +60,26 @@ const Bar = ({
           )}
           style={{ width: `${pct}%` }}
         />
+        {teacherSkips > 0 && (
+          <div
+            className="absolute inset-y-0 right-0 bg-amber-500/70 transition-all duration-300"
+            style={{ width: `${skipPct}%` }}
+            title={`선생님 패스 ${teacherSkips}개`}
+          />
+        )}
       </div>
       <div
         className={cn(
-          "w-16 text-right text-sm font-mono font-semibold shrink-0 flex items-center justify-end gap-0.5",
+          "w-20 text-right text-sm font-mono font-semibold shrink-0 flex items-center justify-end gap-0.5",
           state === "done" ? "text-emerald-600" : "text-muted-foreground",
         )}
       >
         {passed}/{total}
+        {teacherSkips > 0 && (
+          <span className="ml-0.5 text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+            🔓{teacherSkips}
+          </span>
+        )}
         {state === "done" && <Check className="w-3.5 h-3.5" />}
       </div>
     </div>
