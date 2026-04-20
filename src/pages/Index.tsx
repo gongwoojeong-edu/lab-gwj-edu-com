@@ -1523,7 +1523,8 @@ const Index = () => {
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
 
-  // 인덱스별 모든 owner들 (다층 layer 지원: 좁은 owner = 안쪽 layer 우선)
+  // 인덱스별 모든 owner들 — **외곽(긴 범위) → 안쪽(짧은 범위)** 순으로 정렬.
+  // 따라서 owners[0] = Layer 1 (관대주격 등 외곽층), owners[last] = 가장 안쪽 layer.
   const completedOwnersByIndex = useMemo(() => {
     const m: Record<number, string[]> = {};
     Object.entries(completedSelectionMap).forEach(([ownerId, indices]) => {
@@ -1536,28 +1537,50 @@ const Index = () => {
       const idx = Number(k);
       m[idx].sort(
         (a, b) =>
-          (completedSelectionMap[a]?.length ?? 0) - (completedSelectionMap[b]?.length ?? 0),
+          (completedSelectionMap[b]?.length ?? 0) - (completedSelectionMap[a]?.length ?? 0),
       );
     });
     return m;
   }, [completedSelectionMap]);
 
-  // 안쪽(좁은) layer owner — 부속 배지/한글 라벨용
-  // 외곽(넓은) layer owner — 절 wrapper/배경용
+  // 가장 안쪽(좁은) owner — 부속 배지/한글 라벨용
   const innerOwnerByIndex = useMemo(() => {
-    const m: Record<number, string | undefined> = {};
-    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
-      m[Number(k)] = owners[0];
-    });
-    return m;
-  }, [completedOwnersByIndex]);
-  const outerOwnerByIndex = useMemo(() => {
     const m: Record<number, string | undefined> = {};
     Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
       m[Number(k)] = owners[owners.length - 1];
     });
     return m;
   }, [completedOwnersByIndex]);
+  // 가장 외곽(넓은) owner — 절 wrapper/배경용 (Layer 1)
+  const outerOwnerByIndex = useMemo(() => {
+    const m: Record<number, string | undefined> = {};
+    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
+      m[Number(k)] = owners[0];
+    });
+    return m;
+  }, [completedOwnersByIndex]);
+
+  // 병렬(parallel) owner 판별 — `기타 > 접속 > 병렬`
+  const isParallelProgress = (p: WordProgress | undefined): boolean => {
+    if (!p) return false;
+    return p.pos === "기타" && p.etc.kind === "접속" && p.etc.role === "병렬";
+  };
+  // 등위접속사 단어 (병렬 owner의 anchor 후보)
+  const COORD_CONJ = new Set(["and", "or", "but", "nor", "so", "yet", "for"]);
+  const findAnchorIdx = (
+    indices: number[],
+    p: WordProgress | undefined,
+  ): number => {
+    if (indices.length === 0) return -1;
+    if (isParallelProgress(p)) {
+      const conjIdx = indices.find((i) => {
+        const w = wordUnits[i]?.word?.toLowerCase().replace(/[^a-z]/g, "");
+        return w ? COORD_CONJ.has(w) : false;
+      });
+      if (conjIdx !== undefined) return conjIdx;
+    }
+    return indices[0];
+  };
 
   return (
     <TooltipProvider delayDuration={150}>
