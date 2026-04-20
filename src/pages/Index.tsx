@@ -2045,8 +2045,8 @@ const Index = () => {
               const ownersPrev = idx > 0 ? completedOwnersByIndex[idx - 1] ?? [] : [];
               const ownersNext =
                 idx < wordUnits.length - 1 ? completedOwnersByIndex[idx + 1] ?? [] : [];
-              const sharedWithPrev = ownersHere.find((o) => ownersPrev.includes(o));
-              const sharedWithNext = ownersHere.find((o) => ownersNext.includes(o));
+              const sharedWithPrev = ownersHere.find((o) => ownersPrev.includes(o) && progressMap[o]?.completed);
+              const sharedWithNext = ownersHere.find((o) => ownersNext.includes(o) && progressMap[o]?.completed);
 
               // 구두점/괄호: 비대화형 (단, 인접 완료 layer 사이면 그 자체에 보라 배경)
               if (punct) {
