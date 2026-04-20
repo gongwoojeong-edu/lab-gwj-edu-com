@@ -78,6 +78,13 @@ import {
   getTargetsForSentence,
   type ModifierTargetMap,
 } from "@/lib/modifierTargets";
+import {
+  loadReferentTargets,
+  upsertReferentTarget,
+  removeReferentTargetBySource,
+  getReferentsForSentence,
+  type ReferentTargetMap,
+} from "@/lib/referentTargets";
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -173,43 +180,65 @@ const ownerIdToWordIdx = (ownerId: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const ModifierArrowOverlay = ({
-  show,
-  relations,
+type ArrowKind = "modifier" | "referent";
+
+const ArrowOverlay = ({
+  showModifier,
+  showReferent,
+  modifierRelations,
+  referentRelations,
   tokenRefs,
   containerRef,
   layoutVersion,
 }: {
-  show: boolean;
-  relations: { source: string; target: string }[];
+  showModifier: boolean;
+  showReferent: boolean;
+  modifierRelations: { source: string; target: string }[];
+  referentRelations: { source: string; target: string }[];
   tokenRefs: Map<number, HTMLSpanElement>;
   containerRef: React.RefObject<HTMLDivElement>;
   layoutVersion: number;
 }) => {
-  // layoutVersion이 바뀔 때마다 강제 재렌더 — 좌표 다시 측정
   void layoutVersion;
-  if (!show || relations.length === 0) return null;
   const container = containerRef.current;
   if (!container) return null;
   const cRect = container.getBoundingClientRect();
 
-  type Arrow = { sx: number; sy: number; tx: number; ty: number; key: string };
+  type Arrow = {
+    sx: number;
+    sy: number;
+    tx: number;
+    ty: number;
+    key: string;
+    kind: ArrowKind;
+  };
   const arrows: Arrow[] = [];
-  relations.forEach((rel) => {
-    const sIdx = ownerIdToWordIdx(rel.source);
-    const tIdx = ownerIdToWordIdx(rel.target);
-    if (sIdx === null || tIdx === null) return;
-    const sEl = tokenRefs.get(sIdx);
-    const tEl = tokenRefs.get(tIdx);
-    if (!sEl || !tEl) return;
-    const sR = sEl.getBoundingClientRect();
-    const tR = tEl.getBoundingClientRect();
-    const sx = sR.left - cRect.left + sR.width / 2;
-    const sy = sR.top - cRect.top;
-    const tx = tR.left - cRect.left + tR.width / 2;
-    const ty = tR.top - cRect.top;
-    arrows.push({ sx, sy, tx, ty, key: `${rel.source}->${rel.target}` });
-  });
+
+  const collect = (
+    rels: { source: string; target: string }[],
+    kind: ArrowKind,
+    show: boolean,
+  ) => {
+    if (!show) return;
+    rels.forEach((rel) => {
+      const sIdx = ownerIdToWordIdx(rel.source);
+      const tIdx = ownerIdToWordIdx(rel.target);
+      if (sIdx === null || tIdx === null) return;
+      const sEl = tokenRefs.get(sIdx);
+      const tEl = tokenRefs.get(tIdx);
+      if (!sEl || !tEl) return;
+      const sR = sEl.getBoundingClientRect();
+      const tR = tEl.getBoundingClientRect();
+      const sx = sR.left - cRect.left + sR.width / 2;
+      const sy = sR.top - cRect.top;
+      const tx = tR.left - cRect.left + tR.width / 2;
+      const ty = tR.top - cRect.top;
+      arrows.push({ sx, sy, tx, ty, key: `${kind}:${rel.source}->${rel.target}`, kind });
+    });
+  };
+  collect(modifierRelations, "modifier", showModifier);
+  collect(referentRelations, "referent", showReferent);
+
   if (arrows.length === 0) return null;
 
   return (
@@ -221,7 +250,7 @@ const ModifierArrowOverlay = ({
     >
       <defs>
         <marker
-          id="modifier-arrow-head"
+          id="arrow-head-modifier"
           viewBox="0 0 10 10"
           refX="8"
           refY="5"
@@ -231,25 +260,46 @@ const ModifierArrowOverlay = ({
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" />
         </marker>
+        <marker
+          id="arrow-head-referent"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--muted-foreground))" />
+        </marker>
       </defs>
-      {arrows.map(({ sx, sy, tx, ty, key }) => {
-        // 두 단어 위쪽으로 솟아오르는 부드러운 곡선
+      {arrows.map(({ sx, sy, tx, ty, key, kind }) => {
         const midX = (sx + tx) / 2;
         const dx = Math.abs(tx - sx);
-        // 거리에 따라 곡선의 봉우리 높이 조정 (최소 18, 최대 60)
         const lift = Math.min(60, Math.max(18, dx * 0.25));
         const peakY = Math.min(sy, ty) - lift;
+        const isMod = kind === "modifier";
         return (
-          <path
-            key={key}
-            d={`M ${sx} ${sy - 2} Q ${midX} ${peakY} ${tx} ${ty - 2}`}
-            stroke="hsl(var(--primary))"
-            strokeWidth="1.6"
-            strokeDasharray="4 3"
-            fill="none"
-            markerEnd="url(#modifier-arrow-head)"
-            opacity={0.85}
-          />
+          <g key={key}>
+            {!isMod && (
+              <circle
+                cx={sx}
+                cy={sy - 2}
+                r={2.5}
+                fill="hsl(var(--muted-foreground))"
+                opacity={0.85}
+              />
+            )}
+            <path
+              d={`M ${sx} ${sy - 2} Q ${midX} ${peakY} ${tx} ${ty - 2}`}
+              stroke={isMod ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
+              strokeWidth={isMod ? 1.6 : 1.4}
+              strokeDasharray={isMod ? "4 3" : "1 3"}
+              strokeLinecap="round"
+              fill="none"
+              markerEnd={isMod ? "url(#arrow-head-modifier)" : "url(#arrow-head-referent)"}
+              opacity={isMod ? 0.85 : 0.75}
+            />
+          </g>
         );
       })}
     </svg>
@@ -308,12 +358,16 @@ const Index = () => {
   const [modifierMap, setModifierMap] = useState<ModifierTargetMap>({});
   /** [수식 대상 지정] 버튼이 켜진 source ownerId — 다음 단어 클릭이 target으로 캡처됨 */
   const [pendingModifierSource, setPendingModifierSource] = useState<string | null>(null);
-  const { showModifierArrows } = useHintSettings();
+  // ===== 지시어 화살표 (Referent Target, 대명사 전용) =====
+  const [referentMap, setReferentMap] = useState<ReferentTargetMap>({});
+  const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
+  const { showModifierArrows, showReferentArrows } = useHintSettings();
 
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
+    setReferentMap(loadReferentTargets());
   }, []);
 
   const resetCustomAnswers = () => {
@@ -385,7 +439,7 @@ const Index = () => {
   useEffect(() => {
     const id = requestAnimationFrame(() => setArrowLayoutVersion((v) => v + 1));
     return () => cancelAnimationFrame(id);
-  }, [sentence.id, modifierMap, completedSelectionMap, progressMap]);
+  }, [sentence.id, modifierMap, referentMap, completedSelectionMap, progressMap]);
 
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
@@ -599,9 +653,11 @@ const Index = () => {
         /* ignore */
       }
     }
-    // 수식 관계도 같이 삭제 (source가 owner인 항목)
+    // 수식/지시어 관계도 같이 삭제 (source가 owner인 항목)
     setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
+    setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, ownerId));
     if (pendingModifierSource === ownerId) setPendingModifierSource(null);
+    if (pendingReferentSource === ownerId) setPendingReferentSource(null);
     if (selectedId === ownerId) {
       setSelectedId(null);
       setSelectedWordIndices([]);
@@ -621,11 +677,11 @@ const Index = () => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
-    // === [수식 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
-    if (pendingModifierSource) {
+    // === [수식 / 지시어 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
+    if (pendingModifierSource || pendingReferentSource) {
       const tid = wordUnits[idx]?.tokenId;
       const targetOwnerId = tid ? `${tid}${OWNER_KEY_SEPARATOR}${idx}` : null;
-      if (targetOwnerId && targetOwnerId !== pendingModifierSource) {
+      if (pendingModifierSource && targetOwnerId && targetOwnerId !== pendingModifierSource) {
         setModifierMap((prev) =>
           upsertModifierTarget(prev, sentence.id, {
             source: pendingModifierSource,
@@ -633,8 +689,21 @@ const Index = () => {
           }),
         );
         toast({ title: "🎯 수식 대상 지정 완료" });
+      } else if (
+        pendingReferentSource &&
+        targetOwnerId &&
+        targetOwnerId !== pendingReferentSource
+      ) {
+        setReferentMap((prev) =>
+          upsertReferentTarget(prev, sentence.id, {
+            source: pendingReferentSource,
+            target: targetOwnerId,
+          }),
+        );
+        toast({ title: "👉 지시어 대상 지정 완료" });
       }
       setPendingModifierSource(null);
+      setPendingReferentSource(null);
       return;
     }
 
@@ -1219,6 +1288,7 @@ const Index = () => {
     setDrawerOpen(false);
     setEraserMode(false);
     setPendingModifierSource(null);
+    setPendingReferentSource(null);
     // 토큰 ref는 컴포넌트가 새 wordUnits로 다시 마운트하면서 자연 초기화
     tokenRefs.current.clear();
   };
@@ -1272,6 +1342,8 @@ const Index = () => {
     isPendingModifier: !!selectedId && pendingModifierSource === selectedId,
     onAssignModifierTarget: () => {
       if (!selectedId) return;
+      // 다른 모드 토글이 켜져있다면 먼저 끔
+      setPendingReferentSource(null);
       setPendingModifierSource((cur) => (cur === selectedId ? null : selectedId));
     },
     onClearModifierTarget: () => {
@@ -1282,6 +1354,23 @@ const Index = () => {
     hasModifierTarget:
       !!selectedId &&
       getTargetsForSentence(modifierMap, sentence.id).some((r) => r.source === selectedId),
+    // ===== 지시어 화살표 — 명사 owner에서만 활성 (대명사/일반 명사 모두 가리키는 대상 지정 가능) =====
+    canAssignReferentTarget: !!selectedId && progress.pos === "명사",
+    isPendingReferent: !!selectedId && pendingReferentSource === selectedId,
+    onAssignReferentTarget: () => {
+      if (!selectedId) return;
+      // 다른 모드 토글이 켜져있다면 먼저 끔
+      setPendingModifierSource(null);
+      setPendingReferentSource((cur) => (cur === selectedId ? null : selectedId));
+    },
+    onClearReferentTarget: () => {
+      if (!selectedId) return;
+      setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, selectedId));
+      setPendingReferentSource(null);
+    },
+    hasReferentTarget:
+      !!selectedId &&
+      getReferentsForSentence(referentMap, sentence.id).some((r) => r.source === selectedId),
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
@@ -1552,15 +1641,29 @@ const Index = () => {
               </button>
             </div>
           )}
+          {pendingReferentSource && (
+            <div className="mb-2 px-3 py-1.5 rounded-lg bg-muted border border-border text-[11px] font-bold font-kr text-foreground inline-flex items-center gap-2">
+              👉 가리키는(지시) 대상 단어를 클릭하세요
+              <button
+                type="button"
+                onClick={() => setPendingReferentSource(null)}
+                className="text-[10px] underline underline-offset-2 font-semibold"
+              >
+                취소
+              </button>
+            </div>
+          )}
           <div
             ref={sentenceContainerRef}
             className="relative flex flex-wrap items-end pb-1 pt-8 gap-y-7 select-none"
             onMouseLeave={() => isDragging && finalizeSelection()}
           >
-            {/* === 수식 화살표 SVG overlay === */}
-            <ModifierArrowOverlay
-              show={showModifierArrows}
-              relations={getTargetsForSentence(modifierMap, sentence.id)}
+            {/* === 수식 / 지시어 화살표 SVG overlay === */}
+            <ArrowOverlay
+              showModifier={showModifierArrows}
+              showReferent={showReferentArrows}
+              modifierRelations={getTargetsForSentence(modifierMap, sentence.id)}
+              referentRelations={getReferentsForSentence(referentMap, sentence.id)}
               tokenRefs={tokenRefs.current}
               containerRef={sentenceContainerRef}
               layoutVersion={arrowLayoutVersion}

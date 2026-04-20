@@ -147,6 +147,14 @@ interface AnalysisPanelProps {
   hasModifierTarget?: boolean;
   onAssignModifierTarget?: () => void;
   onClearModifierTarget?: () => void;
+
+  // ===== 지시어 화살표 (Referent Arrow, 대명사 전용) =====
+  /** POS=명사 owner일 때 true → [지시어 지정] 버튼 노출 */
+  canAssignReferentTarget?: boolean;
+  isPendingReferent?: boolean;
+  hasReferentTarget?: boolean;
+  onAssignReferentTarget?: () => void;
+  onClearReferentTarget?: () => void;
 }
 
 // ============================================================
@@ -403,6 +411,11 @@ export const AnalysisPanel = ({
   hasModifierTarget,
   onAssignModifierTarget,
   onClearModifierTarget,
+  canAssignReferentTarget,
+  isPendingReferent,
+  hasReferentTarget,
+  onAssignReferentTarget,
+  onClearReferentTarget,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
   const hasSelection = !!selectedWord;
@@ -549,7 +562,7 @@ export const AnalysisPanel = ({
         </div>
       </div>
 
-      {/* === 수식 화살표 — 형용사/M owner에서만 노출 === */}
+      {/* === 수식 화살표 — 형용사/부사/명사M owner에서만 노출 === */}
       {canAssignModifierTarget && (
         <div className="mt-2 flex items-center gap-2 flex-wrap border-t border-border/40 pt-2">
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
@@ -580,6 +593,42 @@ export const AnalysisPanel = ({
               title="수식 화살표 삭제"
             >
               ✕ 화살표 삭제
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* === 지시어 화살표 — 명사(대명사) owner에서만 노출 === */}
+      {canAssignReferentTarget && (
+        <div className="mt-2 flex items-center gap-2 flex-wrap border-t border-border/40 pt-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+            지시어 (대명사)
+          </span>
+          <button
+            type="button"
+            onClick={onAssignReferentTarget}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border",
+              isPendingReferent
+                ? "bg-foreground text-background border-foreground shadow-sm animate-pulse"
+                : "bg-muted text-foreground border-transparent hover:bg-muted/70",
+            )}
+            title="버튼을 누른 뒤 가리키는 대상 단어를 클릭하세요"
+          >
+            {isPendingReferent
+              ? "👉 가리키는 단어 클릭…"
+              : hasReferentTarget
+              ? "↻ 지시어 다시 지정"
+              : "→ 지시어 지정"}
+          </button>
+          {hasReferentTarget && !isPendingReferent && (
+            <button
+              type="button"
+              onClick={onClearReferentTarget}
+              className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
+              title="지시어 화살표 삭제"
+            >
+              ✕ 지시어 삭제
             </button>
           )}
         </div>
