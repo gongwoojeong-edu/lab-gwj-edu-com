@@ -460,6 +460,9 @@ const Index = () => {
         /* ignore */
       }
     }
+    // 수식 관계도 같이 삭제 (source가 owner인 항목)
+    setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
+    if (pendingModifierSource === ownerId) setPendingModifierSource(null);
     if (selectedId === ownerId) {
       setSelectedId(null);
       setSelectedWordIndices([]);
