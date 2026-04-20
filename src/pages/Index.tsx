@@ -1201,6 +1201,9 @@ const Index = () => {
     setCompletedSelectionMap({});
     setDrawerOpen(false);
     setEraserMode(false);
+    setPendingModifierSource(null);
+    // 토큰 ref는 컴포넌트가 새 wordUnits로 다시 마운트하면서 자연 초기화
+    tokenRefs.current.clear();
   };
 
   const panelProps = {
