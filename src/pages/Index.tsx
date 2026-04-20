@@ -2211,6 +2211,7 @@ const Index = () => {
                                 className={cn(
                                   "sub-badge-pill",
                                   `sub-badge-pill-${innerLayerNum}`,
+                                  totalLayers === 1 && "is-solo",
                                   answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
                                   answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
                                 )}
