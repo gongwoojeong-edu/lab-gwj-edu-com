@@ -313,20 +313,10 @@ const Index = () => {
   };
 
   const shouldPersistClauseSelection = () => {
-    if (!selectedToken) return false;
-
-    if (selectedToken.answer.pos === "명사") {
-      return (progress.noun.form ?? selectedToken.answer.form) === "접SV";
-    }
-
-    if (selectedToken.answer.pos === "형용사") {
-      return (progress.adj.form ?? selectedToken.answer.form) === "접SV";
-    }
-
-    if (selectedToken.answer.pos === "부사") {
-      return (progress.adv.form ?? selectedToken.answer.form) === "접SV";
-    }
-
+    // 100% progress 기반 — 원본 answer 추론 금지 (Item 3)
+    if (progress.pos === "명사" && progress.noun.form === "접SV") return true;
+    if (progress.pos === "형용사" && progress.adj.form === "접SV") return true;
+    if (progress.pos === "부사" && progress.adv.form === "접SV") return true;
     return false;
   };
 
@@ -536,7 +526,7 @@ const Index = () => {
 
   // ===== LAYER 01: 품사 =====
   const handlePos = (p: POS) => {
-    if (!selectedId || !selectedToken) return;
+    if (!selectedId) return;
     if (answerInputMode) {
       // 정답 입력 모드: pos 변경 시 다른 필드는 비워서 새 pos에 맞게 다시 입력하도록 한다
       saveCustom(selectedId, { pos: p });
