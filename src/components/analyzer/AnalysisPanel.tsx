@@ -387,7 +387,7 @@ export const AnalysisPanel = ({
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
 
-  if (!selectedWord || !answer) {
+  if (!selectedWord) {
     return (
       <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto">
         {idiomEnabled && (
@@ -408,14 +408,16 @@ export const AnalysisPanel = ({
     );
   }
 
+  const currentPos = pos ?? answer?.pos ?? null;
   const posCorrect = posStatus === "correct";
-  const isNoun = posCorrect && answer.pos === "명사";
-  const isVerb = posCorrect && answer.pos === "동사";
-  const isAdj = posCorrect && answer.pos === "형용사";
-  const isAdv = posCorrect && answer.pos === "부사";
-  const isEtc = posCorrect && answer.pos === "기타";
+  const isNoun = currentPos === "명사";
+  const isVerb = currentPos === "동사";
+  const isAdj = currentPos === "형용사";
+  const isAdv = currentPos === "부사";
+  const isEtc = currentPos === "기타";
 
   const renderSubPanel = () => {
+    if (!answer) return null;
     if (isNoun)
       return (
         <NounPanel
@@ -516,7 +518,7 @@ export const AnalysisPanel = ({
               </button>
             );
 
-            if (isCorrect && (isNoun || isVerb || isAdj || isAdv || isEtc)) {
+            if (isSelected && (isNoun || isVerb || isAdj || isAdv || isEtc) && answer) {
               return (
                 <Popover key={key} defaultOpen>
                   <PopoverTrigger asChild>{trigger}</PopoverTrigger>
