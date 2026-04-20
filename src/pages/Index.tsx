@@ -1080,7 +1080,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode) {
       // 정답 입력 모드: pos 변경 시 다른 필드는 비워서 새 pos에 맞게 다시 입력하도록 한다
-      saveCustom(selectedId, { pos: p });
+      stagePatch(selectedId, { pos: p });
       updateProgress(selectedId, (prev) => ({
         ...prev,
         pos: p,
@@ -1163,7 +1163,7 @@ const Index = () => {
   const handleNounElementRole = (e: SentenceElement, r: string | null) => {
     if (!selectedId) return;
     if (answerInputMode) {
-      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      if (selectedId) stagePatch(selectedId, { element: e, role: r ?? "수식어" });
       updateProgress(selectedId, (prev) => ({
         ...prev,
         noun: {
@@ -1262,7 +1262,7 @@ const Index = () => {
   const handleAdjElementRole = (e: "C" | "M", r: string | null) => {
     if (!selectedId) return;
     if (answerInputMode) {
-      if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
+      if (selectedId) stagePatch(selectedId, { element: e, role: r ?? "수식어" });
       updateProgress(selectedId, (prev) => ({
         ...prev,
         adj: {
