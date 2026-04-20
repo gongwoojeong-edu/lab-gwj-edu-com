@@ -1533,34 +1533,63 @@ const Index = () => {
             })}
           </div>
 
-          {/* 선택 도구바: 지우개 + 선택 해제 — 항상 노출 (Item 2, 5) */}
+          {/* 선택 도구바: 지우개 + 관용구 — 항상 노출 */}
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
               {selectedWordIndices.length > 0
                 ? `선택됨 · ${selectedWordIndices.length}개 단어`
+                : selectedId && completedSelectionMap[selectedId]?.length
+                ? `완료 영역 · ${completedSelectionMap[selectedId].length}개 단어`
                 : "선택 없음"}
             </span>
-            <button
-              type="button"
-              onClick={handleEraser}
-              className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-              title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
-            >
-              🧽 지우개
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedWordIndices([]);
-                setSelectedId(null);
-                setDrawerOpen(false);
-              }}
-              disabled={selectedWordIndices.length === 0 && !selectedId}
-              className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-[11px] font-bold font-kr hover:bg-secondary/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title="하이라이트만 해제 (저장 데이터 유지)"
-            >
-              선택 해제
-            </button>
+            {(() => {
+              const eraseEnabled =
+                activeSelectionIndices.length > 0 ||
+                (!!selectedId &&
+                  (!!progressMap[selectedId] || !!completedSelectionMap[selectedId]));
+              return (
+                <button
+                  type="button"
+                  onClick={handleEraser}
+                  disabled={!eraseEnabled}
+                  className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
+                >
+                  🧽 지우개
+                </button>
+              );
+            })()}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  disabled={activeSelectionIndices.length < 1}
+                  className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{
+                    background: "hsl(var(--idiom-bg))",
+                    color: "hsl(var(--idiom-fg))",
+                    borderColor: "hsl(var(--idiom-border))",
+                  }}
+                  title="선택한 단어들을 관용구로 등록"
+                >
+                  🟫 관용구
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                side="top"
+                className="w-[min(92vw,360px)] p-3 z-[60]"
+              >
+                <IdiomSection
+                  surface={currentSelectionSurface()}
+                  existingMeaning={currentSelectionIdiom()?.meaning}
+                  answerInputMode={answerInputMode}
+                  onSave={handleIdiomSave}
+                  onRemove={handleIdiomRemove}
+                  enabled={activeSelectionIndices.length >= 1}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div
