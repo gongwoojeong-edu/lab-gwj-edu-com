@@ -1963,7 +1963,7 @@ const Index = () => {
         {eraserMode && (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
             <p className="text-[12px] font-semibold text-destructive font-kr">
-              🧽 지우개 모드 — 분석된 항목 클릭 시 즉시 삭제됩니다 (ESC 또는 다시 버튼 클릭으로 종료)
+              🧽 지우개 모드 — 다음 클릭 1회만 삭제 후 자동 해제됩니다 (ESC로 즉시 취소)
             </p>
             <button
               type="button"
@@ -2432,11 +2432,11 @@ const Index = () => {
               )}
               title={
                 eraserMode
-                  ? "지우개 모드 ON — 분석된 항목 클릭 시 삭제 (ESC 또는 다시 클릭으로 종료)"
-                  : "지우개 모드 OFF — 클릭 시 활성화"
+                  ? "지우개 모드 ON — 한 번 클릭 후 자동 해제 (ESC 취소)"
+                  : "지우개 활성화 — 한 번만 사용"
               }
             >
-              🧽 지우개{eraserMode ? " ON" : ""}
+              🧽 지우개 — 한 번만 사용{eraserMode ? " · ON" : ""}
             </button>
             {selectedWordIndices.length > 0 && (
               <button
