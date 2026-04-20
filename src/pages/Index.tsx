@@ -642,13 +642,17 @@ const Index = () => {
   } as WordAnswer;
 
   const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken | undefined) => {
+    const pending = pendingPatchMap[ownerId];
     if (isSpanOwnerId(ownerId)) {
-      return mergeAnswer(SPAN_VIRTUAL_ANSWER, customAnswers[ownerId]);
+      return mergeAnswer(mergeAnswer(SPAN_VIRTUAL_ANSWER, customAnswers[ownerId]), pending);
     }
     if (token && ownerId === token.id) {
-      return mergeAnswer(token.answer, customAnswers[token.id]);
+      return mergeAnswer(mergeAnswer(token.answer, customAnswers[token.id]), pending);
     }
-    return mergeAnswer((token?.answer ?? SPAN_VIRTUAL_ANSWER), customAnswers[ownerId]);
+    return mergeAnswer(
+      mergeAnswer((token?.answer ?? SPAN_VIRTUAL_ANSWER), customAnswers[ownerId]),
+      pending,
+    );
   };
 
   const completedCount = new Set(
