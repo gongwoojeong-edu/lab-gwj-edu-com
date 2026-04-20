@@ -545,10 +545,12 @@ const Index = () => {
       hydrateReferentTargetsFromCloud(sid),
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
+      const pre = prog?.pre_done ?? false;
+      setPreDone(pre);
       setTranslationDone(prog?.translation_done ?? false);
       setWordTestDone(prog?.word_test_done ?? false);
       setPassedAt(prog?.passed_at ?? null);
-      setLearningStep("analysis");
+      setLearningStep(pre ? "analysis" : "pre");
       setBadgeOffsets(offs);
       setCustomAnswers(customs);
       setModifierMap(mods);
