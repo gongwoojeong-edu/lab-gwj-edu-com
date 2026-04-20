@@ -1,74 +1,57 @@
 
 
-## 현재 문제
+## 현재 상태
 
-접속사절 내부에서 단어를 다시 클릭해 다층 분석을 시도하면, 지우개 활성화 로직 때문에 기존 완료 owner가 "선택 대상"으로 잡히고, 추가 분석 흐름이 시작되지 않거나 의도치 않게 지워지는 충돌이 발생합니다.
+코드 확인 결과 **이전 플랜은 아직 구현되지 않았습니다**:
+- `eraserMode` state 없음
+- `handleEraser`는 여전히 "선택된 인덱스 기반 일괄 삭제" 방식
+- 하단 지우개 버튼은 `eraseEnabled`(선택 기반)로 활성/비활성 토글
+- 완료 owner 클릭 = 지우개 대상 + 다층 분석 진입이 충돌하는 기존 구조 그대로
 
-핵심 원인: **"완료 owner 클릭"이 "지우기"와 "다층 분석"의 두 의도를 모두 가짐** → 지금은 한 클릭으로 둘 다 시도되어 충돌.
-
-## 해결 방향 (모드 분리)
-
-지우기와 다층 분석은 명확하게 모드/제스처로 분리합니다.
-
-### 안 A) 지우개 모드 토글 (추천)
-- 하단 `[지우개]` 버튼이 **토글 모드 스위치**로 작동
-- **지우개 모드 ON 상태에서만** 완료 owner 클릭 시 삭제
-- **지우개 모드 OFF (기본)** 상태에서는 완료 owner 클릭 = **항상 다층 분석 진입**
-- 모드 ON일 때 커서/배경 색으로 시각 표시 (예: 본문 영역에 옅은 빨강 톤, 커서 `cursor-not-allowed` 대신 지우개 아이콘 cursor)
-- ESC 또는 다시 토글로 OFF
-
-### 안 B) 클릭 + 수정자 키 (보조)
-- 기본 클릭 = 다층 분석
-- `Shift + 클릭` 또는 `Alt + 클릭` = 삭제
-- 단점: 모바일/태블릿에서 불가, 발견성 낮음
-
-### 안 C) 우클릭 컨텍스트 메뉴
-- 완료 owner 우클릭 시 `[다층 분석] [삭제]` 메뉴 노출
-- 단점: 모바일 비호환, 한 단계 더 필요
-
-→ **안 A (모드 토글) + 안 B (Shift 단축키) 병행**이 가장 안전. 기본은 분석, 명시적 모드/단축키일 때만 삭제.
+따라서 접속사절 내부 다층 분석이 여전히 충돌합니다. 아래 플랜으로 실제 구현하겠습니다.
 
 ## 구현 계획
 
-### 1) 지우개 모드 state 도입
-`src/pages/Index.tsx`
-- `eraserMode: boolean` state 추가
-- 하단 `[지우개]` 버튼을 클릭 → 토글 (Pressed/Toggle 스타일)
-- ESC 키로 모드 해제
-- 모드 ON일 때 본문 영역 cursor 변경 + 헤더에 "지우개 모드" 뱃지
+### 1) `eraserMode` 토글 state 도입 (`src/pages/Index.tsx`)
+- `const [eraserMode, setEraserMode] = useState(false)`
+- ESC 키로 OFF (window keydown)
+- 페이지 이동/문장 변경 시 자동 OFF
 
-### 2) 클릭 분기 로직 재설계
-`handleWordMouseDown` (in `Index.tsx`)
-- **eraserMode=ON + 완료 owner 클릭** → 즉시 해당 owner 삭제 (`handleEraser` 직접 호출, 선택 상태 거치지 않음)
-- **eraserMode=ON + 미분석 토큰** → 무시 (아무 동작 X)
-- **eraserMode=OFF + 완료 owner 클릭** → **다층 분석 진입** (selection을 새로운 자식 분석을 위한 시작점으로 처리, 기존 owner는 보존)
-- **eraserMode=OFF + Shift+클릭 + 완료 owner** → 삭제 (보조 단축키)
-- **eraserMode=OFF + 일반 클릭/드래그** → 기존대로 새 분석 시작
+### 2) 하단 지우개 버튼 = 토글 스위치
+- `disabled` 속성 제거 → 항상 클릭 가능
+- ON 상태: `bg-destructive text-white` + 아이콘 강조
+- OFF 상태: 기존 outline 톤
+- `aria-pressed={eraserMode}`
 
-### 3) 다층 분석 진입 흐름 명확화
-- 완료 owner를 클릭해도 그 owner의 indices 전체를 selection으로 잡지 말고, **클릭한 토큰 1개 또는 새 드래그 범위**만 selection으로 둠
-- → 이렇게 하면 접속사절 안의 단어/구를 그 위에 다시 분석할 수 있음
-- 완료 owner는 "배경 레이어"로만 남고, 새 분석은 그 위에 새 layer로 쌓임 (이미 색상 stacking 구현됨)
+### 3) `handleWordMouseDown` 분기 재설계
+- **eraserMode ON + 완료 owner 클릭** → 해당 owner 즉시 삭제, selection은 비움
+- **eraserMode ON + 미분석 토큰** → 무시
+- **eraserMode OFF + Shift+클릭 + 완료 owner** → 즉시 삭제 (보조 단축키)
+- **eraserMode OFF + 완료 owner 클릭** → 클릭한 토큰 1개만 selection으로 시작 (전체 owner indices 복원하지 않음) → 그 위에 새 layer 분석 진입
+- **eraserMode OFF + 일반 클릭/드래그** → 기존 흐름 유지
 
-### 4) 하단 지우개 버튼 활성/비활성 규칙 변경
-- 지우개 = **토글 버튼**으로 항상 클릭 가능
-- 비활성 대신 ON/OFF visual state 사용
-- 미분석 단어 클릭 시 지우개가 "선택 기반으로 활성화"되는 기존 로직 제거
+### 4) 단일 owner 즉시 삭제 헬퍼
+- `eraseOwner(ownerId, indices)` 추가: `progressMap`, `completedSelectionMap`, `customAnswers`에서 해당 owner만 정리
+- 기존 선택 기반 `handleEraser`는 Shift/모드 클릭 경로에서 단일 owner 인자로 호출
 
-### 5) 시각/안내
-- 지우개 모드 ON: 상단에 작은 안내 배너 ("지우개 모드: 분석된 항목을 클릭해 삭제. ESC로 종료")
-- Shift+클릭 시 짧은 toast: "삭제됨"
-- 분석 매뉴얼은 그대로 유지
+### 5) 시각적 피드백
+- eraserMode ON일 때 본문 영역에 `cursor-pointer` + 옅은 빨강 ring
+- 상단에 작은 안내 배너: "지우개 모드 — 분석된 항목 클릭 시 삭제 (ESC 종료)"
+- Shift+클릭 삭제 시 toast: "삭제됨"
 
-## 수정 예정 파일
-- `src/pages/Index.tsx`
+### 6) 자동 finalize 가드 유지
+- `finalizedOwnersRef`는 그대로 유지하되, 완료 owner 위에 새 selection이 들어오면 새 owner로 분리되도록 `buildOwnerId` 흐름 점검
+
+## 수정 파일
+- `src/pages/Index.tsx` (대부분)
+- `src/components/analyzer/AnalysisPanel.tsx` (canErase prop은 유지하되 문구 정리만)
 
 ## 검증 기준
-1. 기본 상태에서 `provided` 클릭 → 새 분석/다층 분석 진입 (삭제 X)
-2. 접속사절 내부 토큰 클릭 → 절은 유지된 채 그 위에 새 분석 가능
-3. 지우개 모드 ON → 완료 owner 클릭 시 즉시 삭제
-4. 지우개 모드 ON → 미분석 토큰 클릭 시 무반응
-5. Shift+클릭으로도 삭제 가능 (데스크톱 보조)
-6. ESC 키로 지우개 모드 해제
-7. 다층 색상 stacking은 그대로 동작
+1. 기본 상태에서 `provided` 클릭 → 다층 분석 진입, 삭제 X
+2. 접속사절 내부 토큰 클릭 → 절은 유지된 채 새 분석 가능
+3. 지우개 모드 ON + 완료 owner 클릭 → 즉시 삭제
+4. 지우개 모드 ON + 미분석 토큰 클릭 → 무반응
+5. Shift+클릭으로도 삭제 가능
+6. ESC로 모드 해제
+7. 다층 색상 stacking 정상 동작
 
