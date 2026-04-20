@@ -553,7 +553,7 @@ const Index = () => {
       }));
       return;
     }
-    const correct = selectedToken.answer.pos === p;
+    const correct = answerInputMode || selectedToken?.answer.pos === p;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       pos: p,
@@ -572,7 +572,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const correct = answerInputMode || ans.form === f;
+    const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
@@ -592,7 +592,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const correct = answerInputMode || ans.element === e;
+    const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
@@ -610,7 +610,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const correct = answerInputMode || ans.role === r;
+    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: { ...prev.noun, role: r, roleStatus: correct ? "correct" : "wrong" },
@@ -637,7 +637,7 @@ const Index = () => {
       return;
     }
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const elementOk = ans.element === e;
+    const elementOk = ans?.element === e;
     if (e === "M") {
       // M: role 없이 element만 맞으면 완료
       updateProgress(selectedId, (prev) => ({
@@ -646,14 +646,14 @@ const Index = () => {
           ...prev.noun,
           element: e,
           elementStatus: elementOk ? "correct" : "wrong",
-          role: elementOk ? (ans.role ?? "수식어") : null,
+          role: elementOk ? (ans?.role ?? "수식어") : null,
           roleStatus: elementOk ? "correct" : "idle",
         },
         completed: elementOk,
       }));
       return;
     }
-    const roleOk = elementOk && r !== null && ans.role === r;
+    const roleOk = elementOk && r !== null && ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
@@ -672,7 +672,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const correct = answerInputMode || ans.form === f;
+    const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
@@ -692,7 +692,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const correct = answerInputMode || ans.element === e;
+    const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
@@ -710,7 +710,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const correct = answerInputMode || ans.role === r;
+    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
@@ -736,7 +736,7 @@ const Index = () => {
       return;
     }
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const elementOk = ans.element === e;
+    const elementOk = ans?.element === e;
     if (e === "M") {
       updateProgress(selectedId, (prev) => ({
         ...prev,
@@ -744,14 +744,14 @@ const Index = () => {
           ...prev.adj,
           element: e,
           elementStatus: elementOk ? "correct" : "wrong",
-          role: elementOk ? (ans.role ?? "수식어") : null,
+          role: elementOk ? (ans?.role ?? "수식어") : null,
           roleStatus: elementOk ? "correct" : "idle",
         },
         completed: elementOk,
       }));
       return;
     }
-    const roleOk = elementOk && r !== null && ans.role === r;
+    const roleOk = elementOk && r !== null && ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
@@ -770,7 +770,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
-    const correct = answerInputMode || ans.form === f;
+    const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: {
@@ -790,7 +790,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { subtype: s });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
-    const correct = answerInputMode || ans.subtype === s;
+    const correct = answerInputMode || ans?.subtype === s;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: {
@@ -808,7 +808,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
-    const correct = answerInputMode || ans.role === r;
+    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: { ...prev.adv, role: r, roleStatus: correct ? "correct" : "wrong" },
@@ -821,7 +821,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { kind: k });
     const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
-    const correct = answerInputMode || ans.kind === k;
+    const correct = answerInputMode || ans?.kind === k;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       etc: {
@@ -839,7 +839,7 @@ const Index = () => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
-    const correct = answerInputMode || ans.role === r;
+    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       etc: { ...prev.etc, role: r, roleStatus: correct ? "correct" : "wrong" },
