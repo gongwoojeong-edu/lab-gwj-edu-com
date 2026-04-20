@@ -137,6 +137,16 @@ interface AnalysisPanelProps {
   onIdiomRemove?: () => void;
   canErase?: boolean;
   onEraseSelection?: () => void;
+
+  // ===== 수식 화살표 (Modifier Arrow) =====
+  /** 형용사/M owner에서만 true → [수식 대상 지정] 버튼 노출 */
+  canAssignModifierTarget?: boolean;
+  /** 현재 selectedId가 pending source인지 — 버튼 ON/OFF 표시 */
+  isPendingModifier?: boolean;
+  /** 이미 target이 지정되어 있는지 — "지우기" 버튼 노출 */
+  hasModifierTarget?: boolean;
+  onAssignModifierTarget?: () => void;
+  onClearModifierTarget?: () => void;
 }
 
 // ============================================================
@@ -388,6 +398,11 @@ export const AnalysisPanel = ({
   onIdiomRemove,
   canErase,
   onEraseSelection,
+  canAssignModifierTarget,
+  isPendingModifier,
+  hasModifierTarget,
+  onAssignModifierTarget,
+  onClearModifierTarget,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
   const hasSelection = !!selectedWord;
@@ -533,6 +548,42 @@ export const AnalysisPanel = ({
           <StatusPill status={posStatus} />
         </div>
       </div>
+
+      {/* === 수식 화살표 — 형용사/M owner에서만 노출 === */}
+      {canAssignModifierTarget && (
+        <div className="mt-2 flex items-center gap-2 flex-wrap border-t border-border/40 pt-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+            수식 화살표
+          </span>
+          <button
+            type="button"
+            onClick={onAssignModifierTarget}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border",
+              isPendingModifier
+                ? "bg-primary text-primary-foreground border-primary shadow-sm animate-pulse"
+                : "bg-primary/10 text-primary border-transparent hover:bg-primary/20",
+            )}
+            title="버튼을 누른 뒤 수식 대상이 될 단어를 클릭하세요"
+          >
+            {isPendingModifier
+              ? "🎯 대상 단어 클릭…"
+              : hasModifierTarget
+              ? "↻ 수식 대상 다시 지정"
+              : "→ 수식 대상 지정"}
+          </button>
+          {hasModifierTarget && !isPendingModifier && (
+            <button
+              type="button"
+              onClick={onClearModifierTarget}
+              className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
+              title="수식 화살표 삭제"
+            >
+              ✕ 화살표 삭제
+            </button>
+          )}
+        </div>
+      )}
 
     </aside>
   );

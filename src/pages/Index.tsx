@@ -71,6 +71,14 @@ import {
   type IdiomMap,
   type IdiomMark,
 } from "@/lib/idioms";
+import {
+  loadModifierTargets,
+  upsertModifierTarget,
+  removeModifierTargetBySource,
+  getTargetsForSentence,
+  type ModifierTargetMap,
+} from "@/lib/modifierTargets";
+import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -153,6 +161,101 @@ const emptyProgress = (): WordProgress => ({
 const arraysEqualSet = <T,>(a: T[], b: T[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
 
+// ============================================================
+// 수식 화살표 SVG overlay — source/target token DOM 좌표를 측정해 곡선 path 렌더
+// ============================================================
+const OWNER_KEY_SEPARATOR_CONST = "::";
+const ownerIdToWordIdx = (ownerId: string): number | null => {
+  // 단일 토큰 owner: `${tokenId}::${idx}` → 마지막 segment가 idx
+  const parts = ownerId.split(OWNER_KEY_SEPARATOR_CONST);
+  const last = parts[parts.length - 1];
+  const n = Number(last);
+  return Number.isFinite(n) ? n : null;
+};
+
+const ModifierArrowOverlay = ({
+  show,
+  relations,
+  tokenRefs,
+  containerRef,
+  layoutVersion,
+}: {
+  show: boolean;
+  relations: { source: string; target: string }[];
+  tokenRefs: Map<number, HTMLSpanElement>;
+  containerRef: React.RefObject<HTMLDivElement>;
+  layoutVersion: number;
+}) => {
+  // layoutVersion이 바뀔 때마다 강제 재렌더 — 좌표 다시 측정
+  void layoutVersion;
+  if (!show || relations.length === 0) return null;
+  const container = containerRef.current;
+  if (!container) return null;
+  const cRect = container.getBoundingClientRect();
+
+  type Arrow = { sx: number; sy: number; tx: number; ty: number; key: string };
+  const arrows: Arrow[] = [];
+  relations.forEach((rel) => {
+    const sIdx = ownerIdToWordIdx(rel.source);
+    const tIdx = ownerIdToWordIdx(rel.target);
+    if (sIdx === null || tIdx === null) return;
+    const sEl = tokenRefs.get(sIdx);
+    const tEl = tokenRefs.get(tIdx);
+    if (!sEl || !tEl) return;
+    const sR = sEl.getBoundingClientRect();
+    const tR = tEl.getBoundingClientRect();
+    const sx = sR.left - cRect.left + sR.width / 2;
+    const sy = sR.top - cRect.top;
+    const tx = tR.left - cRect.left + tR.width / 2;
+    const ty = tR.top - cRect.top;
+    arrows.push({ sx, sy, tx, ty, key: `${rel.source}->${rel.target}` });
+  });
+  if (arrows.length === 0) return null;
+
+  return (
+    <svg
+      className="absolute inset-0 pointer-events-none"
+      width="100%"
+      height="100%"
+      style={{ overflow: "visible" }}
+    >
+      <defs>
+        <marker
+          id="modifier-arrow-head"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" />
+        </marker>
+      </defs>
+      {arrows.map(({ sx, sy, tx, ty, key }) => {
+        // 두 단어 위쪽으로 솟아오르는 부드러운 곡선
+        const midX = (sx + tx) / 2;
+        const dx = Math.abs(tx - sx);
+        // 거리에 따라 곡선의 봉우리 높이 조정 (최소 18, 최대 60)
+        const lift = Math.min(60, Math.max(18, dx * 0.25));
+        const peakY = Math.min(sy, ty) - lift;
+        return (
+          <path
+            key={key}
+            d={`M ${sx} ${sy - 2} Q ${midX} ${peakY} ${tx} ${ty - 2}`}
+            stroke="hsl(var(--primary))"
+            strokeWidth="1.6"
+            strokeDasharray="4 3"
+            fill="none"
+            markerEnd="url(#modifier-arrow-head)"
+            opacity={0.85}
+          />
+        );
+      })}
+    </svg>
+  );
+};
+
 const Index = () => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
@@ -184,9 +287,16 @@ const Index = () => {
   // ===== 숙어 / Phrase store (SVOC와 독립) =====
   const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
 
+  // ===== 수식 화살표 (Modifier Target) =====
+  const [modifierMap, setModifierMap] = useState<ModifierTargetMap>({});
+  /** [수식 대상 지정] 버튼이 켜진 source ownerId — 다음 단어 클릭이 target으로 캡처됨 */
+  const [pendingModifierSource, setPendingModifierSource] = useState<string | null>(null);
+  const { showModifierArrows } = useHintSettings();
+
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
+    setModifierMap(loadModifierTargets());
   }, []);
 
   const resetCustomAnswers = () => {
@@ -232,6 +342,33 @@ const Index = () => {
   const [completedSelectionMap, setCompletedSelectionMap] = useState<Record<string, number[]>>({});
   const [dragStart, setDragStart] = useState<number | null>(null);
   const isDragging = dragStart !== null;
+
+  // === SVG overlay 좌표 측정용 refs ===
+  const sentenceContainerRef = useRef<HTMLDivElement | null>(null);
+  const tokenRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+  const setTokenRef = (idx: number) => (el: HTMLSpanElement | null) => {
+    if (el) tokenRefs.current.set(idx, el);
+    else tokenRefs.current.delete(idx);
+  };
+  // 컨테이너 사이즈/스크롤 변경 시 화살표 좌표 재계산을 위한 트리거
+  const [arrowLayoutVersion, setArrowLayoutVersion] = useState(0);
+  useEffect(() => {
+    const el = sentenceContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setArrowLayoutVersion((v) => v + 1));
+    ro.observe(el);
+    const onResize = () => setArrowLayoutVersion((v) => v + 1);
+    window.addEventListener("resize", onResize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+  // 문장 변경 / 분석 변경 시 다음 paint 후 화살표 좌표 재측정
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setArrowLayoutVersion((v) => v + 1));
+    return () => cancelAnimationFrame(id);
+  }, [sentence.id, modifierMap, completedSelectionMap, progressMap]);
 
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
@@ -445,6 +582,9 @@ const Index = () => {
         /* ignore */
       }
     }
+    // 수식 관계도 같이 삭제 (source가 owner인 항목)
+    setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
+    if (pendingModifierSource === ownerId) setPendingModifierSource(null);
     if (selectedId === ownerId) {
       setSelectedId(null);
       setSelectedWordIndices([]);
@@ -463,6 +603,23 @@ const Index = () => {
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
+
+    // === [수식 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
+    if (pendingModifierSource) {
+      const tid = wordUnits[idx]?.tokenId;
+      const targetOwnerId = tid ? `${tid}${OWNER_KEY_SEPARATOR}${idx}` : null;
+      if (targetOwnerId && targetOwnerId !== pendingModifierSource) {
+        setModifierMap((prev) =>
+          upsertModifierTarget(prev, sentence.id, {
+            source: pendingModifierSource,
+            target: targetOwnerId,
+          }),
+        );
+        toast({ title: "🎯 수식 대상 지정 완료" });
+      }
+      setPendingModifierSource(null);
+      return;
+    }
 
     // 이 인덱스를 포함하는 완료 owner들 (좁은 layer 우선)
     const owners = Object.entries(completedSelectionMap)
@@ -1044,6 +1201,9 @@ const Index = () => {
     setCompletedSelectionMap({});
     setDrawerOpen(false);
     setEraserMode(false);
+    setPendingModifierSource(null);
+    // 토큰 ref는 컴포넌트가 새 wordUnits로 다시 마운트하면서 자연 초기화
+    tokenRefs.current.clear();
   };
 
   const panelProps = {
@@ -1086,6 +1246,25 @@ const Index = () => {
     onIdiomRemove: handleIdiomRemove,
     canErase: activeSelectionIndices.length > 0,
     onEraseSelection: handleEraser,
+    // ===== 수식 화살표 — 형용사/부사 또는 element=M owner에서만 활성 =====
+    canAssignModifierTarget:
+      !!selectedId &&
+      (progress.pos === "형용사" ||
+        progress.pos === "부사" ||
+        (progress.pos === "명사" && progress.noun.element === "M")),
+    isPendingModifier: !!selectedId && pendingModifierSource === selectedId,
+    onAssignModifierTarget: () => {
+      if (!selectedId) return;
+      setPendingModifierSource((cur) => (cur === selectedId ? null : selectedId));
+    },
+    onClearModifierTarget: () => {
+      if (!selectedId) return;
+      setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, selectedId));
+      setPendingModifierSource(null);
+    },
+    hasModifierTarget:
+      !!selectedId &&
+      getTargetsForSentence(modifierMap, sentence.id).some((r) => r.source === selectedId),
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
@@ -1344,43 +1523,31 @@ const Index = () => {
 
           {/* === 토큰 사이 인접 완료 layer 검사용 헬퍼 === */}
           {(() => null)()}
-          {(() => {
-            const maxDepth = Object.values(completedOwnersByIndex).reduce(
-              (max, owners) => Math.max(max, owners?.length ?? 0),
-              0,
-            );
-            if (maxDepth < 2) return null;
-            const labels = ["단어/구", "절(2층)", "3층", "4층"];
-            return (
-              <div className="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-kr text-muted-foreground">
-                <span className="font-semibold">Layer:</span>
-                {Array.from({ length: Math.min(maxDepth, 4) }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={cn("sub-badge-pill", `sub-badge-pill-${i + 1}`)}
-                  >
-                    {i + 1}. {labels[i]}
-                  </span>
-                ))}
-              </div>
-            );
-          })()}
-          {(() => {
-            // 부배지 stacking 높이에 맞춰 줄 간격(line gap)과 상단 padding을 동적으로 확보
-            // 각 layer당 14px씩 위로 올라가므로, 깊이가 깊어질수록 더 많은 헤드룸 필요
-            const maxDepth = Object.values(completedOwnersByIndex).reduce(
-              (max, owners) => Math.max(max, owners?.length ?? 0),
-              0,
-            );
-            // base 28px + (depth-1) * 16px 정도 헤드룸이면 깔끔
-            const rowGapPx = Math.max(28, 14 + maxDepth * 18);
-            const topPadPx = Math.max(32, 14 + maxDepth * 18);
-            return (
-              <div
-                className="flex flex-wrap items-end pb-1 select-none"
-                style={{ rowGap: `${rowGapPx}px`, paddingTop: `${topPadPx}px` }}
-                onMouseLeave={() => isDragging && finalizeSelection()}
+          {pendingModifierSource && (
+            <div className="mb-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/40 text-[11px] font-bold font-kr text-primary inline-flex items-center gap-2">
+              🎯 수식 대상이 될 단어를 클릭하세요
+              <button
+                type="button"
+                onClick={() => setPendingModifierSource(null)}
+                className="text-[10px] underline underline-offset-2 font-semibold"
               >
+                취소
+              </button>
+            </div>
+          )}
+          <div
+            ref={sentenceContainerRef}
+            className="relative flex flex-wrap items-end pb-1 pt-8 gap-y-7 select-none"
+            onMouseLeave={() => isDragging && finalizeSelection()}
+          >
+            {/* === 수식 화살표 SVG overlay === */}
+            <ModifierArrowOverlay
+              show={showModifierArrows}
+              relations={getTargetsForSentence(modifierMap, sentence.id)}
+              tokenRefs={tokenRefs.current}
+              containerRef={sentenceContainerRef}
+              layoutVersion={arrowLayoutVersion}
+            />
             {wordUnits.map((u, idx) => {
               const word = u.word;
               const punct = isPunct(word);
@@ -1480,9 +1647,7 @@ const Index = () => {
               const outerLayerIdx = outerOwnerId ? ownersHere.indexOf(outerOwnerId) : -1;
               const innerLayerNum = innerLayerIdx >= 0 ? (innerLayerIdx % 4) + 1 : 1;
               const outerLayerNum = outerLayerIdx >= 0 ? (outerLayerIdx % 4) + 1 : 2;
-              // 세로 위치: layer가 깊어질수록 위로 (px 단위)
-              const innerBadgeTop = -(14 + Math.max(innerLayerIdx, 0) * 14);
-              const outerBadgeTop = -(14 + Math.max(outerLayerIdx, 0) * 14);
+              // (수직 stacking 폐기 — 부배지는 한 줄 가로 정렬, top 고정)
 
               // 부배지(품사 라벨) — owner 중간 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
@@ -1546,6 +1711,7 @@ const Index = () => {
                   <span
                     role="button"
                     tabIndex={0}
+                    ref={setTokenRef(idx)}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       handleWordMouseDown(idx, e);
@@ -1570,42 +1736,41 @@ const Index = () => {
                         : undefined
                     }
                   >
-                    {koreanLabel && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
-                              `sub-badge-pill-${innerLayerNum}`,
-                            )}
-                            style={{ top: `${innerBadgeTop}px` }}
-                          >
-                            {koreanLabel}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs font-kr">
-                          {koreanLabel}
-                        </TooltipContent>
-                      </Tooltip>
+                    {(koreanLabel || outerKoreanLabel) && (
+                      <span className="sub-badge-row" style={{ top: "-18px" }}>
+                        {koreanLabel && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={cn("sub-badge-pill", `sub-badge-pill-${innerLayerNum}`)}
+                              >
+                                <span className="sub-badge-num">{innerLayerNum}</span>
+                                <span className="truncate max-w-[120px]">{koreanLabel}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs font-kr">
+                              {koreanLabel}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {outerKoreanLabel && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={cn("sub-badge-pill", `sub-badge-pill-${outerLayerNum}`)}
+                              >
+                                <span className="sub-badge-num">{outerLayerNum}</span>
+                                <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs font-kr">
+                              {outerKoreanLabel}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </span>
                     )}
-                    {outerKoreanLabel && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
-                              `sub-badge-pill-${outerLayerNum}`,
-                            )}
-                            style={{ top: `${outerBadgeTop}px` }}
-                          >
-                            {outerKoreanLabel}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs font-kr">
-                          {outerKoreanLabel}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+
                     <span
                       className={cn(
                         "px-1 py-0.5 text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
@@ -1702,9 +1867,7 @@ const Index = () => {
                 </span>
               );
             })}
-              </div>
-            );
-          })()}
+          </div>
 
           {/* 선택 도구바: 지우개 + 관용구 — 항상 노출 */}
           <div className="mt-4 flex items-center gap-2 flex-wrap">
