@@ -2023,9 +2023,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
           </div>
         </div>
       </nav>
+      )}
 
-      {/* 하단 고정 staff 툴바 (선생님/관리자 전용) */}
-      {isAdmin && (() => {
+      {/* 하단 고정 staff 툴바 (선생님/관리자 전용) — embedMode일 때 숨김 */}
+      {!embedMode && isAdmin && (() => {
         const status = getOwnerStatus(selectedId);
         const canSave = answerInputMode && status === "dirty";
         return (
