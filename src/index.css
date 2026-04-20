@@ -176,27 +176,27 @@
     background: hsl(0 0% 100% / 0.7);
   }
   .sub-badge-pill-1 {
-    background: hsl(var(--layer-1) / 0.22);
-    color: hsl(38 95% 28%);
+    background: hsl(var(--layer-1) / 0.18);
+    color: hsl(275 70% 32%);
     border-color: hsl(var(--layer-1) / 0.55);
   }
-  .sub-badge-pill-1 .sub-badge-num { color: hsl(38 95% 28%); }
+  .sub-badge-pill-1 .sub-badge-num { color: hsl(275 70% 32%); }
   .sub-badge-pill-2 {
-    background: hsl(var(--layer-2) / 0.20);
-    color: hsl(350 78% 38%);
+    background: hsl(var(--layer-2) / 0.22);
+    color: hsl(38 95% 28%);
     border-color: hsl(var(--layer-2) / 0.55);
   }
-  .sub-badge-pill-2 .sub-badge-num { color: hsl(350 78% 38%); }
+  .sub-badge-pill-2 .sub-badge-num { color: hsl(38 95% 28%); }
   .sub-badge-pill-3 {
     background: hsl(var(--layer-3) / 0.20);
-    color: hsl(175 75% 24%);
+    color: hsl(350 78% 38%);
     border-color: hsl(var(--layer-3) / 0.55);
   }
-  .sub-badge-pill-3 .sub-badge-num { color: hsl(175 75% 24%); }
+  .sub-badge-pill-3 .sub-badge-num { color: hsl(350 78% 38%); }
   .sub-badge-pill-4 {
     background: hsl(var(--layer-4) / 0.20);
-    color: hsl(270 70% 38%);
+    color: hsl(175 75% 24%);
     border-color: hsl(var(--layer-4) / 0.55);
   }
-  .sub-badge-pill-4 .sub-badge-num { color: hsl(270 70% 38%); }
+  .sub-badge-pill-4 .sub-badge-num { color: hsl(175 75% 24%); }
 }
