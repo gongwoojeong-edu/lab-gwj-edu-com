@@ -263,6 +263,7 @@ export type Database = {
           start_level: string
           student_no: string
           teacher_id: string | null
+          teacher_pin: string | null
           updated_at: string
           user_id: string
         }
@@ -274,6 +275,7 @@ export type Database = {
           start_level?: string
           student_no: string
           teacher_id?: string | null
+          teacher_pin?: string | null
           updated_at?: string
           user_id: string
         }
@@ -285,6 +287,7 @@ export type Database = {
           start_level?: string
           student_no?: string
           teacher_id?: string | null
+          teacher_pin?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -340,6 +343,7 @@ export type Database = {
       }
       word_pre_results: {
         Row: {
+          assist_log: Json
           completed: boolean
           id: string
           known_words: string[]
@@ -349,6 +353,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          assist_log?: Json
           completed?: boolean
           id?: string
           known_words?: string[]
@@ -358,6 +363,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          assist_log?: Json
           completed?: boolean
           id?: string
           known_words?: string[]
