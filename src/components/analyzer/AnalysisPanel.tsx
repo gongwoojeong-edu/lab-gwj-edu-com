@@ -1368,6 +1368,13 @@ interface EtcPanelProps {
   etc: EtcProgress;
   onEtcKindChange: (k: EtcKind) => void;
   onEtcRoleChange: (r: string) => void;
+  // 관용구 통합
+  idiomEnabled: boolean;
+  idiomSurface: string;
+  idiomExistingMeaning?: string;
+  onIdiomSave?: (meaning: string) => void;
+  onIdiomRemove?: () => void;
+  answerInputMode: boolean;
 }
 
 const EtcPanel = ({
@@ -1375,6 +1382,12 @@ const EtcPanel = ({
   etc,
   onEtcKindChange,
   onEtcRoleChange,
+  idiomEnabled,
+  idiomSurface,
+  idiomExistingMeaning,
+  onIdiomSave,
+  onIdiomRemove,
+  answerInputMode,
 }: EtcPanelProps) => {
   const mask = useMaskStatus();
   const etcRoleStatus = mask(etc.roleStatus);
