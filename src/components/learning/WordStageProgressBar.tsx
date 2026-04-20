@@ -102,7 +102,7 @@ export const WordStageProgressBar = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+        <div className="flex flex-col gap-2">
           {STAGE_ORDER.map((k) => (
             <Bar
               key={k}
