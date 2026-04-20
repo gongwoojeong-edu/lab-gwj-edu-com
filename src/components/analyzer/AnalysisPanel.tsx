@@ -248,9 +248,10 @@ export type RoleOption =
   | { header: string; items: string[] };
 
 const COMMON_ROLES_BY_ELEMENT: Record<SentenceElement, RoleOption[]> = {
-  S: ["주어", "가주어", "진주어"],
+  S: ["주어", "대명사", "가주어", "진주어"],
   O: [
     "목적어(타동)",
+    "대명사",
     "간접목적어",
     "직접목적어",
     "가목적어",
@@ -259,7 +260,7 @@ const COMMON_ROLES_BY_ELEMENT: Record<SentenceElement, RoleOption[]> = {
     "to V의o",
     "V-ing의o",
   ],
-  C: ["주격보어", "목적격보어"],
+  C: ["주격보어", "목적격보어", "대명사"],
   M: [],
 };
 
