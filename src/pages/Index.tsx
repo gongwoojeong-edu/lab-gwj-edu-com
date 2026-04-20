@@ -312,16 +312,15 @@ const Index = () => {
     if (isPunct(wordUnits[idx].word)) return;
 
     const tokenId = wordUnits[idx].tokenId;
-    const ownerId = completedSelectionMap && tokenId
-      ? tokenId
-      : (Object.entries(completedSelectionMap).find(([, indices]) =>
-          indices.includes(idx),
-        )?.[0]);
+    // 이 인덱스가 어떤 완료된 토큰에 속하는지 (있다면)
+    const completedOwner = Object.entries(completedSelectionMap).find(([, indices]) =>
+      indices.includes(idx),
+    )?.[0];
 
-    // 이미 완료된 토큰을 클릭 → progress 그대로 두고, selection만 그 범위로 복원
-    if (ownerId && progressMap[ownerId]?.completed && selectedWordIndices.length === 0) {
-      const indices = completedSelectionMap[ownerId] ?? [idx];
-      setSelectedId(ownerId);
+    // 이미 완료된 토큰 영역을 클릭 → 그 토큰의 분석을 통째로 다시 로드 (재선택/수정/삭제)
+    if (completedOwner && progressMap[completedOwner]?.completed) {
+      const indices = completedSelectionMap[completedOwner] ?? [idx];
+      setSelectedId(completedOwner);
       setSelectedWordIndices(indices);
       setDragStart(idx);
       return;
@@ -361,13 +360,20 @@ const Index = () => {
     finalizeSelection();
   };
 
-  // ===== 지우개: 선택된 단어들의 분석 + 숙어 마크 모두 초기화 =====
+  // ===== 지우개: 선택된 단어들의 분석만 초기화 (숙어 마크는 유지) =====
   const handleEraser = () => {
     const tokenIds = new Set<string>();
     const indices = selectedWordIndices.slice();
     indices.forEach((i) => {
       const tid = wordUnits[i]?.tokenId;
       if (tid) tokenIds.add(tid);
+    });
+    // 추가: 완료된 토큰 owner도 모두 포함 (selectedWordIndices가 완료 영역의 일부일 때)
+    indices.forEach((i) => {
+      const owner = Object.entries(completedSelectionMap).find(([, idxs]) =>
+        idxs.includes(i),
+      )?.[0];
+      if (owner) tokenIds.add(owner);
     });
     setProgressMap((prev) => {
       const next = { ...prev };
@@ -379,17 +385,29 @@ const Index = () => {
       tokenIds.forEach((id) => delete next[id]);
       return next;
     });
-    // 겹치는 숙어 마크도 함께 삭제
-    const overlappingIdioms = (idiomMap[sentence.id] ?? []).filter((m) =>
-      m.indices.some((i) => indices.includes(i)),
-    );
-    if (overlappingIdioms.length > 0) {
-      let nextMap = idiomMap;
-      overlappingIdioms.forEach((m) => {
-        nextMap = removeIdiom(sentence.id, m.indices);
+    // clauseStart/clauseEnd customAnswer도 함께 정리
+    if (tokenIds.size > 0) {
+      const nextCustom = { ...customAnswers };
+      let touched = false;
+      tokenIds.forEach((id) => {
+        const cur = nextCustom[id];
+        if (cur && ("clauseStart" in cur || "clauseEnd" in cur)) {
+          const { clauseStart: _cs, clauseEnd: _ce, ...rest } = cur as Record<string, unknown>;
+          nextCustom[id] = rest;
+          touched = true;
+        }
       });
-      setIdiomMap(nextMap);
+      if (touched) {
+        setCustomAnswers(nextCustom);
+        // localStorage에도 반영
+        try {
+          window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
+        } catch {
+          /* ignore */
+        }
+      }
     }
+    // 숙어 마크는 의도적으로 보존 — 별도 [관용구 삭제] 버튼에서만 제거
     clearActiveSelection();
   };
 
