@@ -1,49 +1,40 @@
 
-## 추가 수정 사항 (지우개 직전 계획에 통합)
 
-### 1) 관용구 지우개 — 브라운톤 배경 동시 삭제
-- 현재: `customAnswers`/`progress`만 삭제, idiom 표시(브라운 underline 배경)는 잔존
-- 수정: 지우개 핸들러에서 active span(또는 단일 토큰)을 덮는 `IdiomMark` 도 같이 제거
-  - `removeIdiom(sentenceId, indices)` 호출 추가
-  - 절 owner면 절 범위와 일치하거나 그 안에 포함된 idiom 모두 제거
-  - 단일 토큰 owner면 그 인덱스를 덮는 idiom 1건 제거
-- 결과: 지우개 한 번으로 SVOC + 한글라벨 + 부배지 + 절 + idiom 브라운톤 모두 클리어
+## 분석 계획
 
-### 2) 특정 element=O 인 경우 SVOC 하단 배지 표시 안 함, 부배지만
-대상:
-- `V-ing` (현재분사/동명사 등) 의 목적어 → 부배지에 그 단어의 element=O 라벨 노출, **하단 SVOC 배지 X**
-- `to V` (to부정사) 의 목적어 → 동일
-- `전치사` 의 목적어 → 동일
+### 1) `era` 등 일부 단어 분석 메뉴 미표시 문제
 
-처리 위치: `src/lib/labels.ts` `buildElementBadge`
-- 명사 progress 에서 `role`/`form` 이 다음 중 하나면 element=O 여도 `undefined` 반환:
-  - `V-ing의 O` / `Ving의O`
-  - `to V의 O` / `toV의O`
-  - `전치사의 O` / `전치사의목적어`
-- 정확한 라벨 문자열은 `AnalysisPanel`의 `COMMON_ROLES_BY_ELEMENT`/`FORM_BONUS_ROLES_BY_ELEMENT` 확인 후 일치시킴
-- 부배지(`buildSubBadgeLabel`)는 그대로 라벨 문자열 노출 → 하단에는 부배지만 보임
+**원인 추정:**
+- `era`는 `s1-4b` 토큰으로 정의되어 있고 `role: "to V의o"`로 등록됨
+- 직전 작업에서 단일클릭이 무조건 single-target select 되도록 바꿨음에도 여전히 메뉴가 안 뜬다면, `selectedWord`가 세팅돼도 패널 내부에서 해당 토큰의 기존 분석(`role`이 SUPPRESS_ROLES에 포함)에 따라 POS/role 옵션이 비활성/숨김 처리되었을 가능성
+- 또는 `INTERNAL_OBJECT_ROLES`(전치사의o/to V의o/V-ing의o)에 해당하는 토큰이 다른 owner span(예: `to solidify` 형용사 to V) 안에 시각적으로 포함돼 있어서, 클릭 시 outer owner가 잡혀 era가 selectedWord로 안 들어가는 케이스
 
-### 3) 접속사절(접SV) 대괄호 복원
-- 증상: 절 범위 양 끝의 `[` `]` 브래킷이 다시 사라짐
-- 원인 추정: 절 렌더 분기가 progress 의 `isClauseProgress` 가 아니라 원본 토큰 기준이라 누락
-- 수정: `Index.tsx` 단어 렌더 루프에서 각 토큰별로
-  - 그 토큰이 어떤 span owner 의 시작/끝인지 계산
-  - 시작 토큰 앞: `[` 표시, 끝 토큰 뒤: `]` 표시
-  - 단, 해당 owner 가 `isClauseProgress(progress)` 인 경우만
-- 절 SVOC 배지 + 부배지 위치도 `]` 바로 아래 중앙에 동일 스타일로 노출 (기존 4번 항목 유지)
+**해결:**
+- `Index.tsx`의 `handleWordMouseDown`에서 클릭 좌표 토큰을 **항상** 단일 selection으로 강제 (outer owner span hit-test 무시)
+- `AnalysisPanel`이 `selectedWord` 존재만으로 항상 보이도록 보장 (현재 desktop은 항상 렌더되나, 내부 POS row가 disabled되는 케이스 점검)
+- 지우개 토글 버튼은 헤더에 항상 보이도록 보장 (현재도 보이지만 selectedWord 없을 때 비활성 → 항상 활성으로 변경)
+- `selectedWord`가 없을 때도 패널에 "단어를 클릭하세요" 안내 + POS 버튼은 disabled, 지우개는 항상 enabled
 
-## 수정 파일
-- `src/pages/Index.tsx`
-  - 지우개 핸들러: `removeIdiom` 호출 추가
-  - 절 브래킷 렌더 로직 복원 (owner span 시작/끝 기반)
-- `src/lib/labels.ts`
-  - `buildElementBadge` 에 V-ing의O / toV의O / 전치사의O 예외 추가
-- `src/components/analyzer/AnalysisPanel.tsx` (필요 시)
-  - 정확한 role 라벨 문자열 확인용
+### 2) 접속사절 내부 다층 분석 시 여러 단어 클릭(드래그) 유지
 
-## 검증
-1. 관용구 마킹된 단어 지우개 → 브라운 배경까지 같이 사라짐
-2. `playing tennis` 의 `tennis` 를 `V-ing의 O` 로 저장 → 부배지 `V-ing의 O`만, 하단 SVOC 배지 없음
-3. `to study English` 의 `English` 를 `to V의 O` → 부배지만, 하단 배지 없음
-4. `in the room` 의 `room` 을 `전치사의 O` → 부배지만, 하단 배지 없음
-5. `that soon followed` 절 저장 → 양 끝 `[ ]` 다시 표시 + 부배지 `관대주격` + SVOC 하단 배지 표시
+**원인 추정:**
+- 직전 변경에서 단일클릭 = 단일 토큰만 선택, 멀티는 Shift/Ctrl/드래그 필요로 바꿨음
+- 절(접SV) 내부에서 "여러 단어 묶어 추가 분석"을 하려면 드래그가 절 owner span을 가로질러 작동해야 함
+- 현재 드래그 로직이 절 owner span을 만나면 owner 전체로 확장되어 부분 다층 선택이 막힐 수 있음
+
+**해결:**
+- 드래그 선택 시 outer 절 owner span 무시하고 raw token 인덱스 범위로만 selection 구성
+- 절 내부 부분 선택(예: `has influenced and aided` 또는 `influenced and aided`)이 그대로 유지되도록 처리
+- 클릭/드래그가 절 안에 있어도 outer owner로 자동 확장되지 않게 분기
+
+**구현 위치:** `src/pages/Index.tsx`
+- `handleWordMouseDown` / `handleWordMouseEnter` / drag commit 로직에서 `outerOwnerKey` 기반 자동 확장 제거 (다층 분석 의도 우선)
+- 단, 지우개 모드일 때는 클릭한 owner span 전체 삭제 동작은 유지
+
+### 검증 시나리오
+1. `era` 단일 클릭 → 분석 패널 POS 버튼 활성화, 지우개 버튼 항상 보임
+2. `that has influenced and aided the development of sports` 1차 분석(형용사 > 접SV > 관대주격) 후
+3. 절 내부에서 `has`, `influenced`, `aided` 드래그 → 3개 토큰 선택 유지, 동사 > 현재완료 분석 가능
+4. 그 위에 다시 `influenced and aided` 드래그 → 기타 > 병렬 분석 가능
+5. 각 layer별 배경색이 겹쳐 표시되며 기존 분석 유지
+
