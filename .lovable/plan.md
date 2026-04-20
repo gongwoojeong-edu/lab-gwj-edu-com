@@ -1,80 +1,73 @@
 
 
-## 음성 인식 안전망 + 음절 재생 + 진행 바 두께 + 선생님 패스키
+## 단계 우선 진행으로 변경 (Stage-major → Word-major 대신)
 
-### 1. 10회 안전망 + **선생님 패스키 스킵** (②발화, ④의미인출)
+기존: 단어1[①②③④] → 단어2[①②③④] → … (Word-major)
+변경: **모든 단어 ①음절각인 → 모든 단어 ②발화 → … ④의미인출** (Stage-major)
 
-#### 자동 안전망 (10회)
-- ②/④ 단계에서 시도 카운터 표시: `시도 N/10`.
-- 5회 도달 시 보조 안내 토스트("발음이 어려우면 천천히 또박또박").
-- 10회 도달 시 자동으로 "기록 후 다음으로" → 점수 **70**, `stuck=true` 플래그 → 다음 단계로 진행.
+### 흐름
 
-#### 선생님 패스키 (조기 스킵)
-- 패널 우측 하단에 작은 **"선생님 확인 후 스킵"** 버튼(자물쇠 아이콘).
-- 클릭 시 PIN 입력 다이얼로그 → 선생님이 4자리 PIN 입력 → 일치하면 즉시 통과 처리.
-- 통과 점수 = **90** (정상 통과 하한), `teacherSkipped=true` 플래그 → 정상 패스로 인정.
-- 시도 횟수 무관하게 어느 시점이든 사용 가능 (학생이 너무 막히면 옆에서 선생님이 풀어주는 동선).
+1. ① 음절각인 라운드: 단어 1~N 순서대로 음절각인 통과
+2. ② 발화 라운드: 단어 1~N 순서대로 발화 통과
+3. ③ 스펠링 라운드: 단어 1~N 순서대로 스펠링 통과
+4. ④ 의미인출 라운드: 단어 1~N 순서대로 의미 통과
+5. 모두 끝나면 PASS 도장 → 결과 저장
 
-#### PIN 관리
-- **저장 위치**: `student_profiles` 테이블에 `teacher_pin` 컬럼(text, nullable, 기본 `null`) 추가 → 선생님 대시보드의 학생 행에서 직접 설정.
-- 학생별 PIN 이라 한 교실에서 학생끼리 알아내도 다른 학생 화면엔 안 통함.
-- PIN 미설정 학생 → "선생님 확인 후 스킵" 버튼 비활성화 + "선생님께 PIN 설정 요청" 안내.
-- PIN 검증은 클라이언트에서 `student_profiles.teacher_pin` 과 단순 일치 비교 (RLS로 자기 자신 row 만 SELECT 가능).
-- 보안 등급은 "교실 안전망" 수준이며 강한 보안이 필요한 값은 아님(학습 흐름 보조 용도).
+### 패스 판정
 
-#### 결과 기록
-- 컴포넌트 로컬 누적: `assistEntries: { word, stage, type: "stuck" | "teacher_skip", attempts, lastHeard? }[]`.
-- 단어 학습 완료 시 `word_pre_results.unknown_words` 와 별도 컬럼 `assist_log`(jsonb, 신규) 에 저장.
-- 선생님 대시보드 표시는 후속 라운드에서 추가.
+- 각 단계 라운드 안에서 단어별 통과 조건은 동일: `score ≥ 90 OR stuck OR teacherSkipped`.
+- 통과 안 하면 같은 단어를 같은 단계에서 재시도 (기존 동작 유지).
+- 모든 단어가 ① 라운드를 통과해야 ② 라운드 시작.
 
-### 2. 음절 1단계 — 마지막 음절 + 통단어 순차 재생 보장
+### 진행 바 표시 변경 (`WordStageProgressBar`)
 
-**현재 버그**: 마지막 음절 클릭 → 즉시 `useEffect` 가 통단어 재생 → `speechSynthesis.cancel()` 로 마지막 음절 음성이 잘림.
+각 단계 바의 % 의미를 **"이 단계에서 통과한 단어 수 / 전체"** 로 변경:
+- `① 음절각인 ▓▓▓▓░ 6/10` 형태.
+- 현재 진행 중인 단계는 `bg-primary` + 펄스, 끝난 단계는 `bg-emerald-500` + 100%.
+- 헤더 라인: `2단계 발화 · 단어 3 / 10  ·  Computer` 처럼 "현재 라운드 + 진척".
+- 4개 바 세로 정렬 유지.
+- 전체 진척 = (완료 단계 × N + 현재 단계 통과 단어 수) / (4 × N).
 
-**수정 (`SyllablePanel.tsx`)**:
-- 자동 트리거 `useEffect` 제거.
-- `playOne` 안에서 `speakChunk` 의 `onend` 콜백 활용:
-  - 클릭 후 마지막 미클릭 음절이 사라지는 시점이면, **음절 음성이 끝난 직후 350ms** → `speakWord(word)` 실행.
-  - 통단어 음성의 `onend` 직후 800ms → `onFinish(100)`.
-- 한 음절짜리 단어/빈 분리는 통단어 1회만 재생 후 통과.
+### 자료구조 변경 (`WordPreStep`)
 
-> 구현 세부: 기존 `speakChunk` 가 `onend` 를 노출하지 않으면 `src/lib/syllables.ts` 시그니처를 `speakChunk(text, opts, onEnd?)` 로 확장.
+```ts
+type StageKey = "syllable" | "speak" | "spell" | "meaning";
+const STAGE_ORDER = ["syllable", "speak", "spell", "meaning"];
 
-### 3. 4개 진행 바 두께 강화 (`WordStageProgressBar.tsx`)
-
-| 요소 | 변경 |
-|------|------|
-| 단계 채움 바 | `h-2` → **`h-4`**, `rounded-full` 유지 |
-| 라벨/점수 글자 | `text-xs` → **`text-sm font-semibold`** |
-| 좌측 펄스 점 | `w-1.5 h-1.5` → **`w-2.5 h-2.5`** |
-| 전체 진척 바 | `h-1.5` → **`h-2.5`** |
-| 그리드 간격 | `gap-3` → `gap-4`, 컨테이너 `py-3` → `py-4` |
-| 모바일 | 동일 두께 유지 (가독성 우선) |
-
-### 패스 판정 (업데이트)
-
-- ① 음절 / ③ 스펠링: 점수 **≥ 90** 이어야 통과.
-- ② 발화 / ④ 의미: 점수 **≥ 90 OR `stuck=true`(10회) OR `teacherSkipped=true`(PIN)** 이면 통과.
-- 4단계 모두 통과 → 단어 PASS → 다음 단어.
-
-### DB 마이그레이션
-
-```sql
-ALTER TABLE student_profiles ADD COLUMN teacher_pin text;
-ALTER TABLE word_pre_results ADD COLUMN assist_log jsonb DEFAULT '[]'::jsonb;
+state:
+  stageIdx: 0..3            // 현재 단계
+  wordIdx:  0..N-1          // 현재 라운드 내 단어 인덱스
+  passedPerStage: Record<StageKey, number>  // 단계별 통과 단어 수
+  perWordScores: Record<word, StageScores>  // 단어별 4개 점수 누적
+  perWordFlags : Record<word, Partial<Record<StageKey, "stuck"|"teacher_skip">>>
+  assistEntries: AssistEntry[]
 ```
+
+`handleStageFinish(score, meta)`:
+- 통과 안 하면 같은 단어/단계 재시도.
+- 통과 시:
+  - `perWordScores[word][stageIdx] = score`, 플래그 누적.
+  - `wordIdx + 1 < N` → `wordIdx++` (같은 단계 다음 단어).
+  - 마지막 단어면 → `passedPerStage[stage] = N`, `stageIdx + 1 < 4` → 다음 단계 시작 (`wordIdx = 0`).
+  - 마지막 단어 + 마지막 단계 → PASS 도장 → 저장.
+
+저장 로직(`saveResults`)은 단어별 누적 점수 기준으로 동일하게 known/unknown/assist_log 산출.
+
+### 단계 라운드 전환 UX
+
+각 단계 시작 직전 1.2초 풀스크린 카드:
+- "② 발화 라운드 시작 · 10개 단어"
+- 학습자가 흐름을 인지하도록 step transition.
 
 ### 변경 파일
 
 | 파일 | 변경 |
 |------|------|
-| `src/lib/syllables.ts` | `speakChunk` 에 `onEnd` 콜백 매개변수 추가 |
-| `src/components/learning/panels/SyllablePanel.tsx` | 자동 useEffect 제거, `onend` 체이닝으로 마지막 음절→통단어→`onFinish` 순차 |
-| `src/components/learning/panels/SpeakPanel.tsx` | 시도 카운터 노출, 10회 안전망(점수 70 + stuck), 선생님 PIN 스킵 다이얼로그 (점수 90 + teacherSkipped). `onFinish(score, { stuck?, teacherSkipped? })` |
-| `src/components/learning/panels/MeaningPanel.tsx` | 동일 안전망 + PIN 스킵 적용 |
-| `src/components/learning/WordPreStep.tsx` | `onFinish` 두 번째 인자 처리: stuck/teacherSkipped 인 경우 단어 패스 인정. `assistEntries` 누적 후 `word_pre_results.assist_log` 에 저장 |
-| `src/components/learning/WordStageProgressBar.tsx` | 바/라벨/점 두께 상향 |
-| `src/lib/wordPre.ts` | `insertWordPreResult` 시그니처에 `assistLog` 추가 |
-| `src/pages/TeacherStudents.tsx` | 학생 행에 "PIN 설정" 버튼 + 다이얼로그(4자리 입력 → `student_profiles.teacher_pin` 업데이트) |
-| supabase/migrations | 위 SQL 마이그레이션 |
+| `src/components/learning/WordPreStep.tsx` | 상태 머신 stage-major 로 재작성, 단어/단계 인덱스 분리, 라운드 전환 카드, 저장 로직 단어별 점수 기반 재계산 |
+| `src/components/learning/WordStageProgressBar.tsx` | 각 바 % = 단계별 통과 단어 수 / 전체. 헤더에 라운드명·단어 인덱스 표시. props 시그니처 변경 |
+
+### 호환성
+
+- 결과 DB 스키마는 그대로 (`known_words`, `unknown_words`, `assist_log`).
+- 한 단어를 여러 단계에서 만나도 단어별 점수는 단계 라운드 종료 시점에 합산 저장.
 
