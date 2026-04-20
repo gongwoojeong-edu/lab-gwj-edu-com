@@ -1,50 +1,79 @@
 
 
-기존 플랜에 대명사 지시어/수식 방향 화살표의 **수정·삭제 기능**을 추가합니다.
+## 상태 요약
 
-## 추가 항목
+이전에 승인하신 5개 항목 플랜은 코드에 **반영되지 않았습니다**. 직전 응답에서 `bun.lock`만 수정됐을 뿐 `Index.tsx`/`index.css`는 그대로입니다. 현재 다음이 모두 미해결입니다.
 
-### F) 화살표 수정/삭제 UX
+- `customAnswers`는 저장은 되지만 새로고침 후 화면(`progressMap`, `completedSelectionMap`)이 복원 안 됨
+- `completedOwnersByIndex`는 여전히 좁은 → 넓은 순 → 바깥 절이 큰 번호로 밀림
+- layer 번호가 1부터 표시됨
+- 부배지/SVOC 배지가 owner 중간 인덱스 anchor
+- clause·parallel·일반 완료가 동일한 `buildLayerBg`로 그려져 박스가 무차별로 쳐짐
+- 병렬 전용 강조 스타일 없음
 
-**어디에서 조작하나**
-- `AnalysisPanel` 하단의 `[수식 대상 지정]` / `[지시어 지정]` 버튼 영역을 상태별 3분기로 확장:
-  1. 미지정 상태 → `[지정]` 버튼
-  2. 지정 완료 상태 → `대상: <단어>` 라벨 + `[변경]` + `[삭제]` 두 버튼
-  3. pending(대상 클릭 대기) 상태 → `[취소]` 버튼 + 안내 배너
+## 이번 작업
 
-**동작 규칙**
-- **변경**: pending 상태로 진입 → 본문에서 새 단어 클릭 시 `upsertModifierTarget` / `upsertReferentTarget`으로 덮어쓰기
-- **삭제**: 즉시 `removeModifierTargetBySource` / `removeReferentTargetBySource` 호출, 화살표 사라짐, localStorage 동기화
-- **owner 자체 삭제(eraser)**: 기존대로 해당 owner의 화살표도 자동 정리 (이미 구현된 cleanup 경로 재사용)
-- **pending 중 다른 owner 선택**: pending 자동 취소
-- **pending 중 ESC 키**: pending 취소 (선택 구현)
+이전 플랜을 그대로 다시 실행합니다 (이번엔 실제 코드 변경).
 
-**본문 측 보조 조작 (선택적)**
-- 화살표 자체에 마우스를 올리면 작은 `×` 아이콘이 떠서 클릭 시 삭제
-- 데스크톱만 적용, 모바일은 패널 버튼으로만 조작
-- 구현 난이도 낮으면 포함, 아니면 패널 버튼만으로 충분
+### 1. 정답 데이터 화면 자동 복원
+`src/pages/Index.tsx`
+- 마운트 시 `loadCustomAnswers()` 결과로 각 sentence × owner를 순회해 `progressMap`/`completedSelectionMap`을 재구성하는 effect 추가
+- 문장 전환 시에도 현재 sentence 범위에 해당하는 owner들을 `customAnswers` 기준으로 다시 hydrate
+- span owner(`span::sentenceId::s-e`)와 단일 토큰 owner 모두 처리
+- 저장된 `pos`, `noun.element`, `verb.tense` 등에서 `completed: true`로 마크 가능한 항목만 자동 완료 처리
 
-## 수정 대상 파일
+### 2. 다층 번호 체계 수정
+`src/pages/Index.tsx`
+- `completedOwnersByIndex` 정렬을 **긴 범위 → 짧은 범위**로 뒤집어 외곽층(=관대주격 등)이 layer 1이 되게
+- `innerLayerNum` / `outerLayerNum` 계산 시:
+  - 인덱스가 1개 owner에만 속하면 숫자 숨김
+  - 2개 이상이면 1은 숨기고 2부터 표시
+- `sub-badge-pill` 안의 `.sub-badge-num` 표시 여부를 prop/조건부 렌더링으로 분기
 
-- `src/components/analyzer/AnalysisPanel.tsx`
-  - 버튼 영역을 `미지정 / 지정완료 / pending` 3상태 렌더링으로 분기
-  - `currentModifierTarget`, `currentReferentTarget` prop 추가 (현재 owner의 저장값)
-  - `onRemoveModifierTarget`, `onRemoveReferentTarget` prop 추가
-  - `onCancelPending` prop 추가
+### 3. anchor 위치를 "맨 앞 단어" 기준으로 통일
+`src/pages/Index.tsx`
+- 현재 `innerMidIdx` / `outerMidIdx`(중간 인덱스) anchor → **첫 인덱스(`completedIndices[0]`)** anchor로 변경
+- 병렬 owner(`기타 > 접속 > 병렬`)인 경우:
+  - 범위 내 단어 중 등위접속사(and / or / but / nor / so / yet / for) 위치를 찾아 그 위에 anchor
+  - 없으면 첫 단어
+- 하단 SVOC 배지(`completedElement`, `outerBadge`)도 동일하게 첫 단어 또는 등위접속사 위로
+
+### 4. clause / parallel / general 시각 분기
+`src/pages/Index.tsx`, `src/index.css`
+- owner 종류 판별 헬퍼 추가:
+  - `isClauseOwner(progress)` — `접SV` 형식
+  - `isParallelOwner(progress)` — `기타 > 접속 > 병렬`
+  - 그 외 general
+- `buildLayerBg`에 종류 인자 추가:
+  - clause: 배경 거의 제거 (투명도 0.05 이하 또는 아예 생략)
+  - parallel: 진한 배경 + border
+  - general: 현재와 비슷한 옅은 보라
+- spacer 배경 채움도 owner 종류별로 분기 (clause면 채우지 않음)
+
+### 5. 병렬 전용 박스 스타일
+`src/index.css`
+- `.parallel-box`, `.parallel-box-start`, `.parallel-box-end` 클래스 추가
+  - 배경 농도↑, `border: 1px solid hsl(var(--primary) / 0.4)`
+  - 시작/끝 모서리 rounded
+  - spacer도 같은 톤으로 채워 시각적 박스 연결
+
+### 6. 대괄호 가독성 강화
+`src/index.css`
+- 기존 bracket span에 size·weight·색 대비 강화
+- clause인데 박스를 빼는 만큼 `[` `]`가 명확히 보이도록
+
+## 변경 파일
+
 - `src/pages/Index.tsx`
-  - 위 prop들 연결
-  - `removeModifierTargetBySource` / `removeReferentTargetBySource` 호출 핸들러
-  - pending 취소 핸들러
-  - (선택) `ArrowOverlay`에 hover 삭제 핸들 추가
-- `src/lib/modifierTargets.ts`, `src/lib/referentTargets.ts`
-  - 이미 `removeXBySource` 함수 존재 → 추가 작업 없음
+- `src/index.css`
 
 ## 검증
 
-14. 지정 완료 상태에서 패널에 `대상: <단어> [변경] [삭제]`가 보인다
-15. `[변경]` → 새 단어 클릭 시 화살표 끝점만 바뀐다
-16. `[삭제]` → 화살표 즉시 사라지고 새로고침 후에도 사라진 상태 유지
-17. pending 중 `[취소]` 누르면 pending 해제, 본문 클릭 가로채기 해제
-18. owner를 eraser로 지우면 해당 화살표도 같이 사라진다
-19. (선택 구현 시) 화살표 hover → `×` → 클릭으로 삭제 가능
+1. 정답 입력 → 새로고침 → 부배지/SVOC 배지/대괄호 그대로 보임
+2. 같은 문장에서 단층 owner는 layer 번호 안 보임
+3. 다층(2개 이상 owner 겹침)이면 외곽층이 layer 1, 안쪽이 2/3 순서로 번호
+4. 관대주격 외곽 owner의 부배지에 숫자 없음
+5. 부배지·SVOC가 첫 단어 위/아래 표시 (병렬은 등위접속사 위)
+6. 접속사절 단어들에 두꺼운 박스 사라지고 `[` `]`만 강조
+7. 병렬은 명확히 박스로 감싸진 형태로 보임
 
