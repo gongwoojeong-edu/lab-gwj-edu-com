@@ -1,185 +1,100 @@
 
 
-## 목표
+## 자동 단어 추출 + PRE 데이터 소스 전환
 
-1. 학습 흐름 제어 — 구문 분석 → 한글 해석 입력 → 단어 테스트(POST) → Pass 기록
-2. 우측 상단 `관용구` 버튼 제거 → 분석 메뉴 `기타` 항목 안으로 이동
-3. 부배지 마우스 드래그로 좌우 수동 조절 + 새로고침 후에도 위치 유지
-4. 형용사 분석 메뉴 하단에 `수식선 표시` 버튼 → 클릭 시 명사로 화살표 그리기
-5. 모든 데이터(분석 결과, 해석, 테스트, 부배지 위치, 진행 상태)를 Supabase에 실시간 저장
+선생님이 문장 하나만 등록하면 AI가 핵심 단어를 자동 추출하고, 그 결과가 모든 학생의 PRE 단어 학습 목록으로 즉시 흘러 들어가게 합니다. 음절 분리는 이미 만들어둔 유틸이 자동 적용됩니다.
 
-이 작업은 Lovable Cloud(Supabase) 활성화가 필요합니다. 승인 시 자동으로 활성화됩니다.
+### 1. 새 테이블: `sentence_word_extractions`
 
----
+문장 단위로 한 번만 추출하고 모든 학생이 공유.
 
-## 1. 학습 흐름 — 분석 → 해석 → 단어 테스트 → Pass
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `sentence_id` | text PK | 문장 ID |
+| `english` | text | 추출에 사용된 원문(스냅샷) |
+| `words` | jsonb | `[{ word, meaning, pos }]` 배열 |
+| `model` | text | 사용된 AI 모델명 |
+| `created_at` | timestamptz | |
+| `updated_at` | timestamptz | |
 
-### UI 흐름
-문장 상단에 단계 진행 바 추가:
+- RLS: 모든 인증 사용자 SELECT 허용, INSERT/UPDATE는 teacher/admin만.
+- 선생님이 같은 문장을 다시 등록하면 upsert로 갱신.
+
+### 2. 새 Edge Function: `extract-sentence-words`
+
+- 입력: `{ sentenceId, english }`.
+- 권한: teacher/admin만 호출 가능 (JWT 검증 + `has_role` 확인). 학생이 호출하면 거부.
+- Lovable AI Gateway (`google/gemini-3-flash-preview`) 호출, **tool calling**으로 구조화된 결과 강제:
+  ```
+  { words: [{ word: string, meaning: string (한국어), pos: "명사|동사|형용사|부사" }] }
+  ```
+- 시스템 프롬프트: 핵심 학습 단어만 5~10개 선별, 관사/대명사/be동사 제외, 원형 또는 표면형 유지, 한국어 뜻은 짧게.
+- 결과를 `sentence_word_extractions`에 upsert.
+- 429/402 에러는 그대로 클라이언트로 반환.
+
+### 3. 선생님 화면: 자동 추출 트리거
+
+`src/pages/Index.tsx`의 분석기 화면에 “**AI 단어 추출**” 버튼 추가 (헤더 또는 사이드 패널).
+- 클릭 시 현재 문장 ID + 영문으로 edge function 호출 → 토스트로 추출된 단어 N개 표시.
+- 또한 신규 문장(`user_sentences`)이 저장될 때 자동으로 1회 호출 (백그라운드, 실패해도 무시).
+
+### 4. 학생 PRE 데이터 소스 우선순위 변경
+
+`src/pages/SentenceLearn.tsx`에서 `entries`를 만드는 로직을 새 헬퍼 `resolveWordEntries(sentenceId, english)`로 교체:
+
+```text
+1순위) sentence_word_extractions 캐시 → words → WordTestEntry 변환
+2순위) 캐시 없으면 학생 본인이 직접 호출할 수 없으므로,
+       teacher/admin owner_progress를 fetch (staff 캐시) → buildWordTest
+3순위) 그래도 비면 본인 owner_progress (현재 동작) — 안전망
 ```
-[1. 구문 분석] → [2. 한글 해석] → [3. 단어 테스트] → ✅ Pass
+
+학생 화면이 비어 있는 상황(=캐시 미존재)이라면 안내 카드를 띄움: “선생님이 아직 단어 추출을 하지 않았어요.” + 자동으로 백오프 재조회 1회.
+
+### 5. 음절 분리 자동화 확인
+
+`WordPreStep`은 이미 `splitIntoSyllables(current.word)`로 음절 버튼을 자동 생성합니다. 새 데이터 소스에서 받은 `word` 문자열도 동일하게 들어가므로 추가 작업 불필요. 다만 추출된 단어가 다음절·하이픈 포함일 수 있어, 기존 유틸이 처리 못 하는 경우(예: `well-known`)는 하이픈 단위로 한 번 더 분할하도록 보강.
+
+### 6. WordTestEntry 매핑
+
+추출 결과 → `WordTestEntry`:
+```text
+{ ownerId: `extract:${index}`, word, expected: meaning }
+```
+`ownerId`는 추출 캐시일 때 `extract:` 접두사를 붙여 staff/own 데이터와 충돌 방지.
+
+### 7. 변경 파일 요약
+
+| 파일 | 변경 |
+|------|------|
+| `supabase/migrations/...` | `sentence_word_extractions` 테이블 + RLS |
+| `supabase/functions/extract-sentence-words/index.ts` | 신규 (Lovable AI tool calling) |
+| `supabase/config.toml` | 함수 등록 (`verify_jwt = true`) |
+| `src/lib/wordExtraction.ts` | 신규: fetch/upsert + edge function 호출 + entries 변환 |
+| `src/lib/syllables.ts` | 하이픈/어퍼스트로피 1차 분할 보강 |
+| `src/pages/SentenceLearn.tsx` | `resolveWordEntries` 우선순위 적용 + 빈 상태 안내 |
+| `src/pages/Index.tsx` | 헤더에 “AI 단어 추출” 버튼 + 신규 문장 저장 시 자동 호출 |
+
+### 동작 흐름 요약
+
+```text
+[선생님] 문장 등록 / "AI 단어 추출" 클릭
+     │
+     ▼
+edge function (Lovable AI) → sentence_word_extractions 저장
+     │
+     ▼
+[학생] /learn/sentence/:id 진입
+     │
+     ▼
+SentenceLearn → fetchExtraction() → entries
+     │
+     ▼
+WordPreStep → splitIntoSyllables() → 듣기 버튼 자동 생성
 ```
 
-### Step 1: 구문 분석
-- 기존 분석 화면 그대로
-- 모든 owner가 `completed`이고 미저장 변경 0개일 때 "다음: 한글 해석" 버튼 활성
+### 사전 확인
 
-### Step 2: 한글 해석 입력
-- 문장 아래 `Textarea` + `해석 제출` 버튼
-- 제출 전엔 Step 3 버튼 잠금
-- 제출 시 `sentence_translations` 테이블에 저장
-
-### Step 3: 단어 테스트 (POST)
-- 해당 문장의 분석 owner 중 `명사/동사/형용사/부사` 단어를 자동 추출
-- 영단어 → 한글 의미 입력 카드 N개
-- 80% 이상 정답 시 통과
-- 결과를 `word_test_results`에 저장
-
-### Step 4: Pass 기록
-- 3단계 모두 완료 시 `sentence_progress` row의 `status='pass'`, `passed_at=now()` 업데이트
-- 헤더에 `✅ Pass` 뱃지
-
-### 신규 파일
-- `src/components/learning/StepProgressBar.tsx`
-- `src/components/learning/TranslationStep.tsx`
-- `src/components/learning/WordTestStep.tsx`
-- `src/lib/wordTestBuilder.ts` — 분석 결과에서 테스트 단어 추출
-
----
-
-## 2. 관용구 버튼 → 분석 메뉴 `기타` 안으로
-
-`src/pages/Index.tsx`
-- 우측 상단 `📚 관용구 N` 버튼 + 다이얼로그 제거
-- 본문 하단 toolbar `🟫 관용구` Popover 제거
-
-`src/components/analyzer/AnalysisPanel.tsx`
-- `EtcPanel` 안에 관용구 섹션 추가
-  - 현재 선택 단어 → 관용구 등록/수정/삭제
-  - `📚 등록된 관용구 보기` 토글 → 전체 목록 노출 + 점프
-- props: `idiomEnabled`, `idiomExistingMeaning`, `onIdiomSave`, `onIdiomRemove`, `allIdioms`, `onJumpToIdiom`
-
----
-
-## 3. 부배지 수동 드래그
-
-`src/pages/Index.tsx`
-- 부배지 pill에 `pointerdown / pointermove / pointerup` 핸들러 추가
-- 좌우(±)만 이동, 상하 잠금, 최대 ±150px
-- 더블클릭 시 `dx=0` 리셋
-- 지우개 모드일 땐 드래그 비활성
-- 적용: `style={{ transform: 'translateX({dx}px)' }}`
-
-`src/index.css`
-- `.sub-badge-pill { cursor: grab; touch-action: none; }`
-- `.sub-badge-pill:active { cursor: grabbing; }`
-
-저장: Supabase `badge_offsets` 테이블 (아래 5번)
-
----
-
-## 4. 형용사 `수식선 표시` 버튼
-
-`src/components/analyzer/AnalysisPanel.tsx` `AdjPanel`
-- Layer 3 하단에 `🎯 수식선 표시` 버튼 추가
-- 노출 조건: `adj.role`이 `명사수식 / 명사앞수식 / 명사뒤수식` 계열일 때 (`roleStatus`와 무관하게 노출)
-- 클릭 → 부모에 `onStartModifierTarget(ownerId)` 전달 → 대상 명사 클릭 모드 진입 → 단어 클릭 시 화살표 생성
-
-`src/pages/Index.tsx`
-- 기존 `ArrowOverlay`가 modifier/referent 화살표를 이미 그리므로 트리거만 연결
-- 화살표 데이터는 `modifier_relations`, `referent_relations` 테이블로 저장
-
----
-
-## 5. Supabase 실시간 저장 (Lovable Cloud)
-
-### 신규 테이블
-
-#### `sentence_progress`
-| 컬럼 | 타입 |
-|---|---|
-| id | uuid pk |
-| user_id | uuid (auth.uid) |
-| sentence_id | text |
-| analysis_done | bool |
-| translation_done | bool |
-| word_test_done | bool |
-| status | text ('in_progress' / 'pass') |
-| passed_at | timestamptz |
-| updated_at | timestamptz |
-
-#### `owner_progress` (구문 분석 결과)
-| 컬럼 | 타입 |
-|---|---|
-| id | uuid pk |
-| user_id | uuid |
-| sentence_id | text |
-| owner_id | text |
-| progress | jsonb (POS, form, role, status 등) |
-| custom_answer | jsonb |
-| completed | bool |
-| updated_at | timestamptz |
-
-#### `sentence_translations`
-| user_id, sentence_id, text, submitted_at |
-
-#### `word_test_results`
-| user_id, sentence_id, items jsonb, score numeric, passed bool, taken_at |
-
-#### `badge_offsets`
-| user_id, sentence_id, owner_id, dx int |
-
-#### `modifier_relations` / `referent_relations`
-| user_id, sentence_id, source_owner_id, target_owner_id |
-
-#### `idioms`
-| user_id, sentence_id, indices int[], surface, meaning, created_at |
-
-#### `user_sentences` (책장 — 추후 확장 대비)
-| user_id, text, level, code, created_at |
-
-### RLS
-- 모든 테이블: `user_id = auth.uid()`만 select/insert/update/delete
-- 인증 미사용 시(현재 비로그인) `user_id = null` 허용 정책 추가, 또는 익명 로그인 자동 활성
-
-### 동기화 전략
-- 기존 `localStorage` 유틸(`customAnswers.ts`, `idioms.ts`, `modifierTargets.ts`, `referentTargets.ts`) → Supabase 클라이언트로 교체
-- 변경 시 `debounce 500ms`로 upsert
-- 페이지 진입 시 `sentence_id` 기준 모든 관련 row 로드 → 메모리 hydration
-- localStorage는 오프라인 캐시로만 유지 (선택)
-
-### 신규 파일
-- `src/integrations/supabase/storage.ts` — 위 7개 테이블 CRUD 래퍼
-- `src/hooks/useSentenceSync.ts` — 마운트 시 로드 + 변경 시 debounced 저장
-
----
-
-## 변경 파일 요약
-
-신규
-- `src/components/learning/StepProgressBar.tsx`
-- `src/components/learning/TranslationStep.tsx`
-- `src/components/learning/WordTestStep.tsx`
-- `src/lib/wordTestBuilder.ts`
-- `src/integrations/supabase/storage.ts`
-- `src/hooks/useSentenceSync.ts`
-- DB 마이그레이션 (위 7개 테이블 + RLS)
-
-수정
-- `src/pages/Index.tsx` — 학습 단계 통합, 관용구 버튼 제거, 부배지 드래그, Supabase hydration
-- `src/components/analyzer/AnalysisPanel.tsx` — `EtcPanel`에 관용구, `AdjPanel`에 수식선 버튼
-- `src/index.css` — grab 커서
-- `src/lib/customAnswers.ts`, `idioms.ts`, `modifierTargets.ts`, `referentTargets.ts` — Supabase 래퍼로 위임
-
----
-
-## 검증
-
-1. 구문 분석 완료 → "한글 해석" 단계 활성, 미완 시 잠금
-2. 해석 제출 → "단어 테스트" 단계 활성
-3. 단어 테스트 80% 이상 → `Pass` 뱃지 + DB `status='pass'` 기록
-4. 우측 상단 관용구 버튼 사라지고 분석 메뉴 `기타`에서 등록/조회 가능
-5. `that has influenced` 부배지를 마우스로 끌면 좌우 이동, 새로고침 후 위치 유지
-6. 형용사 명사수식 role 선택 시 하단 `🎯 수식선 표시` 버튼 노출, 클릭 → 명사 클릭 → 화살표 생성
-7. 브라우저/PC 재시작 후에도 분석 결과, 해석, 테스트 결과, 화살표, 관용구, 부배지 위치 모두 복원
+- Lovable AI는 LOVABLE_API_KEY가 이미 설정되어 있어 추가 시크릿 불필요.
+- teacher/admin 역할은 사용자가 직접 추가 예정 — 비어 있어도 함수 자체는 동작하지만 권한 체크에서 막힘. 권한 체크는 “role이 teacher/admin이거나, role 테이블이 비어있으면 첫 사용자에게 허용”은 하지 않고 **엄격히 staff만** 허용 (보안 우선).
 
