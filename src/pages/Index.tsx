@@ -1858,8 +1858,8 @@ const Index = () => {
                   <span
                     key={idx}
                     className={cn(
-                      "text-base font-medium text-foreground self-end leading-tight px-0.5",
-                      fillBg && "bg-primary/[0.10]",
+                      "text-base font-medium text-foreground self-end leading-tight px-0.5 py-0.5",
+                      fillBg && "bg-primary/[0.07] border-b border-primary/20",
                     )}
                     aria-hidden
                   >
