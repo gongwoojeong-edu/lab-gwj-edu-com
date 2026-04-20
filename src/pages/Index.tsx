@@ -915,8 +915,8 @@ const Index = () => {
     onVerbToggleVoice: handleVerbVoice,
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
-    // Idiom layer
-    idiomEnabled: selectedWordIndices.length >= 1,
+    // 관용구는 2단어 이상에서만 노출 (분석 레이어와 별개 영역)
+    idiomEnabled: selectedWordIndices.length >= 2,
     idiomExistingMeaning: currentSelectionIdiom()?.meaning,
     onIdiomSave: handleIdiomSave,
     onIdiomRemove: handleIdiomRemove,
