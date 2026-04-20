@@ -95,6 +95,10 @@ export const buildElementBadge = (
 
   if (p.pos === "명사") {
     const e = p.noun.element;
+    // 예외: V-ing의o / to V의o / 전치사의o 는 부배지만 표시, 하단 SVOC 배지 X
+    const role = (p.noun.role ?? "").trim();
+    const SUPPRESS_ROLES = new Set(["V-ing의o", "to V의o", "전치사의o"]);
+    if (SUPPRESS_ROLES.has(role)) return undefined;
     if (e === "S" || e === "O" || e === "C" || e === "M") return e;
     return undefined;
   }
