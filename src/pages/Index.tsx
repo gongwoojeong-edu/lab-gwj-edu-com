@@ -379,7 +379,51 @@ const Index = () => {
       tokenIds.forEach((id) => delete next[id]);
       return next;
     });
+    // 겹치는 숙어 마크도 함께 삭제
+    const overlappingIdioms = (idiomMap[sentence.id] ?? []).filter((m) =>
+      m.indices.some((i) => indices.includes(i)),
+    );
+    if (overlappingIdioms.length > 0) {
+      let nextMap = idiomMap;
+      overlappingIdioms.forEach((m) => {
+        nextMap = removeIdiom(sentence.id, m.indices);
+      });
+      setIdiomMap(nextMap);
+    }
     clearActiveSelection();
+  };
+
+  // ===== 숙어 / Phrase 핸들러 =====
+  const currentSelectionSurface = () =>
+    selectedWordIndices
+      .map((i) => wordUnits[i]?.word)
+      .filter(Boolean)
+      .join(" ");
+
+  const currentSelectionIdiom = (): IdiomMark | undefined => {
+    if (selectedWordIndices.length === 0) return undefined;
+    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    return findIdiomByIndices(idiomMap, sentence.id, sorted);
+  };
+
+  const handleIdiomSave = (meaning: string) => {
+    if (selectedWordIndices.length === 0) return;
+    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    const surface = currentSelectionSurface();
+    const next = upsertIdiom(sentence.id, sorted, surface, meaning);
+    setIdiomMap(next);
+    toast({
+      title: "🟫 숙어 저장됨",
+      description: `"${surface}" — ${meaning}`,
+    });
+  };
+
+  const handleIdiomRemove = () => {
+    if (selectedWordIndices.length === 0) return;
+    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    const next = removeIdiom(sentence.id, sorted);
+    setIdiomMap(next);
+    toast({ title: "숙어를 삭제했습니다" });
   };
 
   useEffect(() => {
