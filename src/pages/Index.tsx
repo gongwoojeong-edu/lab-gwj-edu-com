@@ -2257,8 +2257,9 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
       {!allDone && (
       <main
         className={cn(
-          "max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4",
-          !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
+          "max-w-7xl mx-auto flex flex-col gap-4",
+          embedMode ? "p-0 pt-0" : "p-4 lg:p-8 pt-4 lg:pt-24",
+          !embedMode && !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
         )}
       >
         <div className="flex items-center gap-3 flex-wrap">
