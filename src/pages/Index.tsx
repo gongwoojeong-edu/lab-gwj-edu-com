@@ -1705,6 +1705,7 @@ const Index = () => {
                   <span
                     role="button"
                     tabIndex={0}
+                    ref={setTokenRef(idx)}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       handleWordMouseDown(idx, e);
@@ -1729,42 +1730,41 @@ const Index = () => {
                         : undefined
                     }
                   >
-                    {koreanLabel && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
-                              `sub-badge-pill-${innerLayerNum}`,
-                            )}
-                            style={{ top: `${innerBadgeTop}px` }}
-                          >
-                            {koreanLabel}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs font-kr">
-                          {koreanLabel}
-                        </TooltipContent>
-                      </Tooltip>
+                    {(koreanLabel || outerKoreanLabel) && (
+                      <span className="sub-badge-row" style={{ top: "-18px" }}>
+                        {koreanLabel && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={cn("sub-badge-pill", `sub-badge-pill-${innerLayerNum}`)}
+                              >
+                                <span className="sub-badge-num">{innerLayerNum}</span>
+                                <span className="truncate max-w-[120px]">{koreanLabel}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs font-kr">
+                              {koreanLabel}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {outerKoreanLabel && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={cn("sub-badge-pill", `sub-badge-pill-${outerLayerNum}`)}
+                              >
+                                <span className="sub-badge-num">{outerLayerNum}</span>
+                                <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs font-kr">
+                              {outerKoreanLabel}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </span>
                     )}
-                    {outerKoreanLabel && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
-                              `sub-badge-pill-${outerLayerNum}`,
-                            )}
-                            style={{ top: `${outerBadgeTop}px` }}
-                          >
-                            {outerKoreanLabel}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs font-kr">
-                          {outerKoreanLabel}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+
                     <span
                       className={cn(
                         "px-1 py-0.5 text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
