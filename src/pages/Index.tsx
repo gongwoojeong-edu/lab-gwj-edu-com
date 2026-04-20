@@ -1462,7 +1462,7 @@ const Index = () => {
       </nav>
 
       {/* Desktop: fixed top-right panel */}
-      <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)]">
+      <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)] max-h-[calc(100vh-92px)] overflow-y-auto overscroll-contain rounded-2xl">
         <AnswerInputModeProvider value={answerInputMode}>
           <AnalysisPanel {...panelProps} />
         </AnswerInputModeProvider>
