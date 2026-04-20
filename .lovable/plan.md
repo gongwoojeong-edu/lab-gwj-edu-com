@@ -1,64 +1,71 @@
 
-## 요청 정리
+## 요청 정리 — 8개 통합 보강 (최종 블루프린트)
 
-4개 정밀 보강:
-1. **[접SV] 닫는 대괄호 누락 수정** — `]`이 안 보이는 케이스
-2. **정답 입력 모드 = 절대 채점 없음** — `wrong`/`Try` 모두 차단
-3. **`O` 태그 숨김 강화** — 전치사의o / to V의o / V-ing의o 는 하단 `O` 배지 미표시
-4. **선택 자동 리셋 + 완료 상태 가시화** — 분석 완료 시 `selectedWordIndices` 즉시 비우고, 완료된 단어는 옅은 색/배지로 "완료" 상태 유지
+| # | 항목 | 현재 상태 |
+|---|---|---|
+| 1 | 정답 모드 채점 차단 | ✅ 직전 작업으로 `useMaskStatus` 적용 완료 — 추가로 wrong 토스트/animation 잔존 여부만 점검 |
+| 2 | 다층 레이어 공존 | ⚠️ 현재 token당 단일 progress. Clause/Parallel/SVOC/Idiom을 별도 namespace로 분리 필요 |
+| 3 | 정확 인덱스 기반 | ✅ 직전 작업으로 smart grouping 제거 완료 — 회귀 점검만 |
+| 4 | 닫는 `]` | ✅ 직전 작업 — 회귀 점검 |
+| 5 | 완료 단어 재선택/편집 | ⚠️ 현재 완료 토큰 클릭 시 새 selection으로 시작은 되지만, 기존 분석을 패널에 다시 로드하는 경로가 약함 — 재진입 시 progress 복원 필요 |
+| 6 | 지우개 vs 선택해제 분리 | ⚠️ 일부 혼용. 명확히 두 버튼·두 핸들러로 분리 |
+| 7 | 모바일 패널 잘림 | ⚠️ Drawer content에 스크롤·padding 안전영역 보강 필요 |
+| 8 | 숙어 레이어 (신규) | ❌ 미구현 — 이전 플랜의 데이터모델/UI 그대로 적용 |
 
-## 현재 코드 점검 결과
+## 데이터 구조 변경 (Item 2)
 
-| 항목 | 현재 상태 |
-|---|---|
-| 1. 닫는 `]` | `bracketRole && isLastOfSelection` 조건으로 렌더 중. 그러나 `clauseEnd`가 `completedIndices` 마지막 값이고 wrap 컨테이너가 `inline-flex items-end`라 줄바꿈 시 분리 가능. 실제 데이터에서 렌더 여부를 다시 검증해야 함 — 가장 의심 가는 원인은 `completedIndices`가 단일 인덱스(클릭 1번)일 때 `clauseStart === clauseEnd`라 `[` `]` 둘 다 같은 단어에 붙는데 한쪽만 보일 수 있고, drag 범위일 땐 정상이어야 함. 디버깅 필요. |
-| 2. 정답 모드 채점 차단 | `handlePos`에서 정답 모드일 땐 `posStatus: "correct"` 강제. 그러나 `AnalysisPanel`에 `answerInputMode` 신호가 전혀 안 들어가서 `StatusPill`이 wrong을 띄울 수 있는 경로 잔존. 동사 confirm 등도 점검 필요. |
-| 3. `O` 배지 숨김 | `INTERNAL_OBJECT_ROLES.has(a.role)` 체크는 명사 케이스에만 있음. role이 `"전치사의o"` 등이면 `completedElement` 자체가 세팅 안 됨 → 배지 안 보임 → ✅ 동작. 다만 `role` 값이 정확히 일치해야 하므로 데이터 확인 필요. 추가로 `to V`/`V-ing` 자체(form 기준)일 때도 숨겨야 한다는 요구 — 현재 form 기준 숨김은 없음. |
-| 4. 자동 리셋 | `useEffect([selectedId, progress.completed, ...])`로 `progress.completed===true` 시 `clearActiveSelection()` 호출 중. 그러나 `clearActiveSelection`이 `selectedId`도 null로 만들어서 다음 클릭 시 fresh selection은 OK. "완료" 상태 시각화는 `bg-primary/[0.08]` + 하단 배지로 이미 구현. 단, modifier/접SV는 의도적으로 배경 없음. 추가 가시 신호 필요 시 보강. |
+`progressMap`은 그대로 유지하되 **Idiom은 완전 별도 store**로 분리해 SVOC와 절대 간섭 안 하게:
+- `src/lib/idioms.ts` 신규 — `gwj.idioms.v1` localStorage
+- `customAnswers`(SVOC 분석)와 `idioms`는 같은 단어에 동시 존재 가능
+- 렌더링: idiom = outer wrapper (sepia background + tooltip), SVOC = inner span (기존 그대로) → 시각적 공존
 
-## 수정 계획
-
-### Fix 1 — 닫는 `]` 보강
-- `Index.tsx` 렌더 루프: `bracketRole && isLastOfSelection` 조건 유지하되 `inline-flex items-end whitespace-nowrap`로 같은 단어 wrap에서 `[word]`가 한 단위로 묶이도록 강화.
-- 1단어 클릭으로 끝난 절(`clauseStart === clauseEnd`)에서도 `[` 와 `]` 둘 다 그리도록 확인 (현재 둘 다 `isFirstOfSelection`/`isLastOfSelection` 각각 true이므로 정상 — 시각 검증).
-
-### Fix 2 — 정답 모드 채점 완전 차단
-- `Index.tsx`에서 `AnalysisPanel`에 `answerInputMode` prop 전달.
-- `AnalysisPanel.tsx`:
-  - 새 prop `answerInputMode?: boolean` 추가.
-  - 모든 `StatusPill` 호출부에서 `answerInputMode`면 `status === "wrong"`을 `"idle"`로 치환 (또는 pill 자체를 안 그림).
-  - 버튼의 `ng`(빨간 강조 + animate-pulse) 클래스 적용 시 `answerInputMode`면 비활성.
-  - 동사 confirm wrong 표시 동일 처리.
-
-### Fix 3 — `O` 태그 숨김 명확화
-- 현재 명사 케이스에서 `INTERNAL_OBJECT_ROLES.has(a.role)`로 처리되지만, **명사+`form === "to V"` 또는 `"V-ing"` 자체**(즉, to-V/V-ing이 목적어 노드인 경우)도 하단 `O` 배지를 숨겨달라는 요청.
-- `Index.tsx` `completedElement` 결정 블록에 추가 조건:
-  ```
-  if (a.pos === "명사" && (a.form === "to V" || a.form === "V-ing")) {
-    // O 배지 미표시 (단어 위 한국어 라벨은 유지)
-    completedElement = undefined;
-  }
-  ```
-  → role 기반 숨김(`INTERNAL_OBJECT_ROLES`)과 form 기반 숨김 둘 다 적용.
-
-### Fix 4 — 완료 상태 가시화 + 자동 리셋
-- 자동 리셋은 이미 동작 → 유지.
-- 완료된 단어 시각화 강화:
-  - 일반 완료: 현재 `bg-primary/[0.08]` → `bg-primary/[0.10]`로 살짝 강화 + `border-b border-primary/30`로 "처리됨" 하단 라인 추가 (modifier/접SV 제외).
-  - Modifier/접SV: 텍스트 색만 `text-foreground/80`로 살짝 dim해서 "완료됐지만 비-색상" 신호.
-- 다음 클릭이 이전 완료 단어와 그룹화되지 않도록 `handleWordMouseDown` 검증: 현재 토글 추가 방식이라 새 클릭은 단순히 그 인덱스만 추가됨 → ✅ OK. 단, 이전 selection은 완료 시 useEffect로 비워졌으므로 OK.
+Clause/Parallel은 이미 `completedSelectionMap`으로 토큰별 분리 저장 중 → 변경 없음.
 
 ## 변경 파일
 
-| 파일 | 변경 |
-|---|---|
-| `src/pages/Index.tsx` | (1) 브래킷 wrap에 `whitespace-nowrap` 적용 (3) `to V`/`V-ing` 폼일 때 `completedElement` 미세팅 (4) 완료 단어 시각 보강 + `answerInputMode` panelProps 전달 |
-| `src/components/analyzer/AnalysisPanel.tsx` | `answerInputMode` prop 수신, `StatusPill`/버튼 wrong 스타일·pill을 모드 ON 시 idle로 치환, 동사 confirm wrong 동일 |
+### `src/lib/idioms.ts` (신규)
+```ts
+type IdiomMark = { id, sentenceId, indices[], surface, meaning, createdAt }
+loadIdioms / saveIdioms / upsertIdiom / removeIdiom
+getIdiomsForSentence(sentenceId) / getAllIdiomsFlat()  // 테스트 세션용
+findIdiomCoveringIndex(sentenceId, idx)
+```
+
+### `src/index.css`
+```css
+--idiom-bg: 30 35% 90%;
+--idiom-border: 28 40% 70%;
+--idiom-fg: 25 35% 30%;
+/* dark mode 변형 포함 */
+```
+
+### `src/components/analyzer/AnalysisPanel.tsx`
+- **신규 섹션 "🟫 숙어 / Phrase"** — 항상 노출 (selectedWordIndices ≥ 1)
+  - 정답 모드: meaning 입력 + `[숙어 저장]` / 기존 마크 시 `[수정]`·`[삭제]`
+  - 일반 모드: 등록된 숙어 hover 안내만
+- **회귀 점검**: `useMaskStatus`가 모든 wrong 경로(POS/element/role/verb confirm)에서 동작하는지 확인
+- **모바일 보강**: 패널 root에 `max-h-[calc(100dvh-3.5rem)] overflow-y-auto pb-[env(safe-area-inset-bottom)]` + 간격 축소
+
+### `src/pages/Index.tsx`
+- **숙어 lookup**: 렌더 루프에서 `findIdiomCoveringIndex` → 외곽 wrapper로 sepia 배경 + `Tooltip`(meaning)
+  - SVOC 배경은 inner span 유지 → 두 색 동시 표시
+  - 같은 idiom 연속 토큰: 첫 토큰 `rounded-l pl-1`, 마지막 `rounded-r pr-1`
+- **재선택 (Item 5)**: 완료 토큰 클릭 시
+  - 해당 토큰의 `progressMap` 엔트리를 그대로 `selectedId`에 복원 → 패널이 기존 분석 로드 (이미 데이터 있으므로 자동)
+  - 새 `selectedWordIndices`는 해당 토큰의 저장된 `completedSelectionMap` 인덱스로 세팅
+- **버튼 분리 (Item 6)**:
+  - `[🧽 지우개]` → progress + completedSelectionMap + idiom mark(겹치는 경우 별도 확인) 삭제
+  - `[✕ 선택해제]` → `selectedWordIndices`만 비우기
+  - 자동 deselect: `progress.completed === true` 시 `clearActiveSelection()` (이미 동작)
+- **헤더**: `📚 등록 숙어 N` 카운터 + 클릭 시 모달로 전체 리스트 (sentenceId·surface·meaning) — 추후 `/test` 라우트가 `getAllIdiomsFlat()`으로 동일 데이터 사용
+- **모바일 Drawer**: `max-h-[85dvh]` + 내부 스크롤 영역, `pb-safe` 클래스
 
 ## 진행 범위
-- ✅ 닫는 `]` 시각 보강
-- ✅ 정답 모드에서 wrong/Try 메시지 완전 제거
-- ✅ to V·V-ing·전치사의o 케이스에서 `O` 배지 숨김
-- ✅ 분석 완료 후 selection 즉시 해제, 완료 단어는 옅은 보라 + 하단 라인으로 "처리됨" 시각화
-- ❌ 부사·기타 패널 구조 변경 없음
-- ❌ 데이터(SENTENCES) 변경 없음
+- ✅ Item 1·3·4 회귀 점검 (이미 적용됨)
+- ✅ Item 2 — Idiom store 분리로 SVOC와 공존
+- ✅ Item 5 — 완료 토큰 재선택 시 progress 복원
+- ✅ Item 6 — 지우개/선택해제 명확히 두 버튼으로 분리
+- ✅ Item 7 — 모바일 Drawer/Panel 스크롤·safe-area 보강
+- ✅ Item 8 — Idiom 레이어 (마킹·tooltip·헤더 카운터·테스트용 export API)
+- ❌ `/test` 어휘 테스트 페이지 자체는 별도 작업 (요청 시 진행) — 이번엔 데이터 source만 준비
+- ❌ SENTENCES 데이터 변경 없음
