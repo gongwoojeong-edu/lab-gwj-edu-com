@@ -2375,6 +2375,17 @@ const Index = () => {
                                     answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
                                     answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
                                   )}
+                                  style={{
+                                    transform: `translateX(${ownerId ? badgeOffsets[ownerId] ?? 0 : 0}px)`,
+                                    cursor: eraserMode ? "inherit" : "grab",
+                                    touchAction: "none",
+                                  }}
+                                  onPointerDown={(e) => ownerId && handleBadgePointerDown(e, ownerId)}
+                                  onPointerMove={handleBadgePointerMove}
+                                  onPointerUp={handleBadgePointerUp}
+                                  onPointerCancel={handleBadgePointerUp}
+                                  onDoubleClick={(e) => ownerId && handleBadgeDoubleClick(e, ownerId)}
+                                  title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
                                   <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
                                   <span className="truncate max-w-[120px]">{koreanLabel}</span>
@@ -2398,6 +2409,17 @@ const Index = () => {
                                     answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
                                     answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
                                   )}
+                                  style={{
+                                    transform: `translateX(${outerOwnerId ? badgeOffsets[outerOwnerId] ?? 0 : 0}px)`,
+                                    cursor: eraserMode ? "inherit" : "grab",
+                                    touchAction: "none",
+                                  }}
+                                  onPointerDown={(e) => outerOwnerId && handleBadgePointerDown(e, outerOwnerId)}
+                                  onPointerMove={handleBadgePointerMove}
+                                  onPointerUp={handleBadgePointerUp}
+                                  onPointerCancel={handleBadgePointerUp}
+                                  onDoubleClick={(e) => outerOwnerId && handleBadgeDoubleClick(e, outerOwnerId)}
+                                  title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
                                   <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
                                   <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
