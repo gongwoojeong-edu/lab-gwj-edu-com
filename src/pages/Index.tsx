@@ -35,9 +35,8 @@ import {
   type WordAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
-import { Pencil, RotateCcw, Sparkles, Loader2 } from "lucide-react";
-import { runExtraction } from "@/lib/wordExtraction";
-import { Button } from "@/components/ui/button";
+import { Pencil, RotateCcw } from "lucide-react";
+import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
 import {
   Drawer,
   DrawerContent,
