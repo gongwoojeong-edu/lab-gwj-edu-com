@@ -415,6 +415,66 @@ const Index = () => {
 
   // ===== 부배지 수동 드래그 오프셋 =====
   const [badgeOffsets, setBadgeOffsets] = useState<Record<string, number>>({});
+  const dragStateRef = useRef<{ ownerId: string; startX: number; startDx: number } | null>(null);
+
+  const persistBadgeOffset = (ownerId: string, dx: number) => {
+    void upsertBadgeOffset(sentence.id, ownerId, dx).catch(() => {});
+  };
+
+  const handleBadgePointerDown = (
+    e: React.PointerEvent<HTMLSpanElement>,
+    ownerId: string,
+  ) => {
+    if (eraserMode) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const target = e.currentTarget;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    dragStateRef.current = {
+      ownerId,
+      startX: e.clientX,
+      startDx: badgeOffsets[ownerId] ?? 0,
+    };
+  };
+
+  const handleBadgePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const st = dragStateRef.current;
+    if (!st) return;
+    const raw = st.startDx + (e.clientX - st.startX);
+    const dx = Math.max(-150, Math.min(150, Math.round(raw)));
+    setBadgeOffsets((prev) => ({ ...prev, [st.ownerId]: dx }));
+  };
+
+  const handleBadgePointerUp = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const st = dragStateRef.current;
+    if (!st) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    const finalDx = badgeOffsets[st.ownerId] ?? 0;
+    persistBadgeOffset(st.ownerId, finalDx);
+    dragStateRef.current = null;
+  };
+
+  const handleBadgeDoubleClick = (
+    e: React.MouseEvent<HTMLSpanElement>,
+    ownerId: string,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setBadgeOffsets((prev) => {
+      const n = { ...prev };
+      delete n[ownerId];
+      return n;
+    });
+    persistBadgeOffset(ownerId, 0);
+  };
 
   // ESC: pending modifier/referent 즉시 취소
   useEffect(() => {
