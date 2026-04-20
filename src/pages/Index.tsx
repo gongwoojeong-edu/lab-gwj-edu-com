@@ -1556,7 +1556,7 @@ const Index = () => {
                         {completedElement}
                       </span>
                     )}
-                    {/* 절(접SV) — 단어와 동일한 SVOC 배지 + 부배지 (Item 4) */}
+                    {/* 절(접SV) — SVOC 배지만 표시 (부배지 문구는 상단 koreanLabel에서만) */}
                     {outerIsClauseLocal && outerIsBadgeAnchor && outerBadge && outerBadge !== "M" && (
                       <span
                         className={cn(
@@ -1568,12 +1568,6 @@ const Index = () => {
                         )}
                       >
                         {outerBadge}
-                        {outerSubLabel ? ` · ${outerSubLabel}` : ""}
-                      </span>
-                    )}
-                    {outerIsClauseLocal && outerIsBadgeAnchor && (!outerBadge || outerBadge === "M") && outerSubLabel && (
-                      <span className="absolute -bottom-7 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none whitespace-nowrap bg-primary/15 text-primary">
-                        {outerSubLabel}
                       </span>
                     )}
                   </span>
