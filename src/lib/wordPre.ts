@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AssistEntry = {
   word: string;
-  stage: "speak" | "meaning";
+  stage: "syllable" | "speak" | "spell" | "meaning";
   type: "stuck" | "teacher_skip";
   attempts: number;
   lastHeard?: string;

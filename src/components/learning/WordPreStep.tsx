@@ -5,6 +5,7 @@ import { Check, RotateCcw } from "lucide-react";
 import type { WordTestEntry } from "@/lib/wordTestBuilder";
 import { fetchLatestWordPre, insertWordPreResult, type AssistEntry } from "@/lib/wordPre";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   WordStageProgressBar,
   PASS_THRESHOLD,
@@ -154,16 +155,22 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
     }
 
     let nextAssist = assistEntries;
-    if ((meta?.stuck || meta?.teacherSkipped) && (stage === "speak" || stage === "meaning")) {
+    if (meta?.stuck || meta?.teacherSkipped) {
       const entry: AssistEntry = {
         word: current.word,
-        stage,
+        stage: stage as AssistEntry["stage"],
         type: meta.teacherSkipped ? "teacher_skip" : "stuck",
         attempts: meta.stuck ? 10 : 0,
         lastHeard: meta.lastHeard,
       };
       nextAssist = [...assistEntries, entry];
       setAssistEntries(nextAssist);
+      if (meta.teacherSkipped) {
+        toast({
+          title: "🔓 선생님 패스키 통과",
+          description: `${current.word} · ${STAGE_LABEL_FULL[stage]} — 기록되었습니다`,
+        });
+      }
     }
 
     // bump passed counter for this stage
@@ -224,15 +231,48 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
-          {entries.map((e) => (
-            <div
-              key={e.word}
-              className="p-2 rounded-md border border-primary/20 bg-card flex flex-col gap-0.5"
-            >
-              <span className="font-semibold text-foreground">{e.word}</span>
-              <span className="text-xs text-muted-foreground">{e.expected}</span>
-            </div>
-          ))}
+          {entries.map((e) => {
+            const flags = perWordFlags[e.word] ?? {};
+            const teacherStages = (Object.entries(flags) as [StageKey, FlagType][])
+              .filter(([, v]) => v === "teacher_skip")
+              .map(([k]) => STAGE_LABEL_FULL[k]);
+            const stuckStages = (Object.entries(flags) as [StageKey, FlagType][])
+              .filter(([, v]) => v === "stuck")
+              .map(([k]) => STAGE_LABEL_FULL[k]);
+            return (
+              <div
+                key={e.word}
+                className={cn(
+                  "p-2 rounded-md border bg-card flex flex-col gap-0.5",
+                  teacherStages.length
+                    ? "border-amber-500/60 bg-amber-50/40 dark:bg-amber-500/10"
+                    : stuckStages.length
+                      ? "border-destructive/40"
+                      : "border-primary/20",
+                )}
+              >
+                <span className="font-semibold text-foreground flex items-center gap-1">
+                  {e.word}
+                  {teacherStages.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
+                      🔓 선생님
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs text-muted-foreground">{e.expected}</span>
+                {teacherStages.length > 0 && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                    패스키 통과: {teacherStages.join(", ")}
+                  </span>
+                )}
+                {stuckStages.length > 0 && (
+                  <span className="text-[10px] text-destructive">
+                    안전망: {stuckStages.join(", ")}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
         <div className="flex justify-end gap-2">
           <Button
@@ -315,6 +355,7 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
         currentWord={current.word}
         wordIndex={wordIdx}
         passedPerStage={passedPerStage}
+        perWordFlags={perWordFlags}
       />
     </>
   );

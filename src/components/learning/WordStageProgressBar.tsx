@@ -1,7 +1,8 @@
-import { Check } from "lucide-react";
+import { Check, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type StageKey = "syllable" | "speak" | "spell" | "meaning";
+type FlagType = "stuck" | "teacher_skip";
 
 interface Props {
   totalWords: number;
@@ -9,6 +10,7 @@ interface Props {
   currentWord: string;
   wordIndex: number; // 0-based within current stage round
   passedPerStage: Record<StageKey, number>;
+  perWordFlags?: Record<string, Partial<Record<StageKey, FlagType>>>;
 }
 
 const STAGE_LABELS: Record<StageKey, string> = {
@@ -25,13 +27,16 @@ const Bar = ({
   passed,
   total,
   state,
+  teacherSkips,
 }: {
   label: string;
   passed: number;
   total: number;
   state: "done" | "active" | "todo";
+  teacherSkips: number;
 }) => {
   const pct = total ? (passed / total) * 100 : 0;
+  const skipPct = total ? (teacherSkips / total) * 100 : 0;
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       <div className="flex items-center gap-1.5 w-28 shrink-0">
@@ -55,14 +60,26 @@ const Bar = ({
           )}
           style={{ width: `${pct}%` }}
         />
+        {teacherSkips > 0 && (
+          <div
+            className="absolute inset-y-0 right-0 bg-amber-500/70 transition-all duration-300"
+            style={{ width: `${skipPct}%` }}
+            title={`선생님 패스 ${teacherSkips}개`}
+          />
+        )}
       </div>
       <div
         className={cn(
-          "w-16 text-right text-sm font-mono font-semibold shrink-0 flex items-center justify-end gap-0.5",
+          "w-20 text-right text-sm font-mono font-semibold shrink-0 flex items-center justify-end gap-0.5",
           state === "done" ? "text-emerald-600" : "text-muted-foreground",
         )}
       >
         {passed}/{total}
+        {teacherSkips > 0 && (
+          <span className="ml-0.5 text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+            🔓{teacherSkips}
+          </span>
+        )}
         {state === "done" && <Check className="w-3.5 h-3.5" />}
       </div>
     </div>
@@ -75,6 +92,7 @@ export const WordStageProgressBar = ({
   currentWord,
   wordIndex,
   passedPerStage,
+  perWordFlags,
 }: Props) => {
   const safePassed: Record<StageKey, number> = {
     syllable: passedPerStage?.syllable ?? 0,
@@ -82,6 +100,20 @@ export const WordStageProgressBar = ({
     spell: passedPerStage?.spell ?? 0,
     meaning: passedPerStage?.meaning ?? 0,
   };
+  const teacherSkipCounts: Record<StageKey, number> = {
+    syllable: 0,
+    speak: 0,
+    spell: 0,
+    meaning: 0,
+  };
+  if (perWordFlags) {
+    Object.values(perWordFlags).forEach((flags) => {
+      (Object.entries(flags) as [StageKey, FlagType][]).forEach(([k, v]) => {
+        if (v === "teacher_skip") teacherSkipCounts[k] += 1;
+      });
+    });
+  }
+  const totalTeacherSkips = STAGE_ORDER.reduce((s, k) => s + teacherSkipCounts[k], 0);
   const currentStageIdx = STAGE_ORDER.indexOf(currentStage);
   const overall = totalWords
     ? (STAGE_ORDER.reduce((sum, k) => sum + safePassed[k], 0) / (totalWords * 4)) * 100
@@ -90,13 +122,21 @@ export const WordStageProgressBar = ({
   return (
     <div className="fixed bottom-0 inset-x-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur-sm">
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between text-xs gap-2">
           <span className="font-bold text-foreground">
             {currentStageIdx + 1}단계 {STAGE_LABELS[currentStage].replace(/^[①②③④]\s*/, "")} · 단어 {Math.min(wordIndex + 1, totalWords)} / {totalWords}
           </span>
-          <span className="font-mono font-bold text-primary truncate ml-2">
-            {currentWord}
-          </span>
+          <div className="flex items-center gap-2 ml-2 min-w-0">
+            {totalTeacherSkips > 0 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold whitespace-nowrap">
+                <KeyRound className="w-3 h-3" />
+                선생님 패스 {totalTeacherSkips}
+              </span>
+            )}
+            <span className="font-mono font-bold text-primary truncate">
+              {currentWord}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -110,6 +150,7 @@ export const WordStageProgressBar = ({
                 passed={safePassed[k]}
                 total={totalWords}
                 state={state}
+                teacherSkips={teacherSkipCounts[k]}
               />
             );
           })}
