@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, LogOut, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, LogOut, Lock, Sparkles } from "lucide-react";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut } from "@/hooks/useAuth";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { fetchOwnerProgressForSentence } from "@/integrations/supabase/storage";
 import { buildWordTest, type WordTestEntry } from "@/lib/wordTestBuilder";
 import { fetchSentenceProgress } from "@/integrations/supabase/storage";
+import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { cn } from "@/lib/utils";
 
