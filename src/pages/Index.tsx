@@ -2144,14 +2144,25 @@ const Index = () => {
               const isParallelStart = isParallelHere && idx === parallelIndices[0];
               const isParallelEnd = isParallelHere && idx === parallelIndices[parallelIndices.length - 1];
 
+              // === 종속절 언더라인 클래스 (외곽 절 owner의 element 색) ===
+              const clauseUnderlineClass = outerIsClauseLocal && bracketRole
+                ? cn(
+                    "clause-underline",
+                    bracketRole === "S" && "clause-underline-s",
+                    bracketRole === "V" && "clause-underline-v",
+                    bracketRole === "O" && "clause-underline-o",
+                    bracketRole === "C" && "clause-underline-c",
+                    bracketRole === "M" && "clause-underline-m",
+                  )
+                : "";
+
               const wordNode = (
                 <span
                   key={idx}
                   className={cn(
                     "inline-flex items-end leading-none whitespace-nowrap",
-                    isParallelHere && "parallel-box",
-                    isParallelStart && "parallel-box-start",
-                    isParallelEnd && "parallel-box-end",
+                    isParallelHere && "parallel-box parallel-box-start parallel-box-end",
+                    clauseUnderlineClass,
                   )}
                   style={wordLayerBg ? { backgroundImage: wordLayerBg } : undefined}
                 >
