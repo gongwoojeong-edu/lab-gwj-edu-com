@@ -357,6 +357,7 @@ const UserMenu = () => {
   );
 };
 
+const Index = () => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
