@@ -338,6 +338,12 @@ const Index = () => {
     }
   };
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
+  // 정답 입력 모드 — 미저장 patch 누적 (owner별)
+  const [pendingPatchMap, setPendingPatchMap] = useState<Record<string, Record<string, unknown>>>({});
+  // [정답 저장] 클릭으로 "분석 완료 확정"된 owner 집합
+  const [savedOwnerSet, setSavedOwnerSet] = useState<Set<string>>(() => new Set());
+  // 저장 확인 다이얼로그(다른 owner로 이동 / 모드 OFF 시 dirty 처리)
+  const [pendingNavAction, setPendingNavAction] = useState<null | (() => void)>(null);
 
   // ===== 지우개 모드 (toggle) =====
   // ON: 완료 owner 클릭 시 즉시 삭제. 미분석 토큰 클릭은 무시.
