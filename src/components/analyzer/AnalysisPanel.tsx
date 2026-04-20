@@ -524,6 +524,12 @@ export const AnalysisPanel = ({
           etc={etc}
           onEtcKindChange={onEtcKindChange}
           onEtcRoleChange={onEtcRoleChange}
+          idiomEnabled={!!idiomEnabled}
+          idiomSurface={selectedWord ?? ""}
+          idiomExistingMeaning={idiomExistingMeaning}
+          onIdiomSave={onIdiomSave}
+          onIdiomRemove={onIdiomRemove}
+          answerInputMode={answerInputMode}
         />
       );
     return null;
@@ -1034,10 +1040,10 @@ const AdjPanel = ({
         return { element: key, label, colorClass, options };
       });
 
-  // 명사수식 role일 때만 modifier 섹션 노출
+  // 명사수식 role 선택 시 → 즉시 modifier 섹션 노출 (roleStatus 무관)
   const isNounModifyingRole =
-    adj.roleStatus === "correct" && !!adj.role && /명사수식|명사뒤수식|명사앞수식/.test(adj.role);
-  const showModifier = isNounModifyingRole && !!modifier?.canAssignModifierTarget;
+    !!adj.role && /명사수식|명사뒤수식|명사앞수식/.test(adj.role);
+  const showModifier = isNounModifyingRole && !!modifier;
 
   return (
     <>
@@ -1362,6 +1368,13 @@ interface EtcPanelProps {
   etc: EtcProgress;
   onEtcKindChange: (k: EtcKind) => void;
   onEtcRoleChange: (r: string) => void;
+  // 관용구 통합
+  idiomEnabled: boolean;
+  idiomSurface: string;
+  idiomExistingMeaning?: string;
+  onIdiomSave?: (meaning: string) => void;
+  onIdiomRemove?: () => void;
+  answerInputMode: boolean;
 }
 
 const EtcPanel = ({
@@ -1369,6 +1382,12 @@ const EtcPanel = ({
   etc,
   onEtcKindChange,
   onEtcRoleChange,
+  idiomEnabled,
+  idiomSurface,
+  idiomExistingMeaning,
+  onIdiomSave,
+  onIdiomRemove,
+  answerInputMode,
 }: EtcPanelProps) => {
   const mask = useMaskStatus();
   const etcRoleStatus = mask(etc.roleStatus);
@@ -1383,7 +1402,16 @@ const EtcPanel = ({
 
   return (
     <>
-      <div className="space-y-1">
+      {/* 관용구 등록 — 기타 패널 상단 */}
+      <IdiomSection
+        surface={idiomSurface}
+        existingMeaning={idiomExistingMeaning}
+        answerInputMode={answerInputMode}
+        onSave={onIdiomSave}
+        onRemove={onIdiomRemove}
+        enabled={idiomEnabled}
+      />
+      <div className="space-y-1 mt-2">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
             Layer 02·03 · 종류 / 세부역할

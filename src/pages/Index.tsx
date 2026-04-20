@@ -103,6 +103,16 @@ import {
 } from "@/components/ui/dialog";
 import { BookMarked } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { StepProgressBar, type LearningStep } from "@/components/learning/StepProgressBar";
+import { TranslationStep } from "@/components/learning/TranslationStep";
+import { WordTestStep } from "@/components/learning/WordTestStep";
+import { buildWordTest } from "@/lib/wordTestBuilder";
+import {
+  fetchSentenceProgress,
+  upsertSentenceProgress,
+  fetchBadgeOffsets,
+  upsertBadgeOffset,
+} from "@/integrations/supabase/storage";
 
 type WordProgress = {
   pos: POS | null;
@@ -393,6 +403,15 @@ const Index = () => {
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
   const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
 
+  // ===== 학습 흐름 (Cloud) =====
+  const [learningStep, setLearningStep] = useState<LearningStep>("analysis");
+  const [translationDone, setTranslationDone] = useState(false);
+  const [wordTestDone, setWordTestDone] = useState(false);
+  const [passedAt, setPassedAt] = useState<string | null>(null);
+
+  // ===== 부배지 수동 드래그 오프셋 =====
+  const [badgeOffsets, setBadgeOffsets] = useState<Record<string, number>>({});
+
   // ESC: pending modifier/referent 즉시 취소
   useEffect(() => {
     if (!pendingModifierSource && !pendingReferentSource) return;
@@ -425,6 +444,23 @@ const Index = () => {
     setReferentMap(loadReferentTargets());
     setSavedOwnerSet(new Set(loadSavedOwners()));
   }, []);
+
+  // ===== sentence 변경 시 클라우드 hydration =====
+  useEffect(() => {
+    let cancelled = false;
+    const sid = sentence.id;
+    Promise.all([fetchSentenceProgress(sid), fetchBadgeOffsets(sid)]).then(([prog, offs]) => {
+      if (cancelled) return;
+      setTranslationDone(prog?.translation_done ?? false);
+      setWordTestDone(prog?.word_test_done ?? false);
+      setPassedAt(prog?.passed_at ?? null);
+      setLearningStep("analysis");
+      setBadgeOffsets(offs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sentence.id]);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 
@@ -685,6 +721,13 @@ const Index = () => {
       .map(([ownerId]) => getOwnerTokenId(ownerId)),
   ).size;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
+  const analysisDone = sentenceComplete && Object.keys(pendingPatchMap).length === 0;
+
+  // 분석 완료 상태를 Supabase에 동기화
+  useEffect(() => {
+    if (!analysisDone) return;
+    upsertSentenceProgress(sentence.id, { analysis_done: true }).catch(() => {});
+  }, [analysisDone, sentence.id]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
@@ -1813,56 +1856,7 @@ const Index = () => {
               </AlertDialog>
             )}
             <AdminHintToggle />
-            <Dialog>
-              <DialogTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors border"
-                  style={{
-                    background: "hsl(var(--idiom-bg))",
-                    color: "hsl(var(--idiom-fg))",
-                    borderColor: "hsl(var(--idiom-border))",
-                  }}
-                  title="등록된 관용구 전체 보기"
-                >
-                  <BookMarked className="size-3" />
-                  관용구 {allIdiomsCount}
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="font-kr">📚 등록된 관용구 / Phrase</DialogTitle>
-                </DialogHeader>
-                {allIdiomsCount === 0 ? (
-                  <p className="text-sm text-muted-foreground font-kr py-6 text-center">
-                    아직 등록된 관용구가 없습니다. 정답 입력 모드에서 단어를 선택하고 관용구를 저장하세요.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {getAllIdiomsFlat(idiomMap).map((m) => (
-                      <li
-                        key={m.id}
-                        className="rounded-lg border p-2.5 flex items-baseline justify-between gap-3"
-                        style={{
-                          background: "hsl(var(--idiom-bg) / 0.4)",
-                          borderColor: "hsl(var(--idiom-border))",
-                        }}
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold truncate" style={{ color: "hsl(var(--idiom-fg))" }}>
-                            {m.surface}
-                          </p>
-                          <p className="text-xs font-kr text-foreground/80 mt-0.5">{m.meaning}</p>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                          {m.sentenceId}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </DialogContent>
-            </Dialog>
+            {/* 관용구 버튼은 분석 메뉴 '기타' 항목 안으로 이동됨 */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
               <div className="size-2 rounded-full bg-element-o animate-pulse" />
               <span className="text-[11px] font-medium text-muted-foreground font-kr">
@@ -2472,37 +2466,7 @@ const Index = () => {
                 ✕ 선택 해제
               </button>
             )}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  disabled={activeSelectionIndices.length < 1}
-                  className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{
-                    background: "hsl(var(--idiom-bg))",
-                    color: "hsl(var(--idiom-fg))",
-                    borderColor: "hsl(var(--idiom-border))",
-                  }}
-                  title="선택한 단어들을 관용구로 등록"
-                >
-                  🟫 관용구
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                side="top"
-                className="w-[min(92vw,360px)] p-3 z-[60]"
-              >
-                <IdiomSection
-                  surface={currentSelectionSurface()}
-                  existingMeaning={currentSelectionIdiom()?.meaning}
-                  answerInputMode={answerInputMode}
-                  onSave={handleIdiomSave}
-                  onRemove={handleIdiomRemove}
-                  enabled={activeSelectionIndices.length >= 1}
-                />
-              </PopoverContent>
-            </Popover>
+            {/* 관용구 버튼 제거됨 — 분석 메뉴 '기타' 패널 안에서 등록/삭제 가능 */}
           </div>
 
           <div
@@ -2510,6 +2474,83 @@ const Index = () => {
             style={{ background: "hsl(var(--primary-glow) / 0.2)" }}
           />
         </section>
+
+        {/* ========== 학습 흐름 진행 바 + 단계별 카드 ========== */}
+        <div className="glass-panel rounded-2xl p-4 space-y-3">
+          <StepProgressBar
+            current={learningStep}
+            analysisDone={analysisDone}
+            translationDone={translationDone}
+            wordTestDone={wordTestDone}
+            onJump={(s) => {
+              if (s === "translation" && !analysisDone) return;
+              if (s === "wordtest" && !translationDone) return;
+              setLearningStep(s);
+            }}
+          />
+          {learningStep === "analysis" && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={!analysisDone}
+                onClick={() => setLearningStep("translation")}
+                className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+              >
+                다음: 한글 해석 →
+              </button>
+            </div>
+          )}
+          {learningStep === "translation" && (
+            <>
+              <TranslationStep
+                sentenceId={sentence.id}
+                englishSentence={wordUnits.map((w) => w.word).join(" ")}
+                onSubmitted={() => {
+                  setTranslationDone(true);
+                  upsertSentenceProgress(sentence.id, { translation_done: true }).catch(() => {});
+                }}
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={!translationDone}
+                  onClick={() => setLearningStep("wordtest")}
+                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+                >
+                  다음: 단어 테스트 →
+                </button>
+              </div>
+            </>
+          )}
+          {learningStep === "wordtest" && (() => {
+            const surfaceMap: Record<string, string> = {};
+            Object.keys(progressMap).forEach((oid) => {
+              const tid = getOwnerTokenId(oid);
+              const tok = getTokenById(tid);
+              surfaceMap[oid] = tok && "text" in tok ? tok.text : "";
+            });
+            const completedOwners = Object.entries(progressMap)
+              .filter(([, v]) => v.completed)
+              .map(([k]) => k);
+            const entries = buildWordTest(surfaceMap, progressMap as never, completedOwners);
+            return (
+              <WordTestStep
+                sentenceId={sentence.id}
+                entries={entries}
+                onPassed={() => {
+                  setWordTestDone(true);
+                  const passedAtIso = new Date().toISOString();
+                  setPassedAt(passedAtIso);
+                  upsertSentenceProgress(sentence.id, {
+                    word_test_done: true,
+                    status: "pass",
+                    passed_at: passedAtIso,
+                  }).catch(() => {});
+                }}
+              />
+            );
+          })()}
+        </div>
 
         <div className="glass-panel rounded-2xl p-3 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
