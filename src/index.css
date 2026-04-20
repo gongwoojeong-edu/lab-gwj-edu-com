@@ -66,7 +66,7 @@
        Layer3 crimson, Layer4 teal로 hue 충돌 회피 */
     --layer-1: 275 70% 45%;   /* brand violet (외곽 절) */
     --layer-2: 280 65% 50%;   /* violet (접속절 내부 2층 — 보라 유지) */
-    --layer-3: 340 80% 50%;   /* crimson */
+    --layer-3: 38 95% 50%;    /* bright amber/yellow (3층) */
     --layer-4: 185 78% 36%;   /* teal */
 
     /* Gradients */
@@ -165,10 +165,10 @@
   /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill).
      수직 stacking 폐기 → 한 단어 anchor에 여러 부배지가 anchor되면 inline 가로 정렬 */
   .sub-badge-row {
-    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none;
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-6 pointer-events-none;
   }
   .sub-badge-pill {
-    @apply relative inline-flex items-center gap-0 px-2 py-0 mx-2 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
+    @apply relative inline-flex items-center gap-0 px-2.5 py-0 mx-3 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
   .sub-badge-pill .sub-badge-num {
@@ -241,11 +241,11 @@
 
   /* === 부배지 자동 시프트 — 다층 클러스터에서 좌/우 빈 공간으로 밀어내기 === */
   .sub-badge-pill[data-shift="left"] {
-    transform: translateX(-14px);
+    transform: translateX(-28px);
     transition: transform 180ms ease;
   }
   .sub-badge-pill[data-shift="right"] {
-    transform: translateX(14px);
+    transform: translateX(28px);
     transition: transform 180ms ease;
   }
 
@@ -287,12 +287,12 @@
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-3 {
-    background: hsl(340 80% 50% / 0.22);
-    color: hsl(340 80% 36%);
-    border-color: hsl(340 80% 50% / 0.75);
+    background: hsl(38 95% 50% / 0.22);
+    color: hsl(32 90% 38%);
+    border-color: hsl(38 95% 50% / 0.8);
   }
   .sub-badge-pill-3 .sub-badge-num {
-    background: hsl(340 80% 50%);
+    background: hsl(38 95% 48%);
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-4 {
