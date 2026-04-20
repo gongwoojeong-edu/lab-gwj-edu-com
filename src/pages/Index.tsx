@@ -1368,9 +1368,9 @@ const Index = () => {
             if (!open) setSelectedId(null);
           }}
         >
-          <DrawerContent className="max-h-[75vh]">
+          <DrawerContent className="max-h-[88dvh]">
             <DrawerTitle className="sr-only">단어 분석</DrawerTitle>
-            <div className="px-3 pb-4 pt-2 overflow-y-auto">
+            <div className="px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 overflow-y-auto max-h-[calc(88dvh-1.5rem)]">
               <AnswerInputModeProvider value={answerInputMode}>
                 <AnalysisPanel {...panelProps} />
               </AnswerInputModeProvider>
@@ -1388,6 +1388,7 @@ const Index = () => {
         </div>
       </footer>
     </div>
+    </TooltipProvider>
   );
 };
 
