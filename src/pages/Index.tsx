@@ -3016,6 +3016,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
             ))}
           </div>
         </div>
+        )}
       </main>
       )}
 
