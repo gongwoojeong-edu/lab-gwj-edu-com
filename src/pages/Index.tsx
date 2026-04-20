@@ -1126,8 +1126,7 @@ const Index = () => {
       !!selectedId &&
       (progress.pos === "형용사" ||
         progress.pos === "부사" ||
-        (progress.pos === "명사" && progress.noun.element === "M") ||
-        (progress.pos === "형용사" && progress.adj.element === "M")),
+        (progress.pos === "명사" && progress.noun.element === "M")),
     isPendingModifier: !!selectedId && pendingModifierSource === selectedId,
     onAssignModifierTarget: () => {
       if (!selectedId) return;
