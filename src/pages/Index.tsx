@@ -103,6 +103,16 @@ import {
 } from "@/components/ui/dialog";
 import { BookMarked } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { StepProgressBar, type LearningStep } from "@/components/learning/StepProgressBar";
+import { TranslationStep } from "@/components/learning/TranslationStep";
+import { WordTestStep } from "@/components/learning/WordTestStep";
+import { buildWordTest } from "@/lib/wordTestBuilder";
+import {
+  fetchSentenceProgress,
+  upsertSentenceProgress,
+  fetchBadgeOffsets,
+  upsertBadgeOffset,
+} from "@/integrations/supabase/storage";
 
 type WordProgress = {
   pos: POS | null;
