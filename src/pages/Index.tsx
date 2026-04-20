@@ -2000,7 +2000,12 @@ const Index = () => {
               const wordNode = (
                 <span
                   key={idx}
-                  className="inline-flex items-end leading-none whitespace-nowrap rounded-sm"
+                  className={cn(
+                    "inline-flex items-end leading-none whitespace-nowrap rounded-sm",
+                    isParallelHere && "parallel-box",
+                    isParallelStart && "parallel-box-start",
+                    isParallelEnd && "parallel-box-end",
+                  )}
                   style={wordLayerBg ? { backgroundImage: wordLayerBg } : undefined}
                 >
                   {bracketRole && outerIsFirstLocal && (
