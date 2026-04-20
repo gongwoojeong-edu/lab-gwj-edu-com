@@ -2001,7 +2001,7 @@ const Index = () => {
                 <span
                   key={idx}
                   className={cn(
-                    "inline-flex items-end leading-none whitespace-nowrap rounded-sm",
+                    "inline-flex items-end leading-none whitespace-nowrap",
                     isParallelHere && "parallel-box",
                     isParallelStart && "parallel-box-start",
                     isParallelEnd && "parallel-box-end",
