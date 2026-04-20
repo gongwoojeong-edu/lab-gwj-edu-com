@@ -30,6 +30,7 @@ import {
   type AdjAnswer,
   type AdvAnswer,
   type EtcAnswer,
+  type WordAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Pencil, RotateCcw } from "lucide-react";
