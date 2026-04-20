@@ -2247,12 +2247,25 @@ const Index = () => {
                         : undefined
                     }
                   >
-                    {(koreanLabel || outerKoreanLabel) && (
+                    {(koreanLabel || outerKoreanLabel) && (() => {
+                      // 부배지 자동 시프트: 같은 단어에 2개 anchor 시 좌우 빈 공간 더 큰 쪽으로 분산
+                      const bothPills = !!koreanLabel && !!outerKoreanLabel;
+                      const totalWords = wordUnits.length;
+                      const leftSpace = idx;
+                      const rightSpace = Math.max(0, totalWords - 1 - idx);
+                      const innerShift = bothPills
+                        ? leftSpace >= rightSpace ? "left" : undefined
+                        : undefined;
+                      const outerShift = bothPills
+                        ? rightSpace > leftSpace ? "right" : "left"
+                        : undefined;
+                      return (
                       <span className="sub-badge-row" style={{ top: "-18px" }}>
                         {koreanLabel && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
+                                data-shift={innerShift}
                                 className={cn(
                                   "sub-badge-pill",
                                   `sub-badge-pill-${innerLayerNum}`,
