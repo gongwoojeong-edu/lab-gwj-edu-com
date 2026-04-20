@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AnalysisPanel,
@@ -415,27 +415,26 @@ const Index = () => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
-    // 이 인덱스를 포함하는 완료 owner들
-    const owners = Object.entries(completedSelectionMap).filter(([, indices]) =>
-      indices.includes(idx),
-    );
+    // 이 인덱스를 포함하는 완료 owner들 (좁은 layer 우선)
+    const owners = Object.entries(completedSelectionMap)
+      .filter(([oid, indices]) => indices.includes(idx) && progressMap[oid]?.completed)
+      .sort(([, a], [, b]) => a.length - b.length);
 
-    // 단일 토큰 owner(자기 자신만)인 경우에만 owner 복원 — 다중 토큰 owner는 자동 복원 X
-    const singleSelfOwner = owners.find(
-      ([, indices]) => indices.length === 1 && indices[0] === idx,
-    );
-    if (singleSelfOwner && progressMap[singleSelfOwner[0]]?.completed) {
-      const [ownerId] = singleSelfOwner;
+    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+
+    // 완료 owner 클릭 → 가장 좁은 owner의 전체 범위 복원
+    // (단일 토큰 / span / 절 모두 동일)
+    if (!additive && owners.length > 0) {
+      const [ownerId, indices] = owners[0];
+      const sorted = [...indices].sort((a, b) => a - b);
       setSelectedId(ownerId);
-      setSelectedWordIndices([idx]);
+      setSelectedWordIndices(sorted);
       setDragStart(idx);
       return;
     }
 
-    // 일반 경로: 새 빈 분석 시작 — 단일 클릭은 항상 그 인덱스만 선택 (toggle X)
-    // shift/ctrl/meta 가 눌려있을 때만 기존 선택에 추가/토글
+    // 일반 경로: 새 빈 분석 시작
     setDragStart(idx);
-    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
     setSelectedWordIndices((prev) => {
       let next: number[];
       if (additive) {
@@ -445,7 +444,6 @@ const Index = () => {
           next = [...prev, idx].sort((a, b) => a - b);
         }
       } else {
-        // 단일 클릭: 무조건 그 인덱스 하나만 선택
         next = [idx];
       }
       const sid = pickSelectedIdFromIndices(next);
@@ -517,7 +515,10 @@ const Index = () => {
 
     setProgressMap((prev) => {
       const next = { ...prev };
-      ownerIds.forEach((id) => delete next[id]);
+      ownerIds.forEach((id) => {
+        delete next[id];
+        finalizedOwnersRef.current.delete(id);
+      });
       return next;
     });
     setCompletedSelectionMap((prev) => {
@@ -956,9 +957,20 @@ const Index = () => {
     }));
   };
 
-  useEffect(() => {
-    if (!selectedId || !progress.completed) return;
+  // owner별 자동 finalize 1회 처리 플래그 — 완료 owner를 재선택해도 selection이 사라지지 않도록
+  const finalizedOwnersRef = useRef<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (!selectedId) return;
+    if (!progress.completed) return;
+    // 이미 finalize 처리된 owner면 selection을 다시 지우지 않음
+    if (finalizedOwnersRef.current.has(selectedId)) return;
+    if (completedSelectionMap[selectedId]?.length) {
+      // 이미 완료 영역이 저장된 owner를 재선택한 경우도 스킵
+      finalizedOwnersRef.current.add(selectedId);
+      return;
+    }
+    finalizedOwnersRef.current.add(selectedId);
     finalizeCompletedAnalysis(selectedId, {
       persistClause: shouldPersistClauseSelection(),
     });
@@ -1379,25 +1391,27 @@ const Index = () => {
               const innerCompleteBg =
                 isCompleted && !isSelected && !isClauseSelection;
 
-              // === 다층 depth 계산 — layer가 깊을수록 더 진한 배경 ===
-              const layerCount = ownersHere.length;
-              const depthBgClass =
-                layerCount >= 3
-                  ? "bg-primary/[0.18]"
-                  : layerCount === 2
-                  ? "bg-primary/[0.12]"
-                  : "";
+              // === 다층 depth 색 stacking ===
+              // ownersHere는 좁은 layer(=안쪽) 순으로 정렬됨.
+              // 각 owner마다 layer-1/2/3/4 색을 cycle해서 반투명으로 누적 → 겹칠수록 자연스럽게 진해짐.
+              const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
+              const buildLayerBg = (owners: string[]): string | undefined => {
+                if (owners.length === 0) return undefined;
+                // 안쪽(좁은) → depth 0 (Layer 1)
+                return owners
+                  .map((_, i) => {
+                    const v = layerVars[i % layerVars.length];
+                    return `linear-gradient(hsl(var(${v}) / 0.18), hsl(var(${v}) / 0.18))`;
+                  })
+                  .join(", ");
+              };
+              const wordLayerBg = buildLayerBg(ownersHere);
 
               const wordNode = (
                 <span
                   key={idx}
-                  className={cn(
-                    "inline-flex items-end leading-none whitespace-nowrap rounded-sm",
-                    // 외곽 절(보라) 배경 — 톤 더 연하게
-                    outerIsClauseLocal && "bg-primary/[0.05]",
-                    // 다층(2층 이상) 가산 배경
-                    depthBgClass,
-                  )}
+                  className="inline-flex items-end leading-none whitespace-nowrap rounded-sm"
+                  style={wordLayerBg ? { backgroundImage: wordLayerBg } : undefined}
                 >
                   {bracketRole && outerIsFirstLocal && (
                     <span
@@ -1502,24 +1516,17 @@ const Index = () => {
                 </span>
               );
 
-              // 토큰 사이 공백 span — 다음 단어와 공유하는 owner 개수에 따라 깊이 색
+              // 토큰 사이 공백 — 양쪽 단어가 공유하는 owner의 layer 색을 동일하게 누적
               const isLastWord = idx === wordUnits.length - 1;
-              const sharedOwnersCount = !isLastWord
-                ? ownersHere.filter((o) => ownersNext.includes(o)).length +
-                  (outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId ? 1 : 0)
-                : 0;
-              const spacerBg =
-                sharedOwnersCount >= 3
-                  ? "bg-primary/[0.18]"
-                  : sharedOwnersCount === 2
-                  ? "bg-primary/[0.12]"
-                  : sharedOwnersCount === 1
-                  ? "bg-primary/[0.06]"
-                  : "";
+              const sharedOwners = !isLastWord
+                ? ownersHere.filter((o) => ownersNext.includes(o))
+                : [];
+              const spacerBgImage = buildLayerBg(sharedOwners);
               const spacerNode = !isLastWord ? (
                 <span
                   key={`sp-${idx}`}
-                  className={cn("inline-block self-end leading-tight", spacerBg)}
+                  className="inline-block self-end leading-tight"
+                  style={spacerBgImage ? { backgroundImage: spacerBgImage } : undefined}
                   aria-hidden
                 >
                   {"\u00A0"}
@@ -1560,10 +1567,19 @@ const Index = () => {
                 : "선택 없음"}
             </span>
             {(() => {
-              const eraseEnabled =
-                activeSelectionIndices.length > 0 ||
-                (!!selectedId &&
-                  (!!progressMap[selectedId] || !!completedSelectionMap[selectedId]));
+              // 지우개는 "분석 완료된 owner와 선택이 겹칠 때"만 활성화
+              // 미분석 단어 단순 클릭 시에는 비활성화
+              const selectedIdxSet = new Set(activeSelectionIndices);
+              const overlapsCompleted = Object.entries(completedSelectionMap).some(
+                ([oid, idxs]) =>
+                  progressMap[oid]?.completed &&
+                  idxs.some((i) => selectedIdxSet.has(i)),
+              );
+              const selectedIsCompleted =
+                !!selectedId &&
+                !!progressMap[selectedId]?.completed &&
+                !!completedSelectionMap[selectedId]?.length;
+              const eraseEnabled = overlapsCompleted || selectedIsCompleted;
               return (
                 <button
                   type="button"
