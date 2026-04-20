@@ -62,12 +62,12 @@
     --idiom-border: 28 40% 70%;
     --idiom-fg: 25 35% 30%;
 
-    /* Layer stacking colors — 다층 분석 시 layer depth별 hue를 크게 벌려 색맹/흑백에서도 구분
-       Layer1 amber / Layer2 crimson / Layer3 teal / Layer4 deep-purple */
-    --layer-1: 38 95% 48%;    /* amber/yellow */
-    --layer-2: 350 78% 50%;   /* crimson red */
-    --layer-3: 175 75% 38%;   /* teal */
-    --layer-4: 270 70% 52%;   /* purple */
+    /* Layer stacking colors — Layer1은 브랜드 보라(통일성), 2층부터 hue를 크게 벌려 구분
+       Layer1 violet(brand) / Layer2 amber / Layer3 crimson / Layer4 teal */
+    --layer-1: 275 70% 45%;   /* brand violet */
+    --layer-2: 38 95% 48%;    /* amber */
+    --layer-3: 350 78% 50%;   /* crimson */
+    --layer-4: 175 75% 38%;   /* teal */
 
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, hsl(275 100% 25%), hsl(280 60% 52%));
@@ -176,27 +176,27 @@
     background: hsl(0 0% 100% / 0.7);
   }
   .sub-badge-pill-1 {
-    background: hsl(var(--layer-1) / 0.22);
-    color: hsl(38 95% 28%);
+    background: hsl(var(--layer-1) / 0.18);
+    color: hsl(275 70% 32%);
     border-color: hsl(var(--layer-1) / 0.55);
   }
-  .sub-badge-pill-1 .sub-badge-num { color: hsl(38 95% 28%); }
+  .sub-badge-pill-1 .sub-badge-num { color: hsl(275 70% 32%); }
   .sub-badge-pill-2 {
-    background: hsl(var(--layer-2) / 0.20);
-    color: hsl(350 78% 38%);
+    background: hsl(var(--layer-2) / 0.22);
+    color: hsl(38 95% 28%);
     border-color: hsl(var(--layer-2) / 0.55);
   }
-  .sub-badge-pill-2 .sub-badge-num { color: hsl(350 78% 38%); }
+  .sub-badge-pill-2 .sub-badge-num { color: hsl(38 95% 28%); }
   .sub-badge-pill-3 {
     background: hsl(var(--layer-3) / 0.20);
-    color: hsl(175 75% 24%);
+    color: hsl(350 78% 38%);
     border-color: hsl(var(--layer-3) / 0.55);
   }
-  .sub-badge-pill-3 .sub-badge-num { color: hsl(175 75% 24%); }
+  .sub-badge-pill-3 .sub-badge-num { color: hsl(350 78% 38%); }
   .sub-badge-pill-4 {
     background: hsl(var(--layer-4) / 0.20);
-    color: hsl(270 70% 38%);
+    color: hsl(175 75% 24%);
     border-color: hsl(var(--layer-4) / 0.55);
   }
-  .sub-badge-pill-4 .sub-badge-num { color: hsl(270 70% 38%); }
+  .sub-badge-pill-4 .sub-badge-num { color: hsl(175 75% 24%); }
 }
