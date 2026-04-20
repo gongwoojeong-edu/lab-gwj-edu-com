@@ -40,21 +40,21 @@ const Bar = ({
 }) => {
   const passed = score >= PASS_THRESHOLD;
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div className="flex items-center gap-1.5 w-24 shrink-0">
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-1.5 w-28 shrink-0">
         {active && (
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" aria-hidden />
+          <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" aria-hidden />
         )}
         <span
           className={cn(
-            "text-[11px] font-bold tracking-tight truncate",
+            "text-sm font-semibold tracking-tight truncate",
             active ? "text-primary" : "text-foreground/80",
           )}
         >
           {label}
         </span>
       </div>
-      <div className="relative flex-1 h-2 rounded-full bg-muted overflow-hidden">
+      <div className="relative flex-1 h-4 rounded-full bg-muted overflow-hidden">
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full transition-all duration-300",
@@ -65,12 +65,12 @@ const Bar = ({
       </div>
       <div
         className={cn(
-          "w-12 text-right text-[11px] font-mono shrink-0 flex items-center justify-end gap-0.5",
+          "w-14 text-right text-sm font-mono font-semibold shrink-0 flex items-center justify-end gap-0.5",
           passed ? "text-emerald-600" : "text-muted-foreground",
         )}
       >
         {Math.round(score)}%
-        {passed && <Check className="w-3 h-3" />}
+        {passed && <Check className="w-3.5 h-3.5" />}
       </div>
     </div>
   );
@@ -84,7 +84,6 @@ export const WordStageProgressBar = ({
   currentWord,
   passedWords,
 }: Props) => {
-  // 전체 진척률: (완전 통과한 단어 × 4 + 현재 단어의 단계 합계 / 100) / (전체 × 4)
   const currentSum =
     (scores.syllable + scores.speak + scores.spell + scores.meaning) / 100;
   const overall = totalWords
@@ -93,7 +92,7 @@ export const WordStageProgressBar = ({
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur-sm">
-      <div className="max-w-3xl mx-auto px-4 py-3 space-y-2.5">
+      <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-foreground">
             단어 {Math.min(wordIndex + 1, totalWords)} / {totalWords}
@@ -103,7 +102,7 @@ export const WordStageProgressBar = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
           {STAGE_ORDER.map((k) => (
             <Bar
               key={k}
@@ -114,17 +113,17 @@ export const WordStageProgressBar = ({
           ))}
         </div>
 
-        <div className="flex items-center gap-2 pt-0.5">
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground w-24 shrink-0">
+        <div className="flex items-center gap-2.5 pt-1">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground w-28 shrink-0">
             전체 진척
           </span>
-          <div className="relative flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="relative flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary to-emerald-500 transition-all duration-300"
               style={{ width: `${overall}%` }}
             />
           </div>
-          <span className="w-12 text-right text-[10px] font-mono text-muted-foreground shrink-0">
+          <span className="w-14 text-right text-xs font-mono font-semibold text-muted-foreground shrink-0">
             {Math.round(overall)}%
           </span>
         </div>

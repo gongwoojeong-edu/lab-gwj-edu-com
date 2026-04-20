@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { ChevronLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,6 +84,50 @@ const TeacherStudents = () => {
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
   const [level, setLevel] = useState<LevelCode>("L05");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinTarget, setPinTarget] = useState<Student | null>(null);
+  const [pinValue, setPinValue] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
+
+  const openPin = (s: Student) => {
+    setPinTarget(s);
+    setPinValue("");
+    setPinOpen(true);
+  };
+
+  const submitPin = async () => {
+    if (!pinTarget) return;
+    if (pinValue.length < 4) {
+      toast({ title: "PIN은 4자리 이상 숫자여야 합니다", variant: "destructive" });
+      return;
+    }
+    setPinSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .update({ teacher_pin: pinValue })
+        .eq("display_name", pinTarget.name)
+        .select("user_id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: "일치하는 학생 계정을 찾지 못했어요",
+          description: `'${pinTarget.name}' 이름의 학생 계정이 등록되어 있어야 PIN이 적용됩니다.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "🔐 패스키가 설정되었습니다",
+          description: `${pinTarget.name} · ${data.length}개 계정`,
+        });
+        setPinOpen(false);
+      }
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setPinSaving(false);
+    }
+  };
 
   useEffect(() => {
     setStudents(loadStudents());
@@ -243,6 +288,9 @@ const TeacherStudents = () => {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="inline-flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openPin(s)}>
+                      <KeyRound className="size-3.5" /> PIN
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
                       <Pencil className="size-3.5" /> 수정
                     </Button>
@@ -261,6 +309,37 @@ const TeacherStudents = () => {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={pinOpen} onOpenChange={setPinOpen}>
+        <DialogContent className="font-kr max-w-sm">
+          <DialogHeader>
+            <DialogTitle>선생님 패스키 설정</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              학생 <b>{pinTarget?.name}</b> 의 발화/의미 단계에서 인식이 막힐 때 선생님이
+              직접 입력하면 통과시킬 수 있는 4–6자리 숫자 PIN 입니다.
+            </p>
+            <Input
+              inputMode="numeric"
+              maxLength={6}
+              value={pinValue}
+              onChange={(e) => setPinValue(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="••••"
+              className="text-center text-2xl tracking-[0.5em] font-mono"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPinOpen(false)} disabled={pinSaving}>
+              취소
+            </Button>
+            <Button onClick={submitPin} disabled={pinSaving || pinValue.length < 4}>
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
