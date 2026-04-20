@@ -162,29 +162,41 @@
   .badge-c { background: hsl(var(--element-c-bg)); color: hsl(var(--element-c)); }
   .badge-m { background: hsl(var(--element-m-bg)); color: hsl(var(--element-m)); }
 
-  /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill) */
+  /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill).
+     수직 stacking 폐기 → 한 단어 anchor에 여러 부배지가 anchor되면 inline 가로 정렬 */
+  .sub-badge-row {
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none;
+  }
   .sub-badge-pill {
-    @apply inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px] truncate;
+    @apply inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
+  .sub-badge-pill .sub-badge-num {
+    @apply inline-flex items-center justify-center size-3 rounded-full text-[8px] font-bold leading-none;
+    background: hsl(0 0% 100% / 0.7);
+  }
   .sub-badge-pill-1 {
-    background: hsl(var(--layer-1) / 0.16);
-    color: hsl(var(--layer-1));
-    border-color: hsl(var(--layer-1) / 0.28);
+    background: hsl(var(--layer-1) / 0.22);
+    color: hsl(38 95% 28%);
+    border-color: hsl(var(--layer-1) / 0.55);
   }
+  .sub-badge-pill-1 .sub-badge-num { color: hsl(38 95% 28%); }
   .sub-badge-pill-2 {
-    background: hsl(var(--layer-2) / 0.16);
-    color: hsl(var(--layer-2));
-    border-color: hsl(var(--layer-2) / 0.28);
+    background: hsl(var(--layer-2) / 0.20);
+    color: hsl(350 78% 38%);
+    border-color: hsl(var(--layer-2) / 0.55);
   }
+  .sub-badge-pill-2 .sub-badge-num { color: hsl(350 78% 38%); }
   .sub-badge-pill-3 {
-    background: hsl(var(--layer-3) / 0.16);
-    color: hsl(var(--layer-3));
-    border-color: hsl(var(--layer-3) / 0.28);
+    background: hsl(var(--layer-3) / 0.20);
+    color: hsl(175 75% 24%);
+    border-color: hsl(var(--layer-3) / 0.55);
   }
+  .sub-badge-pill-3 .sub-badge-num { color: hsl(175 75% 24%); }
   .sub-badge-pill-4 {
-    background: hsl(var(--layer-4) / 0.16);
-    color: hsl(var(--layer-4));
-    border-color: hsl(var(--layer-4) / 0.28);
+    background: hsl(var(--layer-4) / 0.20);
+    color: hsl(270 70% 38%);
+    border-color: hsl(var(--layer-4) / 0.55);
   }
+  .sub-badge-pill-4 .sub-badge-num { color: hsl(270 70% 38%); }
 }
