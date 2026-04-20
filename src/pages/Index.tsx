@@ -161,6 +161,101 @@ const emptyProgress = (): WordProgress => ({
 const arraysEqualSet = <T,>(a: T[], b: T[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
 
+// ============================================================
+// 수식 화살표 SVG overlay — source/target token DOM 좌표를 측정해 곡선 path 렌더
+// ============================================================
+const OWNER_KEY_SEPARATOR_CONST = "::";
+const ownerIdToWordIdx = (ownerId: string): number | null => {
+  // 단일 토큰 owner: `${tokenId}::${idx}` → 마지막 segment가 idx
+  const parts = ownerId.split(OWNER_KEY_SEPARATOR_CONST);
+  const last = parts[parts.length - 1];
+  const n = Number(last);
+  return Number.isFinite(n) ? n : null;
+};
+
+const ModifierArrowOverlay = ({
+  show,
+  relations,
+  tokenRefs,
+  containerRef,
+  layoutVersion,
+}: {
+  show: boolean;
+  relations: { source: string; target: string }[];
+  tokenRefs: Map<number, HTMLSpanElement>;
+  containerRef: React.RefObject<HTMLDivElement>;
+  layoutVersion: number;
+}) => {
+  // layoutVersion이 바뀔 때마다 강제 재렌더 — 좌표 다시 측정
+  void layoutVersion;
+  if (!show || relations.length === 0) return null;
+  const container = containerRef.current;
+  if (!container) return null;
+  const cRect = container.getBoundingClientRect();
+
+  type Arrow = { sx: number; sy: number; tx: number; ty: number; key: string };
+  const arrows: Arrow[] = [];
+  relations.forEach((rel) => {
+    const sIdx = ownerIdToWordIdx(rel.source);
+    const tIdx = ownerIdToWordIdx(rel.target);
+    if (sIdx === null || tIdx === null) return;
+    const sEl = tokenRefs.get(sIdx);
+    const tEl = tokenRefs.get(tIdx);
+    if (!sEl || !tEl) return;
+    const sR = sEl.getBoundingClientRect();
+    const tR = tEl.getBoundingClientRect();
+    const sx = sR.left - cRect.left + sR.width / 2;
+    const sy = sR.top - cRect.top;
+    const tx = tR.left - cRect.left + tR.width / 2;
+    const ty = tR.top - cRect.top;
+    arrows.push({ sx, sy, tx, ty, key: `${rel.source}->${rel.target}` });
+  });
+  if (arrows.length === 0) return null;
+
+  return (
+    <svg
+      className="absolute inset-0 pointer-events-none"
+      width="100%"
+      height="100%"
+      style={{ overflow: "visible" }}
+    >
+      <defs>
+        <marker
+          id="modifier-arrow-head"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" />
+        </marker>
+      </defs>
+      {arrows.map(({ sx, sy, tx, ty, key }) => {
+        // 두 단어 위쪽으로 솟아오르는 부드러운 곡선
+        const midX = (sx + tx) / 2;
+        const dx = Math.abs(tx - sx);
+        // 거리에 따라 곡선의 봉우리 높이 조정 (최소 18, 최대 60)
+        const lift = Math.min(60, Math.max(18, dx * 0.25));
+        const peakY = Math.min(sy, ty) - lift;
+        return (
+          <path
+            key={key}
+            d={`M ${sx} ${sy - 2} Q ${midX} ${peakY} ${tx} ${ty - 2}`}
+            stroke="hsl(var(--primary))"
+            strokeWidth="1.6"
+            strokeDasharray="4 3"
+            fill="none"
+            markerEnd="url(#modifier-arrow-head)"
+            opacity={0.85}
+          />
+        );
+      })}
+    </svg>
+  );
+};
+
 const Index = () => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
