@@ -2089,10 +2089,6 @@ const Index = () => {
                           "text-foreground/80",
                         // 선택된 인덱스 하이라이트
                         isSelected && "bg-primary/25",
-                        // 둥근 모서리: 자기 layer의 시작/끝만
-                        isFirstOfSelection && "rounded-l-sm",
-                        isLastOfSelection && "rounded-r-sm",
-                        !isFirstOfSelection && !isLastOfSelection && isCompleted && "rounded-none",
                       )}
                     >
                       {word}
