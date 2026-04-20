@@ -303,39 +303,85 @@ const Index = () => {
     clearActiveSelection();
   };
 
-  // ===== 단어 단위 선택 (누적 토글 + 드래그 누적) =====
-  // 규칙: 새 클릭/드래그가 기존 선택을 절대 비우지 않는다.
-  //       이미 선택된 단어를 다시 클릭하면 그 단어만 제거(토글).
-  //       전체 해제는 [지우개] 또는 분석 완료 시에만 발생.
-  //       완료된 토큰을 클릭하면 → 그 토큰의 저장된 인덱스를 통째로 selection으로 복원 (재편집).
-  const handleWordMouseDown = (idx: number, _e: React.MouseEvent) => {
+  // 선택된 인덱스들에서 분석 패널의 selectedId를 결정 (동사 토큰 우선)
+  const pickSelectedIdFromIndices = (indices: number[]): string | null => {
+    if (indices.length === 0) return null;
+    const tokenIds: string[] = [];
+    indices.forEach((i) => {
+      const tid = wordUnits[i]?.tokenId;
+      if (tid && !tokenIds.includes(tid)) tokenIds.push(tid);
+    });
+    if (tokenIds.length === 0) return null;
+    // 동사 토큰 우선 (절 분석 진입에 필수)
+    const verbTid = tokenIds.find((tid) => {
+      const tk = sentence.tokens.find(
+        (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
+          t.type === "analyzable" && t.id === tid,
+      );
+      return tk?.answer.pos === "동사";
+    });
+    return verbTid ?? tokenIds[0];
+  };
+
+  // ===== 단어 단위 선택 =====
+  // 완료 영역 클릭 정책:
+  //   1) 클릭한 영역의 완료 owner의 모든 인덱스가 이미 selection에 정확히 있으면 → owner 복원 (수정/지우개 모드)
+  //   2) 그 외에는 → 새 selection 시작 (다층 추가 분석 진입)
+  const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
+    e.stopPropagation();
 
-    const tokenId = wordUnits[idx].tokenId;
-    // 이 인덱스가 어떤 완료된 토큰에 속하는지 (있다면)
-    const completedOwner = Object.entries(completedSelectionMap).find(([, indices]) =>
+    // 이 인덱스를 포함하는 완료 owner들 (다층 가능)
+    const owners = Object.entries(completedSelectionMap).filter(([, indices]) =>
       indices.includes(idx),
-    )?.[0];
+    );
 
-    // 이미 완료된 토큰 영역을 클릭 → 그 토큰의 분석을 통째로 다시 로드 (재선택/수정/삭제)
-    if (completedOwner && progressMap[completedOwner]?.completed) {
-      const indices = completedSelectionMap[completedOwner] ?? [idx];
-      setSelectedId(completedOwner);
-      setSelectedWordIndices(indices);
+    // 정확히 같은 indices가 이미 selection에 있는 owner를 찾으면 → 패널 로드(수정 모드)
+    const matchedOwner = owners.find(([ownerId, indices]) => {
+      if (!progressMap[ownerId]?.completed) return false;
+      if (selectedId !== ownerId) return false;
+      const sortedSel = [...selectedWordIndices].sort((a, b) => a - b);
+      const sortedIdx = [...indices].sort((a, b) => a - b);
+      return arraysEqualSet(sortedSel, sortedIdx);
+    });
+    if (matchedOwner) {
+      // 두번째 클릭 → 수정/지우개 모드 유지 (이미 로드돼있으니 no-op)
       setDragStart(idx);
       return;
     }
 
-    if (tokenId) handleSelect(tokenId);
-    else setSelectedId(null);
+    // 완료 영역의 첫 클릭 → owner 복원 (한 번 클릭으로 즉시 수정 가능하게)
+    if (owners.length > 0) {
+      // 가장 좁은(가장 안쪽) owner 우선
+      const [ownerId, ownerIndices] = owners.sort(
+        (a, b) => a[1].length - b[1].length,
+      )[0];
+      if (progressMap[ownerId]?.completed) {
+        setSelectedId(ownerId);
+        setSelectedWordIndices([...ownerIndices].sort((a, b) => a - b));
+        setDragStart(idx);
+        return;
+      }
+    }
 
+    // 일반 경로: 토글/누적 selection
     setDragStart(idx);
     setSelectedWordIndices((prev) => {
-      // 토글: 이미 있으면 제거, 없으면 추가 (누적 유지)
+      let next: number[];
       if (prev.includes(idx)) {
-        return prev.filter((i) => i !== idx);
+        next = prev.filter((i) => i !== idx);
+      } else {
+        next = [...prev, idx].sort((a, b) => a - b);
       }
-      return [...prev, idx].sort((a, b) => a - b);
+      // selectedId는 현재 선택의 동사 토큰 우선
+      const sid = pickSelectedIdFromIndices(next);
+      if (sid) {
+        setSelectedId(sid);
+        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+      } else {
+        setSelectedId(null);
+      }
+      return next;
     });
   };
   const handleWordMouseEnter = (idx: number) => {
