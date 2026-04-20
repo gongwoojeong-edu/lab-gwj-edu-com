@@ -1,7 +1,12 @@
 // ============================================================
-// modifierTargets — 수식 관계(source ownerId → target tokenId) localStorage 저장
-// 패턴은 customAnswers.ts 와 동일
+// modifierTargets — 수식 관계(source ownerId → target tokenId)
+// localStorage + Supabase modifier_relations 동기화
 // ============================================================
+import {
+  fetchModifierRelations,
+  upsertModifierRelation,
+  deleteModifierRelation,
+} from "@/integrations/supabase/storage";
 
 const STORAGE_KEY = "gwj.modifierTargets.v1";
 
@@ -46,6 +51,10 @@ export const upsertModifierTarget = (
   next.push(rel);
   const merged = { ...map, [sentenceId]: next };
   saveModifierTargets(merged);
+  void upsertModifierRelation(sentenceId, {
+    source_owner_id: rel.source,
+    target_owner_id: rel.target,
+  }).catch(() => {});
   return merged;
 };
 
@@ -59,6 +68,7 @@ export const removeModifierTargetBySource = (
   if (next.length === cur.length) return map;
   const merged = { ...map, [sentenceId]: next };
   saveModifierTargets(merged);
+  void deleteModifierRelation(sentenceId, source).catch(() => {});
   return merged;
 };
 
@@ -66,3 +76,21 @@ export const getTargetsForSentence = (
   map: ModifierTargetMap,
   sentenceId: string,
 ): ModifierTarget[] => map[sentenceId] ?? [];
+
+/** 클라우드에서 sentence별 modifier 관계를 가져와 머지 */
+export const hydrateModifierTargetsFromCloud = async (
+  sentenceId: string,
+): Promise<ModifierTargetMap> => {
+  try {
+    const rows = await fetchModifierRelations(sentenceId);
+    const cur = loadModifierTargets();
+    const next: ModifierTargetMap = {
+      ...cur,
+      [sentenceId]: rows.map((r) => ({ source: r.source_owner_id, target: r.target_owner_id })),
+    };
+    saveModifierTargets(next);
+    return next;
+  } catch {
+    return loadModifierTargets();
+  }
+};

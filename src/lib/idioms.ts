@@ -1,7 +1,12 @@
 // ============================================================
 // idioms — 숙어/구문 마킹 store. SVOC 분석과 완전 독립.
-// localStorage 기반. 같은 단어에 SVOC와 숙어가 동시에 존재 가능.
+// localStorage + Supabase 양방향 동기화.
 // ============================================================
+import {
+  fetchIdiomsAll,
+  upsertIdiomRow,
+  deleteIdiomRow,
+} from "@/integrations/supabase/storage";
 
 const STORAGE_KEY = "gwj.idioms.v1";
 
@@ -66,6 +71,12 @@ export const upsertIdiom = (
     ],
   };
   saveIdioms(next);
+  void upsertIdiomRow({
+    sentence_id: sentenceId,
+    indices: sorted,
+    surface,
+    meaning,
+  }).catch(() => {});
   return next;
 };
 
@@ -79,6 +90,7 @@ export const removeIdiom = (sentenceId: string, indices: number[]): IdiomMap => 
   };
   if (next[sentenceId]?.length === 0) delete next[sentenceId];
   saveIdioms(next);
+  void deleteIdiomRow(sentenceId, [...indices].sort((a, b) => a - b)).catch(() => {});
   return next;
 };
 
@@ -107,4 +119,30 @@ export const findIdiomByIndices = (
 export const getAllIdiomsFlat = (map?: IdiomMap): IdiomMark[] => {
   const m = map ?? loadIdioms();
   return Object.values(m).flat().sort((a, b) => a.createdAt - b.createdAt);
+};
+
+/** 클라우드에서 모든 idiom을 가져와 localStorage와 머지 후 반환 */
+export const hydrateIdiomsFromCloud = async (): Promise<IdiomMap> => {
+  try {
+    const rows = await fetchIdiomsAll();
+    const map: IdiomMap = {};
+    rows.forEach((r) => {
+      const sorted = [...r.indices].sort((a, b) => a - b);
+      const id = `${r.sentence_id}:${sorted.join("-")}`;
+      const arr = map[r.sentence_id] ?? [];
+      arr.push({
+        id,
+        sentenceId: r.sentence_id,
+        indices: sorted,
+        surface: r.surface,
+        meaning: r.meaning,
+        createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+      });
+      map[r.sentence_id] = arr;
+    });
+    saveIdioms(map);
+    return map;
+  } catch {
+    return loadIdioms();
+  }
 };
