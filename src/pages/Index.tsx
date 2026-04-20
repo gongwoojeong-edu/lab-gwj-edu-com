@@ -1469,11 +1469,11 @@ const Index = () => {
               const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
               const buildLayerBg = (owners: string[]): string | undefined => {
                 if (owners.length === 0) return undefined;
-                // 안쪽(좁은) → depth 0 (Layer 1)
+                // 안쪽(좁은) → depth 0 (Layer 1). 누적 시 진해짐.
                 return owners
                   .map((_, i) => {
                     const v = layerVars[i % layerVars.length];
-                    return `linear-gradient(hsl(var(${v}) / 0.18), hsl(var(${v}) / 0.18))`;
+                    return `linear-gradient(hsl(var(${v}) / 0.32), hsl(var(${v}) / 0.32))`;
                   })
                   .join(", ");
               };
