@@ -1544,8 +1544,7 @@ const Index = () => {
             <button
               type="button"
               onClick={handleEraser}
-              disabled={activeSelectionIndices.length === 0}
-              className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
               title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
             >
               🧽 지우개
