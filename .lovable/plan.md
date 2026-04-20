@@ -1,137 +1,134 @@
 
-
 ## 목표
 
-요청하신 6가지를 한 번에 정리:
-1. 병렬 박스 슬림화 (직각 + 단어에만)
-2. spacer는 채우지 않음 (단, 사용자가 단어 연결로 직접 선택한 경우엔 채움)
-3. 지우개 = 1회용 활성화 + 커스텀 커서
-4. 접속사절 다층 부배지 자동 간격(공간 많은 쪽으로 이동)
-5. 선생님-학생 등록 UI 뼈대(더미)
-6. 초3~고3 10단계 레벨 + `L{레벨}-{3자리}` 넘버링
+다음 3가지를 한 번에 정리합니다.
+
+1. `this day` 같은 단어에 남는 보라 배경이 지우개 후 완전히 사라지도록 수정
+2. `that has influenced`처럼 접속절 내부 다층 부배지가 겹치지 않도록 간격/배치 개선
+3. 명사의 `지시어` 버튼, 형용사의 `수식어 대상 지정` 버튼을 Layer 3 하단으로 내려 선택 가능하게 재배치
 
 ---
 
-## 1. 병렬 박스 — 직각 + 작게 + 단어에만
+## 1. 지우개 후 `this day` 보라 배경 잔상 제거
+
+### 원인
+현재 본문 배경은 `completedSelectionMap` 기준으로 레이어를 다시 그리는데, 지우개는 클릭한 위치의 owner만 지우더라도 같은 구간에 걸친 다른 owner/hydrated owner가 남아 있으면 `buildLayerBg()`가 계속 보라색을 생성할 수 있습니다. 특히 span owner와 단일 owner가 겹친 경우 잔상이 생기기 쉽습니다.
+
+### 변경
+`src/pages/Index.tsx`
+- 지우개 클릭 시 해당 인덱스를 덮는 완료 owner를 전부 수집하는 로직을 더 엄격하게 정리
+- 삭제 기준을 `completedSelectionMap` + `progressMap.completed` + 현재 문장 범위 owner로 통일
+- `eraseOwner()`에서 아래 상태를 반드시 함께 정리
+  - `progressMap`
+  - `completedSelectionMap`
+  - `customAnswers`
+  - `pendingPatchMap`
+  - `savedOwnerSet`
+  - `userLinkedOwnerSet`
+  - modifier / referent 관계
+- 삭제 직후 렌더에 남은 owner가 실제로 있는 경우만 배경이 그려지도록 `buildLayerBg()` 방어 조건 강화
+- 구두점/스페이서 배경 계산도 동일한 살아있는 owner 목록만 사용하도록 맞춤
+
+### 기대 결과
+- `to this day`, `solidify`처럼 이전에 분석했다가 지운 단어의 보라 배경이 완전히 사라짐
+- 단어/스페이서/구두점 중 일부만 남는 잔상도 같이 제거됨
+
+---
+
+## 2. 접속절 내부 다층 부배지 겹침 해결
+
+### 원인
+현재 부배지는 같은 anchor 단어에 2개가 붙을 때만 단순히 좌우로 `±28px` 이동합니다. 실제 pill 너비나 단어 위치는 반영하지 않아 `that has influenced` 같은 구간에서 여전히 겹칩니다.
+
+### 변경
+`src/pages/Index.tsx`
+- 부배지 배치를 “2개면 left/right” 수준이 아니라, anchor 기준으로 각 pill의 순서별 오프셋을 계산하는 방식으로 변경
+- 같은 단어에 2개 이상 부배지가 걸리면 다음 규칙 적용
+  - Layer 1/외곽 badge는 anchor 근처 유지
+  - Layer 2, 3, 4 badge는 누적 간격으로 더 멀리 이동
+  - 단어가 문장 왼쪽에 가까우면 오른쪽 위주, 오른쪽에 가까우면 왼쪽 위주, 중앙이면 양쪽 분산
+- `data-shift="left|right"` 한 단계 대신, 예: `data-shift-step="0|1|2"` 또는 inline transform 값으로 거리 누적
+- anchor 단위로 부배지 개수를 세서 2개, 3개, 4개 모두 처리
 
 `src/index.css`
-- `.parallel-box`
-  - `border-radius: 0.5rem` → **`0`** (직각)
-  - `padding: 0 2px` → **`0 1px`**
-  - `border: 2px` → **`1.5px`** (작아 보이게)
-  - 배경 `--primary/0.10` 유지
-- `.parallel-box-start/.parallel-box-end` `border-radius` 0으로 통일
+- `.sub-badge-row` gap 확대
+- `.sub-badge-pill` 좌우 margin/max-width 조정
+- shift 거리 1단계/2단계 규칙 추가
+- 필요 시 row의 top 위치를 소폭 더 위로 올려 badge와 본문 충돌도 완화
 
-`src/pages/Index.tsx`
-- spacer에는 `parallel-box` 클래스 절대 부여 안 함 (이미 그렇지만 회귀 방지 주석 추가)
+### 기대 결과
+- `that has influenced` 같은 다층 접속절 내부 부배지가 서로 겹치지 않음
+- 2층/3층 이상이 한 단어에 걸려도 간격이 유지됨
+- 기존 layer 색상/번호색은 그대로 유지
 
-## 2. spacer 채우기 규칙 정리
+---
 
-`src/pages/Index.tsx` (토큰 spacer 렌더 지점, 약 2120~2170줄 인근 `backgroundImage` 계산)
-- 현재: spacer가 양옆 owner 모두 같은 owner면 자동 채움
-- 변경:
-  - **자동 분석(원본/customAnswer 복원) owner의 spacer는 채우지 않음** (배경 transparent)
-  - **사용자가 직접 단어들을 드래그/Shift+클릭으로 연결한 owner**(= `userLinkedOwnerSet`에 등록된 owner)는 spacer 채움 유지
-- 신규 state `userLinkedOwnerSet: Set<ownerId>`
-  - 드래그 또는 Shift+클릭으로 2개 이상 단어를 묶어 분석을 시작/완료한 owner id를 추가
-  - 단일 단어 클릭으로 만들어진 owner는 추가 안 함
-  - localStorage 영속화는 생략 (세션 한정)
+## 3. `지시어`, `수식어 대상 지정` 버튼을 Layer 3 하단으로 이동
 
-## 3. 지우개 — 1회용 + 커스텀 커서
+### 원인
+현재 이 두 기능은 `AnalysisPanel` 상단 공통 영역에 렌더되어, Popover 내부의 Layer 02/03 버튼들 뒤쪽으로 밀리거나 선택 동선이 어색합니다.
 
-`src/pages/Index.tsx`
-- `eraserMode`(토글)는 유지하되 `handleWordMouseDown`의 지우개 분기에서 **삭제 직후 `setEraserMode(false)`** 호출 → 한 번 쓰면 자동 해제
-- 상단 지우개 버튼 라벨/툴팁 변경: "🧽 지우개 — 한 번만 사용"
-- 토글 표시는 ON/OFF 그대로(시각적 활성 표시 필요)
+### 변경
+`src/components/analyzer/AnalysisPanel.tsx`
 
-`src/index.css` + `public/eraser-cursor.svg`(신규)
-- 작은 지우개 아이콘 SVG(16×16, 핑크/회색 톤) 추가
-- `body.eraser-active, body.eraser-active *` → `cursor: url('/eraser-cursor.svg') 4 12, not-allowed;`
-- `Index.tsx`에서 `eraserMode`에 따라 `document.body.classList.toggle('eraser-active', eraserMode)` (useEffect)
+#### 명사 패널
+- 공통 상단의 `지시어 (대명사)` 블록을 제거
+- `NounPanel` 안에서 Layer 03 역할 선택 이후 하단에 별도 섹션으로 렌더
+- 노출 조건
+  - 명사 role이 `대명사`이거나 지시 대상이 필요한 명사 해석일 때만 표시
+- 위치
+  - `ElementRoleGrid` 바로 아래, 완료 라벨 위 또는 완료 라벨 바로 아래로 고정
 
-## 4. 접속사절 다층 부배지 자동 위치 조정
+#### 형용사 패널
+- 현재 상단 공통의 `수식 화살표` 블록을 제거
+- `AdjPanel` 안에서 형용사 role이 `명사수식 / 명사앞수식 / 명사뒤수식`일 때 Layer 03 하단에 버튼 노출
+- 기존 안내문만 있는 카드 대신 실제 버튼/상태 UI까지 이 위치로 이동
+  - 지정
+  - 변경
+  - 삭제
+  - 취소
+  - 현재 대상 라벨
 
-`src/pages/Index.tsx`(`SubBadgeStack` / 부배지 anchor 계산 지점)
-- 현재: 각 owner의 부배지는 owner 시작 단어 아래 고정 anchor
-- 변경: 같은 단어 위에 anchor된 부배지 개수가 2개 이상이면 좌우 빈 공간을 비교해 더 넓은 쪽으로 일부를 밀어내기
-  - 알고리즘:
-    - 토큰 row에서 anchor 단어 인덱스 i, 좌측 빈 spacer 폭 vs 우측 빈 spacer 폭 측정 (DOM 측정 대신 `tokens[i±1]` static spacer 길이로 근사)
-    - layer 2~ 부배지를 공간 큰 쪽으로 `transform: translateX(±N px)` 시프트
-  - 구현은 SubBadge 렌더 시 `data-shift="left|right"` 속성 + CSS transition
-- spacing 충돌 시 줄바꿈은 발생하지 않도록 `white-space: nowrap` 유지
+#### 공통 구조 정리
+- `AnalysisPanel` 상단에는 품사/저장/선택 정보만 남기고
+- modifier/referent UI는 각 품사 패널의 문맥 안에서 렌더
+- 기존 prop 구조는 유지하고 렌더 위치만 품사별 하위 컴포넌트로 이동
 
-## 5. 선생님-학생 등록 UI 뼈대 (더미, 백엔드 X)
-
-신규 라우트 2개 (`src/App.tsx` 등록):
-- `/teacher` — 선생님 대시보드 더미
-- `/teacher/students` — 학생 등록/목록 더미
-
-신규 파일:
-- `src/pages/TeacherDashboard.tsx`
-  - 카드 3종: "내 학생 (n명)" / "할당된 문장" / "최근 분석 활동"
-  - `[학생 등록]` 버튼 → `/teacher/students`
-- `src/pages/TeacherStudents.tsx`
-  - 학생 목록 테이블(이름/레벨/등록일/상태) — 더미 데이터 5명
-  - `[+ 학생 추가]` 다이얼로그: 이름·레벨(L01~L10) 선택 → 로컬 state에만 추가(localStorage `gwj.students.v1`)
-  - 행별 [수정][삭제]
-- `src/pages/Index.tsx`(상단 헤더)에 `[선생님 모드]` 진입 링크 추가 (관리자 토글 ON일 때만 노출)
-
-데이터 모델(타입만 정의, 추후 Lovable Cloud 마이그레이션 대비)
-```ts
-type StudentLevel = `L${'01'|'02'|...|'10'}`;
-interface Student { id: string; name: string; level: StudentLevel; createdAt: string; }
-```
-
-> 인증/Cloud 연결은 다음 단계로 분리. 지금은 화면 + 로컬 저장만.
-
-## 6. 레벨 시스템 + 문장 넘버링 `L{레벨}-{3자리}`
-
-레벨 정의 (`src/lib/levels.ts` 신규)
-```ts
-export const LEVELS = [
-  { code: 'L01', label: '초3' },
-  { code: 'L02', label: '초4' },
-  { code: 'L03', label: '초5' },
-  { code: 'L04', label: '초6' },
-  { code: 'L05', label: '중1' },
-  { code: 'L06', label: '중2' },
-  { code: 'L07', label: '중3' },
-  { code: 'L08', label: '고1' },
-  { code: 'L09', label: '고2' },
-  { code: 'L10', label: '고3' },
-] as const;
-```
-
-데이터 스키마 확장 (`src/data/sentences.ts`)
-- `Sentence`에 `level: LevelCode` 필드 추가 (기존 5문장은 일단 `'L10'`으로 마킹 — 현재 지문이 고3 수준)
-- 각 문장 `code: string` 게터: `${level}-${String(no).padStart(3,'0')}` → 예 `L10-001`
-
-표시 변경 (`src/pages/Index.tsx`)
-- 헤더 "문장 분석 · No. 001" → **"문장 분석 · L10-001"**
-- 헤더 옆에 작은 레벨 chip(`초3` 등) 노출
-- `KoreanHintButton` 옆에 변동 없음
-
-> 현재 5문장 모두 L10. 다른 레벨 문장 추가는 별도 데이터 작업.
+### 기대 결과
+- `대명사 지시어`, `형용사 수식어` 버튼이 뒤에 가려지지 않음
+- 사용 흐름이 “Layer 02/03 선택 → 바로 아래에서 대상 지정”으로 자연스러워짐
 
 ---
 
 ## 변경 파일
 
-- `src/index.css` — 병렬 박스 슬림, 지우개 커서
-- `src/pages/Index.tsx` — spacer 채우기 규칙, 지우개 1회용+커서 토글, 부배지 자동 시프트, 헤더 레벨 표기, 선생님 모드 링크
-- `src/App.tsx` — `/teacher`, `/teacher/students` 라우트
-- `src/pages/TeacherDashboard.tsx` (신규)
-- `src/pages/TeacherStudents.tsx` (신규)
-- `src/lib/levels.ts` (신규)
-- `src/data/sentences.ts` — 각 문장 `level` 필드 추가
-- `public/eraser-cursor.svg` (신규)
+- `src/pages/Index.tsx`
+  - 지우개 삭제 범위 정리
+  - 살아있는 owner 기준 배경 계산 보강
+  - 부배지 오프셋 계산 로직 개선
+- `src/components/analyzer/AnalysisPanel.tsx`
+  - 지시어/수식어 대상 지정 UI를 상단 공통 영역에서 제거
+  - 명사/형용사 패널 내부 Layer 3 하단으로 재배치
+- `src/index.css`
+  - 부배지 row/pill 간격 확대
+  - 다단계 shift 스타일 추가
+
+---
+
+## 기술 세부사항
+
+- 배경은 “현재 살아있는 완료 owner”만 기준으로 계산하도록 통일
+- 부배지 배치는 단순 좌/우 토글이 아니라 anchor 기준 누적 오프셋 방식으로 변경
+- 기능 prop은 재사용하되 렌더 위치만 품사 패널 내부로 이동해 회귀를 최소화
+- 병렬/절 언더라인 규칙은 이번 작업에서 건드리지 않고 유지
+
+---
 
 ## 검증
 
-1. 병렬 owner: 단어마다 작은 직각 박스, spacer는 비어 있음
-2. 자동 복원된 owner의 spacer는 무색, 사용자가 드래그로 묶은 owner의 spacer는 색칠 유지
-3. 지우개 버튼 1회 클릭 → 활성 + 커서 변경 → 단어 클릭 → 삭제 + 자동 해제 + 커서 복귀
-4. 같은 단어에 부배지 2~3개일 때 좌/우 빈 공간 큰 쪽으로 자동 시프트, 겹침 없음
-5. `/teacher` 진입 시 더미 대시보드, `/teacher/students`에서 학생 추가/수정/삭제 가능
-6. 헤더에 `L10-001 · 고3` 형식으로 표기, 다른 레벨 문장 추가 시 자동 반영
-
+1. `this day` 분석 후 지우개 클릭 시 단어 배경, 스페이서 배경, 주변 잔상이 모두 사라짐
+2. `solidify`도 동일하게 보라 잔상 없이 완전히 삭제됨
+3. `that has influenced`에서 부배지 2개 이상이 겹치지 않고 읽을 수 있음
+4. 명사에서 `대명사` 선택 후 `지시어 지정` 버튼이 Layer 3 하단에 보여 바로 클릭 가능
+5. 형용사에서 `명사수식/명사앞수식/명사뒤수식` 선택 후 `수식 대상 지정` UI가 Layer 3 하단에 노출
+6. 저장 버튼, 지우개, 절/병렬 표시 등 기존 동작은 유지
