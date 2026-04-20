@@ -879,7 +879,7 @@ const Index = () => {
       return;
     }
     const ans = (selectedToken?.answer ?? null) as VerbAnswer | null;
-    const correct =
+    const correct = !!ans &&
       (ans.number ?? null) === v.number &&
       (ans.tense ?? null) === v.tense &&
       arraysEqualSet(ans.aspect ?? [], v.aspect) &&
