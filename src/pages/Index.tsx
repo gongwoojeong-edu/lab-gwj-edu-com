@@ -917,11 +917,12 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
   const analysisDone = sentenceComplete && Object.keys(pendingPatchMap).length === 0;
 
-  // 분석 완료 상태를 Supabase에 동기화
+  // 분석 완료 상태를 Supabase에 동기화 + 임베드 모드면 외부 콜백 호출
   useEffect(() => {
     if (!analysisDone) return;
     upsertSentenceProgress(sentence.id, { analysis_done: true }).catch(() => {});
-  }, [analysisDone, sentence.id]);
+    if (embedMode && onAnalysisDone) onAnalysisDone();
+  }, [analysisDone, sentence.id, embedMode, onAnalysisDone]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
