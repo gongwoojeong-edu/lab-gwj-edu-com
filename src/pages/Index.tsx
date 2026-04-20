@@ -1184,8 +1184,30 @@ const Index = () => {
                 }
               }
 
-              const koreanLabel =
+              let koreanLabel =
                 isCompleted && isFirstOfSelection && token ? token.answer.koreanLabel : undefined;
+              // 하단 SVOC 배지(또는 V 배지)와 중복되는 한글 문장성분 prefix 제거
+              // 합성 라벨("분사의 목적어", "전치사의 목적어 · 병렬", "to부정사의 목적어" 등)은 그대로 유지
+              if (koreanLabel && (completedElement || (token?.answer.pos === "동사"))) {
+                const stripPatterns = [
+                  /^주어\s*·\s*/,
+                  /^동사\s*·\s*/,
+                  /^목적어\s*·\s*/,
+                  /^간접목적어\s*·\s*/,
+                  /^직접목적어\s*·\s*/,
+                  /^주격보어\s*·\s*/,
+                  /^목적격보어\s*·\s*/,
+                  /^보어\s*·\s*/,
+                ];
+                for (const re of stripPatterns) {
+                  if (re.test(koreanLabel)) {
+                    koreanLabel = koreanLabel.replace(re, "");
+                    break;
+                  }
+                }
+                // prefix 제거 후 빈 문자열이면 표시 안 함
+                if (!koreanLabel.trim()) koreanLabel = undefined;
+              }
 
               const bracketColorClass =
                 bracketRole === "S"
