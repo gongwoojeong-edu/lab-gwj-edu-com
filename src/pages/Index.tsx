@@ -1049,19 +1049,19 @@ const Index = () => {
                     color: "hsl(var(--idiom-fg))",
                     borderColor: "hsl(var(--idiom-border))",
                   }}
-                  title="등록된 숙어 전체 보기"
+                  title="등록된 관용구 전체 보기"
                 >
                   <BookMarked className="size-3" />
-                  숙어 {allIdiomsCount}
+                  관용구 {allIdiomsCount}
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="font-kr">📚 등록된 숙어 / Phrase</DialogTitle>
+                  <DialogTitle className="font-kr">📚 등록된 관용구 / Phrase</DialogTitle>
                 </DialogHeader>
                 {allIdiomsCount === 0 ? (
                   <p className="text-sm text-muted-foreground font-kr py-6 text-center">
-                    아직 등록된 숙어가 없습니다. 정답 입력 모드에서 단어를 선택하고 숙어를 저장하세요.
+                    아직 등록된 관용구가 없습니다. 정답 입력 모드에서 단어를 선택하고 관용구를 저장하세요.
                   </p>
                 ) : (
                   <ul className="space-y-2">
