@@ -258,7 +258,19 @@ const Index = () => {
     selectedId && selectedTokenRaw
       ? { ...selectedTokenRaw, answer: getMergedAnswerForOwner(selectedId, selectedTokenRaw) }
       : undefined;
+  const selectedAnswer = selectedToken?.answer ?? null;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
+  const activeSelectionIndices = useMemo(() => {
+    if (selectedWordIndices.length > 0) {
+      return Array.from(new Set(selectedWordIndices)).sort((a, b) => a - b);
+    }
+
+    if (selectedId && completedSelectionMap[selectedId]?.length) {
+      return [...completedSelectionMap[selectedId]].sort((a, b) => a - b);
+    }
+
+    return [] as number[];
+  }, [completedSelectionMap, selectedId, selectedWordIndices]);
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
     setProgressMap((prev) => ({
@@ -433,7 +445,7 @@ const Index = () => {
   // ===== 지우개: 선택된 단어들의 분석만 초기화 (숙어 마크는 유지) =====
   const handleEraser = () => {
     const ownerIds = new Set<string>();
-    const indices = selectedWordIndices.slice();
+    const indices = activeSelectionIndices.slice();
     indices.forEach((i) => {
       const ownerId = buildOwnerId([i]);
       if (ownerId) ownerIds.add(ownerId);
@@ -483,20 +495,20 @@ const Index = () => {
 
   // ===== 숙어 / Phrase 핸들러 =====
   const currentSelectionSurface = () =>
-    selectedWordIndices
+    activeSelectionIndices
       .map((i) => wordUnits[i]?.word)
       .filter(Boolean)
       .join(" ");
 
   const currentSelectionIdiom = (): IdiomMark | undefined => {
-    if (selectedWordIndices.length === 0) return undefined;
-    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    if (activeSelectionIndices.length === 0) return undefined;
+    const sorted = [...activeSelectionIndices].sort((a, b) => a - b);
     return findIdiomByIndices(idiomMap, sentence.id, sorted);
   };
 
   const handleIdiomSave = (meaning: string) => {
-    if (selectedWordIndices.length === 0) return;
-    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    if (activeSelectionIndices.length === 0) return;
+    const sorted = [...activeSelectionIndices].sort((a, b) => a - b);
     const surface = currentSelectionSurface();
     const next = upsertIdiom(sentence.id, sorted, surface, meaning);
     setIdiomMap(next);
@@ -507,8 +519,8 @@ const Index = () => {
   };
 
   const handleIdiomRemove = () => {
-    if (selectedWordIndices.length === 0) return;
-    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    if (activeSelectionIndices.length === 0) return;
+    const sorted = [...activeSelectionIndices].sort((a, b) => a - b);
     const next = removeIdiom(sentence.id, sorted);
     setIdiomMap(next);
     toast({ title: "관용구를 삭제했습니다" });
@@ -919,10 +931,10 @@ const Index = () => {
 
   const panelProps = {
     selectedWord:
-      selectedWordIndices.length > 0
-        ? selectedWordIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
+      activeSelectionIndices.length > 0
+        ? activeSelectionIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
         : selectedToken?.text ?? null,
-    answer: selectedToken?.answer ?? null,
+    answer: selectedAnswer,
     pos: progress.pos,
     posStatus: progress.posStatus,
     onPosChange: handlePos,
@@ -950,11 +962,13 @@ const Index = () => {
     onVerbToggleVoice: handleVerbVoice,
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
-    // 관용구는 2단어 이상에서만 노출 (분석 레이어와 별개 영역)
-    idiomEnabled: selectedWordIndices.length >= 2,
+    // 관용구는 분석과 독립이지만 단일 단어에서는 주도 UI가 되지 않음
+    idiomEnabled: activeSelectionIndices.length >= 2,
     idiomExistingMeaning: currentSelectionIdiom()?.meaning,
     onIdiomSave: handleIdiomSave,
     onIdiomRemove: handleIdiomRemove,
+    canErase: activeSelectionIndices.length > 0,
+    onEraseSelection: handleEraser,
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);

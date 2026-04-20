@@ -135,6 +135,8 @@ interface AnalysisPanelProps {
   idiomExistingMeaning?: string; // 현재 선택 인덱스에 등록된 숙어가 있다면 의미
   onIdiomSave?: (meaning: string) => void;
   onIdiomRemove?: () => void;
+  canErase?: boolean;
+  onEraseSelection?: () => void;
 }
 
 // ============================================================
@@ -384,10 +386,12 @@ export const AnalysisPanel = ({
   idiomExistingMeaning,
   onIdiomSave,
   onIdiomRemove,
+  canErase,
+  onEraseSelection,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
 
-  if (!selectedWord || !answer) {
+  if (!selectedWord) {
     return (
       <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto">
         {idiomEnabled && (
@@ -408,14 +412,16 @@ export const AnalysisPanel = ({
     );
   }
 
+  const currentPos = pos ?? answer?.pos ?? null;
   const posCorrect = posStatus === "correct";
-  const isNoun = posCorrect && answer.pos === "명사";
-  const isVerb = posCorrect && answer.pos === "동사";
-  const isAdj = posCorrect && answer.pos === "형용사";
-  const isAdv = posCorrect && answer.pos === "부사";
-  const isEtc = posCorrect && answer.pos === "기타";
+  const isNoun = currentPos === "명사";
+  const isVerb = currentPos === "동사";
+  const isAdj = currentPos === "형용사";
+  const isAdv = currentPos === "부사";
+  const isEtc = currentPos === "기타";
 
   const renderSubPanel = () => {
+    if (!answer) return null;
     if (isNoun)
       return (
         <NounPanel
@@ -516,7 +522,7 @@ export const AnalysisPanel = ({
               </button>
             );
 
-            if (isCorrect && (isNoun || isVerb || isAdj || isAdv || isEtc)) {
+            if (isSelected && (isNoun || isVerb || isAdj || isAdv || isEtc) && answer) {
               return (
                 <Popover key={key} defaultOpen>
                   <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -542,6 +548,18 @@ export const AnalysisPanel = ({
           <StatusPill status={posStatus} />
         </div>
       </div>
+
+      {canErase && onEraseSelection && (
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={onEraseSelection}
+            className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+          >
+            🧽 지우개
+          </button>
+        </div>
+      )}
 
       {idiomEnabled && (
         <IdiomSection
@@ -712,7 +730,7 @@ const NounPanel = ({
         status={noun.formStatus}
         items={NOUN_FORMS}
         selected={noun.form}
-        locked={formCorrect}
+        locked={false}
         onSelect={(k) => onNounFormChange(k as NounForm)}
       />
       {formOnlyMode ? (
@@ -725,7 +743,7 @@ const NounPanel = ({
         />
       ) : (
         <ElementRoleGrid
-          unlocked={formCorrect}
+          unlocked={!!noun.form}
           element={noun.element}
           elementStatus={noun.elementStatus}
           role={noun.role}
@@ -792,12 +810,12 @@ const AdjPanel = ({
         status={adj.formStatus}
         items={ADJ_FORMS}
         selected={adj.form}
-        locked={formCorrect}
+        locked={false}
         onSelect={(k) => onAdjFormChange(k as AdjForm)}
       />
       {skipsElement ? (
         <RoleRow
-          unlocked={formCorrect}
+          unlocked={!!adj.form}
           status={adj.roleStatus}
           options={roleOptions}
           selected={adj.role}
@@ -805,7 +823,7 @@ const AdjPanel = ({
         />
       ) : (
         <ElementRoleGrid
-          unlocked={formCorrect}
+          unlocked={!!adj.form}
           element={adj.element}
           elementStatus={adj.elementStatus}
           role={adj.role}
@@ -893,7 +911,7 @@ const ElementRoleGrid = ({
                   <button
                     type="button"
                     onClick={() => onPick(g.element, null)}
-                    disabled={done && !sel}
+                    disabled={false}
                     className={cn(
                       "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30",
                       ok && g.colorClass,
@@ -949,7 +967,7 @@ const ElementRoleGrid = ({
                       key={`${g.element}-${b.value}`}
                       type="button"
                       onClick={() => onPick(g.element, b.value)}
-                      disabled={done && !sel}
+                      disabled={false}
                       className={cn(
                         "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
                         ok && "bg-primary/15 text-primary",
@@ -1065,7 +1083,7 @@ const AdvPanel = ({
                         key={`${form}-${b.value}`}
                         type="button"
                         onClick={() => handlePick(form, b.value, b.subtype)}
-                        disabled={done && !sel}
+                        disabled={false}
                         className={cn(
                           "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
                           ok && "bg-primary/15 text-primary",
@@ -1192,7 +1210,7 @@ const EtcPanel = ({
                               key={`${kind}-${b.value}`}
                               type="button"
                               onClick={() => handlePick(kind, b.value)}
-                              disabled={done && !sel}
+                              disabled={false}
                               className={cn(
                                 "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
                                 ok && "bg-primary/15 text-primary",
@@ -1334,7 +1352,7 @@ const ElementRow = ({
               key={key}
               type="button"
               onClick={() => onSelect(key)}
-              disabled={elementCorrect && !sel}
+              disabled={false}
               className={cn(
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all disabled:opacity-30",
                 ok && colorClass,
@@ -1377,7 +1395,7 @@ const RoleRow = ({
         key={value}
         type="button"
         onClick={() => onSelect(value)}
-        disabled={status === "correct" && !sel}
+        disabled={false}
         className={cn(
           "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
           ok && "bg-primary/15 text-primary",
