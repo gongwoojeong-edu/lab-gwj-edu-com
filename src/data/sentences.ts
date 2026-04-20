@@ -110,9 +110,13 @@ export type SentenceToken =
       role?: "bracket" | "punct" | "word";
     };
 
+import type { LevelCode } from "@/lib/levels";
+
 export interface Sentence {
   id: string;
   no: number;
+  /** 학습 레벨 (초3=L01 ~ 고3=L10). 코드 표기에 사용. */
+  level: LevelCode;
   english: string;
   korean: string;
   structureTags: string[];
