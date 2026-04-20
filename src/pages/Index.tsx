@@ -1370,17 +1370,17 @@ const Index = () => {
                 idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
 
               // 외곽 절(보라) 배경은 outerIsClauseLocal 로 처리.
-              // 안쪽 완료(보라 진하게) 배경
+              // 안쪽 완료 배경 — 수식어/일반 모두 동일 톤 (배지 유무로만 구분)
               const innerCompleteBg =
-                isCompleted && !isSelected && !isModifier && !isClauseSelection;
+                isCompleted && !isSelected && !isClauseSelection;
 
               const wordNode = (
                 <span
                   key={idx}
                   className={cn(
                     "inline-flex items-end leading-none whitespace-nowrap",
-                    // 외곽 절 배경 — 시작/끝에 좌/우 패딩으로 시각화, 사이 공백은 별도 span이 처리
-                    outerIsClauseLocal && "bg-primary/[0.06]",
+                    // 외곽 절(보라) 배경 — 톤 더 연하게
+                    outerIsClauseLocal && "bg-primary/[0.04]",
                   )}
                 >
                   {bracketRole && outerIsFirstLocal && (
@@ -1426,10 +1426,10 @@ const Index = () => {
                     <span
                       className={cn(
                         "px-1 py-0.5 text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
-                        // 안쪽 완료 (부속/일반) — 진한 보라
-                        innerCompleteBg && "bg-primary/[0.14] border-b border-primary/30",
-                        // 안쪽이 modifier/clause면 텍스트만 살짝 dim
-                        isCompleted && !isSelected && (isModifier || isClauseSelection) &&
+                        // 안쪽 완료 (수식어/부속/일반 동일) — 연한 보라 + 얇은 하단 보더
+                        innerCompleteBg && "bg-primary/[0.07] border-b border-primary/20",
+                        // clause(절)면 텍스트만 살짝 dim
+                        isCompleted && !isSelected && isClauseSelection &&
                           "text-foreground/80",
                         // 선택된 인덱스 하이라이트
                         isSelected && "bg-primary/25",
@@ -1486,13 +1486,13 @@ const Index = () => {
                 </span>
               );
 
-              // 토큰 사이 공백 span — 다음 단어와 같은 owner를 공유하면 보라로 채움
+              // 토큰 사이 공백 span — 다음 단어와 같은 owner를 공유하면 보라로 채움 (톤 더 연하게)
               const isLastWord = idx === wordUnits.length - 1;
               const spacerBg =
                 !isLastWord && (sharedWithNext || (outerIsClauseLocal && ownersNext.includes(outerOwnerId ?? "")))
-                  ? "bg-primary/[0.10]"
-                  : sharedWithNext === undefined && outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId
                   ? "bg-primary/[0.06]"
+                  : sharedWithNext === undefined && outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId
+                  ? "bg-primary/[0.04]"
                   : "";
               const spacerNode = !isLastWord ? (
                 <span
