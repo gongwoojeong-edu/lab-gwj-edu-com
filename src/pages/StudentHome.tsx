@@ -130,7 +130,7 @@ const StudentHome = () => {
                 </div>
                 {next && (
                   <p className="text-base sm:text-lg leading-relaxed font-medium opacity-95 line-clamp-3">
-                    {next.text}
+                    {next.english}
                   </p>
                 )}
                 <div className="flex flex-wrap items-center gap-3">
@@ -171,7 +171,7 @@ const StudentHome = () => {
                         <Trophy className="w-3.5 h-3.5 text-accent" />
                       </div>
                       <p className="text-xs text-foreground/80 line-clamp-2 min-h-[2.5em]">
-                        {sentence.text}
+                        {sentence.english}
                       </p>
                       <div className="text-[10px] text-muted-foreground">
                         {new Date(passed_at).toLocaleString("ko-KR", {
