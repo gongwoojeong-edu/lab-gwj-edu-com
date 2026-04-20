@@ -453,13 +453,26 @@ const Index = () => {
   useEffect(() => {
     let cancelled = false;
     const sid = sentence.id;
-    Promise.all([fetchSentenceProgress(sid), fetchBadgeOffsets(sid)]).then(([prog, offs]) => {
+    Promise.all([
+      fetchSentenceProgress(sid),
+      fetchBadgeOffsets(sid),
+      hydrateCustomAnswersFromCloud(sid),
+      hydrateModifierTargetsFromCloud(sid),
+      hydrateReferentTargetsFromCloud(sid),
+    ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       setTranslationDone(prog?.translation_done ?? false);
       setWordTestDone(prog?.word_test_done ?? false);
       setPassedAt(prog?.passed_at ?? null);
       setLearningStep("analysis");
       setBadgeOffsets(offs);
+      setCustomAnswers(customs);
+      setModifierMap(mods);
+      setReferentMap(refs);
+    });
+    // 관용구는 전체 sentence 공유 — 한 번만 hydrate
+    void hydrateIdiomsFromCloud().then((m) => {
+      if (!cancelled) setIdiomMap(m);
     });
     return () => {
       cancelled = true;
