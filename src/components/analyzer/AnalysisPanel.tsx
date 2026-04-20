@@ -137,6 +137,16 @@ interface AnalysisPanelProps {
   onIdiomRemove?: () => void;
   canErase?: boolean;
   onEraseSelection?: () => void;
+
+  // ===== 수식 화살표 (Modifier Arrow) =====
+  /** 형용사/M owner에서만 true → [수식 대상 지정] 버튼 노출 */
+  canAssignModifierTarget?: boolean;
+  /** 현재 selectedId가 pending source인지 — 버튼 ON/OFF 표시 */
+  isPendingModifier?: boolean;
+  /** 이미 target이 지정되어 있는지 — "지우기" 버튼 노출 */
+  hasModifierTarget?: boolean;
+  onAssignModifierTarget?: () => void;
+  onClearModifierTarget?: () => void;
 }
 
 // ============================================================
