@@ -534,37 +534,17 @@ export const AnalysisPanel = ({
         </div>
       </div>
 
-      {/* 지우개 — 항상 노출 (Item 2, 5) */}
-      <div className="mt-2 flex justify-end gap-1.5">
-        <button
-          type="button"
-          onClick={onEraseSelection}
-          disabled={!onEraseSelection}
-          className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="현재 선택된 분석을 모두 삭제"
-        >
-          🧽 지우개
-        </button>
-      </div>
-
-      {/* 관용구 카드 — 항상 별도 영역, SVOC 메뉴와 독립 (Item 6) */}
-      <IdiomSection
-        surface={selectedWord ?? ""}
-        existingMeaning={idiomExistingMeaning}
-        answerInputMode={answerInputMode}
-        onSave={onIdiomSave}
-        onRemove={onIdiomRemove}
-        enabled={!!idiomEnabled}
-      />
     </aside>
   );
 };
+
+// IdiomSection은 외부(Index.tsx 하단 toolbar)에서 직접 사용
 
 // ============================================================
 // Idiom / Phrase Section — SVOC 분석과 독립
 // 항상 패널 하단에 별도 카드로 노출. enabled=false 면 안내 메시지만 표시.
 // ============================================================
-const IdiomSection = ({
+export const IdiomSection = ({
   surface,
   existingMeaning,
   answerInputMode,

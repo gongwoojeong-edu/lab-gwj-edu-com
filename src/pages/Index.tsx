@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AnalysisPanel,
   AnswerInputModeProvider,
+  IdiomSection,
   type NounProgress,
   type AdjProgress,
   type AdvProgress,
@@ -10,6 +11,7 @@ import {
   type VerbProgress,
   type StepStatus,
 } from "@/components/analyzer/AnalysisPanel";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { KoreanHintButton } from "@/components/analyzer/KoreanHintButton";
 import { AdminHintToggle } from "@/components/analyzer/AdminHintToggle";
 import {
@@ -483,21 +485,36 @@ const Index = () => {
     finalizeSelection();
   };
 
-  // ===== 지우개: 선택된 단어들의 분석만 초기화 (숙어 마크는 유지) =====
+  // ===== 지우개: 선택된 인덱스를 덮는 모든 완료 owner를 일괄 삭제 =====
   const handleEraser = () => {
     const ownerIds = new Set<string>();
-    const indices = activeSelectionIndices.slice();
-    indices.forEach((i) => {
+    // active 또는 완료 영역 인덱스 모두 수집
+    const indices = new Set<number>(activeSelectionIndices);
+    // selectedId가 있고 그것의 완료 영역이 있다면 거기 인덱스도 추가
+    if (selectedId && completedSelectionMap[selectedId]) {
+      completedSelectionMap[selectedId].forEach((i) => indices.add(i));
+    }
+    const indicesArr = Array.from(indices);
+
+    // 1) 선택된 owner 자체
+    if (selectedId) ownerIds.add(selectedId);
+    // 2) 단일 토큰 owner들
+    indicesArr.forEach((i) => {
       const ownerId = buildOwnerId([i]);
       if (ownerId) ownerIds.add(ownerId);
     });
-    // 추가: 완료된 토큰 owner도 모두 포함 (selectedWordIndices가 완료 영역의 일부일 때)
-    indices.forEach((i) => {
-      const owner = Object.entries(completedSelectionMap).find(([, idxs]) =>
-        idxs.includes(i),
-      )?.[0];
-      if (owner) ownerIds.add(owner);
+    // 3) 어떤 인덱스라도 덮는 모든 완료 owner (단일/구/절 전부)
+    Object.entries(completedSelectionMap).forEach(([oid, idxs]) => {
+      if (idxs.some((i) => indicesArr.includes(i))) ownerIds.add(oid);
     });
+    // 4) progressMap에 진행 중이지만 아직 미완료인 owner도 (완료 없이 시작만 한 케이스)
+    if (selectedId && progressMap[selectedId]) ownerIds.add(selectedId);
+
+    if (ownerIds.size === 0) {
+      clearActiveSelection();
+      return;
+    }
+
     setProgressMap((prev) => {
       const next = { ...prev };
       ownerIds.forEach((id) => delete next[id]);
@@ -509,41 +526,23 @@ const Index = () => {
       return next;
     });
     // clauseStart/clauseEnd customAnswer도 함께 정리
-    if (ownerIds.size > 0) {
-      const nextCustom = { ...customAnswers };
-      let touched = false;
-      ownerIds.forEach((id) => {
-        const cur = nextCustom[id];
-        if (cur && ("clauseStart" in cur || "clauseEnd" in cur)) {
-          const { clauseStart: _cs, clauseEnd: _ce, ...rest } = cur as Record<string, unknown>;
-          nextCustom[id] = rest;
-          touched = true;
-        }
-      });
-      if (touched) {
-        setCustomAnswers(nextCustom);
-        // localStorage에도 반영
-        try {
-          window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
-        } catch {
-          /* ignore */
-        }
+    const nextCustom = { ...customAnswers };
+    let touched = false;
+    ownerIds.forEach((id) => {
+      if (nextCustom[id]) {
+        delete nextCustom[id];
+        touched = true;
+      }
+    });
+    if (touched) {
+      setCustomAnswers(nextCustom);
+      try {
+        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
+      } catch {
+        /* ignore */
       }
     }
-    // 관용구(브라운톤) — active 인덱스를 덮는 idiom 마크도 함께 제거
-    if (indices.length > 0) {
-      const sentenceMarks = idiomMap[sentence.id] ?? [];
-      const toRemove = sentenceMarks.filter((m) =>
-        m.indices.some((i) => indices.includes(i)),
-      );
-      if (toRemove.length > 0) {
-        let nextMap = idiomMap;
-        toRemove.forEach((m) => {
-          nextMap = removeIdiom(sentence.id, m.indices);
-        });
-        setIdiomMap(nextMap);
-      }
-    }
+    // 관용구는 별도 핸들러에서만 삭제 (지우개는 SVOC만)
     clearActiveSelection();
   };
 
@@ -1380,13 +1379,24 @@ const Index = () => {
               const innerCompleteBg =
                 isCompleted && !isSelected && !isClauseSelection;
 
+              // === 다층 depth 계산 — layer가 깊을수록 더 진한 배경 ===
+              const layerCount = ownersHere.length;
+              const depthBgClass =
+                layerCount >= 3
+                  ? "bg-primary/[0.18]"
+                  : layerCount === 2
+                  ? "bg-primary/[0.12]"
+                  : "";
+
               const wordNode = (
                 <span
                   key={idx}
                   className={cn(
-                    "inline-flex items-end leading-none whitespace-nowrap",
+                    "inline-flex items-end leading-none whitespace-nowrap rounded-sm",
                     // 외곽 절(보라) 배경 — 톤 더 연하게
-                    outerIsClauseLocal && "bg-primary/[0.04]",
+                    outerIsClauseLocal && "bg-primary/[0.05]",
+                    // 다층(2층 이상) 가산 배경
+                    depthBgClass,
                   )}
                 >
                   {bracketRole && outerIsFirstLocal && (
@@ -1492,13 +1502,19 @@ const Index = () => {
                 </span>
               );
 
-              // 토큰 사이 공백 span — 다음 단어와 같은 owner를 공유하면 보라로 채움 (톤 더 연하게)
+              // 토큰 사이 공백 span — 다음 단어와 공유하는 owner 개수에 따라 깊이 색
               const isLastWord = idx === wordUnits.length - 1;
+              const sharedOwnersCount = !isLastWord
+                ? ownersHere.filter((o) => ownersNext.includes(o)).length +
+                  (outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId ? 1 : 0)
+                : 0;
               const spacerBg =
-                !isLastWord && (sharedWithNext || (outerIsClauseLocal && ownersNext.includes(outerOwnerId ?? "")))
+                sharedOwnersCount >= 3
+                  ? "bg-primary/[0.18]"
+                  : sharedOwnersCount === 2
+                  ? "bg-primary/[0.12]"
+                  : sharedOwnersCount === 1
                   ? "bg-primary/[0.06]"
-                  : sharedWithNext === undefined && outerIsClauseLocal && outerOwnerByIndex[idx + 1] === outerOwnerId
-                  ? "bg-primary/[0.04]"
                   : "";
               const spacerNode = !isLastWord ? (
                 <span
@@ -1534,34 +1550,63 @@ const Index = () => {
             })}
           </div>
 
-          {/* 선택 도구바: 지우개 + 선택 해제 — 항상 노출 (Item 2, 5) */}
+          {/* 선택 도구바: 지우개 + 관용구 — 항상 노출 */}
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
               {selectedWordIndices.length > 0
                 ? `선택됨 · ${selectedWordIndices.length}개 단어`
+                : selectedId && completedSelectionMap[selectedId]?.length
+                ? `완료 영역 · ${completedSelectionMap[selectedId].length}개 단어`
                 : "선택 없음"}
             </span>
-            <button
-              type="button"
-              onClick={handleEraser}
-              className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-              title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
-            >
-              🧽 지우개
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedWordIndices([]);
-                setSelectedId(null);
-                setDrawerOpen(false);
-              }}
-              disabled={selectedWordIndices.length === 0 && !selectedId}
-              className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-[11px] font-bold font-kr hover:bg-secondary/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title="하이라이트만 해제 (저장 데이터 유지)"
-            >
-              선택 해제
-            </button>
+            {(() => {
+              const eraseEnabled =
+                activeSelectionIndices.length > 0 ||
+                (!!selectedId &&
+                  (!!progressMap[selectedId] || !!completedSelectionMap[selectedId]));
+              return (
+                <button
+                  type="button"
+                  onClick={handleEraser}
+                  disabled={!eraseEnabled}
+                  className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
+                >
+                  🧽 지우개
+                </button>
+              );
+            })()}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  disabled={activeSelectionIndices.length < 1}
+                  className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{
+                    background: "hsl(var(--idiom-bg))",
+                    color: "hsl(var(--idiom-fg))",
+                    borderColor: "hsl(var(--idiom-border))",
+                  }}
+                  title="선택한 단어들을 관용구로 등록"
+                >
+                  🟫 관용구
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                side="top"
+                className="w-[min(92vw,360px)] p-3 z-[60]"
+              >
+                <IdiomSection
+                  surface={currentSelectionSurface()}
+                  existingMeaning={currentSelectionIdiom()?.meaning}
+                  answerInputMode={answerInputMode}
+                  onSave={handleIdiomSave}
+                  onRemove={handleIdiomRemove}
+                  enabled={activeSelectionIndices.length >= 1}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div
