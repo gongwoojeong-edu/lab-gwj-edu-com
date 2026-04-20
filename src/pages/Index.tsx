@@ -376,6 +376,18 @@ const Index = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [pendingModifierSource, pendingReferentSource]);
 
+  // pending 중 다른 owner를 선택하면 pending 자동 취소
+  useEffect(() => {
+    if (pendingModifierSource && selectedId && selectedId !== pendingModifierSource) {
+      setPendingModifierSource(null);
+    }
+    if (pendingReferentSource && selectedId && selectedId !== pendingReferentSource) {
+      setPendingReferentSource(null);
+    }
+    // selectedId만 watch — pending source 변경 자체는 무시
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
