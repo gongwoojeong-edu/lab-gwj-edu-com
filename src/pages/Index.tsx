@@ -1471,32 +1471,36 @@ const Index = () => {
             })}
           </div>
 
-          {/* 선택 도구바: 지우개 + 선택 해제 */}
-          {selectedWordIndices.length > 0 && (
-            <div className="mt-4 flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-                선택됨 · {selectedWordIndices.length}개 단어
-              </span>
-              <button
-                type="button"
-                onClick={handleEraser}
-                className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-              >
-                🧽 지우개
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedWordIndices([]);
-                  setSelectedId(null);
-                  setDrawerOpen(false);
-                }}
-                className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-[11px] font-bold font-kr hover:bg-secondary/70 transition-colors"
-              >
-                선택 해제
-              </button>
-            </div>
-          )}
+          {/* 선택 도구바: 지우개 + 선택 해제 — 항상 노출 (Item 2, 5) */}
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+              {selectedWordIndices.length > 0
+                ? `선택됨 · ${selectedWordIndices.length}개 단어`
+                : "선택 없음"}
+            </span>
+            <button
+              type="button"
+              onClick={handleEraser}
+              disabled={activeSelectionIndices.length === 0}
+              className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
+            >
+              🧽 지우개
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedWordIndices([]);
+                setSelectedId(null);
+                setDrawerOpen(false);
+              }}
+              disabled={selectedWordIndices.length === 0 && !selectedId}
+              className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-[11px] font-bold font-kr hover:bg-secondary/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title="하이라이트만 해제 (저장 데이터 유지)"
+            >
+              선택 해제
+            </button>
+          </div>
 
           <div
             className="absolute -bottom-10 -right-10 size-64 rounded-full blur-3xl opacity-40 pointer-events-none"
