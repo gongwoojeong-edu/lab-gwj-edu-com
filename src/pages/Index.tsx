@@ -2449,11 +2449,11 @@ const Index = () => {
               )}
               title={
                 eraserMode
-                  ? "지우개 모드 ON — 한 번 클릭 후 자동 해제 (ESC 취소)"
-                  : "지우개 활성화 — 한 번만 사용"
+                  ? "지우개 모드 ON (ESC 취소)"
+                  : "지우개 활성화"
               }
             >
-              🧽 지우개 — 한 번만 사용{eraserMode ? " · ON" : ""}
+              🧽 지우개{eraserMode ? " · ON" : ""}
             </button>
             {selectedWordIndices.length > 0 && (
               <button
