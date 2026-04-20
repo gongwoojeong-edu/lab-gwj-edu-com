@@ -35,9 +35,18 @@ import {
   type WordAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
-import { Pencil, RotateCcw } from "lucide-react";
+import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen } from "lucide-react";
 import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
 import { ExtractedWordsPanel } from "@/components/analyzer/ExtractedWordsPanel";
+import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   Drawer,
   DrawerContent,
@@ -390,6 +399,24 @@ const Index = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // 데스크톱에서 분석 패널 강제 숨김/복구 토글 (`?` 단축키 / 플로팅 버튼)
+  const [analysisPanelHidden, setAnalysisPanelHidden] = useState(false);
+
+  // ===== `?` (Shift+/) 단축키로 분석 패널 토글 =====
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "?") return;
+      const t = e.target as HTMLElement | null;
+      if (t) {
+        const tag = t.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable) return;
+      }
+      e.preventDefault();
+      setAnalysisPanelHidden((v) => !v);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   // ===== 정답 입력 모드 =====
   // 관리자 편의: localStorage에 상태를 보존해 페이지/HMR 새로고침 후에도 유지
@@ -2021,9 +2048,52 @@ const Index = () => {
                 </>
               );
             })()}
-            <AdminHintToggle />
-            <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
-            <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
+            {/* ── 구분선: 분석 워크플로우 ↔ 선생님 도구 ── */}
+            {isAdmin && (
+              <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
+            )}
+
+            {/* 선생님 도구 (데스크톱 ≥md): AI추출 / 단어목록 / 힌트 */}
+            {isAdmin && (
+              <div className="hidden md:flex items-center gap-2">
+                <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
+                <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
+                <AdminHintToggle />
+              </div>
+            )}
+
+            {/* 선생님 도구 (모바일 <md): ⋯ 도구 메뉴로 접기 */}
+            {isAdmin && (
+              <div className="md:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 h-8 px-2.5"
+                      aria-label="선생님 도구"
+                    >
+                      <MoreHorizontal className="size-4" />
+                      <span className="font-kr text-[11px] font-bold">도구</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60">
+                    <DropdownMenuLabel className="font-kr text-[11px]">선생님 도구</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <div className="flex flex-col gap-2 p-2">
+                      <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
+                      <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
+                      <AdminHintToggle />
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
+            {/* ── 구분선: 도구 ↔ 진행 상태/사용자 ── */}
+            <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
+
             {/* 관용구 버튼은 분석 메뉴 '기타' 항목 안으로 이동됨 */}
             {autoLoading && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 shadow-sm">
@@ -2073,11 +2143,50 @@ const Index = () => {
       </AlertDialog>
 
       {/* Desktop: fixed top-right panel */}
-      <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)] max-h-[calc(100vh-92px)] overflow-y-auto overscroll-contain rounded-2xl">
-        <AnswerInputModeProvider value={answerInputMode}>
-          <AnalysisPanel {...panelProps} />
-        </AnswerInputModeProvider>
-      </div>
+      {!analysisPanelHidden && (
+        <div
+          className={cn(
+            "hidden lg:block fixed top-[68px] right-4 z-30",
+            "w-[min(34vw,460px)] max-h-[calc(100vh-84px)]",
+            "overflow-y-auto overscroll-contain rounded-2xl",
+            "border border-border/60 bg-background/85 backdrop-blur-sm shadow-lg",
+          )}
+        >
+          <AnswerInputModeProvider value={answerInputMode}>
+            <AnalysisPanel {...panelProps} />
+          </AnswerInputModeProvider>
+          {!selectedId && (
+            <div className="px-4 py-6 text-center space-y-2 border-t border-border/40 mt-2">
+              <p className="text-[12px] font-kr text-muted-foreground">
+                단어를 선택하면 여기에서 분석할 수 있어요
+              </p>
+              <p className="text-[10px] text-muted-foreground/70 font-kr">
+                <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">?</kbd> 키로 패널 토글
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 데스크톱: 분석 패널이 숨겨진 경우 우측 하단 플로팅 복구 버튼 */}
+      {analysisPanelHidden && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setAnalysisPanelHidden(false)}
+              className="hidden lg:flex fixed bottom-4 right-4 z-40 items-center gap-2 px-3 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+              aria-label="분석 패널 열기"
+            >
+              <PanelRightOpen className="size-4" />
+              <span className="text-[11px] font-bold font-kr">분석 패널</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <span className="font-kr text-[11px]">분석 패널 열기 ( ? )</span>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       {allDone && (
         <main className="max-w-3xl mx-auto p-6 lg:p-12 pt-12 lg:pt-32">
