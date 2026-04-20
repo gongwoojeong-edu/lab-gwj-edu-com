@@ -1111,7 +1111,7 @@ const Index = () => {
   // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
     const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
@@ -1131,7 +1131,7 @@ const Index = () => {
 
   const handleNounElement = (e: SentenceElement) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { element: e });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
     const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
@@ -1149,7 +1149,7 @@ const Index = () => {
 
   const handleNounRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
@@ -1211,7 +1211,7 @@ const Index = () => {
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
     const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
@@ -1231,7 +1231,7 @@ const Index = () => {
 
   const handleAdjElement = (e: "C" | "M") => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { element: e });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
     const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
@@ -1249,7 +1249,7 @@ const Index = () => {
 
   const handleAdjRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
@@ -1309,7 +1309,7 @@ const Index = () => {
   // ===== 부사 =====
   const handleAdvForm = (f: AdvForm) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
     const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
@@ -1329,7 +1329,7 @@ const Index = () => {
 
   const handleAdvSubtype = (s: AdvSubtype) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { subtype: s });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { subtype: s });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
     const correct = answerInputMode || ans?.subtype === s;
     updateProgress(selectedId, (prev) => ({
@@ -1347,7 +1347,7 @@ const Index = () => {
 
   const handleAdvRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
@@ -1360,7 +1360,7 @@ const Index = () => {
   // ===== 기타 =====
   const handleEtcKind = (k: EtcKind) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { kind: k });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { kind: k });
     const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
     const correct = answerInputMode || ans?.kind === k;
     updateProgress(selectedId, (prev) => ({
@@ -1378,7 +1378,7 @@ const Index = () => {
 
   const handleEtcRole = (r: string) => {
     if (!selectedId) return;
-    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
+    if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
     const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
     const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
