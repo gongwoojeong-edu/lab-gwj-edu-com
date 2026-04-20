@@ -35,7 +35,7 @@ import {
   type WordAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Pencil, RotateCcw } from "lucide-react";
+import { Pencil, RotateCcw } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
