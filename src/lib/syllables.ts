@@ -10,6 +10,13 @@ const isVowel = (ch: string) => VOWELS.has(ch);
 export const splitIntoSyllables = (rawWord: string): string[] => {
   const word = rawWord.trim();
   if (!word) return [];
+  // 공백이 포함된 다중 단어(예: "driving force")는 단어별로 분리 후 재귀 처리
+  if (/\s/.test(word)) {
+    return word
+      .split(/\s+/)
+      .filter(Boolean)
+      .flatMap((part) => splitIntoSyllables(part));
+  }
   if (/[-/]/.test(word)) {
     return word
       .split(/[-/]/)
