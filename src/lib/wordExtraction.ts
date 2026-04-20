@@ -33,7 +33,7 @@ export const fetchExtraction = async (sentenceId: string): Promise<ExtractionRow
   return {
     sentence_id: data.sentence_id,
     english: data.english,
-    words: Array.isArray(data.words) ? (data.words as ExtractedWord[]) : [],
+    words: Array.isArray(data.words) ? (data.words as unknown as ExtractedWord[]) : [],
     model: data.model,
     updated_at: data.updated_at,
   };
