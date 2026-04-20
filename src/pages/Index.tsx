@@ -2173,7 +2173,8 @@ const Index = () => {
                 const layers = owners
                   .map((oid, i) => {
                     const op = progressMap[oid];
-                    if (!op) return null;
+                    // 살아있는 완료 owner만 배경 생성 — 잔상 방지
+                    if (!op || !op.completed) return null;
                     if (isClauseProgress(op)) return null; // clause는 배경 X
                     if (isParallelProgress(op)) return null; // parallel은 별도 .parallel-box
                     const v = layerVars[i % layerVars.length];
