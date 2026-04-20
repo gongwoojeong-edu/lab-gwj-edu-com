@@ -1415,7 +1415,7 @@ const Index = () => {
     const v = progress.verb;
     if (answerInputMode) {
       // 정답 입력 모드: 현재 동사 진행 상태를 그대로 정답으로 저장
-      if (selectedId) saveCustom(selectedId, {
+      if (selectedId) stagePatch(selectedId, {
         number: v.number ?? undefined,
         tense: v.tense ?? undefined,
         aspect: v.aspect,
