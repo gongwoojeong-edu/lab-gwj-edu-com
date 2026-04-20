@@ -2303,14 +2303,12 @@ const Index = () => {
               );
 
               // 토큰 사이 공백 — 양쪽 단어가 공유하는 owner의 layer 색을 동일하게 누적
-              // 단, clause owner는 spacer를 채우지 않음(박스 제거 정책). 병렬은 .parallel-box로 채움.
+              // 단, clause owner는 spacer 언더라인을 이어 그림. 병렬은 spacer를 끊어 단어별 독립 박스로.
               const isLastWord = idx === wordUnits.length - 1;
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
               const spacerBgImage = buildLayerBg(sharedOwners);
-              const sharedParallel =
-                !!parallelOwnerHere && parallelIndices.includes(idx + 1) && parallelIndices.includes(idx);
               // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결
               const isNextSelected = !isLastWord && selectedWordIndices.includes(idx + 1);
               const spacerSelectedBridge = isSelected && isNextSelected;
@@ -2320,14 +2318,20 @@ const Index = () => {
                 return !!op && !isClauseProgress(op) && !isParallelProgress(op);
               });
               const spacerCompletedBridge = !!generalSharedOwner && !spacerSelectedBridge;
+              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 clause owner에 속하면 spacer 하단도 같은 색 라인
+              const clauseSharedOwner = sharedOwners.find((oid) => {
+                const op = progressMap[oid];
+                return !!op && isClauseProgress(op);
+              });
+              const clauseSpacerUnderline = clauseSharedOwner ? clauseUnderlineClass : "";
               const spacerNode = !isLastWord ? (
                 <span
                   key={`sp-${idx}`}
                   className={cn(
                     "inline-flex items-end self-end leading-none",
-                    sharedParallel && "parallel-box",
                     spacerSelectedBridge && "bg-primary/25",
                     spacerCompletedBridge && "bg-primary/[0.07] border-b border-primary/20",
+                    clauseSpacerUnderline,
                   )}
                   style={spacerBgImage ? { backgroundImage: spacerBgImage } : undefined}
                   aria-hidden
