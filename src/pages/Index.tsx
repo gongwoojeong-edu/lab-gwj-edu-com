@@ -954,9 +954,20 @@ const Index = () => {
     }));
   };
 
-  useEffect(() => {
-    if (!selectedId || !progress.completed) return;
+  // owner별 자동 finalize 1회 처리 플래그 — 완료 owner를 재선택해도 selection이 사라지지 않도록
+  const finalizedOwnersRef = useRef<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (!selectedId) return;
+    if (!progress.completed) return;
+    // 이미 finalize 처리된 owner면 selection을 다시 지우지 않음
+    if (finalizedOwnersRef.current.has(selectedId)) return;
+    if (completedSelectionMap[selectedId]?.length) {
+      // 이미 완료 영역이 저장된 owner를 재선택한 경우도 스킵
+      finalizedOwnersRef.current.add(selectedId);
+      return;
+    }
+    finalizedOwnersRef.current.add(selectedId);
     finalizeCompletedAnalysis(selectedId, {
       persistClause: shouldPersistClauseSelection(),
     });
