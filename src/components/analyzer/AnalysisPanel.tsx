@@ -544,7 +544,7 @@ export const AnalysisPanel = ({
 // Idiom / Phrase Section — SVOC 분석과 독립
 // 항상 패널 하단에 별도 카드로 노출. enabled=false 면 안내 메시지만 표시.
 // ============================================================
-const IdiomSection = ({
+export const IdiomSection = ({
   surface,
   existingMeaning,
   answerInputMode,
