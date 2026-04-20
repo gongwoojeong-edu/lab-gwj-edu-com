@@ -1344,8 +1344,29 @@ const Index = () => {
 
           {/* === 토큰 사이 인접 완료 layer 검사용 헬퍼 === */}
           {(() => null)()}
+          {(() => {
+            const maxDepth = Object.values(completedOwnersByIndex).reduce(
+              (max, owners) => Math.max(max, owners?.length ?? 0),
+              0,
+            );
+            if (maxDepth < 2) return null;
+            const labels = ["단어/구", "절(2층)", "3층", "4층"];
+            return (
+              <div className="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-kr text-muted-foreground">
+                <span className="font-semibold">Layer:</span>
+                {Array.from({ length: Math.min(maxDepth, 4) }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={cn("sub-badge-pill", `sub-badge-pill-${i + 1}`)}
+                  >
+                    {i + 1}. {labels[i]}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
           <div
-            className="flex flex-wrap items-end gap-y-7 pt-2 pb-1 select-none"
+            className="flex flex-wrap items-end gap-y-7 pt-8 pb-1 select-none"
             onMouseLeave={() => isDragging && finalizeSelection()}
           >
             {wordUnits.map((u, idx) => {
@@ -1397,6 +1418,11 @@ const Index = () => {
               const selEnd = completedIndices[completedIndices.length - 1];
               const isFirstOfSelection = isCompleted && idx === selStart;
               const isLastOfSelection = isCompleted && idx === selEnd;
+              // 안쪽 부배지 anchor — owner 청크의 중간 인덱스
+              const innerMidIdx = completedIndices.length
+                ? completedIndices[Math.floor((completedIndices.length - 1) / 2)]
+                : -1;
+              const isInnerBadgeAnchor = isCompleted && idx === innerMidIdx;
 
               // 외곽 layer (절) — 인덱스 범위만 잡고, 의미는 progress 에서.
               const outerOwnerId = outerOwnerByIndex[idx];
@@ -1436,9 +1462,21 @@ const Index = () => {
               const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
                 outerIsClauseLocal ? outerBadge ?? "M" : undefined;
 
-              // 부배지(품사 라벨) — 단어 layer 우선
+              // === 부배지 layer depth 계산 ===
+              // ownersHere 순서: 안쪽(좁은) → 외곽(넓은).
+              const innerLayerIdx = ownerId ? ownersHere.indexOf(ownerId) : -1;
+              const outerLayerIdx = outerOwnerId ? ownersHere.indexOf(outerOwnerId) : -1;
+              const innerLayerNum = innerLayerIdx >= 0 ? (innerLayerIdx % 4) + 1 : 1;
+              const outerLayerNum = outerLayerIdx >= 0 ? (outerLayerIdx % 4) + 1 : 2;
+              // 세로 위치: layer가 깊어질수록 위로 (px 단위)
+              const innerBadgeTop = -(14 + Math.max(innerLayerIdx, 0) * 14);
+              const outerBadgeTop = -(14 + Math.max(outerLayerIdx, 0) * 14);
+
+              // 부배지(품사 라벨) — owner 중간 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
-                isCompleted && isFirstOfSelection ? innerSubLabel : undefined;
+                isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
+              const outerKoreanLabel =
+                outerIsClauseLocal && outerIsBadgeAnchor ? outerSubLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
@@ -1521,9 +1559,40 @@ const Index = () => {
                     }
                   >
                     {koreanLabel && (
-                      <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
-                        {koreanLabel}
-                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={cn(
+                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
+                              `sub-badge-pill-${innerLayerNum}`,
+                            )}
+                            style={{ top: `${innerBadgeTop}px` }}
+                          >
+                            {koreanLabel}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs font-kr">
+                          {koreanLabel}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {outerKoreanLabel && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={cn(
+                              "absolute left-1/2 -translate-x-1/2 sub-badge-pill",
+                              `sub-badge-pill-${outerLayerNum}`,
+                            )}
+                            style={{ top: `${outerBadgeTop}px` }}
+                          >
+                            {outerKoreanLabel}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs font-kr">
+                          {outerKoreanLabel}
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     <span
                       className={cn(
