@@ -307,10 +307,26 @@ const Index = () => {
   // 규칙: 새 클릭/드래그가 기존 선택을 절대 비우지 않는다.
   //       이미 선택된 단어를 다시 클릭하면 그 단어만 제거(토글).
   //       전체 해제는 [지우개] 또는 분석 완료 시에만 발생.
+  //       완료된 토큰을 클릭하면 → 그 토큰의 저장된 인덱스를 통째로 selection으로 복원 (재편집).
   const handleWordMouseDown = (idx: number, _e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
 
     const tokenId = wordUnits[idx].tokenId;
+    const ownerId = completedSelectionMap && tokenId
+      ? tokenId
+      : (Object.entries(completedSelectionMap).find(([, indices]) =>
+          indices.includes(idx),
+        )?.[0]);
+
+    // 이미 완료된 토큰을 클릭 → progress 그대로 두고, selection만 그 범위로 복원
+    if (ownerId && progressMap[ownerId]?.completed && selectedWordIndices.length === 0) {
+      const indices = completedSelectionMap[ownerId] ?? [idx];
+      setSelectedId(ownerId);
+      setSelectedWordIndices(indices);
+      setDragStart(idx);
+      return;
+    }
+
     if (tokenId) handleSelect(tokenId);
     else setSelectedId(null);
 
@@ -345,10 +361,11 @@ const Index = () => {
     finalizeSelection();
   };
 
-  // ===== 지우개: 선택된 단어들의 분석 결과 모두 초기화 =====
+  // ===== 지우개: 선택된 단어들의 분석 + 숙어 마크 모두 초기화 =====
   const handleEraser = () => {
     const tokenIds = new Set<string>();
-    selectedWordIndices.forEach((i) => {
+    const indices = selectedWordIndices.slice();
+    indices.forEach((i) => {
       const tid = wordUnits[i]?.tokenId;
       if (tid) tokenIds.add(tid);
     });
