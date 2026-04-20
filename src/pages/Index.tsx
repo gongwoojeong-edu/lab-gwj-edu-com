@@ -58,6 +58,25 @@ import {
   mergeAnswer,
   type CustomAnswerMap,
 } from "@/lib/customAnswers";
+import {
+  loadIdioms,
+  upsertIdiom,
+  removeIdiom,
+  findIdiomCoveringIndex,
+  findIdiomByIndices,
+  getAllIdiomsFlat,
+  type IdiomMap,
+  type IdiomMark,
+} from "@/lib/idioms";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { BookMarked } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 type WordProgress = {
@@ -141,8 +160,12 @@ const Index = () => {
   const [answerInputMode, setAnswerInputMode] = useState(false);
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
 
+  // ===== 숙어 / Phrase store (SVOC와 독립) =====
+  const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
+
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
+    setIdiomMap(loadIdioms());
   }, []);
 
   const resetCustomAnswers = () => {
@@ -284,10 +307,26 @@ const Index = () => {
   // 규칙: 새 클릭/드래그가 기존 선택을 절대 비우지 않는다.
   //       이미 선택된 단어를 다시 클릭하면 그 단어만 제거(토글).
   //       전체 해제는 [지우개] 또는 분석 완료 시에만 발생.
+  //       완료된 토큰을 클릭하면 → 그 토큰의 저장된 인덱스를 통째로 selection으로 복원 (재편집).
   const handleWordMouseDown = (idx: number, _e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
 
     const tokenId = wordUnits[idx].tokenId;
+    const ownerId = completedSelectionMap && tokenId
+      ? tokenId
+      : (Object.entries(completedSelectionMap).find(([, indices]) =>
+          indices.includes(idx),
+        )?.[0]);
+
+    // 이미 완료된 토큰을 클릭 → progress 그대로 두고, selection만 그 범위로 복원
+    if (ownerId && progressMap[ownerId]?.completed && selectedWordIndices.length === 0) {
+      const indices = completedSelectionMap[ownerId] ?? [idx];
+      setSelectedId(ownerId);
+      setSelectedWordIndices(indices);
+      setDragStart(idx);
+      return;
+    }
+
     if (tokenId) handleSelect(tokenId);
     else setSelectedId(null);
 
@@ -322,10 +361,11 @@ const Index = () => {
     finalizeSelection();
   };
 
-  // ===== 지우개: 선택된 단어들의 분석 결과 모두 초기화 =====
+  // ===== 지우개: 선택된 단어들의 분석 + 숙어 마크 모두 초기화 =====
   const handleEraser = () => {
     const tokenIds = new Set<string>();
-    selectedWordIndices.forEach((i) => {
+    const indices = selectedWordIndices.slice();
+    indices.forEach((i) => {
       const tid = wordUnits[i]?.tokenId;
       if (tid) tokenIds.add(tid);
     });
@@ -339,7 +379,51 @@ const Index = () => {
       tokenIds.forEach((id) => delete next[id]);
       return next;
     });
+    // 겹치는 숙어 마크도 함께 삭제
+    const overlappingIdioms = (idiomMap[sentence.id] ?? []).filter((m) =>
+      m.indices.some((i) => indices.includes(i)),
+    );
+    if (overlappingIdioms.length > 0) {
+      let nextMap = idiomMap;
+      overlappingIdioms.forEach((m) => {
+        nextMap = removeIdiom(sentence.id, m.indices);
+      });
+      setIdiomMap(nextMap);
+    }
     clearActiveSelection();
+  };
+
+  // ===== 숙어 / Phrase 핸들러 =====
+  const currentSelectionSurface = () =>
+    selectedWordIndices
+      .map((i) => wordUnits[i]?.word)
+      .filter(Boolean)
+      .join(" ");
+
+  const currentSelectionIdiom = (): IdiomMark | undefined => {
+    if (selectedWordIndices.length === 0) return undefined;
+    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    return findIdiomByIndices(idiomMap, sentence.id, sorted);
+  };
+
+  const handleIdiomSave = (meaning: string) => {
+    if (selectedWordIndices.length === 0) return;
+    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    const surface = currentSelectionSurface();
+    const next = upsertIdiom(sentence.id, sorted, surface, meaning);
+    setIdiomMap(next);
+    toast({
+      title: "🟫 숙어 저장됨",
+      description: `"${surface}" — ${meaning}`,
+    });
+  };
+
+  const handleIdiomRemove = () => {
+    if (selectedWordIndices.length === 0) return;
+    const sorted = [...selectedWordIndices].sort((a, b) => a - b);
+    const next = removeIdiom(sentence.id, sorted);
+    setIdiomMap(next);
+    toast({ title: "숙어를 삭제했습니다" });
   };
 
   useEffect(() => {
@@ -778,7 +862,14 @@ const Index = () => {
     onVerbToggleVoice: handleVerbVoice,
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
+    // Idiom layer
+    idiomEnabled: selectedWordIndices.length >= 1,
+    idiomExistingMeaning: currentSelectionIdiom()?.meaning,
+    onIdiomSave: handleIdiomSave,
+    onIdiomRemove: handleIdiomRemove,
   };
+
+  const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
 
   const completedSelectionOwnerByIndex = useMemo(() => {
     const ownerMap: Record<number, string> = {};
@@ -793,6 +884,7 @@ const Index = () => {
   }, [completedSelectionMap]);
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="min-h-screen bg-background">
       {/* Header */}
       <nav className="glass-panel sticky top-0 z-50 border-b px-6 lg:px-8 py-3">
@@ -870,6 +962,56 @@ const Index = () => {
               </AlertDialog>
             )}
             <AdminHintToggle />
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors border"
+                  style={{
+                    background: "hsl(var(--idiom-bg))",
+                    color: "hsl(var(--idiom-fg))",
+                    borderColor: "hsl(var(--idiom-border))",
+                  }}
+                  title="등록된 숙어 전체 보기"
+                >
+                  <BookMarked className="size-3" />
+                  숙어 {allIdiomsCount}
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-kr">📚 등록된 숙어 / Phrase</DialogTitle>
+                </DialogHeader>
+                {allIdiomsCount === 0 ? (
+                  <p className="text-sm text-muted-foreground font-kr py-6 text-center">
+                    아직 등록된 숙어가 없습니다. 정답 입력 모드에서 단어를 선택하고 숙어를 저장하세요.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {getAllIdiomsFlat(idiomMap).map((m) => (
+                      <li
+                        key={m.id}
+                        className="rounded-lg border p-2.5 flex items-baseline justify-between gap-3"
+                        style={{
+                          background: "hsl(var(--idiom-bg) / 0.4)",
+                          borderColor: "hsl(var(--idiom-border))",
+                        }}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold truncate" style={{ color: "hsl(var(--idiom-fg))" }}>
+                            {m.surface}
+                          </p>
+                          <p className="text-xs font-kr text-foreground/80 mt-0.5">{m.meaning}</p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                          {m.sentenceId}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </DialogContent>
+            </Dialog>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
               <div className="size-2 rounded-full bg-element-o animate-pulse" />
               <span className="text-[11px] font-medium text-muted-foreground font-kr">
@@ -1040,7 +1182,14 @@ const Index = () => {
               const bracketWeight =
                 bracketRole ? "font-extrabold" : "font-normal";
 
-              return (
+              // === Idiom 레이어 (SVOC와 독립) ===
+              const idiomMark = findIdiomCoveringIndex(idiomMap, sentence.id, idx);
+              const idiomFirst =
+                idiomMark && idiomMark.indices[0] === idx;
+              const idiomLast =
+                idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
+
+              const wordNode = (
                 <span key={idx} className="inline-flex items-end leading-none whitespace-nowrap">
                   {bracketRole && isFirstOfSelection && (
                     <span
@@ -1059,7 +1208,24 @@ const Index = () => {
                     }}
                     onMouseEnter={() => handleWordMouseEnter(idx)}
                     onMouseUp={handleWordMouseUp}
-                    className="relative inline-flex flex-col items-center cursor-pointer leading-none"
+                    className={cn(
+                      "relative inline-flex flex-col items-center cursor-pointer leading-none",
+                      // Idiom outer wrapper: 옅은 sepia (SVOC inner span과 공존)
+                      idiomMark && "py-0.5",
+                    )}
+                    style={
+                      idiomMark
+                        ? {
+                            background: "hsl(var(--idiom-bg))",
+                            paddingLeft: idiomFirst ? "0.35rem" : "0.05rem",
+                            paddingRight: idiomLast ? "0.35rem" : "0.05rem",
+                            borderTopLeftRadius: idiomFirst ? "0.35rem" : 0,
+                            borderBottomLeftRadius: idiomFirst ? "0.35rem" : 0,
+                            borderTopRightRadius: idiomLast ? "0.35rem" : 0,
+                            borderBottomRightRadius: idiomLast ? "0.35rem" : 0,
+                          }
+                        : undefined
+                    }
                   >
                     {koreanLabel && (
                       <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
@@ -1069,8 +1235,8 @@ const Index = () => {
                     <span
                       className={cn(
                         "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
-                        // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
-                        "bg-muted/40",
+                        // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경 (idiom일 땐 생략 — sepia가 대신)
+                        !idiomMark && "bg-muted/40",
                         // 완료된 단어들 — 일반: 옅은 보라 + 하단 라인으로 "처리됨" 표시
                         isCompleted && !isSelected && !isModifier && !isClauseSelection &&
                           "bg-primary/[0.10] border-b border-primary/30",
@@ -1107,6 +1273,23 @@ const Index = () => {
                   )}
                 </span>
               );
+
+              // Idiom의 첫 토큰에만 Tooltip을 부착 (의미 표시는 한 번이면 충분)
+              if (idiomMark && idiomFirst) {
+                return (
+                  <Tooltip key={idx}>
+                    <TooltipTrigger asChild>{wordNode}</TooltipTrigger>
+                    <TooltipContent side="top" className="font-kr text-xs max-w-xs">
+                      <p className="font-bold mb-0.5" style={{ color: "hsl(var(--idiom-fg))" }}>
+                        🟫 {idiomMark.surface}
+                      </p>
+                      <p>{idiomMark.meaning}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return wordNode;
             })}
           </div>
 
@@ -1186,9 +1369,9 @@ const Index = () => {
             if (!open) setSelectedId(null);
           }}
         >
-          <DrawerContent className="max-h-[75vh]">
+          <DrawerContent className="max-h-[88dvh]">
             <DrawerTitle className="sr-only">단어 분석</DrawerTitle>
-            <div className="px-3 pb-4 pt-2 overflow-y-auto">
+            <div className="px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 overflow-y-auto max-h-[calc(88dvh-1.5rem)]">
               <AnswerInputModeProvider value={answerInputMode}>
                 <AnalysisPanel {...panelProps} />
               </AnswerInputModeProvider>
@@ -1206,6 +1389,7 @@ const Index = () => {
         </div>
       </footer>
     </div>
+    </TooltipProvider>
   );
 };
 

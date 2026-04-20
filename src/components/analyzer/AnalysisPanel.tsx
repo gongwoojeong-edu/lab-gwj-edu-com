@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Check, X, Lock } from "lucide-react";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // ============================================================
@@ -129,6 +129,12 @@ interface AnalysisPanelProps {
   onVerbToggleVoice: () => void;
   onVerbToggleProVerb: () => void;
   onVerbConfirm: () => void;
+
+  // ===== Idiom / Phrase layer (Layer 9) — SVOC와 독립 =====
+  idiomEnabled?: boolean;        // selectedWordIndices.length >= 1
+  idiomExistingMeaning?: string; // 현재 선택 인덱스에 등록된 숙어가 있다면 의미
+  onIdiomSave?: (meaning: string) => void;
+  onIdiomRemove?: () => void;
 }
 
 // ============================================================
@@ -374,18 +380,34 @@ export const AnalysisPanel = ({
   onVerbToggleVoice,
   onVerbToggleProVerb,
   onVerbConfirm,
+  idiomEnabled,
+  idiomExistingMeaning,
+  onIdiomSave,
+  onIdiomRemove,
 }: AnalysisPanelProps) => {
+  const answerInputMode = useAnswerInputMode();
+
   if (!selectedWord || !answer) {
     return (
-      <aside className="glass-panel rounded-xl px-3 py-1.5 flex items-center justify-center text-center h-11">
-        <p className="text-[11px] text-muted-foreground font-kr">
-          단어를 선택하면 분석 메뉴가 활성화됩니다.
-        </p>
+      <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto">
+        {idiomEnabled && (
+          <IdiomSection
+            surface={selectedWord ?? ""}
+            existingMeaning={idiomExistingMeaning}
+            answerInputMode={answerInputMode}
+            onSave={onIdiomSave}
+            onRemove={onIdiomRemove}
+          />
+        )}
+        <div className="flex items-center justify-center text-center h-11">
+          <p className="text-[11px] text-muted-foreground font-kr">
+            단어를 선택하면 분석 메뉴가 활성화됩니다.
+          </p>
+        </div>
       </aside>
     );
   }
 
-  const answerInputMode = useAnswerInputMode();
   const posCorrect = posStatus === "correct";
   const isNoun = posCorrect && answer.pos === "명사";
   const isVerb = posCorrect && answer.pos === "동사";
@@ -451,7 +473,7 @@ export const AnalysisPanel = ({
   };
 
   return (
-    <aside className="glass-panel rounded-xl px-3 py-1.5">
+    <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center gap-2 flex-wrap justify-between">
         {/* Selected word */}
         <div className="flex items-baseline gap-1.5 min-w-0">
@@ -504,7 +526,7 @@ export const AnalysisPanel = ({
                     sideOffset={8}
                     collisionPadding={12}
                     avoidCollisions
-                    className="w-[min(92vw,380px)] p-3 space-y-3 z-[60]"
+                    className="w-[min(92vw,380px)] p-3 space-y-3 z-[60] max-h-[80dvh] overflow-y-auto"
                   >
                     {renderSubPanel()}
                   </PopoverContent>
@@ -520,7 +542,128 @@ export const AnalysisPanel = ({
           <StatusPill status={posStatus} />
         </div>
       </div>
+
+      {idiomEnabled && (
+        <IdiomSection
+          surface={selectedWord}
+          existingMeaning={idiomExistingMeaning}
+          answerInputMode={answerInputMode}
+          onSave={onIdiomSave}
+          onRemove={onIdiomRemove}
+        />
+      )}
     </aside>
+  );
+};
+
+// ============================================================
+// Idiom / Phrase Section — SVOC 분석과 독립
+// 정답 모드: 의미 입력 + 저장 / 기존 마크 시 수정·삭제
+// 일반 모드: 등록된 의미만 표시
+// ============================================================
+const IdiomSection = ({
+  surface,
+  existingMeaning,
+  answerInputMode,
+  onSave,
+  onRemove,
+}: {
+  surface: string;
+  existingMeaning?: string;
+  answerInputMode: boolean;
+  onSave?: (meaning: string) => void;
+  onRemove?: () => void;
+}) => {
+  const [draft, setDraft] = useState(existingMeaning ?? "");
+
+  // existingMeaning이 외부에서 바뀌면 입력값 동기화
+  useEffect(() => {
+    setDraft(existingMeaning ?? "");
+  }, [existingMeaning]);
+
+  const handleSave = () => {
+    const m = draft.trim();
+    if (!m) return;
+    onSave?.(m);
+  };
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/60">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest font-kr"
+          style={{ color: "hsl(var(--idiom-fg))" }}
+        >
+          🟫 Layer 9 · 숙어 / Phrase
+        </p>
+        {existingMeaning && (
+          <span
+            className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+            style={{
+              background: "hsl(var(--idiom-bg))",
+              color: "hsl(var(--idiom-fg))",
+            }}
+          >
+            등록됨
+          </span>
+        )}
+      </div>
+
+      {answerInputMode ? (
+        <div className="space-y-1.5">
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSave();
+              }
+            }}
+            placeholder={`"${surface}" 의미 (예: ~을 떠맡다)`}
+            className="w-full h-8 px-2 rounded-md border border-border bg-background text-[12px] font-kr focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!draft.trim()}
+              className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors disabled:opacity-40"
+              style={{
+                background: "hsl(var(--idiom-bg))",
+                color: "hsl(var(--idiom-fg))",
+                border: "1px solid hsl(var(--idiom-border))",
+              }}
+            >
+              {existingMeaning ? "수정 저장" : "🟫 숙어 저장"}
+            </button>
+            {existingMeaning && (
+              <button
+                type="button"
+                onClick={onRemove}
+                className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+              >
+                삭제
+              </button>
+            )}
+          </div>
+        </div>
+      ) : existingMeaning ? (
+        <p
+          className="text-[12px] font-kr px-2 py-1 rounded"
+          style={{
+            background: "hsl(var(--idiom-bg))",
+            color: "hsl(var(--idiom-fg))",
+          }}
+        >
+          {existingMeaning}
+        </p>
+      ) : (
+        <p className="text-[10px] text-muted-foreground/70 italic font-kr px-1">
+          정답 입력 모드에서 숙어로 등록할 수 있습니다.
+        </p>
+      )}
+    </div>
   );
 };
 
