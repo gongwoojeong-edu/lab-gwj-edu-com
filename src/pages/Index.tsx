@@ -940,17 +940,41 @@ const Index = () => {
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
 
-  const completedSelectionOwnerByIndex = useMemo(() => {
-    const ownerMap: Record<number, string> = {};
-
+  // 인덱스별 모든 owner들 (다층 layer 지원: 좁은 owner = 안쪽 layer 우선)
+  const completedOwnersByIndex = useMemo(() => {
+    const m: Record<number, string[]> = {};
     Object.entries(completedSelectionMap).forEach(([ownerId, indices]) => {
       indices.forEach((index) => {
-        ownerMap[index] = ownerId;
+        if (!m[index]) m[index] = [];
+        m[index].push(ownerId);
       });
     });
-
-    return ownerMap;
+    Object.keys(m).forEach((k) => {
+      const idx = Number(k);
+      m[idx].sort(
+        (a, b) =>
+          (completedSelectionMap[a]?.length ?? 0) - (completedSelectionMap[b]?.length ?? 0),
+      );
+    });
+    return m;
   }, [completedSelectionMap]);
+
+  // 안쪽(좁은) layer owner — 부속 배지/한글 라벨용
+  // 외곽(넓은) layer owner — 절 wrapper/배경용
+  const innerOwnerByIndex = useMemo(() => {
+    const m: Record<number, string | undefined> = {};
+    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
+      m[Number(k)] = owners[0];
+    });
+    return m;
+  }, [completedOwnersByIndex]);
+  const outerOwnerByIndex = useMemo(() => {
+    const m: Record<number, string | undefined> = {};
+    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
+      m[Number(k)] = owners[owners.length - 1];
+    });
+    return m;
+  }, [completedOwnersByIndex]);
 
   return (
     <TooltipProvider delayDuration={150}>
