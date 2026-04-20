@@ -2374,10 +2374,10 @@ const Index = () => {
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
-              // 병렬 owner는 spacer 채움 제외
+              // 병렬 owner는 spacer 채움 제외 + 살아있는 완료 owner만 사용
               const fillableSharedOwners = sharedOwners.filter((o) => {
                 const op = progressMap[o];
-                return !!op && !isParallelProgress(op);
+                return !!op && op.completed && !isParallelProgress(op);
               });
               const spacerBgImage = buildLayerBg(fillableSharedOwners);
               // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결
@@ -2389,10 +2389,10 @@ const Index = () => {
                 return !!op && !isClauseProgress(op);
               });
               const spacerCompletedBridge = !!generalSharedOwner && !spacerSelectedBridge;
-              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 clause owner에 속하면 spacer 하단도 같은 색 라인
+              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 살아있는 clause owner에 속할 때만
               const clauseSharedOwner = sharedOwners.find((oid) => {
                 const op = progressMap[oid];
-                return !!op && isClauseProgress(op);
+                return !!op && op.completed && isClauseProgress(op);
               });
               const clauseSpacerUnderline = clauseSharedOwner ? clauseUnderlineClass : "";
               const spacerNode = !isLastWord ? (
