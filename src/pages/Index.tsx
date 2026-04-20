@@ -30,6 +30,7 @@ import {
   type AdjAnswer,
   type AdvAnswer,
   type EtcAnswer,
+  type WordAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Pencil, RotateCcw } from "lucide-react";
@@ -229,20 +230,60 @@ const Index = () => {
   );
 
   const OWNER_KEY_SEPARATOR = "::";
+  const SPAN_PREFIX = "span";
 
-  const getOwnerTokenId = (ownerId: string) => ownerId.split(OWNER_KEY_SEPARATOR)[0] ?? ownerId;
+  const isSpanOwnerId = (ownerId: string) => ownerId.startsWith(`${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}`);
+
+  // span::{sentenceId}::{start}-{end}
+  const buildSpanOwnerId = (start: number, end: number) =>
+    `${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}${sentence.id}${OWNER_KEY_SEPARATOR}${start}-${end}`;
+
+  const parseSpanRange = (ownerId: string): [number, number] | null => {
+    if (!isSpanOwnerId(ownerId)) return null;
+    const parts = ownerId.split(OWNER_KEY_SEPARATOR);
+    const range = parts[2];
+    if (!range) return null;
+    const [s, e] = range.split("-").map((n) => Number(n));
+    if (Number.isFinite(s) && Number.isFinite(e)) return [s, e];
+    return null;
+  };
+
+  // span owner의 첫 analyzable 토큰을 owner의 "대표 토큰"으로 사용 (UI 표시 fallback)
+  const getOwnerTokenId = (ownerId: string) => {
+    if (isSpanOwnerId(ownerId)) {
+      const range = parseSpanRange(ownerId);
+      if (range) {
+        for (let i = range[0]; i <= range[1]; i++) {
+          const tid = wordUnits[i]?.tokenId;
+          if (tid) return tid;
+        }
+      }
+      return ownerId;
+    }
+    return ownerId.split(OWNER_KEY_SEPARATOR)[0] ?? ownerId;
+  };
 
   const getTokenById = (tokenId: string | null | undefined): AnalyzableToken | undefined =>
     sentence.tokens.find(
       (t): t is AnalyzableToken => t.type === "analyzable" && t.id === tokenId,
     );
 
-  const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken) => {
-    if (ownerId === token.id) {
+  // span owner의 가상 answer — 채점은 의미 없고 customAnswers 머지가 핵심
+  const SPAN_VIRTUAL_ANSWER: WordAnswer = {
+    pos: "명사",
+    form: "명사",
+    role: "",
+    koreanLabel: "",
+  } as WordAnswer;
+
+  const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken | undefined) => {
+    if (isSpanOwnerId(ownerId)) {
+      return mergeAnswer(SPAN_VIRTUAL_ANSWER, customAnswers[ownerId]);
+    }
+    if (token && ownerId === token.id) {
       return mergeAnswer(token.answer, customAnswers[token.id]);
     }
-
-    return mergeAnswer(token.answer, customAnswers[ownerId]);
+    return mergeAnswer((token?.answer ?? SPAN_VIRTUAL_ANSWER), customAnswers[ownerId]);
   };
 
   const completedCount = new Set(
@@ -255,10 +296,19 @@ const Index = () => {
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
   // 정답 입력 모드에서 저장된 정답을 머지한 토큰
-  const selectedToken =
-    selectedId && selectedTokenRaw
+  // span owner: selectedTokenRaw 가 없을 수 있다 → 가상 토큰으로 wrap
+  const selectedToken = selectedId
+    ? selectedTokenRaw
       ? { ...selectedTokenRaw, answer: getMergedAnswerForOwner(selectedId, selectedTokenRaw) }
-      : undefined;
+      : isSpanOwnerId(selectedId)
+        ? {
+            type: "analyzable" as const,
+            id: selectedId,
+            text: "",
+            answer: getMergedAnswerForOwner(selectedId, undefined),
+          }
+        : undefined
+    : undefined;
   const selectedAnswer = selectedToken?.answer ?? null;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
   const activeSelectionIndices = useMemo(() => {
@@ -283,15 +333,13 @@ const Index = () => {
   // 정답 입력 모드에서 한 필드를 저장
   const buildOwnerId = (indices: number[]) => {
     const sorted = Array.from(new Set(indices)).sort((a, b) => a - b);
-    const tokenIds = Array.from(
-      new Set(sorted.map((index) => wordUnits[index]?.tokenId).filter(Boolean)),
-    ) as string[];
-
-    if (tokenIds.length !== 1 || sorted.length !== 1) {
-      return pickSelectedIdFromIndices(sorted);
+    if (sorted.length === 0) return null;
+    if (sorted.length === 1) {
+      const tid = wordUnits[sorted[0]]?.tokenId;
+      if (tid) return `${tid}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+      return null;
     }
-
-    return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+    return buildSpanOwnerId(sorted[0], sorted[sorted.length - 1]);
   };
 
   const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
@@ -341,24 +389,20 @@ const Index = () => {
     clearActiveSelection();
   };
 
-  // 선택된 인덱스들에서 분석 패널의 selectedId를 결정 (동사 토큰 우선)
+  // 선택된 인덱스들에서 분석 패널의 selectedId를 결정
+  // - 단일 인덱스: tokenId::idx (단일 토큰 owner — 기존 정답과 머지)
+  // - 다중 인덱스: span::sentenceId::start-end (별개 owner — 기존 단일 분석과 충돌 X)
   const pickSelectedIdFromIndices = (indices: number[]): string | null => {
     if (indices.length === 0) return null;
-    const tokenIds: string[] = [];
-    indices.forEach((i) => {
-      const tid = wordUnits[i]?.tokenId;
-      if (tid && !tokenIds.includes(tid)) tokenIds.push(tid);
-    });
-    if (tokenIds.length === 0) return null;
-    if (tokenIds.length === 1 && indices.length === 1) {
-      return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${indices[0]}`;
+    const sorted = Array.from(new Set(indices)).sort((a, b) => a - b);
+    if (sorted.length === 1) {
+      const tid = wordUnits[sorted[0]]?.tokenId;
+      if (tid) return `${tid}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+      // analyzable 토큰이 없는 단어 단독은 분석 불가
+      return null;
     }
-    // 동사 토큰 우선 (절 분석 진입에 필수)
-    const verbTid = tokenIds.find((tid) => {
-      const tk = getTokenById(tid);
-      return tk?.answer.pos === "동사";
-    });
-    return verbTid ?? tokenIds[0];
+    // 다중 인덱스: 항상 span owner — 단일 토큰 분석과 분리 보존
+    return buildSpanOwnerId(sorted[0], sorted[sorted.length - 1]);
   };
 
   // ===== 단어 단위 선택 =====
