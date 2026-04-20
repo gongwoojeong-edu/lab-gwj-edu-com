@@ -1838,6 +1838,36 @@ const Index = () => {
         </div>
       </nav>
 
+      {/* 미저장 변경 — 모드 OFF 확인 다이얼로그 */}
+      <AlertDialog
+        open={!!pendingNavAction}
+        onOpenChange={(open) => {
+          if (!open) setPendingNavAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-kr">저장하지 않은 정답이 있습니다</AlertDialogTitle>
+            <AlertDialogDescription className="font-kr">
+              아직 [정답 저장]을 누르지 않은 변경사항이 있습니다. 저장하지 않고 정답 입력 모드를 끌까요?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-kr">취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-kr"
+              onClick={() => {
+                const act = pendingNavAction;
+                setPendingNavAction(null);
+                act?.();
+              }}
+            >
+              버리고 끄기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Desktop: fixed top-right panel */}
       <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)] max-h-[calc(100vh-92px)] overflow-y-auto overscroll-contain rounded-2xl">
         <AnswerInputModeProvider value={answerInputMode}>
