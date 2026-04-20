@@ -1941,7 +1941,7 @@ const Index = () => {
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className="min-h-screen bg-background">
+    <div className={cn("min-h-screen bg-background", isAdmin && "pb-20")}>
       {/* Header */}
       <nav className="glass-panel sticky top-0 z-50 border-b px-6 lg:px-8 py-3">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
@@ -1964,29 +1964,58 @@ const Index = () => {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <label
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm cursor-pointer transition-colors",
-                answerInputMode
-                  ? "bg-primary/10 border-primary/40"
-                  : "bg-card border-border",
-              )}
-              title="정답 입력 모드: 클릭한 항목이 정답으로 저장됩니다"
-            >
-              <Pencil className={cn("size-3.5", answerInputMode ? "text-primary" : "text-muted-foreground")} />
-              <span className={cn("text-[11px] font-bold font-kr", answerInputMode ? "text-primary" : "text-muted-foreground")}>
-                정답 입력
+            {autoLoading && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 shadow-sm">
+                <div className="size-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <span className="text-[11px] font-bold text-primary font-kr">다음 문장 불러오는 중…</span>
+              </div>
+            )}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
+              <div className="size-2 rounded-full bg-element-o animate-pulse" />
+              <span className="text-[11px] font-medium text-muted-foreground font-kr">
+                {completedCount} / {analyzableIds.length} 완료
               </span>
-              <Switch
-                checked={answerInputMode}
-                onCheckedChange={setAnswerInputMode}
-                className="scale-75 -my-1"
-              />
-            </label>
-            {answerInputMode && (() => {
-              const status = getOwnerStatus(selectedId);
-              const canSave = status === "dirty";
-              return (
+            </div>
+            <UserMenu />
+          </div>
+        </div>
+      </nav>
+
+      {/* 하단 고정 staff 툴바 (선생님/관리자 전용) */}
+      {isAdmin && (() => {
+        const status = getOwnerStatus(selectedId);
+        const canSave = answerInputMode && status === "dirty";
+        return (
+          <div
+            className={cn(
+              "fixed bottom-0 inset-x-0 z-40",
+              "border-t border-border/60 bg-background/85 backdrop-blur-sm",
+              "shadow-[0_-4px_12px_rgba(0,0,0,0.05)]",
+              "px-4 py-2",
+            )}
+          >
+            <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
+              {/* 좌측: 정답 입력 / 저장 / 초기화 */}
+              <label
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm cursor-pointer transition-colors shrink-0",
+                  answerInputMode
+                    ? "bg-primary/10 border-primary/40"
+                    : "bg-card border-border",
+                )}
+                title="정답 입력 모드: 클릭한 항목이 정답으로 저장됩니다"
+              >
+                <Pencil className={cn("size-3.5", answerInputMode ? "text-primary" : "text-muted-foreground")} />
+                <span className={cn("text-[11px] font-bold font-kr", answerInputMode ? "text-primary" : "text-muted-foreground")}>
+                  정답 입력
+                </span>
+                <Switch
+                  checked={answerInputMode}
+                  onCheckedChange={setAnswerInputMode}
+                  className="scale-75 -my-1"
+                />
+              </label>
+              {answerInputMode && (
                 <>
                   <button
                     type="button"
@@ -1995,7 +2024,7 @@ const Index = () => {
                     }}
                     disabled={!canSave}
                     className={cn(
-                      "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors",
+                      "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors shrink-0",
                       canSave
                         ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                         : "bg-muted text-muted-foreground/60 cursor-not-allowed",
@@ -2017,7 +2046,7 @@ const Index = () => {
                     <AlertDialogTrigger asChild>
                       <button
                         type="button"
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors shrink-0"
                         title="저장된 모든 정답을 지웁니다"
                       >
                         <RotateCcw className="size-3" />
@@ -2046,71 +2075,20 @@ const Index = () => {
                     </AlertDialogContent>
                   </AlertDialog>
                 </>
-              );
-            })()}
-            {/* ── 구분선: 분석 워크플로우 ↔ 선생님 도구 ── */}
-            {isAdmin && (
-              <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
-            )}
+              )}
 
-            {/* 선생님 도구 (데스크톱 ≥md): AI추출 / 단어목록 / 힌트 */}
-            {isAdmin && (
-              <div className="hidden md:flex items-center gap-2">
+              <Separator orientation="vertical" className="h-6 mx-1 shrink-0" />
+
+              {/* 우측: AI 추출 / 단어 목록 / 힌트 */}
+              <div className="flex items-center gap-2 shrink-0">
                 <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
                 <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
                 <AdminHintToggle />
               </div>
-            )}
-
-            {/* 선생님 도구 (모바일 <md): ⋯ 도구 메뉴로 접기 */}
-            {isAdmin && (
-              <div className="md:hidden">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-1 h-8 px-2.5"
-                      aria-label="선생님 도구"
-                    >
-                      <MoreHorizontal className="size-4" />
-                      <span className="font-kr text-[11px] font-bold">도구</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-60">
-                    <DropdownMenuLabel className="font-kr text-[11px]">선생님 도구</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <div className="flex flex-col gap-2 p-2">
-                      <AiExtractButton sentenceId={sentence.id} english={sentence.english} />
-                      <ExtractedWordsPanel sentenceId={sentence.id} english={sentence.english} />
-                      <AdminHintToggle />
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
-
-            {/* ── 구분선: 도구 ↔ 진행 상태/사용자 ── */}
-            <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
-
-            {/* 관용구 버튼은 분석 메뉴 '기타' 항목 안으로 이동됨 */}
-            {autoLoading && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 shadow-sm">
-                <div className="size-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                <span className="text-[11px] font-bold text-primary font-kr">다음 문장 불러오는 중…</span>
-              </div>
-            )}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
-              <div className="size-2 rounded-full bg-element-o animate-pulse" />
-              <span className="text-[11px] font-medium text-muted-foreground font-kr">
-                {completedCount} / {analyzableIds.length} 완료
-              </span>
             </div>
-            <UserMenu />
           </div>
-        </div>
-      </nav>
+        );
+      })()}
 
       {/* 미저장 변경 — 모드 OFF 확인 다이얼로그 */}
       <AlertDialog
@@ -2146,8 +2124,9 @@ const Index = () => {
       {!analysisPanelHidden && (
         <div
           className={cn(
-            "hidden lg:block fixed top-[68px] right-4 z-30",
-            "w-[min(34vw,460px)] max-h-[calc(100vh-84px)]",
+            "hidden lg:flex flex-col fixed top-[64px] right-4 z-30",
+            "w-[min(34vw,460px)]",
+            isAdmin ? "bottom-20" : "bottom-4",
             "overflow-y-auto overscroll-contain rounded-2xl",
             "border border-border/60 bg-background/85 backdrop-blur-sm shadow-lg",
           )}
@@ -2175,7 +2154,10 @@ const Index = () => {
             <button
               type="button"
               onClick={() => setAnalysisPanelHidden(false)}
-              className="hidden lg:flex fixed bottom-4 right-4 z-40 items-center gap-2 px-3 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+              className={cn(
+                "hidden lg:flex fixed right-4 z-40 items-center gap-2 px-3 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors",
+                isAdmin ? "bottom-20" : "bottom-4",
+              )}
               aria-label="분석 패널 열기"
             >
               <PanelRightOpen className="size-4" />
