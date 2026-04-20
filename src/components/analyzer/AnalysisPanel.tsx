@@ -524,6 +524,12 @@ export const AnalysisPanel = ({
           etc={etc}
           onEtcKindChange={onEtcKindChange}
           onEtcRoleChange={onEtcRoleChange}
+          idiomEnabled={!!idiomEnabled}
+          idiomSurface={selectedWord ?? ""}
+          idiomExistingMeaning={idiomExistingMeaning}
+          onIdiomSave={onIdiomSave}
+          onIdiomRemove={onIdiomRemove}
+          answerInputMode={answerInputMode}
         />
       );
     return null;
@@ -1034,10 +1040,10 @@ const AdjPanel = ({
         return { element: key, label, colorClass, options };
       });
 
-  // 명사수식 role일 때만 modifier 섹션 노출
+  // 명사수식 role 선택 시 → 즉시 modifier 섹션 노출 (roleStatus 무관)
   const isNounModifyingRole =
-    adj.roleStatus === "correct" && !!adj.role && /명사수식|명사뒤수식|명사앞수식/.test(adj.role);
-  const showModifier = isNounModifyingRole && !!modifier?.canAssignModifierTarget;
+    !!adj.role && /명사수식|명사뒤수식|명사앞수식/.test(adj.role);
+  const showModifier = isNounModifyingRole && !!modifier;
 
   return (
     <>
