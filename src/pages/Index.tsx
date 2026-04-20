@@ -2023,7 +2023,7 @@ const Index = () => {
           )}
           <div
             ref={sentenceContainerRef}
-            className="relative flex flex-wrap items-end pb-1 pt-8 gap-y-7 select-none"
+            className="relative flex flex-wrap items-end pb-1 pt-12 gap-y-10 select-none"
             onMouseLeave={() => isDragging && finalizeSelection()}
           >
             {/* === 수식 / 지시어 화살표 SVG overlay === */}
