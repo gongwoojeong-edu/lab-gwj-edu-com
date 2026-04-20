@@ -1,49 +1,68 @@
 
 
-## 문제
+## 두 가지 작업 묶음
 
-부배지(품사·역할 라벨)가:
-1. **수직 겹침**: 안쪽 layer 부배지 + 외곽 절(clause) 부배지가 같은 `-top-3.5` 위치에 배치되어 겹침
-2. **수평 겹침**: 인접한 단어들의 긴 한글 라벨이 옆 단어 라벨과 겹쳐 읽기 어려움
-3. **색 단서 부족**: 부배지가 모두 `text-primary` 한 가지 색이라 어느 layer 소속인지 시각적으로 구분 불가
+### A) 부배지 수직 stacking → 수평 + 명확한 층별 색
 
-## 해결 아이디어
+**문제**: 층이 깊어질수록 부배지가 위로 올라가서 윗줄 영문과 겹침. 좌상단 legend도 불필요.
 
-### A) Layer별 색·세로 위치 분리
-- 안쪽 layer 부배지: `--layer-1` 색, `top: -14px`
-- 외곽 절(clause) 부배지: `--layer-2` 색, `top: -28px` (한 줄 위로 띄움)
-- 3층 이상이면 layer-3, top -42px … (layer index × 14px 만큼 위로)
-- 각 부배지는 자기 owner의 layer 색 칩 배경(연하게) + 진한 글자색 → 본문 색띠와 매칭
+**해결**:
+1. **수직 offset 제거** — 안쪽/외곽 부배지 모두 동일한 `top: -16px` 한 줄로 고정
+2. **층별 색을 강하게 분리** — 현재 violet/indigo/sky/teal(비슷한 색조)을 → **Layer1 노랑 / Layer2 빨강 / Layer3 청록 / Layer4 보라** 같이 hue를 크게 벌림
+3. **부배지 prefix 숫자** — `①품사명` `②절명` 처럼 layer 번호를 작은 원형 숫자로 prefix → 색맹/흑백 출력에서도 구분
+4. **본문 단어 stacking 색**도 동일 Layer 토큰 사용 → 본문 색띠와 부배지 색이 즉시 매칭
+5. **수평 충돌 방지** — 한 단어에 여러 부배지가 anchor되면 `gap-1`로 inline 나란히 표시 (anchor 분산은 이미 중간 인덱스에 함)
+6. **좌상단 Layer Legend 제거** — 색+숫자만으로 충분
+7. **상단 padding 축소** — 더 이상 층마다 위로 안 쌓이므로 `pt-6` 정도로 충분
 
-### B) 수평 겹침 방지
-- 부배지를 `absolute` + `left: 0` 대신 **owner 청크의 가운데 단어**에만 1번 표시 (현재 안쪽은 첫 단어, 절은 중간 단어에 표시 — 이걸 통일해서 둘 다 **중간 인덱스**에 anchor)
-- 길어질 경우 `max-width` + ellipsis 대신, 부배지를 **작은 알약(pill) 형태**로 만들고 hover 시 tooltip으로 풀 텍스트 노출
-- 인접 owner끼리는 layer가 다르면 세로 위치가 자동으로 분리됨 (위 A) → 가로 충돌도 자연스럽게 완화
+### B) 수식 화살표 (Modifier Arrow) 신규 기능
 
-### C) 부배지 디자인 토큰화
-- `pill` 스타일: `px-1.5 py-0 rounded-full text-[9px] font-semibold`
-- 배경: `hsl(var(--layer-N) / 0.18)`, 글자: `hsl(var(--layer-N))`
-- 본문 stacking 색과 동일 토큰 사용 → "이 라벨은 이 색띠 소속"이 즉시 보임
+**데이터 모델** (`progressMap` 또는 별도 `modifierTargetsMap`):
+```ts
+type ModifierTarget = { source: string /*ownerId*/, target: string /*tokenId*/ };
+```
+문장별로 `Map<sentenceId, ModifierTarget[]>` 저장 (localStorage 영구화).
 
-### D) 본문 우측에 layer 범례(legend) 한 줄
-- 분석 패널 또는 본문 상단에 `■ Layer 1: 단어  ■ Layer 2: 절  ■ Layer 3: …` 작은 색 범례 표시
-- 다층 색이 무엇을 의미하는지 사용자가 즉시 인지
+**Interaction Flow** (`AnalysisPanel.tsx`):
+1. 현재 owner의 element가 `M` 또는 형용사일 때만 `[수식 대상 지정]` 버튼 노출
+2. 버튼 클릭 → 전역 상태 `pendingModifierSource = ownerId` 설정 + 패널에 "대상 단어를 클릭하세요" 안내
+3. `handleWordMouseDown`에서 `pendingModifierSource`가 있으면 일반 selection 흐름 가로채고 → 클릭한 token을 target으로 저장 후 pending 해제
+4. 같은 source로 다시 지정하면 덮어쓰기, source 자체가 지워지면(eraseOwner) 관계도 같이 삭제
 
-## 수정 파일
+**SVG 렌더링** (`Index.tsx` 본문 컨테이너 위에 absolute SVG overlay):
+- 컨테이너에 `ref` + `ResizeObserver`로 각 token DOM의 좌표 측정
+- 각 관계마다 source 단어 top-center → target 단어 top-center 곡선 (`<path d="M sx,sy Q midX,midY-30 tx,ty">`)
+- 화살표 끝에 `<marker>` 정의로 화살촉
+- 스타일: `stroke="hsl(var(--primary))"` `stroke-dasharray="4 3"` `stroke-width="1.5"` `fill="none"`
+- top 기준 → 하단 SVOC 배지와 충돌 없음
 
-- `src/pages/Index.tsx` (라인 1438~1572 부근)
-  - 안쪽 부배지(koreanLabel)와 외곽 절 부배지를 **layer depth 기반 top offset + layer 색**으로 렌더
-  - 두 부배지 모두 owner의 **중간 인덱스**에 anchor (양쪽 다 한 곳에서만 노출)
-  - pill 스타일로 통일, hover tooltip으로 풀 텍스트
-- `src/index.css`
-  - `.sub-badge-pill` 컴포넌트 클래스 추가 (layer별 색 변형)
-- 본문 컨테이너 상단에 Layer Legend 1줄 추가 (Index.tsx)
+**텍스트 라벨 제거**: "→ Noun" 같은 텍스트는 일절 렌더하지 않음. 화살표 SVG 만.
 
-## 검증 기준
+**Toggle 표시**:
+- `HintSettingsContext`에 `showModifierArrows: boolean` 추가
+- 헤더 `AdminHintToggle` 옆 또는 같은 패널에 "수식선 표시" 스위치 (Admin 모드에서만 노출)
+- OFF면 SVG overlay 숨김
 
-1. 절 + 안쪽 단어가 겹친 영역에서 두 부배지가 **세로로 분리**되어 둘 다 읽힘
-2. 부배지 색이 본문 layer 색과 일치 (1층=violet, 2층=indigo, 3층=sky …)
-3. 인접 owner의 부배지가 가로로 겹치지 않음 (anchor를 청크 중앙에 배치)
-4. 라벨이 길면 줄임표 + hover로 풀 텍스트 확인 가능
-5. 본문 상단 legend로 색의 의미 파악 가능
+### 수정 파일
+
+- `src/index.css` — Layer 토큰 hue 재설계 (yellow/red/teal/purple), `sub-badge-pill` 한 줄 inline 정렬용 wrapper 클래스
+- `src/pages/Index.tsx` —
+  - 부배지 수직 offset 제거, layer 번호 prefix, Legend 제거, padding 축소
+  - 화살표 overlay SVG 컴포넌트 + token ref map
+  - `pendingModifierSource` 상태 + 클릭 가로채기
+  - `modifierTargetsMap` localStorage 저장/로드
+- `src/components/analyzer/AnalysisPanel.tsx` — `[수식 대상 지정]` 버튼 (조건부)
+- `src/components/analyzer/HintSettingsContext.tsx` — `showModifierArrows` 추가
+- `src/components/analyzer/AdminHintToggle.tsx` — 수식선 표시 스위치 추가
+- (신규) `src/lib/modifierTargets.ts` — load/save/upsert/remove 유틸 (`customAnswers.ts` 패턴 그대로)
+
+### 검증
+
+1. 1·2·3층 부배지가 한 줄에 색·숫자로 구분되어 표시 (윗줄 영문과 겹침 0)
+2. Layer 색이 본문 stacking 색과 정확히 일치
+3. 형용사/M owner에서만 [수식 대상 지정] 버튼 노출 → 클릭 → 다른 단어 클릭 → 곡선 화살표 등장
+4. 화살표는 단어 위쪽에서만 그려져 SVOC 배지와 안 겹침
+5. Admin 토글로 화살표 일괄 숨김/표시
+6. owner 삭제 시 관련 화살표도 사라짐
+7. 새로고침 후에도 화살표 관계 유지 (localStorage)
 
