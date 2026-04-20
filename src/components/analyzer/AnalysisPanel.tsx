@@ -390,29 +390,11 @@ export const AnalysisPanel = ({
   onEraseSelection,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
+  const hasSelection = !!selectedWord;
 
-  if (!selectedWord) {
-    return (
-      <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto">
-        {idiomEnabled && (
-          <IdiomSection
-            surface={selectedWord ?? ""}
-            existingMeaning={idiomExistingMeaning}
-            answerInputMode={answerInputMode}
-            onSave={onIdiomSave}
-            onRemove={onIdiomRemove}
-          />
-        )}
-        <div className="flex items-center justify-center text-center h-11">
-          <p className="text-[11px] text-muted-foreground font-kr">
-            단어를 선택하면 분석 메뉴가 활성화됩니다.
-          </p>
-        </div>
-      </aside>
-    );
-  }
-
-  const currentPos = pos ?? answer?.pos ?? null;
+  // ALWAYS-ON 정책: selection 이 없어도 메뉴/지우개/관용구 카드는 항상 노출.
+  // 원본 answer 의 pos 는 표시에 사용하지 않는다 (AI 추론 0%).
+  const currentPos = pos ?? null;
   const posCorrect = posStatus === "correct";
   const isNoun = currentPos === "명사";
   const isVerb = currentPos === "동사";
