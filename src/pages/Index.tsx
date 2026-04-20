@@ -166,6 +166,21 @@ const Index = () => {
   const [answerInputMode, setAnswerInputMode] = useState(false);
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
 
+  // ===== 지우개 모드 (toggle) =====
+  // ON: 완료 owner 클릭 시 즉시 삭제. 미분석 토큰 클릭은 무시.
+  // OFF (기본): 완료 owner 클릭 → 다층 분석 진입. Shift+클릭은 삭제 단축키.
+  const [eraserMode, setEraserMode] = useState(false);
+
+  // ESC로 지우개 모드 해제
+  useEffect(() => {
+    if (!eraserMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setEraserMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [eraserMode]);
+
   // ===== 숙어 / Phrase store (SVOC와 독립) =====
   const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
 
