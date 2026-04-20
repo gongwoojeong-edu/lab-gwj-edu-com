@@ -258,6 +258,7 @@ const Index = () => {
     selectedId && selectedTokenRaw
       ? { ...selectedTokenRaw, answer: getMergedAnswerForOwner(selectedId, selectedTokenRaw) }
       : undefined;
+  const selectedAnswer = selectedToken?.answer ?? null;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
@@ -922,7 +923,7 @@ const Index = () => {
       selectedWordIndices.length > 0
         ? selectedWordIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
         : selectedToken?.text ?? null,
-    answer: selectedToken?.answer ?? null,
+    answer: selectedAnswer,
     pos: progress.pos,
     posStatus: progress.posStatus,
     onPosChange: handlePos,
@@ -950,7 +951,7 @@ const Index = () => {
     onVerbToggleVoice: handleVerbVoice,
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
-    // 관용구는 2단어 이상에서만 노출 (분석 레이어와 별개 영역)
+    // 관용구는 분석과 독립이지만 단일 단어에서는 주도 UI가 되지 않음
     idiomEnabled: selectedWordIndices.length >= 2,
     idiomExistingMeaning: currentSelectionIdiom()?.meaning,
     onIdiomSave: handleIdiomSave,
