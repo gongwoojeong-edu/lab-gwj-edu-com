@@ -1838,40 +1838,71 @@ const Index = () => {
                 className="scale-75 -my-1"
               />
             </label>
-            {answerInputMode && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+            {answerInputMode && (() => {
+              const status = getOwnerStatus(selectedId);
+              const canSave = status === "dirty";
+              return (
+                <>
                   <button
                     type="button"
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-                    title="저장된 모든 정답을 지웁니다"
+                    onClick={() => {
+                      if (selectedId) commitPatch(selectedId);
+                    }}
+                    disabled={!canSave}
+                    className={cn(
+                      "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors",
+                      canSave
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                        : "bg-muted text-muted-foreground/60 cursor-not-allowed",
+                    )}
+                    title={
+                      !selectedId
+                        ? "단어를 먼저 선택하세요"
+                        : canSave
+                        ? "현재 단어의 분석을 정답으로 저장"
+                        : status === "saved"
+                        ? "이미 저장된 정답입니다"
+                        : "변경사항이 없습니다"
+                    }
                   >
-                    <RotateCcw className="size-3" />
-                    정답 초기화
+                    <Pencil className="size-3" />
+                    {status === "saved" ? "재저장" : "정답 저장"}
                   </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="font-kr">
-                      모든 정답 데이터를 삭제할까요?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="font-kr">
-                      저장된 모든 customAnswers가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
-                      처음부터 다시 입력하시겠습니까?
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="font-kr">취소</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={resetCustomAnswers}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-kr"
-                    >
-                      모두 삭제
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+                        title="저장된 모든 정답을 지웁니다"
+                      >
+                        <RotateCcw className="size-3" />
+                        정답 초기화
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="font-kr">
+                          모든 정답 데이터를 삭제할까요?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="font-kr">
+                          저장된 모든 customAnswers가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+                          처음부터 다시 입력하시겠습니까?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="font-kr">취소</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={resetCustomAnswers}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-kr"
+                        >
+                          모두 삭제
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              );
+            })()}
             <AdminHintToggle />
             {/* 관용구 버튼은 분석 메뉴 '기타' 항목 안으로 이동됨 */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
