@@ -1288,7 +1288,7 @@ const Index = () => {
               // === 절(외곽 layer) 정보도 동일 progress 기반 ===
               const outerProgress = outerOwnerId ? progressMap[outerOwnerId] : undefined;
               const outerIsClauseLocal =
-                !!outerProgress && isClauseProgress(outerProgress) && outerOwnerId !== ownerId;
+                !!outerProgress && isClauseProgress(outerProgress);
               const outerBadge = outerProgress ? buildElementBadge(outerProgress) : undefined;
               const outerSubLabel = outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
               const outerIsFirstLocal = outerIsClauseLocal && idx === outerIndices[0];
