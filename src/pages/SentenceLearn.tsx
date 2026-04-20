@@ -178,14 +178,29 @@ const SentenceLearn = () => {
 
         {/* Step content */}
         {step === "pre" && (
-          <WordPreStep
-            sentenceId={sentence.id}
-            entries={entries}
-            onCompleted={() => {
-              setPreDone(true);
-              setStep("analysis");
-            }}
-          />
+          entries.length === 0 ? (
+            <Card className="p-6 space-y-3 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+              <div className="flex items-center gap-2 text-primary">
+                <Sparkles className="w-4 h-4" />
+                <div className="text-sm font-bold">아직 단어가 준비되지 않았어요</div>
+              </div>
+              <p className="text-sm text-foreground/80">
+                선생님이 이 문장의 단어 추출을 아직 하지 않았어요. 잠시 후 다시 시도해 주세요.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
+                새로고침
+              </Button>
+            </Card>
+          ) : (
+            <WordPreStep
+              sentenceId={sentence.id}
+              entries={entries}
+              onCompleted={() => {
+                setPreDone(true);
+                setStep("analysis");
+              }}
+            />
+          )
         )}
 
         {step === "analysis" && (
