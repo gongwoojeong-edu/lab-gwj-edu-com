@@ -90,6 +90,8 @@ type WordProgress = {
   completed: boolean;
 };
 
+type AnalyzableToken = Extract<(typeof SENTENCES)[number]["tokens"][number], { type: "analyzable" }>;
+
 const emptyNoun = (): NounProgress => ({
   form: null,
   element: null,
@@ -225,17 +227,37 @@ const Index = () => {
     [sentence],
   );
 
-  const completedCount = analyzableIds.filter((id) => progressMap[id]?.completed).length;
+  const OWNER_KEY_SEPARATOR = "::";
+
+  const getOwnerTokenId = (ownerId: string) => ownerId.split(OWNER_KEY_SEPARATOR)[0] ?? ownerId;
+
+  const getTokenById = (tokenId: string | null | undefined): AnalyzableToken | undefined =>
+    sentence.tokens.find(
+      (t): t is AnalyzableToken => t.type === "analyzable" && t.id === tokenId,
+    );
+
+  const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken) => {
+    if (ownerId === token.id) {
+      return mergeAnswer(token.answer, customAnswers[token.id]);
+    }
+
+    return mergeAnswer(token.answer, customAnswers[ownerId]);
+  };
+
+  const completedCount = new Set(
+    Object.entries(progressMap)
+      .filter(([, value]) => value.completed)
+      .map(([ownerId]) => getOwnerTokenId(ownerId)),
+  ).size;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
 
-  const selectedTokenRaw = sentence.tokens.find(
-    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-      t.type === "analyzable" && t.id === selectedId,
-  );
+  const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
+  const selectedTokenRaw = getTokenById(selectedTokenId);
   // 정답 입력 모드에서 저장된 정답을 머지한 토큰
-  const selectedToken = selectedTokenRaw
-    ? { ...selectedTokenRaw, answer: mergeAnswer(selectedTokenRaw.answer, customAnswers[selectedTokenRaw.id]) }
-    : undefined;
+  const selectedToken =
+    selectedId && selectedTokenRaw
+      ? { ...selectedTokenRaw, answer: getMergedAnswerForOwner(selectedId, selectedTokenRaw) }
+      : undefined;
   const progress = selectedId ? progressMap[selectedId] ?? emptyProgress() : emptyProgress();
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
