@@ -439,7 +439,7 @@ const Index = () => {
   useEffect(() => {
     const id = requestAnimationFrame(() => setArrowLayoutVersion((v) => v + 1));
     return () => cancelAnimationFrame(id);
-  }, [sentence.id, modifierMap, completedSelectionMap, progressMap]);
+  }, [sentence.id, modifierMap, referentMap, completedSelectionMap, progressMap]);
 
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
@@ -653,9 +653,11 @@ const Index = () => {
         /* ignore */
       }
     }
-    // 수식 관계도 같이 삭제 (source가 owner인 항목)
+    // 수식/지시어 관계도 같이 삭제 (source가 owner인 항목)
     setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
+    setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, ownerId));
     if (pendingModifierSource === ownerId) setPendingModifierSource(null);
+    if (pendingReferentSource === ownerId) setPendingReferentSource(null);
     if (selectedId === ownerId) {
       setSelectedId(null);
       setSelectedWordIndices([]);
@@ -675,11 +677,11 @@ const Index = () => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
-    // === [수식 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
-    if (pendingModifierSource) {
+    // === [수식 / 지시어 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
+    if (pendingModifierSource || pendingReferentSource) {
       const tid = wordUnits[idx]?.tokenId;
       const targetOwnerId = tid ? `${tid}${OWNER_KEY_SEPARATOR}${idx}` : null;
-      if (targetOwnerId && targetOwnerId !== pendingModifierSource) {
+      if (pendingModifierSource && targetOwnerId && targetOwnerId !== pendingModifierSource) {
         setModifierMap((prev) =>
           upsertModifierTarget(prev, sentence.id, {
             source: pendingModifierSource,
@@ -687,8 +689,21 @@ const Index = () => {
           }),
         );
         toast({ title: "🎯 수식 대상 지정 완료" });
+      } else if (
+        pendingReferentSource &&
+        targetOwnerId &&
+        targetOwnerId !== pendingReferentSource
+      ) {
+        setReferentMap((prev) =>
+          upsertReferentTarget(prev, sentence.id, {
+            source: pendingReferentSource,
+            target: targetOwnerId,
+          }),
+        );
+        toast({ title: "👉 지시어 대상 지정 완료" });
       }
       setPendingModifierSource(null);
+      setPendingReferentSource(null);
       return;
     }
 
