@@ -3040,6 +3040,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
         </Drawer>
       )}
 
+      {!embedMode && (
       <footer className="max-w-7xl mx-auto px-6 lg:px-8 pb-10 pt-4">
         <div className="flex justify-between items-center border-t border-border pt-6 text-[11px] text-muted-foreground font-kr">
           <span className="font-bold tracking-widest font-kr">
@@ -3048,6 +3049,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
           <span className="italic">설명할 수 있어야 진짜 아는 것이다</span>
         </div>
       </footer>
+      )}
     </div>
     </TooltipProvider>
   );
