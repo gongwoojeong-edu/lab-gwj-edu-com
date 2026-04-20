@@ -1238,12 +1238,8 @@ const Index = () => {
                   )
                 : undefined;
               const wp = ownerId ? progressMap[ownerId] : undefined;
-              const ownerToken = ownerId
-                ? sentence.tokens.find(
-                    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-                      t.type === "analyzable" && t.id === ownerId,
-                  )
-                : undefined;
+               const ownerToken = ownerId ? getTokenById(getOwnerTokenId(ownerId)) : undefined;
+               const ownerAnswer = ownerId && ownerToken ? getMergedAnswerForOwner(ownerId, ownerToken) : undefined;
               const completedIndices = ownerId ? completedSelectionMap[ownerId] ?? [] : [];
               const isCompleted = completedIndices.includes(idx) && !!wp?.completed;
               const selStart = completedIndices[0];
@@ -1253,20 +1249,17 @@ const Index = () => {
 
               // 외곽 layer (절) — 별도
               const outerOwnerId = outerOwnerByIndex[idx];
-              const outerToken = outerOwnerId
-                ? sentence.tokens.find(
-                    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
-                      t.type === "analyzable" && t.id === outerOwnerId,
-                  )
-                : undefined;
+               const outerToken = outerOwnerId ? getTokenById(getOwnerTokenId(outerOwnerId)) : undefined;
+               const outerAnswer =
+                 outerOwnerId && outerToken ? getMergedAnswerForOwner(outerOwnerId, outerToken) : undefined;
               const outerIndices = outerOwnerId
                 ? completedSelectionMap[outerOwnerId] ?? []
                 : [];
               const outerIsClause =
-                !!outerToken &&
-                ((outerToken.answer.pos === "명사" && outerToken.answer.form === "접SV") ||
-                  (outerToken.answer.pos === "형용사" && outerToken.answer.form === "접SV") ||
-                  (outerToken.answer.pos === "부사" && outerToken.answer.form === "접SV"));
+                 !!outerAnswer &&
+                 ((outerAnswer.pos === "명사" && outerAnswer.form === "접SV") ||
+                   (outerAnswer.pos === "형용사" && outerAnswer.form === "접SV") ||
+                   (outerAnswer.pos === "부사" && outerAnswer.form === "접SV"));
               const outerIsFirst = outerIsClause && idx === outerIndices[0];
               const outerIsLast =
                 outerIsClause && idx === outerIndices[outerIndices.length - 1];
@@ -1275,8 +1268,8 @@ const Index = () => {
               let completedElement: "S" | "V" | "O" | "C" | undefined;
               let isModifier = false;
               let isClauseSelection = false;
-              if (isCompleted && token && ownerToken && token.id === ownerToken.id) {
-                const a = token.answer;
+               if (isCompleted && ownerAnswer) {
+                 const a = ownerAnswer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
                   isClauseSelection = a.form === "접SV";
@@ -1302,8 +1295,8 @@ const Index = () => {
 
               // === 절 브래킷: 외곽 layer 기준 ===
               let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
-              if (outerIsClause && outerToken) {
-                const a = outerToken.answer;
+               if (outerIsClause && outerAnswer) {
+                 const a = outerAnswer;
                 if (a.pos === "명사") {
                   if (a.element === "S") bracketRole = "S";
                   else if (a.element === "O") bracketRole = "O";
@@ -1315,8 +1308,8 @@ const Index = () => {
               }
 
               let koreanLabel =
-                isCompleted && isFirstOfSelection && token && token.id === ownerId
-                  ? token.answer.koreanLabel
+                 isCompleted && isFirstOfSelection && ownerAnswer
+                   ? ownerAnswer.koreanLabel
                   : undefined;
               if (koreanLabel && (completedElement || (token?.answer.pos === "동사"))) {
                 const stripPatterns = [
