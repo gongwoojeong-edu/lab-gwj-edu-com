@@ -71,6 +71,14 @@ import {
   type IdiomMap,
   type IdiomMark,
 } from "@/lib/idioms";
+import {
+  loadModifierTargets,
+  upsertModifierTarget,
+  removeModifierTargetBySource,
+  getTargetsForSentence,
+  type ModifierTargetMap,
+} from "@/lib/modifierTargets";
+import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
