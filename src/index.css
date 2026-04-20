@@ -63,11 +63,11 @@
     --idiom-fg: 25 35% 30%;
 
     /* Layer stacking colors — Layer1은 브랜드 보라(통일성), 2층부터 hue를 크게 벌려 구분
-       Layer1 violet(brand) / Layer2 amber / Layer3 crimson / Layer4 teal */
+       Layer1 violet(brand) / Layer2 amber / Layer3 crimson(340) / Layer4 teal(185) */
     --layer-1: 275 70% 45%;   /* brand violet */
     --layer-2: 38 95% 48%;    /* amber */
-    --layer-3: 350 78% 50%;   /* crimson */
-    --layer-4: 175 75% 38%;   /* teal */
+    --layer-3: 340 80% 50%;   /* crimson — 보라와 hue 거리 ↑ */
+    --layer-4: 185 78% 36%;   /* teal — crimson 보색 거리 ↑ */
 
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, hsl(275 100% 25%), hsl(280 60% 52%));
