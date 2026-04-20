@@ -12,8 +12,10 @@ import {
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchAllStudents,
+  fetchStudentStatsMap,
   updateStudentStartLevel,
   type StudentProfile,
+  type StudentStats,
 } from "@/lib/studentProfile";
 import { useAuth, signOut } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
@@ -22,13 +24,15 @@ import { LogOut, ChevronLeft } from "lucide-react";
 const TeacherDashboard = () => {
   const { user } = useAuth();
   const [students, setStudents] = useState<StudentProfile[]>([]);
+  const [stats, setStats] = useState<Record<string, StudentStats>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    fetchAllStudents().then((s) => {
+    Promise.all([fetchAllStudents(), fetchStudentStatsMap()]).then(([s, st]) => {
       if (mounted) {
         setStudents(s);
+        setStats(st);
         setLoading(false);
       }
     });
@@ -36,6 +40,20 @@ const TeacherDashboard = () => {
       mounted = false;
     };
   }, []);
+
+  const formatLastActivity = (iso: string | null): string => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    const now = Date.now();
+    const diffMin = Math.floor((now - d.getTime()) / 60000);
+    if (diffMin < 1) return "방금 전";
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}시간 전`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 30) return `${diffDay}일 전`;
+    return d.toLocaleDateString("ko-KR");
+  };
 
   const handleStartLevel = async (userId: string, level: LevelCode) => {
     await updateStudentStartLevel(userId, level);
@@ -92,35 +110,46 @@ const TeacherDashboard = () => {
                     <th className="py-2 pr-3">이름</th>
                     <th className="py-2 pr-3">시작 레벨</th>
                     <th className="py-2 pr-3">현재 진행</th>
+                    <th className="py-2 pr-3 text-right">Pass 수</th>
+                    <th className="py-2 pr-3">마지막 활동</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((s) => (
-                    <tr key={s.user_id} className="border-b border-border/50">
-                      <td className="py-2 pr-3 font-mono">{s.student_no}</td>
-                      <td className="py-2 pr-3">{s.display_name ?? "-"}</td>
-                      <td className="py-2 pr-3">
-                        <Select
-                          value={s.start_level}
-                          onValueChange={(v) => handleStartLevel(s.user_id, v as LevelCode)}
-                        >
-                          <SelectTrigger className="w-32 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {LEVELS.map((l) => (
-                              <SelectItem key={l.code} value={l.code}>
-                                {l.code} · {l.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="py-2 pr-3 text-muted-foreground">
-                        {LEVEL_LABEL[s.current_level]} · {s.current_no}번
-                      </td>
-                    </tr>
-                  ))}
+                  {students.map((s) => {
+                    const st = stats[s.user_id];
+                    return (
+                      <tr key={s.user_id} className="border-b border-border/50">
+                        <td className="py-2 pr-3 font-mono">{s.student_no}</td>
+                        <td className="py-2 pr-3">{s.display_name ?? "-"}</td>
+                        <td className="py-2 pr-3">
+                          <Select
+                            value={s.start_level}
+                            onValueChange={(v) => handleStartLevel(s.user_id, v as LevelCode)}
+                          >
+                            <SelectTrigger className="w-32 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {LEVELS.map((l) => (
+                                <SelectItem key={l.code} value={l.code}>
+                                  {l.code} · {l.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="py-2 pr-3 text-muted-foreground">
+                          {LEVEL_LABEL[s.current_level]} · {s.current_no}번
+                        </td>
+                        <td className="py-2 pr-3 text-right font-mono font-bold tabular-nums">
+                          {st?.pass_count ?? 0}
+                        </td>
+                        <td className="py-2 pr-3 text-muted-foreground text-xs">
+                          {formatLastActivity(st?.last_activity_at ?? null)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

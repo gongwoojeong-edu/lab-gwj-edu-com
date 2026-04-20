@@ -48,3 +48,27 @@ export const updateStudentStartLevel = async (
     .update({ start_level: startLevel, current_level: startLevel, current_no: 1 })
     .eq("user_id", userId);
 };
+
+export interface StudentStats {
+  user_id: string;
+  pass_count: number;
+  last_activity_at: string | null;
+}
+
+/** 학생별 Pass 수 + 마지막 활동 시각(가장 최근 sentence_progress.updated_at)을 묶어서 조회 */
+export const fetchStudentStatsMap = async (): Promise<Record<string, StudentStats>> => {
+  const { data } = await supabase
+    .from("sentence_progress")
+    .select("user_id, status, updated_at");
+  const map: Record<string, StudentStats> = {};
+  ((data ?? []) as { user_id: string | null; status: string; updated_at: string }[]).forEach((row) => {
+    if (!row.user_id) return;
+    const cur = map[row.user_id] ?? { user_id: row.user_id, pass_count: 0, last_activity_at: null };
+    if (row.status === "pass") cur.pass_count += 1;
+    if (!cur.last_activity_at || row.updated_at > cur.last_activity_at) {
+      cur.last_activity_at = row.updated_at;
+    }
+    map[row.user_id] = cur;
+  });
+  return map;
+};
