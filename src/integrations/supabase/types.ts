@@ -227,6 +227,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sentence_word_extractions: {
+        Row: {
+          created_at: string
+          english: string
+          model: string | null
+          sentence_id: string
+          updated_at: string
+          words: Json
+        }
+        Insert: {
+          created_at?: string
+          english: string
+          model?: string | null
+          sentence_id: string
+          updated_at?: string
+          words?: Json
+        }
+        Update: {
+          created_at?: string
+          english?: string
+          model?: string | null
+          sentence_id?: string
+          updated_at?: string
+          words?: Json
+        }
+        Relationships: []
+      }
       student_profiles: {
         Row: {
           created_at: string

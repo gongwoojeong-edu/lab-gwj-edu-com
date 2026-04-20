@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, LogOut, Lock } from "lucide-react";
+import { ArrowLeft, Loader2, LogOut, Lock, Sparkles } from "lucide-react";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut } from "@/hooks/useAuth";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { fetchOwnerProgressForSentence } from "@/integrations/supabase/storage";
 import { buildWordTest, type WordTestEntry } from "@/lib/wordTestBuilder";
 import { fetchSentenceProgress } from "@/integrations/supabase/storage";
+import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { cn } from "@/lib/utils";
 
@@ -44,9 +45,12 @@ const SentenceLearn = () => {
         return;
       }
 
-      // 진행 상태 + entries 빌드 (본인 progress 기준)
-      const [prog, owners] = await Promise.all([
+      // 진행 상태 + entries 빌드
+      // 1순위: sentence_word_extractions 캐시 (선생님이 AI로 추출 → 모든 학생 공유)
+      // 2순위: owner_progress (스태프 또는 본인) — 안전망
+      const [prog, extraction, owners] = await Promise.all([
         fetchSentenceProgress(found.id),
+        fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
       ]);
       if (!mounted) return;
@@ -55,21 +59,26 @@ const SentenceLearn = () => {
       setAnalysisDone(!!prog?.analysis_done);
       setTranslationDone(!!prog?.translation_done);
 
-      const ownerSurfaces: Record<string, string> = {};
-      found.tokens.forEach((t) => {
-        if (t.type === "analyzable") ownerSurfaces[t.id] = t.text;
-      });
-      const progressMap: Record<string, unknown> = {};
-      const completed: string[] = [];
-      owners.forEach((o) => {
-        progressMap[o.owner_id] = o.progress as object;
-        if (o.completed) completed.push(o.owner_id);
-      });
-      const built = buildWordTest(
-        ownerSurfaces,
-        progressMap as Parameters<typeof buildWordTest>[1],
-        completed,
-      );
+      let built: WordTestEntry[] = [];
+      if (extraction && extraction.words.length > 0) {
+        built = extractedToEntries(extraction.words);
+      } else {
+        const ownerSurfaces: Record<string, string> = {};
+        found.tokens.forEach((t) => {
+          if (t.type === "analyzable") ownerSurfaces[t.id] = t.text;
+        });
+        const progressMap: Record<string, unknown> = {};
+        const completed: string[] = [];
+        owners.forEach((o) => {
+          progressMap[o.owner_id] = o.progress as object;
+          if (o.completed) completed.push(o.owner_id);
+        });
+        built = buildWordTest(
+          ownerSurfaces,
+          progressMap as Parameters<typeof buildWordTest>[1],
+          completed,
+        );
+      }
       setEntries(built);
 
       // 마지막 멈춘 단계로 점프
@@ -169,14 +178,29 @@ const SentenceLearn = () => {
 
         {/* Step content */}
         {step === "pre" && (
-          <WordPreStep
-            sentenceId={sentence.id}
-            entries={entries}
-            onCompleted={() => {
-              setPreDone(true);
-              setStep("analysis");
-            }}
-          />
+          entries.length === 0 ? (
+            <Card className="p-6 space-y-3 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+              <div className="flex items-center gap-2 text-primary">
+                <Sparkles className="w-4 h-4" />
+                <div className="text-sm font-bold">아직 단어가 준비되지 않았어요</div>
+              </div>
+              <p className="text-sm text-foreground/80">
+                선생님이 이 문장의 단어 추출을 아직 하지 않았어요. 잠시 후 다시 시도해 주세요.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
+                새로고침
+              </Button>
+            </Card>
+          ) : (
+            <WordPreStep
+              sentenceId={sentence.id}
+              entries={entries}
+              onCompleted={() => {
+                setPreDone(true);
+                setStep("analysis");
+              }}
+            />
+          )
         )}
 
         {step === "analysis" && (
