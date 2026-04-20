@@ -192,9 +192,16 @@ const Index = () => {
   // ===== 숙어 / Phrase store (SVOC와 독립) =====
   const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
 
+  // ===== 수식 화살표 (Modifier Target) =====
+  const [modifierMap, setModifierMap] = useState<ModifierTargetMap>({});
+  /** [수식 대상 지정] 버튼이 켜진 source ownerId — 다음 단어 클릭이 target으로 캡처됨 */
+  const [pendingModifierSource, setPendingModifierSource] = useState<string | null>(null);
+  const { showModifierArrows } = useHintSettings();
+
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
+    setModifierMap(loadModifierTargets());
   }, []);
 
   const resetCustomAnswers = () => {
