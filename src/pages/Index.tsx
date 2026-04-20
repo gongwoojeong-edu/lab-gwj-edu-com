@@ -110,6 +110,7 @@ import { toast } from "@/hooks/use-toast";
 import { StepProgressBar, type LearningStep } from "@/components/learning/StepProgressBar";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
+import { WordPreStep } from "@/components/learning/WordPreStep";
 import { buildWordTest } from "@/lib/wordTestBuilder";
 import {
   fetchSentenceProgress,
