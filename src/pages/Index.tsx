@@ -387,7 +387,6 @@ const Index = () => {
   const handleWordMouseEnter = (idx: number) => {
     if (dragStart === null) return;
     if (isPunct(wordUnits[idx].word)) return;
-    // 드래그: 시작점부터 현재까지를 기존 선택에 ADD (비우지 않음)
     const lo = Math.min(dragStart, idx);
     const hi = Math.max(dragStart, idx);
     setSelectedWordIndices((prev) => {
@@ -395,7 +394,13 @@ const Index = () => {
       for (let i = lo; i <= hi; i++) {
         if (!isPunct(wordUnits[i].word)) next.add(i);
       }
-      return Array.from(next).sort((a, b) => a - b);
+      const arr = Array.from(next).sort((a, b) => a - b);
+      const sid = pickSelectedIdFromIndices(arr);
+      if (sid) {
+        setSelectedId(sid);
+        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+      }
+      return arr;
     });
   };
   const finalizeSelection = () => {
