@@ -1181,7 +1181,14 @@ const Index = () => {
               const bracketWeight =
                 bracketRole ? "font-extrabold" : "font-normal";
 
-              return (
+              // === Idiom 레이어 (SVOC와 독립) ===
+              const idiomMark = findIdiomCoveringIndex(idiomMap, sentence.id, idx);
+              const idiomFirst =
+                idiomMark && idiomMark.indices[0] === idx;
+              const idiomLast =
+                idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
+
+              const wordNode = (
                 <span key={idx} className="inline-flex items-end leading-none whitespace-nowrap">
                   {bracketRole && isFirstOfSelection && (
                     <span
@@ -1200,7 +1207,24 @@ const Index = () => {
                     }}
                     onMouseEnter={() => handleWordMouseEnter(idx)}
                     onMouseUp={handleWordMouseUp}
-                    className="relative inline-flex flex-col items-center cursor-pointer leading-none"
+                    className={cn(
+                      "relative inline-flex flex-col items-center cursor-pointer leading-none",
+                      // Idiom outer wrapper: 옅은 sepia (SVOC inner span과 공존)
+                      idiomMark && "py-0.5",
+                    )}
+                    style={
+                      idiomMark
+                        ? {
+                            background: "hsl(var(--idiom-bg))",
+                            paddingLeft: idiomFirst ? "0.35rem" : "0.05rem",
+                            paddingRight: idiomLast ? "0.35rem" : "0.05rem",
+                            borderTopLeftRadius: idiomFirst ? "0.35rem" : 0,
+                            borderBottomLeftRadius: idiomFirst ? "0.35rem" : 0,
+                            borderTopRightRadius: idiomLast ? "0.35rem" : 0,
+                            borderBottomRightRadius: idiomLast ? "0.35rem" : 0,
+                          }
+                        : undefined
+                    }
                   >
                     {koreanLabel && (
                       <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
@@ -1210,8 +1234,8 @@ const Index = () => {
                     <span
                       className={cn(
                         "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
-                        // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경
-                        "bg-muted/40",
+                        // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경 (idiom일 땐 생략 — sepia가 대신)
+                        !idiomMark && "bg-muted/40",
                         // 완료된 단어들 — 일반: 옅은 보라 + 하단 라인으로 "처리됨" 표시
                         isCompleted && !isSelected && !isModifier && !isClauseSelection &&
                           "bg-primary/[0.10] border-b border-primary/30",
@@ -1248,6 +1272,23 @@ const Index = () => {
                   )}
                 </span>
               );
+
+              // Idiom의 첫 토큰에만 Tooltip을 부착 (의미 표시는 한 번이면 충분)
+              if (idiomMark && idiomFirst) {
+                return (
+                  <Tooltip key={idx}>
+                    <TooltipTrigger asChild>{wordNode}</TooltipTrigger>
+                    <TooltipContent side="top" className="font-kr text-xs max-w-xs">
+                      <p className="font-bold mb-0.5" style={{ color: "hsl(var(--idiom-fg))" }}>
+                        🟫 {idiomMark.surface}
+                      </p>
+                      <p>{idiomMark.meaning}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return wordNode;
             })}
           </div>
 
