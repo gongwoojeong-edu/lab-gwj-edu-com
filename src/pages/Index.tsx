@@ -363,6 +363,19 @@ const Index = () => {
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
   const { showModifierArrows, showReferentArrows } = useHintSettings();
 
+  // ESC: pending modifier/referent 즉시 취소
+  useEffect(() => {
+    if (!pendingModifierSource && !pendingReferentSource) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPendingModifierSource(null);
+        setPendingReferentSource(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pendingModifierSource, pendingReferentSource]);
+
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
