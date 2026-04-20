@@ -56,9 +56,8 @@ const SentenceLearn = () => {
       setTranslationDone(!!prog?.translation_done);
 
       const ownerSurfaces: Record<string, string> = {};
-      const tokens = found.tokens.filter((t) => t.kind === "analyzable");
-      tokens.forEach((t) => {
-        if (t.kind === "analyzable") ownerSurfaces[t.id] = t.text;
+      found.tokens.forEach((t) => {
+        if (t.type === "analyzable") ownerSurfaces[t.id] = t.text;
       });
       const progressMap: Record<string, unknown> = {};
       const completed: string[] = [];
