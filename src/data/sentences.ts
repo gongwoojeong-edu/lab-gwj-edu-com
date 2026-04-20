@@ -191,7 +191,22 @@ export const SENTENCES: Sentence[] = [
         role: "to 명사뒤수식",
         koreanLabel: "to부정사 · 형용사적 명사뒤수식",
       }),
-      W("the era of patronage"),
+      W("the"),
+      A("s1-4b", "era", {
+        pos: "명사",
+        form: "명사",
+        element: "O",
+        role: "to V의o",
+        koreanLabel: "to V의 목적어 · 명사",
+      }),
+      W("of"),
+      A("s1-4c", "patronage", {
+        pos: "명사",
+        form: "명사",
+        element: "O",
+        role: "전치사의o",
+        koreanLabel: "전치사의 목적어 · 명사",
+      }),
       P(";"),
       A("s1-5", "however", {
         pos: "부사",
