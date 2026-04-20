@@ -961,6 +961,56 @@ const Index = () => {
               </AlertDialog>
             )}
             <AdminHintToggle />
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors border"
+                  style={{
+                    background: "hsl(var(--idiom-bg))",
+                    color: "hsl(var(--idiom-fg))",
+                    borderColor: "hsl(var(--idiom-border))",
+                  }}
+                  title="등록된 숙어 전체 보기"
+                >
+                  <BookMarked className="size-3" />
+                  숙어 {allIdiomsCount}
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-kr">📚 등록된 숙어 / Phrase</DialogTitle>
+                </DialogHeader>
+                {allIdiomsCount === 0 ? (
+                  <p className="text-sm text-muted-foreground font-kr py-6 text-center">
+                    아직 등록된 숙어가 없습니다. 정답 입력 모드에서 단어를 선택하고 숙어를 저장하세요.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {getAllIdiomsFlat(idiomMap).map((m) => (
+                      <li
+                        key={m.id}
+                        className="rounded-lg border p-2.5 flex items-baseline justify-between gap-3"
+                        style={{
+                          background: "hsl(var(--idiom-bg) / 0.4)",
+                          borderColor: "hsl(var(--idiom-border))",
+                        }}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold truncate" style={{ color: "hsl(var(--idiom-fg))" }}>
+                            {m.surface}
+                          </p>
+                          <p className="text-xs font-kr text-foreground/80 mt-0.5">{m.meaning}</p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                          {m.sentenceId}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </DialogContent>
+            </Dialog>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
               <div className="size-2 rounded-full bg-element-o animate-pulse" />
               <span className="text-[11px] font-medium text-muted-foreground font-kr">
