@@ -68,6 +68,7 @@ import {
   type IdiomMap,
   type IdiomMark,
 } from "@/lib/idioms";
+import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -1268,72 +1269,41 @@ const Index = () => {
               const outerIsLast =
                 outerIsClause && idx === outerIndices[outerIndices.length - 1];
 
-              // === 안쪽 layer element 결정 (M은 표시 안 함) ===
+              // === 안쪽 layer element 결정 — 100% progress 기반 (Item 3, 4) ===
+              // 원본 ownerAnswer.koreanLabel/pos 추론 금지.
+              const innerBadge = wp ? buildElementBadge(wp) : undefined;
+              const innerSubLabel = wp ? buildSubBadgeLabel(wp) : undefined;
+              const isClauseSelection = wp ? isClauseProgress(wp) : false;
               let completedElement: "S" | "V" | "O" | "C" | undefined;
               let isModifier = false;
-              let isClauseSelection = false;
-               if (isCompleted && ownerAnswer) {
-                 const a = ownerAnswer;
-                if (a.pos === "동사") completedElement = "V";
-                else if (a.pos === "명사") {
-                  isClauseSelection = a.form === "접SV";
-                  const hideObjectBadge =
-                    INTERNAL_OBJECT_ROLES.has(a.role) || a.form === "to V" || a.form === "V-ing";
-                  if (!hideObjectBadge) {
-                    if (a.element === "M") isModifier = true;
-                    else if (a.element) completedElement = a.element as "S" | "O" | "C";
-                  } else if (a.element === "M") {
-                    isModifier = true;
-                  }
-                } else if (a.pos === "형용사") {
-                  isClauseSelection = a.form === "접SV";
-                  if (a.element === "M") isModifier = true;
-                  else if (a.element === "C") completedElement = "C";
-                } else if (a.pos === "부사") {
-                  isClauseSelection = a.form === "접SV";
-                  isModifier = true;
-                } else if (a.pos === "기타") {
-                  if (a.kind === "삽입" || a.kind === "부연") isModifier = true;
+              if (isCompleted && innerBadge) {
+                if (innerBadge === "M") isModifier = true;
+                else if (!isClauseSelection) {
+                  completedElement = innerBadge;
                 }
               }
 
-              // === 절 브래킷: 외곽 layer 기준 ===
-              let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
-               if (outerIsClause && outerAnswer) {
-                 const a = outerAnswer;
-                if (a.pos === "명사") {
-                  if (a.element === "S") bracketRole = "S";
-                  else if (a.element === "O") bracketRole = "O";
-                  else if (a.element === "C") bracketRole = "C";
-                  else bracketRole = "M";
-                } else {
-                  bracketRole = "M";
-                }
-              }
+              // === 절(외곽 layer) 정보도 동일 progress 기반 ===
+              const outerProgress = outerOwnerId ? progressMap[outerOwnerId] : undefined;
+              const outerIsClauseLocal =
+                !!outerProgress && isClauseProgress(outerProgress) && outerOwnerId !== ownerId;
+              const outerBadge = outerProgress ? buildElementBadge(outerProgress) : undefined;
+              const outerSubLabel = outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
+              const outerIsFirstLocal = outerIsClauseLocal && idx === outerIndices[0];
+              const outerIsLastLocal =
+                outerIsClauseLocal && idx === outerIndices[outerIndices.length - 1];
+              const outerMidIdx = outerIndices.length
+                ? outerIndices[Math.floor((outerIndices.length - 1) / 2)]
+                : -1;
+              const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerMidIdx;
 
-              let koreanLabel =
-                 isCompleted && isFirstOfSelection && ownerAnswer
-                   ? ownerAnswer.koreanLabel
-                  : undefined;
-              if (koreanLabel && (completedElement || (token?.answer.pos === "동사"))) {
-                const stripPatterns = [
-                  /^주어\s*·\s*/,
-                  /^동사\s*·\s*/,
-                  /^목적어\s*·\s*/,
-                  /^간접목적어\s*·\s*/,
-                  /^직접목적어\s*·\s*/,
-                  /^주격보어\s*·\s*/,
-                  /^목적격보어\s*·\s*/,
-                  /^보어\s*·\s*/,
-                ];
-                for (const re of stripPatterns) {
-                  if (re.test(koreanLabel)) {
-                    koreanLabel = koreanLabel.replace(re, "");
-                    break;
-                  }
-                }
-                if (!koreanLabel.trim()) koreanLabel = undefined;
-              }
+              // === 절 브래킷: 외곽 progress의 element badge 기준 ===
+              const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
+                outerIsClauseLocal ? outerBadge ?? "M" : undefined;
+
+              // 부배지(품사 라벨) — 단어 layer 우선
+              const koreanLabel =
+                isCompleted && isFirstOfSelection ? innerSubLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
