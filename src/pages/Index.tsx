@@ -1572,10 +1572,19 @@ const Index = () => {
                 : "선택 없음"}
             </span>
             {(() => {
-              const eraseEnabled =
-                activeSelectionIndices.length > 0 ||
-                (!!selectedId &&
-                  (!!progressMap[selectedId] || !!completedSelectionMap[selectedId]));
+              // 지우개는 "분석 완료된 owner와 선택이 겹칠 때"만 활성화
+              // 미분석 단어 단순 클릭 시에는 비활성화
+              const selectedIdxSet = new Set(activeSelectionIndices);
+              const overlapsCompleted = Object.entries(completedSelectionMap).some(
+                ([oid, idxs]) =>
+                  progressMap[oid]?.completed &&
+                  idxs.some((i) => selectedIdxSet.has(i)),
+              );
+              const selectedIsCompleted =
+                !!selectedId &&
+                !!progressMap[selectedId]?.completed &&
+                !!completedSelectionMap[selectedId]?.length;
+              const eraseEnabled = overlapsCompleted || selectedIsCompleted;
               return (
                 <button
                   type="button"
