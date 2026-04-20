@@ -1398,6 +1398,26 @@ const Index = () => {
                         {completedElement}
                       </span>
                     )}
+                    {/* 절(접SV) — 단어와 동일한 SVOC 배지 + 부배지 (Item 4) */}
+                    {outerIsClauseLocal && outerIsBadgeAnchor && outerBadge && outerBadge !== "M" && (
+                      <span
+                        className={cn(
+                          "absolute -bottom-7 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none whitespace-nowrap",
+                          outerBadge === "S" && "badge-s",
+                          outerBadge === "V" && "badge-v",
+                          outerBadge === "O" && "badge-o",
+                          outerBadge === "C" && "badge-c",
+                        )}
+                      >
+                        {outerBadge}
+                        {outerSubLabel ? ` · ${outerSubLabel}` : ""}
+                      </span>
+                    )}
+                    {outerIsClauseLocal && outerIsBadgeAnchor && (!outerBadge || outerBadge === "M") && outerSubLabel && (
+                      <span className="absolute -bottom-7 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none whitespace-nowrap bg-primary/15 text-primary">
+                        {outerSubLabel}
+                      </span>
+                    )}
                   </span>
                   {bracketRole && outerIsLastLocal && (
                     <span
