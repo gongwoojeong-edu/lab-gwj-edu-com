@@ -1627,6 +1627,15 @@ const Index = () => {
       return wordUnits[idx]?.word ?? null;
     })(),
     onCancelPendingReferent: () => setPendingReferentSource(null),
+    // ===== 정답 저장 워크플로우 =====
+    answerInputMode,
+    ownerStatus: getOwnerStatus(selectedId),
+    onSaveAnswer: () => {
+      if (selectedId) commitPatch(selectedId);
+    },
+    onDiscardAnswer: () => {
+      if (selectedId) discardPatch(selectedId);
+    },
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
