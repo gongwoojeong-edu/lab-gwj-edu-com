@@ -2141,17 +2141,28 @@ const Index = () => {
               const spacerBgImage = buildLayerBg(sharedOwners);
               const sharedParallel =
                 !!parallelOwnerHere && parallelIndices.includes(idx + 1) && parallelIndices.includes(idx);
+              // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결
+              const isNextSelected = !isLastWord && selectedWordIndices.includes(idx + 1);
+              const spacerSelectedBridge = isSelected && isNextSelected;
+              // 완료(general) bridge: 양쪽 모두 같은 general owner의 완료 인덱스에 속하면 spacer도 동일 색·하단 보더
+              const generalSharedOwner = sharedOwners.find((oid) => {
+                const op = progressMap[oid];
+                return !!op && !isClauseProgress(op) && !isParallelProgress(op);
+              });
+              const spacerCompletedBridge = !!generalSharedOwner && !spacerSelectedBridge;
               const spacerNode = !isLastWord ? (
                 <span
                   key={`sp-${idx}`}
                   className={cn(
-                    "inline-block self-end leading-tight",
+                    "inline-flex items-end self-end leading-none",
                     sharedParallel && "parallel-box",
+                    spacerSelectedBridge && "bg-primary/25",
+                    spacerCompletedBridge && "bg-primary/[0.07] border-b border-primary/20",
                   )}
                   style={spacerBgImage ? { backgroundImage: spacerBgImage } : undefined}
                   aria-hidden
                 >
-                  {"\u00A0"}
+                  <span className="px-1 py-0.5 text-[16px] leading-tight">{"\u00A0"}</span>
                 </span>
               ) : null;
 
