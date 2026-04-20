@@ -12,6 +12,9 @@ interface HintSettings {
   /** 수식 화살표 overlay 표시 여부 (Admin 토글) */
   showModifierArrows: boolean;
   setShowModifierArrows: (v: boolean) => void;
+  /** 대명사 지시어 화살표 overlay 표시 여부 (Admin 토글) */
+  showReferentArrows: boolean;
+  setShowReferentArrows: (v: boolean) => void;
 }
 
 const HintSettingsContext = createContext<HintSettings | null>(null);
@@ -19,6 +22,7 @@ const HintSettingsContext = createContext<HintSettings | null>(null);
 export const HintSettingsProvider = ({ children }: { children: ReactNode }) => {
   const [hintEnabled, setHintEnabled] = useState(true);
   const [showModifierArrows, setShowModifierArrows] = useState(true);
+  const [showReferentArrows, setShowReferentArrows] = useState(true);
   return (
     <HintSettingsContext.Provider
       value={{
@@ -27,6 +31,8 @@ export const HintSettingsProvider = ({ children }: { children: ReactNode }) => {
         isAdmin: true,
         showModifierArrows,
         setShowModifierArrows,
+        showReferentArrows,
+        setShowReferentArrows,
       }}
     >
       {children}
