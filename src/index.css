@@ -161,4 +161,30 @@
   .badge-o { background: hsl(var(--element-o-bg)); color: hsl(var(--element-o)); }
   .badge-c { background: hsl(var(--element-c-bg)); color: hsl(var(--element-c)); }
   .badge-m { background: hsl(var(--element-m-bg)); color: hsl(var(--element-m)); }
+
+  /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill) */
+  .sub-badge-pill {
+    @apply inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px] truncate;
+    border: 1px solid transparent;
+  }
+  .sub-badge-pill-1 {
+    background: hsl(var(--layer-1) / 0.16);
+    color: hsl(var(--layer-1));
+    border-color: hsl(var(--layer-1) / 0.28);
+  }
+  .sub-badge-pill-2 {
+    background: hsl(var(--layer-2) / 0.16);
+    color: hsl(var(--layer-2));
+    border-color: hsl(var(--layer-2) / 0.28);
+  }
+  .sub-badge-pill-3 {
+    background: hsl(var(--layer-3) / 0.16);
+    color: hsl(var(--layer-3));
+    border-color: hsl(var(--layer-3) / 0.28);
+  }
+  .sub-badge-pill-4 {
+    background: hsl(var(--layer-4) / 0.16);
+    color: hsl(var(--layer-4));
+    border-color: hsl(var(--layer-4) / 0.28);
+  }
 }
