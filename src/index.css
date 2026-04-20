@@ -168,12 +168,15 @@
     @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none;
   }
   .sub-badge-pill {
-    @apply inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
+    @apply inline-flex items-center gap-0 px-1 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
   .sub-badge-pill .sub-badge-num {
-    @apply inline-flex items-center justify-center size-3 rounded-full text-[8px] font-bold leading-none;
-    background: hsl(0 0% 100% / 0.7);
+    @apply inline-flex items-center justify-center rounded-full text-[8px] font-bold leading-none mr-0.5;
+    width: 14px;
+    height: 14px;
+    background: hsl(0 0% 100% / 0.85);
+    color: hsl(0 0% 100%);
   }
   /* layer 1 owner: 단층(혼자) 또는 외곽층 — 숫자 표기 숨김 */
   .sub-badge-pill .sub-badge-num.is-hidden { display: none; }
