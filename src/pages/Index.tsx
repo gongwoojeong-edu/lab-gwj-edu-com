@@ -329,7 +329,34 @@ const ArrowOverlay = ({
   );
 };
 
-const Index = () => {
+const UserMenu = () => {
+  const { user, roles } = useAuth();
+  if (!user) return null;
+  const studentNo = user.email?.split("@")[0] ?? "";
+  const isTeacher = roles.includes("teacher") || roles.includes("admin");
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-card border border-border shadow-sm">
+      <span className="text-[11px] font-mono font-bold">{studentNo}</span>
+      {isTeacher && (
+        <Link
+          to="/teacher"
+          className="text-[10px] font-bold text-accent underline underline-offset-2"
+        >
+          선생님
+        </Link>
+      )}
+      <button
+        type="button"
+        onClick={() => signOut()}
+        className="text-muted-foreground hover:text-destructive"
+        title="로그아웃"
+      >
+        <LogOut className="size-3.5" />
+      </button>
+    </div>
+  );
+};
+
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
