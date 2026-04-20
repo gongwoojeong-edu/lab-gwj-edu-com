@@ -1344,8 +1344,29 @@ const Index = () => {
 
           {/* === 토큰 사이 인접 완료 layer 검사용 헬퍼 === */}
           {(() => null)()}
+          {(() => {
+            const maxDepth = Object.values(completedOwnersByIndex).reduce(
+              (max, owners) => Math.max(max, owners?.length ?? 0),
+              0,
+            );
+            if (maxDepth < 2) return null;
+            const labels = ["단어/구", "절(2층)", "3층", "4층"];
+            return (
+              <div className="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-kr text-muted-foreground">
+                <span className="font-semibold">Layer:</span>
+                {Array.from({ length: Math.min(maxDepth, 4) }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={cn("sub-badge-pill", `sub-badge-pill-${i + 1}`)}
+                  >
+                    {i + 1}. {labels[i]}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
           <div
-            className="flex flex-wrap items-end gap-y-7 pt-2 pb-1 select-none"
+            className="flex flex-wrap items-end gap-y-7 pt-8 pb-1 select-none"
             onMouseLeave={() => isDragging && finalizeSelection()}
           >
             {wordUnits.map((u, idx) => {
