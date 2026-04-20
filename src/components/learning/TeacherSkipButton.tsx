@@ -83,11 +83,11 @@ export const TeacherSkipButton = ({ onApproved, disabled }: Props) => {
         size="sm"
         className="text-[11px] text-muted-foreground hover:text-foreground"
         onClick={() => setOpen(true)}
-        disabled={disabled || noPin}
-        title={noPin ? "선생님께 PIN 설정 요청" : "선생님 확인 후 스킵"}
+        disabled={disabled}
+        title="선생님 확인 후 스킵"
       >
         <Lock className="w-3 h-3 mr-1" />
-        {noPin ? "선생님께 PIN 요청" : "선생님 확인 후 스킵"}
+        선생님 확인 후 스킵
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -95,7 +95,9 @@ export const TeacherSkipButton = ({ onApproved, disabled }: Props) => {
           <DialogHeader>
             <DialogTitle>선생님 패스키</DialogTitle>
             <DialogDescription>
-              선생님께 4자리 PIN을 받아 입력하세요. 일치하면 이 단계가 통과 처리됩니다.
+              {noPin
+                ? "이 계정에 PIN이 설정되어 있지 않습니다. 선생님께 패스키 설정을 요청하세요."
+                : "선생님께 PIN을 받아 입력하세요. 일치하면 이 단계가 통과 처리됩니다."}
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -107,6 +109,7 @@ export const TeacherSkipButton = ({ onApproved, disabled }: Props) => {
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
             }}
+            disabled={noPin}
             className="text-center text-2xl tracking-[0.5em] font-mono"
             autoFocus
           />
@@ -114,7 +117,7 @@ export const TeacherSkipButton = ({ onApproved, disabled }: Props) => {
             <Button variant="outline" onClick={() => setOpen(false)}>
               취소
             </Button>
-            <Button onClick={submit} disabled={pin.length < 4 || loading}>
+            <Button onClick={submit} disabled={noPin || pin.length < 4 || loading}>
               확인
             </Button>
           </DialogFooter>
