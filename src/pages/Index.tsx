@@ -1615,32 +1615,24 @@ const Index = () => {
                 ? `완료 영역 · ${completedSelectionMap[selectedId].length}개 단어`
                 : "선택 없음"}
             </span>
-            {(() => {
-              // 지우개는 "분석 완료된 owner와 선택이 겹칠 때"만 활성화
-              // 미분석 단어 단순 클릭 시에는 비활성화
-              const selectedIdxSet = new Set(activeSelectionIndices);
-              const overlapsCompleted = Object.entries(completedSelectionMap).some(
-                ([oid, idxs]) =>
-                  progressMap[oid]?.completed &&
-                  idxs.some((i) => selectedIdxSet.has(i)),
-              );
-              const selectedIsCompleted =
-                !!selectedId &&
-                !!progressMap[selectedId]?.completed &&
-                !!completedSelectionMap[selectedId]?.length;
-              const eraseEnabled = overlapsCompleted || selectedIsCompleted;
-              return (
-                <button
-                  type="button"
-                  onClick={handleEraser}
-                  disabled={!eraseEnabled}
-                  className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
-                >
-                  🧽 지우개
-                </button>
-              );
-            })()}
+            <button
+              type="button"
+              onClick={() => setEraserMode((v) => !v)}
+              aria-pressed={eraserMode}
+              className={cn(
+                "px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border",
+                eraserMode
+                  ? "bg-destructive text-destructive-foreground border-destructive shadow-sm"
+                  : "bg-destructive/10 text-destructive border-transparent hover:bg-destructive/20",
+              )}
+              title={
+                eraserMode
+                  ? "지우개 모드 ON — 분석된 항목 클릭 시 삭제 (ESC 또는 다시 클릭으로 종료)"
+                  : "지우개 모드 OFF — 클릭 시 활성화. Shift+클릭으로도 단일 삭제 가능"
+              }
+            >
+              🧽 지우개{eraserMode ? " ON" : ""}
+            </button>
             <Popover>
               <PopoverTrigger asChild>
                 <button
