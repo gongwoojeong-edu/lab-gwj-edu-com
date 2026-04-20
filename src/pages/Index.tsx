@@ -2475,7 +2475,83 @@ const Index = () => {
           />
         </section>
 
-        <div className="glass-panel rounded-2xl p-3 flex items-center justify-between gap-4 flex-wrap">
+        {/* ========== 학습 흐름 진행 바 + 단계별 카드 ========== */}
+        <div className="glass-panel rounded-2xl p-4 space-y-3">
+          <StepProgressBar
+            current={learningStep}
+            analysisDone={analysisDone}
+            translationDone={translationDone}
+            wordTestDone={wordTestDone}
+            onJump={(s) => {
+              if (s === "translation" && !analysisDone) return;
+              if (s === "wordtest" && !translationDone) return;
+              setLearningStep(s);
+            }}
+          />
+          {learningStep === "analysis" && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={!analysisDone}
+                onClick={() => setLearningStep("translation")}
+                className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+              >
+                다음: 한글 해석 →
+              </button>
+            </div>
+          )}
+          {learningStep === "translation" && (
+            <>
+              <TranslationStep
+                sentenceId={sentence.id}
+                englishSentence={wordUnits.map((w) => w.word).join(" ")}
+                onSubmitted={() => {
+                  setTranslationDone(true);
+                  upsertSentenceProgress(sentence.id, { translation_done: true }).catch(() => {});
+                }}
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={!translationDone}
+                  onClick={() => setLearningStep("wordtest")}
+                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+                >
+                  다음: 단어 테스트 →
+                </button>
+              </div>
+            </>
+          )}
+          {learningStep === "wordtest" && (() => {
+            const surfaceMap: Record<string, string> = {};
+            Object.keys(progressMap).forEach((oid) => {
+              const tid = getOwnerTokenId(oid);
+              const tok = getTokenById(tid);
+              surfaceMap[oid] = tok && "text" in tok ? tok.text : "";
+            });
+            const completedOwners = Object.entries(progressMap)
+              .filter(([, v]) => v.completed)
+              .map(([k]) => k);
+            const entries = buildWordTest(surfaceMap, progressMap as never, completedOwners);
+            return (
+              <WordTestStep
+                sentenceId={sentence.id}
+                entries={entries}
+                onPassed={() => {
+                  setWordTestDone(true);
+                  const passedAtIso = new Date().toISOString();
+                  setPassedAt(passedAtIso);
+                  upsertSentenceProgress(sentence.id, {
+                    word_test_done: true,
+                    status: "pass",
+                    passed_at: passedAtIso,
+                  }).catch(() => {});
+                }}
+              />
+            );
+          })()}
+        </div>
+
           <div className="flex items-center gap-3">
             <div
               className={cn(
