@@ -110,35 +110,46 @@ const TeacherDashboard = () => {
                     <th className="py-2 pr-3">이름</th>
                     <th className="py-2 pr-3">시작 레벨</th>
                     <th className="py-2 pr-3">현재 진행</th>
+                    <th className="py-2 pr-3 text-right">Pass 수</th>
+                    <th className="py-2 pr-3">마지막 활동</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((s) => (
-                    <tr key={s.user_id} className="border-b border-border/50">
-                      <td className="py-2 pr-3 font-mono">{s.student_no}</td>
-                      <td className="py-2 pr-3">{s.display_name ?? "-"}</td>
-                      <td className="py-2 pr-3">
-                        <Select
-                          value={s.start_level}
-                          onValueChange={(v) => handleStartLevel(s.user_id, v as LevelCode)}
-                        >
-                          <SelectTrigger className="w-32 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {LEVELS.map((l) => (
-                              <SelectItem key={l.code} value={l.code}>
-                                {l.code} · {l.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="py-2 pr-3 text-muted-foreground">
-                        {LEVEL_LABEL[s.current_level]} · {s.current_no}번
-                      </td>
-                    </tr>
-                  ))}
+                  {students.map((s) => {
+                    const st = stats[s.user_id];
+                    return (
+                      <tr key={s.user_id} className="border-b border-border/50">
+                        <td className="py-2 pr-3 font-mono">{s.student_no}</td>
+                        <td className="py-2 pr-3">{s.display_name ?? "-"}</td>
+                        <td className="py-2 pr-3">
+                          <Select
+                            value={s.start_level}
+                            onValueChange={(v) => handleStartLevel(s.user_id, v as LevelCode)}
+                          >
+                            <SelectTrigger className="w-32 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {LEVELS.map((l) => (
+                                <SelectItem key={l.code} value={l.code}>
+                                  {l.code} · {l.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="py-2 pr-3 text-muted-foreground">
+                          {LEVEL_LABEL[s.current_level]} · {s.current_no}번
+                        </td>
+                        <td className="py-2 pr-3 text-right font-mono font-bold tabular-nums">
+                          {st?.pass_count ?? 0}
+                        </td>
+                        <td className="py-2 pr-3 text-muted-foreground text-xs">
+                          {formatLastActivity(st?.last_activity_at ?? null)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
