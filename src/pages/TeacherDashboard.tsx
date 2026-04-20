@@ -149,6 +149,7 @@ const TeacherDashboard = () => {
                     <th className="py-2 pr-3">현재 진행</th>
                     <th className="py-2 pr-3 text-right">Pass 수</th>
                     <th className="py-2 pr-3">마지막 활동</th>
+                    {isAdmin && <th className="py-2 pr-3">권한</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -184,6 +185,28 @@ const TeacherDashboard = () => {
                         <td className="py-2 pr-3 text-muted-foreground text-xs">
                           {formatLastActivity(st?.last_activity_at ?? null)}
                         </td>
+                        {isAdmin && (
+                          <td className="py-2 pr-3">
+                            <div className="flex flex-wrap gap-1">
+                              {ROLE_OPTIONS.map((opt) => {
+                                const has = (rolesMap[s.user_id] ?? []).includes(opt.value);
+                                const Icon = opt.icon;
+                                return (
+                                  <Button
+                                    key={opt.value}
+                                    size="sm"
+                                    variant={has ? "default" : "outline"}
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => handleToggleRole(s.user_id, opt.value, has)}
+                                  >
+                                    <Icon className="size-3 mr-1" />
+                                    {opt.label}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
