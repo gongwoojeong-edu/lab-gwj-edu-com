@@ -175,6 +175,31 @@
     @apply inline-flex items-center justify-center size-3 rounded-full text-[8px] font-bold leading-none;
     background: hsl(0 0% 100% / 0.7);
   }
+  /* layer 1 owner: 단층(혼자) 또는 외곽층 — 숫자 표기 숨김 */
+  .sub-badge-pill .sub-badge-num.is-hidden { display: none; }
+
+  /* === 병렬(parallel) owner 전용 박스 === */
+  .parallel-box {
+    background: hsl(var(--primary) / 0.12);
+    border-top: 1.5px solid hsl(var(--primary) / 0.45);
+    border-bottom: 1.5px solid hsl(var(--primary) / 0.45);
+  }
+  .parallel-box-start {
+    border-left: 1.5px solid hsl(var(--primary) / 0.45);
+    border-top-left-radius: 0.4rem;
+    border-bottom-left-radius: 0.4rem;
+  }
+  .parallel-box-end {
+    border-right: 1.5px solid hsl(var(--primary) / 0.45);
+    border-top-right-radius: 0.4rem;
+    border-bottom-right-radius: 0.4rem;
+  }
+
+  /* clause bracket 강조 — 박스 제거에 따른 가독성 보강 */
+  .clause-bracket {
+    @apply text-[22px] font-extrabold;
+    text-shadow: 0 1px 0 hsl(var(--background));
+  }
   .sub-badge-pill-1 {
     background: hsl(var(--layer-1) / 0.18);
     color: hsl(275 70% 32%);
