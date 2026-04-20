@@ -62,6 +62,7 @@ import {
   mergeAnswer,
   loadSavedOwners,
   saveSavedOwners,
+  hydrateCustomAnswersFromCloud,
   type CustomAnswerMap,
 } from "@/lib/customAnswers";
 import {
@@ -71,6 +72,7 @@ import {
   findIdiomCoveringIndex,
   findIdiomByIndices,
   getAllIdiomsFlat,
+  hydrateIdiomsFromCloud,
   type IdiomMap,
   type IdiomMark,
 } from "@/lib/idioms";
@@ -79,6 +81,7 @@ import {
   upsertModifierTarget,
   removeModifierTargetBySource,
   getTargetsForSentence,
+  hydrateModifierTargetsFromCloud,
   type ModifierTargetMap,
 } from "@/lib/modifierTargets";
 import {
@@ -86,6 +89,7 @@ import {
   upsertReferentTarget,
   removeReferentTargetBySource,
   getReferentsForSentence,
+  hydrateReferentTargetsFromCloud,
   type ReferentTargetMap,
 } from "@/lib/referentTargets";
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
