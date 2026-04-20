@@ -714,7 +714,7 @@ const NounPanel = ({
         status={noun.formStatus}
         items={NOUN_FORMS}
         selected={noun.form}
-        locked={formCorrect}
+        locked={false}
         onSelect={(k) => onNounFormChange(k as NounForm)}
       />
       {formOnlyMode ? (
@@ -727,7 +727,7 @@ const NounPanel = ({
         />
       ) : (
         <ElementRoleGrid
-          unlocked={formCorrect}
+          unlocked={!!noun.form}
           element={noun.element}
           elementStatus={noun.elementStatus}
           role={noun.role}
@@ -794,12 +794,12 @@ const AdjPanel = ({
         status={adj.formStatus}
         items={ADJ_FORMS}
         selected={adj.form}
-        locked={formCorrect}
+        locked={false}
         onSelect={(k) => onAdjFormChange(k as AdjForm)}
       />
       {skipsElement ? (
         <RoleRow
-          unlocked={formCorrect}
+          unlocked={!!adj.form}
           status={adj.roleStatus}
           options={roleOptions}
           selected={adj.role}
@@ -807,7 +807,7 @@ const AdjPanel = ({
         />
       ) : (
         <ElementRoleGrid
-          unlocked={formCorrect}
+          unlocked={!!adj.form}
           element={adj.element}
           elementStatus={adj.elementStatus}
           role={adj.role}
