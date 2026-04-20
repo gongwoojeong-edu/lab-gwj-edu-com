@@ -2022,6 +2022,12 @@ const Index = () => {
             })()}
             <AdminHintToggle />
             {/* 관용구 버튼은 분석 메뉴 '기타' 항목 안으로 이동됨 */}
+            {autoLoading && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 shadow-sm">
+                <div className="size-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <span className="text-[11px] font-bold text-primary font-kr">다음 문장 불러오는 중…</span>
+              </div>
+            )}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
               <div className="size-2 rounded-full bg-element-o animate-pulse" />
               <span className="text-[11px] font-medium text-muted-foreground font-kr">
