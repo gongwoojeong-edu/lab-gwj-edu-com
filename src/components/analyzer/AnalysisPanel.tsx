@@ -129,6 +129,12 @@ interface AnalysisPanelProps {
   onVerbToggleVoice: () => void;
   onVerbToggleProVerb: () => void;
   onVerbConfirm: () => void;
+
+  // ===== Idiom / Phrase layer (Layer 9) — SVOC와 독립 =====
+  idiomEnabled?: boolean;        // selectedWordIndices.length >= 1
+  idiomExistingMeaning?: string; // 현재 선택 인덱스에 등록된 숙어가 있다면 의미
+  onIdiomSave?: (meaning: string) => void;
+  onIdiomRemove?: () => void;
 }
 
 // ============================================================
