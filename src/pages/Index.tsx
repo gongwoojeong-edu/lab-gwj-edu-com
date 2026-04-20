@@ -2143,11 +2143,50 @@ const Index = () => {
       </AlertDialog>
 
       {/* Desktop: fixed top-right panel */}
-      <div className="hidden lg:block fixed top-[76px] right-4 z-40 w-[min(34vw,460px)] max-h-[calc(100vh-92px)] overflow-y-auto overscroll-contain rounded-2xl">
-        <AnswerInputModeProvider value={answerInputMode}>
-          <AnalysisPanel {...panelProps} />
-        </AnswerInputModeProvider>
-      </div>
+      {!analysisPanelHidden && (
+        <div
+          className={cn(
+            "hidden lg:block fixed top-[68px] right-4 z-30",
+            "w-[min(34vw,460px)] max-h-[calc(100vh-84px)]",
+            "overflow-y-auto overscroll-contain rounded-2xl",
+            "border border-border/60 bg-background/85 backdrop-blur-sm shadow-lg",
+          )}
+        >
+          <AnswerInputModeProvider value={answerInputMode}>
+            <AnalysisPanel {...panelProps} />
+          </AnswerInputModeProvider>
+          {!selectedId && (
+            <div className="px-4 py-6 text-center space-y-2 border-t border-border/40 mt-2">
+              <p className="text-[12px] font-kr text-muted-foreground">
+                단어를 선택하면 여기에서 분석할 수 있어요
+              </p>
+              <p className="text-[10px] text-muted-foreground/70 font-kr">
+                <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">?</kbd> 키로 패널 토글
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 데스크톱: 분석 패널이 숨겨진 경우 우측 하단 플로팅 복구 버튼 */}
+      {analysisPanelHidden && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setAnalysisPanelHidden(false)}
+              className="hidden lg:flex fixed bottom-4 right-4 z-40 items-center gap-2 px-3 py-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+              aria-label="분석 패널 열기"
+            >
+              <PanelRightOpen className="size-4" />
+              <span className="text-[11px] font-bold font-kr">분석 패널</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <span className="font-kr text-[11px]">분석 패널 열기 ( ? )</span>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       {allDone && (
         <main className="max-w-3xl mx-auto p-6 lg:p-12 pt-12 lg:pt-32">
