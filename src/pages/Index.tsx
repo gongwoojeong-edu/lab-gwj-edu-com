@@ -466,7 +466,7 @@ const Index = () => {
     const next = upsertIdiom(sentence.id, sorted, surface, meaning);
     setIdiomMap(next);
     toast({
-      title: "🟫 숙어 저장됨",
+      title: "🟫 관용구 저장됨",
       description: `"${surface}" — ${meaning}`,
     });
   };
@@ -476,7 +476,7 @@ const Index = () => {
     const sorted = [...selectedWordIndices].sort((a, b) => a - b);
     const next = removeIdiom(sentence.id, sorted);
     setIdiomMap(next);
-    toast({ title: "숙어를 삭제했습니다" });
+    toast({ title: "관용구를 삭제했습니다" });
   };
 
   useEffect(() => {
