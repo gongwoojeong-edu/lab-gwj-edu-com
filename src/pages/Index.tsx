@@ -2254,64 +2254,60 @@ const Index = () => {
                     }
                   >
                     {(koreanLabel || outerKoreanLabel) && (() => {
-                      // 부배지 자동 시프트: 같은 단어에 2개 anchor 시 좌우 빈 공간 더 큰 쪽으로 분산
-                      const bothPills = !!koreanLabel && !!outerKoreanLabel;
-                      const totalWords = wordUnits.length;
-                      const leftSpace = idx;
-                      const rightSpace = Math.max(0, totalWords - 1 - idx);
-                      const innerShift = bothPills
-                        ? leftSpace >= rightSpace ? "left" : undefined
-                        : undefined;
-                      const outerShift = bothPills
-                        ? rightSpace > leftSpace ? "right" : "left"
-                        : undefined;
+                      // 부배지 수직 stagger — 동일 단어에 2개 anchor면 outer를 inner보다 위로,
+                      // 동일 anchor 단어가 인접 단어와 같은 layer 깊이일 때도 layer 번호로 vertical offset
+                      // 인접 anchor 충돌 회피를 위해 inner는 -18px (기본), outer는 -34px (한 칸 위)
+                      const innerTop = -18;
+                      const outerTop = koreanLabel ? -34 : -18;
                       return (
-                      <span className="sub-badge-row" style={{ top: "-18px" }}>
+                      <>
                         {koreanLabel && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span
-                                data-shift={innerShift}
-                                className={cn(
-                                  "sub-badge-pill",
-                                  `sub-badge-pill-${innerLayerNum}`,
-                                  totalLayers === 1 && "is-solo",
-                                  answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
-                                  answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
-                                )}
-                              >
-                                <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
-                                <span className="truncate max-w-[120px]">{koreanLabel}</span>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs font-kr">
-                              {koreanLabel}
-                            </TooltipContent>
-                          </Tooltip>
+                          <span className="sub-badge-row" style={{ top: `${innerTop}px` }}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={cn(
+                                    "sub-badge-pill",
+                                    `sub-badge-pill-${innerLayerNum}`,
+                                    totalLayers === 1 && "is-solo",
+                                    answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
+                                    answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
+                                  )}
+                                >
+                                  <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
+                                  <span className="truncate max-w-[120px]">{koreanLabel}</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-kr">
+                                {koreanLabel}
+                              </TooltipContent>
+                            </Tooltip>
+                          </span>
                         )}
                         {outerKoreanLabel && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span
-                                data-shift={outerShift}
-                                className={cn(
-                                  "sub-badge-pill",
-                                  `sub-badge-pill-${outerLayerNum}`,
-                                  totalLayers === 1 && "is-solo",
-                                  answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
-                                  answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
-                                )}
-                              >
-                                <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
-                                <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs font-kr">
-                              {outerKoreanLabel}
-                            </TooltipContent>
-                          </Tooltip>
+                          <span className="sub-badge-row" style={{ top: `${outerTop}px` }}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={cn(
+                                    "sub-badge-pill",
+                                    `sub-badge-pill-${outerLayerNum}`,
+                                    totalLayers === 1 && "is-solo",
+                                    answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
+                                    answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
+                                  )}
+                                >
+                                  <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
+                                  <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-kr">
+                                {outerKoreanLabel}
+                              </TooltipContent>
+                            </Tooltip>
+                          </span>
                         )}
-                      </span>
+                      </>
                       );
                     })()}
 
