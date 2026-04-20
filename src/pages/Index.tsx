@@ -480,7 +480,20 @@ const Index = () => {
         }
       }
     }
-    // 숙어 마크는 의도적으로 보존 — 별도 [관용구 삭제] 버튼에서만 제거
+    // 관용구(브라운톤) — active 인덱스를 덮는 idiom 마크도 함께 제거
+    if (indices.length > 0) {
+      const sentenceMarks = idiomMap[sentence.id] ?? [];
+      const toRemove = sentenceMarks.filter((m) =>
+        m.indices.some((i) => indices.includes(i)),
+      );
+      if (toRemove.length > 0) {
+        let nextMap = idiomMap;
+        toRemove.forEach((m) => {
+          nextMap = removeIdiom(sentence.id, m.indices);
+        });
+        setIdiomMap(nextMap);
+      }
+    }
     clearActiveSelection();
   };
 
