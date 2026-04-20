@@ -415,27 +415,26 @@ const Index = () => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
-    // 이 인덱스를 포함하는 완료 owner들
-    const owners = Object.entries(completedSelectionMap).filter(([, indices]) =>
-      indices.includes(idx),
-    );
+    // 이 인덱스를 포함하는 완료 owner들 (좁은 layer 우선)
+    const owners = Object.entries(completedSelectionMap)
+      .filter(([oid, indices]) => indices.includes(idx) && progressMap[oid]?.completed)
+      .sort(([, a], [, b]) => a.length - b.length);
 
-    // 단일 토큰 owner(자기 자신만)인 경우에만 owner 복원 — 다중 토큰 owner는 자동 복원 X
-    const singleSelfOwner = owners.find(
-      ([, indices]) => indices.length === 1 && indices[0] === idx,
-    );
-    if (singleSelfOwner && progressMap[singleSelfOwner[0]]?.completed) {
-      const [ownerId] = singleSelfOwner;
+    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+
+    // 완료 owner 클릭 → 가장 좁은 owner의 전체 범위 복원
+    // (단일 토큰 / span / 절 모두 동일)
+    if (!additive && owners.length > 0) {
+      const [ownerId, indices] = owners[0];
+      const sorted = [...indices].sort((a, b) => a - b);
       setSelectedId(ownerId);
-      setSelectedWordIndices([idx]);
+      setSelectedWordIndices(sorted);
       setDragStart(idx);
       return;
     }
 
-    // 일반 경로: 새 빈 분석 시작 — 단일 클릭은 항상 그 인덱스만 선택 (toggle X)
-    // shift/ctrl/meta 가 눌려있을 때만 기존 선택에 추가/토글
+    // 일반 경로: 새 빈 분석 시작
     setDragStart(idx);
-    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
     setSelectedWordIndices((prev) => {
       let next: number[];
       if (additive) {
@@ -445,7 +444,6 @@ const Index = () => {
           next = [...prev, idx].sort((a, b) => a - b);
         }
       } else {
-        // 단일 클릭: 무조건 그 인덱스 하나만 선택
         next = [idx];
       }
       const sid = pickSelectedIdFromIndices(next);
