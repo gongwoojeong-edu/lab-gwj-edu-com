@@ -1,5 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export type AssistEntry = {
+  word: string;
+  stage: "speak" | "meaning";
+  type: "stuck" | "teacher_skip";
+  attempts: number;
+  lastHeard?: string;
+};
+
 export interface WordPreResult {
   sentence_id: string;
   known_words: string[];
@@ -11,6 +19,7 @@ export const insertWordPreResult = async (
   sentenceId: string,
   known: string[],
   unknown: string[],
+  assistLog: AssistEntry[] = [],
 ): Promise<void> => {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return;
@@ -20,6 +29,7 @@ export const insertWordPreResult = async (
     known_words: known,
     unknown_words: unknown,
     completed: true,
+    assist_log: assistLog as unknown as never,
   });
 };
 

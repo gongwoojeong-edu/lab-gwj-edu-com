@@ -5,17 +5,23 @@ import { cn } from "@/lib/utils";
 import { englishMatch, getSpeechRecognition, speechSupported } from "@/lib/speech";
 import { speakWord, splitIntoSyllables } from "@/lib/syllables";
 import { toast } from "@/hooks/use-toast";
+import { TeacherSkipButton } from "@/components/learning/TeacherSkipButton";
 
 interface Props {
   word: string;
-  onFinish: (score: number) => void;
+  onFinish: (
+    score: number,
+    meta?: { stuck?: boolean; teacherSkipped?: boolean; lastHeard?: string },
+  ) => void;
 }
 
 type RecInstance = NonNullable<ReturnType<typeof getSpeechRecognition>> extends new () => infer R
   ? R
   : never;
 
-/** 2단계 — 영어 STT 발화. 1회 100, 2회 90, 3+ 80, 건너뛰기 60 */
+const STUCK_LIMIT = 10;
+
+/** 2단계 — 영어 STT 발화. 1회 100, 2회 90, 3+ 80, 10회 안전망 70(stuck), 선생님 스킵 90(teacherSkipped) */
 export const SpeakPanel = ({ word, onFinish }: Props) => {
   const supported = speechSupported();
   const [listening, setListening] = useState(false);
@@ -23,14 +29,15 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
   const [attempts, setAttempts] = useState(0);
   const finishedRef = useRef(false);
   const recRef = useRef<RecInstance | null>(null);
+  const lastHeardRef = useRef<string>("");
 
-  // 음소표 폴백: 음절을 하이픈으로 표시 (실데이터 phonics 추가는 다음 라운드)
   const phonics = useMemo(() => splitIntoSyllables(word).join(" · "), [word]);
 
   useEffect(() => {
     finishedRef.current = false;
     setHeard("");
     setAttempts(0);
+    lastHeardRef.current = "";
     return () => {
       try {
         recRef.current?.abort();
@@ -39,6 +46,27 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
       }
     };
   }, [word]);
+
+  // 5회 도달 시 보조 안내
+  useEffect(() => {
+    if (attempts === 5 && !finishedRef.current) {
+      toast({
+        title: "발음이 어려우면 천천히 또박또박 말해보세요",
+        description: `남은 시도 ${STUCK_LIMIT - attempts}회`,
+      });
+    }
+    if (attempts >= STUCK_LIMIT && !finishedRef.current) {
+      finishedRef.current = true;
+      toast({
+        title: "기록 후 다음으로",
+        description: `${STUCK_LIMIT}회 시도 — 어려운 단어로 기록합니다`,
+      });
+      setTimeout(
+        () => onFinish(70, { stuck: true, lastHeard: lastHeardRef.current }),
+        1200,
+      );
+    }
+  }, [attempts, onFinish]);
 
   const start = () => {
     const Ctor = getSpeechRecognition();
@@ -68,6 +96,7 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
           if (!best) best = t;
         }
         setHeard(best);
+        lastHeardRef.current = best;
         const ok = englishMatch(best, word);
         const nextAttempts = attempts + 1;
         setAttempts(nextAttempts);
@@ -79,7 +108,7 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
         } else if (!ok) {
           toast({
             title: "다시 시도",
-            description: `들린 발음: "${best}"`,
+            description: `들린 발음: "${best}" — 시도 ${nextAttempts}/${STUCK_LIMIT}`,
             variant: "destructive",
           });
         }
@@ -120,6 +149,12 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     onFinish(60);
+  };
+
+  const teacherApprove = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onFinish(90, { teacherSkipped: true, lastHeard: lastHeardRef.current });
   };
 
   return (
@@ -163,7 +198,16 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
           <Button variant="ghost" size="sm" onClick={() => speakWord(word)}>
             <Volume2 className="w-3 h-3 mr-1" /> 시범 듣기
           </Button>
-          <span className="text-muted-foreground">시도 {attempts}</span>
+          <span
+            className={cn(
+              "font-mono",
+              attempts >= STUCK_LIMIT - 2
+                ? "text-destructive font-bold"
+                : "text-muted-foreground",
+            )}
+          >
+            시도 {attempts}/{STUCK_LIMIT}
+          </span>
         </div>
 
         {!supported && (
@@ -171,6 +215,8 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
             <SkipForward className="w-3 h-3 mr-1" /> 음성인식 미지원 — 건너뛰기 (60점)
           </Button>
         )}
+
+        <TeacherSkipButton onApproved={teacherApprove} />
       </div>
 
       <p
@@ -179,7 +225,7 @@ export const SpeakPanel = ({ word, onFinish }: Props) => {
           attempts >= 2 ? "text-destructive" : "text-muted-foreground",
         )}
       >
-        90점 이상이어야 다음 단계로 넘어갑니다.
+        90점 이상 또는 10회 안전망/선생님 패스키로 통과합니다.
       </p>
     </div>
   );

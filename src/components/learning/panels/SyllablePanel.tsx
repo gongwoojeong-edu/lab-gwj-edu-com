@@ -8,7 +8,7 @@ interface Props {
   onFinish: (score: number) => void;
 }
 
-/** 1단계 — 음절 각인. 모든 음절을 1번 이상 클릭 → 전체 발음 자동 → onFinish */
+/** 1단계 — 음절 각인. 모든 음절 클릭 → 마지막 음절 재생 끝난 뒤 통단어 자동 재생 → onFinish */
 export const SyllablePanel = ({ word, onFinish }: Props) => {
   const syllables = useMemo(() => splitIntoSyllables(word), [word]);
   const [clicked, setClicked] = useState<Set<number>>(new Set());
@@ -21,9 +21,30 @@ export const SyllablePanel = ({ word, onFinish }: Props) => {
     setActiveIdx(null);
   }, [word]);
 
+  const playFullWordThenFinish = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setActiveIdx(null);
+    // 짧은 텀 후 통단어 발음 → 끝나면 onFinish
+    setTimeout(() => {
+      speakWord(word, () => {
+        setTimeout(() => onFinish(100), 600);
+      });
+    }, 350);
+  };
+
   const playOne = (i: number) => {
+    if (finishedRef.current) return;
     setActiveIdx(i);
-    speakChunk(syllables[i], { rate: 0.7 });
+
+    const willCompleteAll = !clicked.has(i) && clicked.size + 1 >= syllables.length;
+
+    speakChunk(syllables[i], { rate: 0.7 }, () => {
+      if (willCompleteAll) {
+        playFullWordThenFinish();
+      }
+    });
+
     setClicked((prev) => {
       if (prev.has(i)) return prev;
       const next = new Set(prev);
@@ -32,19 +53,19 @@ export const SyllablePanel = ({ word, onFinish }: Props) => {
     });
   };
 
-  // 모든 음절 클릭 → 자동 전체발음 + onFinish
+  // 단어가 한 음절이거나 분리 결과가 없으면 통단어 1회 재생 후 통과
   useEffect(() => {
     if (finishedRef.current) return;
-    if (syllables.length === 0) return;
-    if (clicked.size < syllables.length) return;
-    finishedRef.current = true;
-    const score = 100;
-    const t = setTimeout(() => {
-      speakWord(word);
-      setTimeout(() => onFinish(score), 1100);
-    }, 250);
-    return () => clearTimeout(t);
-  }, [clicked, syllables, word, onFinish]);
+    if (syllables.length <= 1) {
+      finishedRef.current = true;
+      const t = setTimeout(() => {
+        speakWord(word, () => {
+          setTimeout(() => onFinish(100), 600);
+        });
+      }, 250);
+      return () => clearTimeout(t);
+    }
+  }, [syllables, word, onFinish]);
 
   return (
     <div className="space-y-5">

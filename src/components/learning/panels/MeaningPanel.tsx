@@ -4,18 +4,24 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getSpeechRecognition, koreanMeaningMatch, speechSupported } from "@/lib/speech";
 import { toast } from "@/hooks/use-toast";
+import { TeacherSkipButton } from "@/components/learning/TeacherSkipButton";
 
 interface Props {
   word: string;
   expected: string; // Korean meaning(s), comma/slash separated
-  onFinish: (score: number) => void;
+  onFinish: (
+    score: number,
+    meta?: { stuck?: boolean; teacherSkipped?: boolean; lastHeard?: string },
+  ) => void;
 }
 
 type RecInstance = NonNullable<ReturnType<typeof getSpeechRecognition>> extends new () => infer R
   ? R
   : never;
 
-/** 4단계 — 한국어 STT 의미인출. 1회 100, 2회 90, 3+ 80, 건너뛰기 60 */
+const STUCK_LIMIT = 10;
+
+/** 4단계 — 한국어 STT 의미인출. 1회 100, 2회 90, 3+ 80, 10회 안전망 70(stuck), 선생님 스킵 90(teacherSkipped) */
 export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
   const supported = speechSupported();
   const [listening, setListening] = useState(false);
@@ -23,11 +29,13 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
   const [attempts, setAttempts] = useState(0);
   const finishedRef = useRef(false);
   const recRef = useRef<RecInstance | null>(null);
+  const lastHeardRef = useRef<string>("");
 
   useEffect(() => {
     finishedRef.current = false;
     setHeard("");
     setAttempts(0);
+    lastHeardRef.current = "";
     return () => {
       try {
         recRef.current?.abort();
@@ -36,6 +44,26 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
       }
     };
   }, [word]);
+
+  useEffect(() => {
+    if (attempts === 5 && !finishedRef.current) {
+      toast({
+        title: "차분히 한국어 뜻을 또박또박 말해보세요",
+        description: `남은 시도 ${STUCK_LIMIT - attempts}회`,
+      });
+    }
+    if (attempts >= STUCK_LIMIT && !finishedRef.current) {
+      finishedRef.current = true;
+      toast({
+        title: "기록 후 다음으로",
+        description: `${STUCK_LIMIT}회 시도 — 어려운 의미로 기록합니다`,
+      });
+      setTimeout(
+        () => onFinish(70, { stuck: true, lastHeard: lastHeardRef.current }),
+        1200,
+      );
+    }
+  }, [attempts, onFinish]);
 
   const start = () => {
     const Ctor = getSpeechRecognition();
@@ -65,6 +93,7 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
           if (!best) best = t;
         }
         setHeard(best);
+        lastHeardRef.current = best;
         const ok = koreanMeaningMatch(best, expected);
         const nextAttempts = attempts + 1;
         setAttempts(nextAttempts);
@@ -76,7 +105,7 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
         } else if (!ok) {
           toast({
             title: "다시 시도",
-            description: `들린 말: "${best}"`,
+            description: `들린 말: "${best}" — 시도 ${nextAttempts}/${STUCK_LIMIT}`,
             variant: "destructive",
           });
         }
@@ -119,6 +148,12 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
     onFinish(60);
   };
 
+  const teacherApprove = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onFinish(90, { teacherSkipped: true, lastHeard: lastHeardRef.current });
+  };
+
   return (
     <div className="space-y-5">
       <div className="text-center">
@@ -153,13 +188,24 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
           </div>
         )}
 
-        <div className="text-xs text-muted-foreground">시도 {attempts}</div>
+        <div
+          className={cn(
+            "text-xs font-mono",
+            attempts >= STUCK_LIMIT - 2
+              ? "text-destructive font-bold"
+              : "text-muted-foreground",
+          )}
+        >
+          시도 {attempts}/{STUCK_LIMIT}
+        </div>
 
         {!supported && (
           <Button variant="outline" size="sm" onClick={skip}>
             <SkipForward className="w-3 h-3 mr-1" /> 음성인식 미지원 — 건너뛰기 (60점)
           </Button>
         )}
+
+        <TeacherSkipButton onApproved={teacherApprove} />
       </div>
 
       <p
@@ -168,7 +214,7 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
           attempts >= 2 ? "text-destructive" : "text-muted-foreground",
         )}
       >
-        90점 이상이어야 이 단어가 통과됩니다.
+        90점 이상 또는 10회 안전망/선생님 패스키로 통과합니다.
       </p>
     </div>
   );
