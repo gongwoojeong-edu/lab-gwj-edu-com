@@ -403,6 +403,15 @@ const Index = () => {
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
   const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
 
+  // ===== 학습 흐름 (Cloud) =====
+  const [learningStep, setLearningStep] = useState<LearningStep>("analysis");
+  const [translationDone, setTranslationDone] = useState(false);
+  const [wordTestDone, setWordTestDone] = useState(false);
+  const [passedAt, setPassedAt] = useState<string | null>(null);
+
+  // ===== 부배지 수동 드래그 오프셋 =====
+  const [badgeOffsets, setBadgeOffsets] = useState<Record<string, number>>({});
+
   // ESC: pending modifier/referent 즉시 취소
   useEffect(() => {
     if (!pendingModifierSource && !pendingReferentSource) return;
