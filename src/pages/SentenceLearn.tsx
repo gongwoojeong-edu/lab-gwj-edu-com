@@ -17,7 +17,7 @@ import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+
 import { toast } from "@/hooks/use-toast";
 
 type Step = "pre" | "analysis" | "post";
