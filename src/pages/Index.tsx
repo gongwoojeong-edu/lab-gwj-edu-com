@@ -2329,23 +2329,25 @@ const Index = () => {
                 </span>
               );
 
-              // 토큰 사이 공백 — 양쪽 단어가 공유하는 owner의 layer 색을 동일하게 누적
-              // 단, clause owner는 spacer 언더라인을 이어 그림. 병렬은 spacer를 끊어 단어별 독립 박스로.
+              // 토큰 사이 공백 — 사용자가 직접 단어 연결로 만든 owner만 spacer 채움.
+              // 자동 복원/단일 토큰 owner는 spacer 비움 (배경/언더라인만).
+              // 병렬은 spacer를 끊어 단어별 독립 박스로 표시.
               const isLastWord = idx === wordUnits.length - 1;
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
-              const spacerBgImage = buildLayerBg(sharedOwners);
-              // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결
+              const linkedSharedOwners = sharedOwners.filter((o) => userLinkedOwnerSet.has(o));
+              const spacerBgImage = buildLayerBg(linkedSharedOwners);
+              // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결 (사용자 액션이므로 채움)
               const isNextSelected = !isLastWord && selectedWordIndices.includes(idx + 1);
               const spacerSelectedBridge = isSelected && isNextSelected;
-              // 완료(general) bridge: 양쪽 모두 같은 general owner의 완료 인덱스에 속하면 spacer도 동일 색·하단 보더
-              const generalSharedOwner = sharedOwners.find((oid) => {
+              // 완료(general) bridge: user-linked owner인 경우에만 spacer도 동일 색·하단 보더
+              const generalSharedOwner = linkedSharedOwners.find((oid) => {
                 const op = progressMap[oid];
                 return !!op && !isClauseProgress(op) && !isParallelProgress(op);
               });
               const spacerCompletedBridge = !!generalSharedOwner && !spacerSelectedBridge;
-              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 clause owner에 속하면 spacer 하단도 같은 색 라인
+              // 절(clause) 언더라인 bridge — clause는 의미 단위라 user-linked 여부와 무관하게 이어 그림
               const clauseSharedOwner = sharedOwners.find((oid) => {
                 const op = progressMap[oid];
                 return !!op && isClauseProgress(op);
