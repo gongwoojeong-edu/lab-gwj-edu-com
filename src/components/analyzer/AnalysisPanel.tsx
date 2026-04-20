@@ -403,11 +403,10 @@ export const AnalysisPanel = ({
   const isEtc = currentPos === "기타";
 
   const renderSubPanel = () => {
-    if (!answer) return null;
     if (isNoun)
       return (
         <NounPanel
-          answer={answer as NounAnswer}
+          answer={(answer as NounAnswer | null) ?? undefined}
           noun={noun}
           onNounFormChange={onNounFormChange}
           onNounElementChange={onNounElementChange}
@@ -430,7 +429,7 @@ export const AnalysisPanel = ({
     if (isAdj)
       return (
         <AdjPanel
-          answer={answer as AdjAnswer}
+          answer={(answer as AdjAnswer | null) ?? undefined}
           adj={adj}
           onAdjFormChange={onAdjFormChange}
           onAdjElementChange={onAdjElementChange}
@@ -441,7 +440,7 @@ export const AnalysisPanel = ({
     if (isAdv)
       return (
         <AdvPanel
-          answer={answer as AdvAnswer}
+          answer={(answer as AdvAnswer | null) ?? undefined}
           adv={adv}
           onAdvFormChange={onAdvFormChange}
           onAdvSubtypeChange={onAdvSubtypeChange}
@@ -451,7 +450,7 @@ export const AnalysisPanel = ({
     if (isEtc)
       return (
         <EtcPanel
-          answer={answer as EtcAnswer}
+          answer={(answer as EtcAnswer | null) ?? undefined}
           etc={etc}
           onEtcKindChange={onEtcKindChange}
           onEtcRoleChange={onEtcRoleChange}
@@ -463,24 +462,28 @@ export const AnalysisPanel = ({
   return (
     <aside className="glass-panel rounded-xl px-3 py-1.5 max-h-[calc(100dvh-4rem)] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center gap-2 flex-wrap justify-between">
-        {/* Selected word */}
+        {/* Selected word — 항상 노출, 미선택 시 placeholder */}
         <div className="flex items-baseline gap-1.5 min-w-0">
           <span className="text-[9px] font-bold text-primary-glow uppercase tracking-widest">
             Sel
           </span>
-          <span className="text-xs font-bold text-foreground truncate max-w-[160px]">
-            "{selectedWord}"
+          <span
+            className={cn(
+              "text-xs font-bold truncate max-w-[180px]",
+              hasSelection ? "text-foreground" : "text-muted-foreground/60 italic font-kr",
+            )}
+          >
+            {hasSelection ? `"${selectedWord}"` : "단어를 선택하세요"}
           </span>
         </div>
 
-        {/* LAYER 01 — 품사 */}
+        {/* LAYER 01 — 품사 (항상 활성, 완료 후에도 재선택 허용) */}
         <div className="flex items-center gap-1 flex-wrap">
           {POS_LIST.map(({ key, circle, label }) => {
             const isSelected = pos === key;
             const isCorrect = isSelected && posCorrect;
             const isWrong = !answerInputMode && isSelected && posStatus === "wrong";
-            const lockedOther = posCorrect && !isSelected;
-            const disabled = lockedOther;
+            const disabled = !hasSelection;
 
             const trigger = (
               <button
@@ -496,7 +499,7 @@ export const AnalysisPanel = ({
                   "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary",
                   isCorrect && "bg-primary/10 text-primary border-primary/40",
                   isWrong && "border-destructive bg-destructive/10 text-destructive animate-pulse",
-                  lockedOther && "opacity-30 cursor-not-allowed",
+                  disabled && "opacity-40 cursor-not-allowed",
                 )}
               >
                 <span className="font-mono text-[13px] leading-none">{circle}</span>
@@ -504,7 +507,7 @@ export const AnalysisPanel = ({
               </button>
             );
 
-            if (isSelected && (isNoun || isVerb || isAdj || isAdv || isEtc) && answer) {
+            if (hasSelection && isSelected && (isNoun || isVerb || isAdj || isAdv || isEtc)) {
               return (
                 <Popover key={key} defaultOpen>
                   <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -531,27 +534,28 @@ export const AnalysisPanel = ({
         </div>
       </div>
 
-      {canErase && onEraseSelection && (
-        <div className="mt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={onEraseSelection}
-            className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-          >
-            🧽 지우개
-          </button>
-        </div>
-      )}
+      {/* 지우개 — 항상 노출 (Item 2, 5) */}
+      <div className="mt-2 flex justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={onEraseSelection}
+          disabled={!canErase || !onEraseSelection}
+          className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="현재 선택된 분석을 모두 삭제"
+        >
+          🧽 지우개
+        </button>
+      </div>
 
-      {idiomEnabled && (
-        <IdiomSection
-          surface={selectedWord}
-          existingMeaning={idiomExistingMeaning}
-          answerInputMode={answerInputMode}
-          onSave={onIdiomSave}
-          onRemove={onIdiomRemove}
-        />
-      )}
+      {/* 관용구 카드 — 항상 별도 영역, SVOC 메뉴와 독립 (Item 6) */}
+      <IdiomSection
+        surface={selectedWord ?? ""}
+        existingMeaning={idiomExistingMeaning}
+        answerInputMode={answerInputMode}
+        onSave={onIdiomSave}
+        onRemove={onIdiomRemove}
+        enabled={!!idiomEnabled}
+      />
     </aside>
   );
 };
