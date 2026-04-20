@@ -20,7 +20,6 @@ import {
 import { useAuth, signOut, type AppRole } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { LogOut, ChevronLeft, Shield, ShieldCheck, GraduationCap } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { addUserRole, fetchAllUserRoles, removeUserRole } from "@/lib/userRoles";
 
 const ROLE_OPTIONS: { value: AppRole; label: string; icon: typeof Shield }[] = [
