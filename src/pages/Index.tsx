@@ -78,6 +78,13 @@ import {
   getTargetsForSentence,
   type ModifierTargetMap,
 } from "@/lib/modifierTargets";
+import {
+  loadReferentTargets,
+  upsertReferentTarget,
+  removeReferentTargetBySource,
+  getReferentsForSentence,
+  type ReferentTargetMap,
+} from "@/lib/referentTargets";
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -173,43 +180,65 @@ const ownerIdToWordIdx = (ownerId: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const ModifierArrowOverlay = ({
-  show,
-  relations,
+type ArrowKind = "modifier" | "referent";
+
+const ArrowOverlay = ({
+  showModifier,
+  showReferent,
+  modifierRelations,
+  referentRelations,
   tokenRefs,
   containerRef,
   layoutVersion,
 }: {
-  show: boolean;
-  relations: { source: string; target: string }[];
+  showModifier: boolean;
+  showReferent: boolean;
+  modifierRelations: { source: string; target: string }[];
+  referentRelations: { source: string; target: string }[];
   tokenRefs: Map<number, HTMLSpanElement>;
   containerRef: React.RefObject<HTMLDivElement>;
   layoutVersion: number;
 }) => {
-  // layoutVersion이 바뀔 때마다 강제 재렌더 — 좌표 다시 측정
   void layoutVersion;
-  if (!show || relations.length === 0) return null;
   const container = containerRef.current;
   if (!container) return null;
   const cRect = container.getBoundingClientRect();
 
-  type Arrow = { sx: number; sy: number; tx: number; ty: number; key: string };
+  type Arrow = {
+    sx: number;
+    sy: number;
+    tx: number;
+    ty: number;
+    key: string;
+    kind: ArrowKind;
+  };
   const arrows: Arrow[] = [];
-  relations.forEach((rel) => {
-    const sIdx = ownerIdToWordIdx(rel.source);
-    const tIdx = ownerIdToWordIdx(rel.target);
-    if (sIdx === null || tIdx === null) return;
-    const sEl = tokenRefs.get(sIdx);
-    const tEl = tokenRefs.get(tIdx);
-    if (!sEl || !tEl) return;
-    const sR = sEl.getBoundingClientRect();
-    const tR = tEl.getBoundingClientRect();
-    const sx = sR.left - cRect.left + sR.width / 2;
-    const sy = sR.top - cRect.top;
-    const tx = tR.left - cRect.left + tR.width / 2;
-    const ty = tR.top - cRect.top;
-    arrows.push({ sx, sy, tx, ty, key: `${rel.source}->${rel.target}` });
-  });
+
+  const collect = (
+    rels: { source: string; target: string }[],
+    kind: ArrowKind,
+    show: boolean,
+  ) => {
+    if (!show) return;
+    rels.forEach((rel) => {
+      const sIdx = ownerIdToWordIdx(rel.source);
+      const tIdx = ownerIdToWordIdx(rel.target);
+      if (sIdx === null || tIdx === null) return;
+      const sEl = tokenRefs.get(sIdx);
+      const tEl = tokenRefs.get(tIdx);
+      if (!sEl || !tEl) return;
+      const sR = sEl.getBoundingClientRect();
+      const tR = tEl.getBoundingClientRect();
+      const sx = sR.left - cRect.left + sR.width / 2;
+      const sy = sR.top - cRect.top;
+      const tx = tR.left - cRect.left + tR.width / 2;
+      const ty = tR.top - cRect.top;
+      arrows.push({ sx, sy, tx, ty, key: `${kind}:${rel.source}->${rel.target}`, kind });
+    });
+  };
+  collect(modifierRelations, "modifier", showModifier);
+  collect(referentRelations, "referent", showReferent);
+
   if (arrows.length === 0) return null;
 
   return (
@@ -221,7 +250,7 @@ const ModifierArrowOverlay = ({
     >
       <defs>
         <marker
-          id="modifier-arrow-head"
+          id="arrow-head-modifier"
           viewBox="0 0 10 10"
           refX="8"
           refY="5"
@@ -231,25 +260,46 @@ const ModifierArrowOverlay = ({
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" />
         </marker>
+        <marker
+          id="arrow-head-referent"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--muted-foreground))" />
+        </marker>
       </defs>
-      {arrows.map(({ sx, sy, tx, ty, key }) => {
-        // 두 단어 위쪽으로 솟아오르는 부드러운 곡선
+      {arrows.map(({ sx, sy, tx, ty, key, kind }) => {
         const midX = (sx + tx) / 2;
         const dx = Math.abs(tx - sx);
-        // 거리에 따라 곡선의 봉우리 높이 조정 (최소 18, 최대 60)
         const lift = Math.min(60, Math.max(18, dx * 0.25));
         const peakY = Math.min(sy, ty) - lift;
+        const isMod = kind === "modifier";
         return (
-          <path
-            key={key}
-            d={`M ${sx} ${sy - 2} Q ${midX} ${peakY} ${tx} ${ty - 2}`}
-            stroke="hsl(var(--primary))"
-            strokeWidth="1.6"
-            strokeDasharray="4 3"
-            fill="none"
-            markerEnd="url(#modifier-arrow-head)"
-            opacity={0.85}
-          />
+          <g key={key}>
+            {!isMod && (
+              <circle
+                cx={sx}
+                cy={sy - 2}
+                r={2.5}
+                fill="hsl(var(--muted-foreground))"
+                opacity={0.85}
+              />
+            )}
+            <path
+              d={`M ${sx} ${sy - 2} Q ${midX} ${peakY} ${tx} ${ty - 2}`}
+              stroke={isMod ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
+              strokeWidth={isMod ? 1.6 : 1.4}
+              strokeDasharray={isMod ? "4 3" : "1 3"}
+              strokeLinecap="round"
+              fill="none"
+              markerEnd={isMod ? "url(#arrow-head-modifier)" : "url(#arrow-head-referent)"}
+              opacity={isMod ? 0.85 : 0.75}
+            />
+          </g>
         );
       })}
     </svg>
