@@ -1379,13 +1379,24 @@ const Index = () => {
               const innerCompleteBg =
                 isCompleted && !isSelected && !isClauseSelection;
 
+              // === 다층 depth 계산 — layer가 깊을수록 더 진한 배경 ===
+              const layerCount = ownersHere.length;
+              const depthBgClass =
+                layerCount >= 3
+                  ? "bg-primary/[0.18]"
+                  : layerCount === 2
+                  ? "bg-primary/[0.12]"
+                  : "";
+
               const wordNode = (
                 <span
                   key={idx}
                   className={cn(
-                    "inline-flex items-end leading-none whitespace-nowrap",
+                    "inline-flex items-end leading-none whitespace-nowrap rounded-sm",
                     // 외곽 절(보라) 배경 — 톤 더 연하게
-                    outerIsClauseLocal && "bg-primary/[0.04]",
+                    outerIsClauseLocal && "bg-primary/[0.05]",
+                    // 다층(2층 이상) 가산 배경
+                    depthBgClass,
                   )}
                 >
                   {bracketRole && outerIsFirstLocal && (
