@@ -364,6 +364,11 @@ const Index = () => {
       window.removeEventListener("resize", onResize);
     };
   }, []);
+  // 문장 변경 / 분석 변경 시 다음 paint 후 화살표 좌표 재측정
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setArrowLayoutVersion((v) => v + 1));
+    return () => cancelAnimationFrame(id);
+  }, [sentence.id, modifierMap, completedSelectionMap, progressMap]);
 
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
