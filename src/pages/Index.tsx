@@ -2124,8 +2124,9 @@ const Index = () => {
       {!analysisPanelHidden && (
         <div
           className={cn(
-            "hidden lg:block fixed top-[68px] right-4 z-30",
-            "w-[min(34vw,460px)] max-h-[calc(100vh-84px)]",
+            "hidden lg:flex flex-col fixed top-[64px] right-4 z-30",
+            "w-[min(34vw,460px)]",
+            isAdmin ? "bottom-20" : "bottom-4",
             "overflow-y-auto overscroll-contain rounded-2xl",
             "border border-border/60 bg-background/85 backdrop-blur-sm shadow-lg",
           )}
