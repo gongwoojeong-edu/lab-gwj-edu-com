@@ -422,10 +422,44 @@ const Index = () => {
     return buildSpanOwnerId(sorted[0], sorted[sorted.length - 1]);
   };
 
+  // ===== 단일 owner 즉시 삭제 (지우개 모드 / Shift 단축키 공용) =====
+  const eraseOwner = (ownerId: string) => {
+    setProgressMap((prev) => {
+      const next = { ...prev };
+      delete next[ownerId];
+      finalizedOwnersRef.current.delete(ownerId);
+      return next;
+    });
+    setCompletedSelectionMap((prev) => {
+      const next = { ...prev };
+      delete next[ownerId];
+      return next;
+    });
+    if (customAnswers[ownerId]) {
+      const nextCustom = { ...customAnswers };
+      delete nextCustom[ownerId];
+      setCustomAnswers(nextCustom);
+      try {
+        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
+      } catch {
+        /* ignore */
+      }
+    }
+    if (selectedId === ownerId) {
+      setSelectedId(null);
+      setSelectedWordIndices([]);
+      setDragStart(null);
+      setDrawerOpen(false);
+    }
+  };
+
   // ===== 단어 단위 선택 =====
-  // 완료 영역 클릭 정책:
-  //   - 단일 토큰 클릭은 항상 새 빈 분석으로 시작 (인접 완료 토큰 owner 자동 복원 X)
-  //   - owner 복원은 사용자가 명시적으로 완료 토큰 묶음 전체를 다시 드래그/클릭으로 선택했을 때만
+  // 클릭 분기:
+  //   - eraserMode ON + 완료 owner 클릭 → 즉시 삭제
+  //   - eraserMode ON + 미분석 토큰    → 무시
+  //   - Shift/Meta/Ctrl + 완료 owner   → 즉시 삭제 (보조 단축키)
+  //   - eraserMode OFF + 완료 owner 클릭 → 클릭한 토큰만 selection으로 → 다층 분석 진입
+  //   - 일반 클릭/드래그 → 새 분석 시작
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
@@ -435,41 +469,40 @@ const Index = () => {
       .filter(([oid, indices]) => indices.includes(idx) && progressMap[oid]?.completed)
       .sort(([, a], [, b]) => a.length - b.length);
 
-    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+    const hasCompletedOwner = owners.length > 0;
+    const modifierErase = e.shiftKey || e.metaKey || e.ctrlKey;
 
-    // 완료 owner 클릭 → 가장 좁은 owner의 전체 범위 복원
-    // (단일 토큰 / span / 절 모두 동일)
-    if (!additive && owners.length > 0) {
-      const [ownerId, indices] = owners[0];
-      const sorted = [...indices].sort((a, b) => a - b);
-      setSelectedId(ownerId);
-      setSelectedWordIndices(sorted);
-      setDragStart(idx);
+    // === 지우개 모드 ===
+    if (eraserMode) {
+      if (hasCompletedOwner) {
+        const [ownerId] = owners[0];
+        eraseOwner(ownerId);
+        toast({ title: "🧽 삭제됨" });
+      }
+      // 미분석 토큰: 아무 동작 X
       return;
     }
 
-    // 일반 경로: 새 빈 분석 시작
+    // === Shift+클릭 단축키 — 완료 owner 즉시 삭제 ===
+    if (modifierErase && hasCompletedOwner) {
+      const [ownerId] = owners[0];
+      eraseOwner(ownerId);
+      toast({ title: "🧽 삭제됨" });
+      return;
+    }
+
+    // === 일반 모드 — 단일 토큰 선택으로 새 분석/다층 분석 진입 ===
+    // 완료 owner 위에서도 owner 전체를 selection으로 잡지 않고 단일 토큰만 선택
+    // → 기존 owner는 보존된 채 그 위에 새 layer 분석 가능
     setDragStart(idx);
-    setSelectedWordIndices((prev) => {
-      let next: number[];
-      if (additive) {
-        if (prev.includes(idx)) {
-          next = prev.filter((i) => i !== idx);
-        } else {
-          next = [...prev, idx].sort((a, b) => a - b);
-        }
-      } else {
-        next = [idx];
-      }
-      const sid = pickSelectedIdFromIndices(next);
-      if (sid) {
-        setSelectedId(sid);
-        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
-      } else {
-        setSelectedId(null);
-      }
-      return next;
-    });
+    setSelectedWordIndices([idx]);
+    const sid = pickSelectedIdFromIndices([idx]);
+    if (sid) {
+      setSelectedId(sid);
+      setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+    } else {
+      setSelectedId(null);
+    }
   };
   const handleWordMouseEnter = (idx: number) => {
     if (dragStart === null) return;
