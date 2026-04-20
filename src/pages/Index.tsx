@@ -1121,6 +1121,26 @@ const Index = () => {
     onIdiomRemove: handleIdiomRemove,
     canErase: activeSelectionIndices.length > 0,
     onEraseSelection: handleEraser,
+    // ===== 수식 화살표 — 형용사/부사 또는 element=M owner에서만 활성 =====
+    canAssignModifierTarget:
+      !!selectedId &&
+      (progress.pos === "형용사" ||
+        progress.pos === "부사" ||
+        (progress.pos === "명사" && progress.noun.element === "M") ||
+        (progress.pos === "형용사" && progress.adj.element === "M")),
+    isPendingModifier: !!selectedId && pendingModifierSource === selectedId,
+    onAssignModifierTarget: () => {
+      if (!selectedId) return;
+      setPendingModifierSource((cur) => (cur === selectedId ? null : selectedId));
+    },
+    onClearModifierTarget: () => {
+      if (!selectedId) return;
+      setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, selectedId));
+      setPendingModifierSource(null);
+    },
+    hasModifierTarget:
+      !!selectedId &&
+      getTargetsForSentence(modifierMap, sentence.id).some((r) => r.source === selectedId),
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
