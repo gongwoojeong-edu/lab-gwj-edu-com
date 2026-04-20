@@ -395,6 +395,151 @@ const Index = () => {
     setReferentMap(loadReferentTargets());
   }, []);
 
+  // ===== customAnswers → progressMap / completedSelectionMap 자동 복원 =====
+  // 새로고침 후에도 SVOC 배지·부배지·대괄호가 그대로 보이도록.
+  // 현재 sentence 범위의 owner들만 hydrate.
+  useEffect(() => {
+    if (!customAnswers || Object.keys(customAnswers).length === 0) return;
+
+    const hydratedProgress: Record<string, WordProgress> = {};
+    const hydratedSel: Record<string, number[]> = {};
+
+    Object.entries(customAnswers).forEach(([ownerId, patch]) => {
+      // span owner는 sentence id가 일치하는 것만
+      if (ownerId.startsWith(`${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}`)) {
+        const parts = ownerId.split(OWNER_KEY_SEPARATOR);
+        if (parts[1] !== sentence.id) return;
+        const range = parts[2]?.split("-").map(Number);
+        if (!range || range.length !== 2 || !Number.isFinite(range[0]) || !Number.isFinite(range[1])) return;
+        const [s, e] = range;
+        const indices: number[] = [];
+        for (let i = s; i <= e; i++) {
+          if (!isPunct(wordUnits[i]?.word ?? "")) indices.push(i);
+        }
+        if (indices.length === 0) return;
+        hydratedSel[ownerId] = indices;
+      } else {
+        // 단일 토큰 owner: `${tokenId}::${idx}`
+        const lastSep = ownerId.lastIndexOf(OWNER_KEY_SEPARATOR);
+        if (lastSep < 0) return;
+        const tid = ownerId.slice(0, lastSep);
+        const idxStr = ownerId.slice(lastSep + OWNER_KEY_SEPARATOR.length);
+        const idx = Number(idxStr);
+        if (!Number.isFinite(idx)) return;
+        // 현재 sentence에 있는 토큰만
+        const tokenInSentence = sentence.tokens.some(
+          (t) => t.type === "analyzable" && t.id === tid,
+        );
+        if (!tokenInSentence) return;
+        if (!wordUnits[idx] || wordUnits[idx].tokenId !== tid) {
+          const fb = wordUnits.findIndex((u) => u.tokenId === tid);
+          if (fb < 0) return;
+          hydratedSel[ownerId] = [fb];
+        } else {
+          hydratedSel[ownerId] = [idx];
+        }
+      }
+
+      // progressMap 재구성 — patch에서 추론
+      const p: Record<string, unknown> = (patch ?? {}) as Record<string, unknown>;
+      const pos = p.pos as POS | undefined;
+      if (!pos) return;
+      const wp = emptyProgress();
+      wp.pos = pos;
+      wp.posStatus = "correct";
+      if (pos === "명사") {
+        if (typeof p.form === "string") {
+          wp.noun.form = p.form as NounForm;
+          wp.noun.formStatus = "correct";
+        }
+        if (typeof p.element === "string") {
+          wp.noun.element = p.element as SentenceElement;
+          wp.noun.elementStatus = "correct";
+        }
+        if (typeof p.role === "string") {
+          wp.noun.role = p.role as string;
+          wp.noun.roleStatus = "correct";
+          wp.completed = true;
+        } else if (wp.noun.element === "M") {
+          wp.completed = true;
+        }
+      } else if (pos === "형용사") {
+        if (typeof p.form === "string") {
+          wp.adj.form = p.form as AdjForm;
+          wp.adj.formStatus = "correct";
+        }
+        if (typeof p.element === "string") {
+          wp.adj.element = p.element as "C" | "M";
+          wp.adj.elementStatus = "correct";
+        }
+        if (typeof p.role === "string") {
+          wp.adj.role = p.role as string;
+          wp.adj.roleStatus = "correct";
+          wp.completed = true;
+        } else if (wp.adj.element === "M") {
+          wp.completed = true;
+        }
+      } else if (pos === "부사") {
+        if (typeof p.form === "string") {
+          wp.adv.form = p.form as AdvForm;
+          wp.adv.formStatus = "correct";
+        }
+        if (typeof p.subtype === "string") {
+          wp.adv.subtype = p.subtype as AdvSubtype;
+          wp.adv.subtypeStatus = "correct";
+        }
+        if (typeof p.role === "string") {
+          wp.adv.role = p.role as string;
+          wp.adv.roleStatus = "correct";
+        }
+        if (wp.adv.form || wp.adv.role) wp.completed = true;
+      } else if (pos === "기타") {
+        if (typeof p.kind === "string") {
+          wp.etc.kind = p.kind as EtcKind;
+          wp.etc.kindStatus = "correct";
+        }
+        if (typeof p.role === "string") {
+          wp.etc.role = p.role as string;
+          wp.etc.roleStatus = "correct";
+          wp.completed = true;
+        }
+      } else if (pos === "동사") {
+        if (typeof p.number === "string") wp.verb.number = p.number as VerbNumber;
+        if (typeof p.tense === "string") wp.verb.tense = p.tense as VerbTense;
+        if (Array.isArray(p.aspect)) wp.verb.aspect = p.aspect as VerbAspect[];
+        if (p.voice) wp.verb.voice = true;
+        if (p.proVerb) wp.verb.proVerb = true;
+        wp.verb.confirmStatus = "correct";
+        wp.completed = true;
+      }
+      hydratedProgress[ownerId] = wp;
+    });
+
+    if (Object.keys(hydratedSel).length > 0) {
+      setCompletedSelectionMap((prev) => {
+        const next = { ...prev };
+        Object.entries(hydratedSel).forEach(([k, v]) => {
+          if (!next[k]) next[k] = v;
+        });
+        return next;
+      });
+    }
+    if (Object.keys(hydratedProgress).length > 0) {
+      setProgressMap((prev) => {
+        const next = { ...prev };
+        Object.entries(hydratedProgress).forEach(([k, v]) => {
+          if (!next[k]) next[k] = v;
+        });
+        return next;
+      });
+      // hydrated owner들은 finalize 재실행되지 않도록 마킹
+      Object.keys(hydratedProgress).forEach((id) =>
+        finalizedOwnersRef.current.add(id),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customAnswers, sentence.id, wordUnits]);
+
   const resetCustomAnswers = () => {
     clearCustomAnswers();
     setCustomAnswers({});
