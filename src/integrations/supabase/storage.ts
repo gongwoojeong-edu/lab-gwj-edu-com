@@ -69,10 +69,8 @@ export const fetchOwnerProgressForSentence = async (sentenceId: string): Promise
 
 export const upsertOwnerProgress = async (row: OwnerProgressRow): Promise<void> => {
   const userId = await getUserId();
-  await supabase.from("owner_progress").upsert(
-    { user_id: userId, ...row },
-    { onConflict: "user_id,sentence_id,owner_id" },
-  );
+  const payload = { user_id: userId, ...row } as never;
+  await supabase.from("owner_progress").upsert(payload, { onConflict: "user_id,sentence_id,owner_id" });
 };
 
 export const deleteOwnerProgress = async (sentenceId: string, ownerId: string): Promise<void> => {
@@ -114,13 +112,14 @@ export const insertWordTestResult = async (
   passed: boolean,
 ): Promise<void> => {
   const userId = await getUserId();
-  await supabase.from("word_test_results").insert({
+  const payload = {
     user_id: userId,
     sentence_id: sentenceId,
     items: items as unknown as object,
     score,
     passed,
-  });
+  } as never;
+  await supabase.from("word_test_results").insert(payload);
 };
 
 export const fetchLatestWordTest = async (sentenceId: string) => {
