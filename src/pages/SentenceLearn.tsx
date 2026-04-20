@@ -45,9 +45,12 @@ const SentenceLearn = () => {
         return;
       }
 
-      // 진행 상태 + entries 빌드 (본인 progress 기준)
-      const [prog, owners] = await Promise.all([
+      // 진행 상태 + entries 빌드
+      // 1순위: sentence_word_extractions 캐시 (선생님이 AI로 추출 → 모든 학생 공유)
+      // 2순위: owner_progress (스태프 또는 본인) — 안전망
+      const [prog, extraction, owners] = await Promise.all([
         fetchSentenceProgress(found.id),
+        fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
       ]);
       if (!mounted) return;
@@ -56,21 +59,26 @@ const SentenceLearn = () => {
       setAnalysisDone(!!prog?.analysis_done);
       setTranslationDone(!!prog?.translation_done);
 
-      const ownerSurfaces: Record<string, string> = {};
-      found.tokens.forEach((t) => {
-        if (t.type === "analyzable") ownerSurfaces[t.id] = t.text;
-      });
-      const progressMap: Record<string, unknown> = {};
-      const completed: string[] = [];
-      owners.forEach((o) => {
-        progressMap[o.owner_id] = o.progress as object;
-        if (o.completed) completed.push(o.owner_id);
-      });
-      const built = buildWordTest(
-        ownerSurfaces,
-        progressMap as Parameters<typeof buildWordTest>[1],
-        completed,
-      );
+      let built: WordTestEntry[] = [];
+      if (extraction && extraction.words.length > 0) {
+        built = extractedToEntries(extraction.words);
+      } else {
+        const ownerSurfaces: Record<string, string> = {};
+        found.tokens.forEach((t) => {
+          if (t.type === "analyzable") ownerSurfaces[t.id] = t.text;
+        });
+        const progressMap: Record<string, unknown> = {};
+        const completed: string[] = [];
+        owners.forEach((o) => {
+          progressMap[o.owner_id] = o.progress as object;
+          if (o.completed) completed.push(o.owner_id);
+        });
+        built = buildWordTest(
+          ownerSurfaces,
+          progressMap as Parameters<typeof buildWordTest>[1],
+          completed,
+        );
+      }
       setEntries(built);
 
       // 마지막 멈춘 단계로 점프
