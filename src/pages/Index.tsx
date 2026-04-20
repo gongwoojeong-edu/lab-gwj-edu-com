@@ -1309,7 +1309,27 @@ const Index = () => {
           </div>
         )}
 
-        <section className="glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden">
+        {eraserMode && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
+            <p className="text-[12px] font-semibold text-destructive font-kr">
+              🧽 지우개 모드 — 분석된 항목 클릭 시 즉시 삭제됩니다 (ESC 또는 다시 버튼 클릭으로 종료)
+            </p>
+            <button
+              type="button"
+              onClick={() => setEraserMode(false)}
+              className="text-[11px] font-bold font-kr text-destructive underline underline-offset-2"
+            >
+              종료
+            </button>
+          </div>
+        )}
+
+        <section
+          className={cn(
+            "glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden",
+            eraserMode && "ring-2 ring-destructive/40",
+          )}
+        >
           <div className="absolute top-0 left-0 w-full h-0.5 bg-secondary">
             <div
               className="h-full bg-gradient-to-r from-primary to-primary-glow transition-all"
