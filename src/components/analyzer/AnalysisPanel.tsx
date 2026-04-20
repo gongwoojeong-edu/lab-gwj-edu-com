@@ -398,6 +398,11 @@ export const AnalysisPanel = ({
   onIdiomRemove,
   canErase,
   onEraseSelection,
+  canAssignModifierTarget,
+  isPendingModifier,
+  hasModifierTarget,
+  onAssignModifierTarget,
+  onClearModifierTarget,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
   const hasSelection = !!selectedWord;
