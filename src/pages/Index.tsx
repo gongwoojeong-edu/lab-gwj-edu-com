@@ -716,6 +716,55 @@ const Index = () => {
     setCustomAnswers(next);
   };
 
+  // ===== 정답 저장 워크플로우 =====
+  // stagePatch: 변경사항을 메모리에만 누적 (localStorage 저장 X)
+  const stagePatch = (ownerId: string, patch: Record<string, unknown>) => {
+    setPendingPatchMap((prev) => ({
+      ...prev,
+      [ownerId]: { ...(prev[ownerId] ?? {}), ...patch },
+    }));
+  };
+  // commitPatch: 누적된 patch를 localStorage에 저장 + savedOwnerSet 추가
+  const commitPatch = (ownerId: string) => {
+    const pending = pendingPatchMap[ownerId];
+    if (pending && Object.keys(pending).length > 0) {
+      const next = upsertCustomAnswer(ownerId, pending);
+      setCustomAnswers(next);
+      setPendingPatchMap((prev) => {
+        const n = { ...prev };
+        delete n[ownerId];
+        return n;
+      });
+    }
+    setSavedOwnerSet((prev) => {
+      const n = new Set(prev);
+      n.add(ownerId);
+      saveSavedOwners(Array.from(n));
+      return n;
+    });
+    toast({ title: "분석 완료 저장됨", description: "이 단어의 정답이 저장되었습니다." });
+  };
+  // discardPatch: 누적된 patch만 버림 (savedOwnerSet은 그대로)
+  const discardPatch = (ownerId: string) => {
+    setPendingPatchMap((prev) => {
+      if (!prev[ownerId]) return prev;
+      const n = { ...prev };
+      delete n[ownerId];
+      return n;
+    });
+  };
+  const hasPendingPatch = (ownerId: string | null | undefined): boolean => {
+    if (!ownerId) return false;
+    const p = pendingPatchMap[ownerId];
+    return !!p && Object.keys(p).length > 0;
+  };
+  const getOwnerStatus = (ownerId: string | null | undefined): "empty" | "dirty" | "saved" => {
+    if (!ownerId) return "empty";
+    if (hasPendingPatch(ownerId)) return "dirty";
+    if (savedOwnerSet.has(ownerId)) return "saved";
+    return "empty";
+  };
+
   const handleSelect = (id: string) => {
     setSelectedId(id);
     if (!progressMap[id]) {
