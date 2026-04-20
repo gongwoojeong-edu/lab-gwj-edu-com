@@ -1722,9 +1722,8 @@ const Index = () => {
     selectedToken,
   ]);
 
-  const goToSentence = (next: number) => {
-    if (next < 0 || next >= SENTENCES.length) return;
-    setSentenceIdx(next);
+  // 자동 순차 학습 정책상 수동 이동은 제거됨. 내부 리셋용으로만 보존.
+  const _resetForNewSentence = () => {
     setSelectedId(null);
     setSelectedWordIndices([]);
     setDragStart(null);
@@ -1735,9 +1734,9 @@ const Index = () => {
     setEraserMode(false);
     setPendingModifierSource(null);
     setPendingReferentSource(null);
-    // 토큰 ref는 컴포넌트가 새 wordUnits로 다시 마운트하면서 자연 초기화
     tokenRefs.current.clear();
   };
+  void _resetForNewSentence;
 
   const panelProps = {
     selectedWord:
