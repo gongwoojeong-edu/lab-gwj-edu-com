@@ -1391,25 +1391,27 @@ const Index = () => {
               const innerCompleteBg =
                 isCompleted && !isSelected && !isClauseSelection;
 
-              // === 다층 depth 계산 — layer가 깊을수록 더 진한 배경 ===
-              const layerCount = ownersHere.length;
-              const depthBgClass =
-                layerCount >= 3
-                  ? "bg-primary/[0.18]"
-                  : layerCount === 2
-                  ? "bg-primary/[0.12]"
-                  : "";
+              // === 다층 depth 색 stacking ===
+              // ownersHere는 좁은 layer(=안쪽) 순으로 정렬됨.
+              // 각 owner마다 layer-1/2/3/4 색을 cycle해서 반투명으로 누적 → 겹칠수록 자연스럽게 진해짐.
+              const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
+              const buildLayerBg = (owners: string[]): string | undefined => {
+                if (owners.length === 0) return undefined;
+                // 안쪽(좁은) → depth 0 (Layer 1)
+                return owners
+                  .map((_, i) => {
+                    const v = layerVars[i % layerVars.length];
+                    return `linear-gradient(hsl(var(${v}) / 0.18), hsl(var(${v}) / 0.18))`;
+                  })
+                  .join(", ");
+              };
+              const wordLayerBg = buildLayerBg(ownersHere);
 
               const wordNode = (
                 <span
                   key={idx}
-                  className={cn(
-                    "inline-flex items-end leading-none whitespace-nowrap rounded-sm",
-                    // 외곽 절(보라) 배경 — 톤 더 연하게
-                    outerIsClauseLocal && "bg-primary/[0.05]",
-                    // 다층(2층 이상) 가산 배경
-                    depthBgClass,
-                  )}
+                  className="inline-flex items-end leading-none whitespace-nowrap rounded-sm"
+                  style={wordLayerBg ? { backgroundImage: wordLayerBg } : undefined}
                 >
                   {bracketRole && outerIsFirstLocal && (
                     <span
