@@ -1397,6 +1397,11 @@ const Index = () => {
               const selEnd = completedIndices[completedIndices.length - 1];
               const isFirstOfSelection = isCompleted && idx === selStart;
               const isLastOfSelection = isCompleted && idx === selEnd;
+              // 안쪽 부배지 anchor — owner 청크의 중간 인덱스
+              const innerMidIdx = completedIndices.length
+                ? completedIndices[Math.floor((completedIndices.length - 1) / 2)]
+                : -1;
+              const isInnerBadgeAnchor = isCompleted && idx === innerMidIdx;
 
               // 외곽 layer (절) — 인덱스 범위만 잡고, 의미는 progress 에서.
               const outerOwnerId = outerOwnerByIndex[idx];
@@ -1436,9 +1441,21 @@ const Index = () => {
               const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
                 outerIsClauseLocal ? outerBadge ?? "M" : undefined;
 
-              // 부배지(품사 라벨) — 단어 layer 우선
+              // === 부배지 layer depth 계산 ===
+              // ownersHere 순서: 안쪽(좁은) → 외곽(넓은).
+              const innerLayerIdx = ownerId ? ownersHere.indexOf(ownerId) : -1;
+              const outerLayerIdx = outerOwnerId ? ownersHere.indexOf(outerOwnerId) : -1;
+              const innerLayerNum = innerLayerIdx >= 0 ? (innerLayerIdx % 4) + 1 : 1;
+              const outerLayerNum = outerLayerIdx >= 0 ? (outerLayerIdx % 4) + 1 : 2;
+              // 세로 위치: layer가 깊어질수록 위로 (px 단위)
+              const innerBadgeTop = -(14 + Math.max(innerLayerIdx, 0) * 14);
+              const outerBadgeTop = -(14 + Math.max(outerLayerIdx, 0) * 14);
+
+              // 부배지(품사 라벨) — owner 중간 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
-                isCompleted && isFirstOfSelection ? innerSubLabel : undefined;
+                isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
+              const outerKoreanLabel =
+                outerIsClauseLocal && outerIsBadgeAnchor ? outerSubLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
