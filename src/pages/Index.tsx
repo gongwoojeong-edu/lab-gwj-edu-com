@@ -464,6 +464,9 @@ const Index = () => {
   const [completedSelectionMap, setCompletedSelectionMap] = useState<Record<string, number[]>>({});
   const [dragStart, setDragStart] = useState<number | null>(null);
   const isDragging = dragStart !== null;
+  // 사용자가 직접 단어들을 드래그/Shift+클릭으로 묶어 만든 owner — spacer 채우기 허용
+  // (자동 복원/단일 토큰 owner는 미포함). 세션 한정.
+  const [userLinkedOwnerSet, setUserLinkedOwnerSet] = useState<Set<string>>(new Set());
 
   // owner별 자동 finalize 1회 처리 플래그 — 완료 owner를 재선택해도 selection이 사라지지 않도록
   // (hydration effect가 finalizedOwnersRef를 참조하므로 미리 선언)
