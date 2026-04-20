@@ -1,8 +1,14 @@
 // ============================================================
 // customAnswers — 사용자가 직접 입력한 정답을 localStorage에 저장
+// + Supabase owner_progress와 동기화 (오프라인 캐시 + 클라우드 단일 진실).
 // 원본 sentences.ts는 건드리지 않고 런타임에 오버레이만 한다.
 // ============================================================
 import type { WordAnswer } from "@/data/sentences";
+import {
+  upsertOwnerProgress,
+  deleteOwnerProgress,
+  fetchOwnerProgressForSentence,
+} from "@/integrations/supabase/storage";
 
 const STORAGE_KEY = "gwj.customAnswers.v1";
 
@@ -36,9 +42,22 @@ export const clearCustomAnswers = () => {
   window.localStorage.removeItem(STORAGE_KEY);
 };
 
+// ownerId → sentenceId 추출 (`tokenId::idx` 또는 `__span__::sentenceId::s-e`)
+const extractSentenceIdFromOwner = (ownerId: string): string | null => {
+  const SPAN_PREFIX = "__span__";
+  const SEP = "::";
+  if (ownerId.startsWith(`${SPAN_PREFIX}${SEP}`)) {
+    return ownerId.split(SEP)[1] ?? null;
+  }
+  // tokenId 형식은 보통 "{sentenceId}-{n}" 이지만 sentenceId를 ownerId만으로 항상 알 수 없음.
+  // 호출 측에서 sentenceId를 명시적으로 넘겨주는 경로(upsertCustomAnswerCloud)를 권장.
+  return null;
+};
+
 export const upsertCustomAnswer = (
   tokenId: string,
   patch: CustomAnswerPatch,
+  sentenceId?: string,
 ): CustomAnswerMap => {
   const cur = loadCustomAnswers();
   const merged: CustomAnswerMap = {
@@ -46,16 +65,55 @@ export const upsertCustomAnswer = (
     [tokenId]: { ...(cur[tokenId] ?? {}), ...patch },
   };
   saveCustomAnswers(merged);
+  // fire-and-forget cloud sync
+  const sid = sentenceId ?? extractSentenceIdFromOwner(tokenId);
+  if (sid) {
+    void upsertOwnerProgress({
+      sentence_id: sid,
+      owner_id: tokenId,
+      progress: merged[tokenId] as unknown,
+      custom_answer: merged[tokenId] as unknown,
+      completed: true,
+    }).catch(() => {});
+  }
   return merged;
 };
 
-export const removeCustomAnswer = (tokenId: string): CustomAnswerMap => {
+export const removeCustomAnswer = (tokenId: string, sentenceId?: string): CustomAnswerMap => {
   const cur = loadCustomAnswers();
   if (!(tokenId in cur)) return cur;
   const next = { ...cur };
   delete next[tokenId];
   saveCustomAnswers(next);
+  const sid = sentenceId ?? extractSentenceIdFromOwner(tokenId);
+  if (sid) {
+    void deleteOwnerProgress(sid, tokenId).catch(() => {});
+  }
   return next;
+};
+
+/**
+ * Supabase에서 특정 sentence의 owner_progress를 모두 가져와
+ * localStorage map에 머지하여 반환. (cloud > local 우선)
+ */
+export const hydrateCustomAnswersFromCloud = async (
+  sentenceId: string,
+): Promise<CustomAnswerMap> => {
+  try {
+    const rows = await fetchOwnerProgressForSentence(sentenceId);
+    const cur = loadCustomAnswers();
+    const next: CustomAnswerMap = { ...cur };
+    rows.forEach((r) => {
+      const patch = (r.custom_answer ?? r.progress) as CustomAnswerPatch | null;
+      if (patch && typeof patch === "object") {
+        next[r.owner_id] = patch;
+      }
+    });
+    saveCustomAnswers(next);
+    return next;
+  } catch {
+    return loadCustomAnswers();
+  }
 };
 
 // ============================================================

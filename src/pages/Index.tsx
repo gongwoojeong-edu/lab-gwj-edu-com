@@ -62,6 +62,7 @@ import {
   mergeAnswer,
   loadSavedOwners,
   saveSavedOwners,
+  hydrateCustomAnswersFromCloud,
   type CustomAnswerMap,
 } from "@/lib/customAnswers";
 import {
@@ -71,6 +72,7 @@ import {
   findIdiomCoveringIndex,
   findIdiomByIndices,
   getAllIdiomsFlat,
+  hydrateIdiomsFromCloud,
   type IdiomMap,
   type IdiomMark,
 } from "@/lib/idioms";
@@ -79,6 +81,7 @@ import {
   upsertModifierTarget,
   removeModifierTargetBySource,
   getTargetsForSentence,
+  hydrateModifierTargetsFromCloud,
   type ModifierTargetMap,
 } from "@/lib/modifierTargets";
 import {
@@ -86,6 +89,7 @@ import {
   upsertReferentTarget,
   removeReferentTargetBySource,
   getReferentsForSentence,
+  hydrateReferentTargetsFromCloud,
   type ReferentTargetMap,
 } from "@/lib/referentTargets";
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
@@ -411,6 +415,66 @@ const Index = () => {
 
   // ===== 부배지 수동 드래그 오프셋 =====
   const [badgeOffsets, setBadgeOffsets] = useState<Record<string, number>>({});
+  const dragStateRef = useRef<{ ownerId: string; startX: number; startDx: number } | null>(null);
+
+  const persistBadgeOffset = (ownerId: string, dx: number) => {
+    void upsertBadgeOffset(sentence.id, ownerId, dx).catch(() => {});
+  };
+
+  const handleBadgePointerDown = (
+    e: React.PointerEvent<HTMLSpanElement>,
+    ownerId: string,
+  ) => {
+    if (eraserMode) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const target = e.currentTarget;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    dragStateRef.current = {
+      ownerId,
+      startX: e.clientX,
+      startDx: badgeOffsets[ownerId] ?? 0,
+    };
+  };
+
+  const handleBadgePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const st = dragStateRef.current;
+    if (!st) return;
+    const raw = st.startDx + (e.clientX - st.startX);
+    const dx = Math.max(-150, Math.min(150, Math.round(raw)));
+    setBadgeOffsets((prev) => ({ ...prev, [st.ownerId]: dx }));
+  };
+
+  const handleBadgePointerUp = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const st = dragStateRef.current;
+    if (!st) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    const finalDx = badgeOffsets[st.ownerId] ?? 0;
+    persistBadgeOffset(st.ownerId, finalDx);
+    dragStateRef.current = null;
+  };
+
+  const handleBadgeDoubleClick = (
+    e: React.MouseEvent<HTMLSpanElement>,
+    ownerId: string,
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setBadgeOffsets((prev) => {
+      const n = { ...prev };
+      delete n[ownerId];
+      return n;
+    });
+    persistBadgeOffset(ownerId, 0);
+  };
 
   // ESC: pending modifier/referent 즉시 취소
   useEffect(() => {
@@ -449,13 +513,26 @@ const Index = () => {
   useEffect(() => {
     let cancelled = false;
     const sid = sentence.id;
-    Promise.all([fetchSentenceProgress(sid), fetchBadgeOffsets(sid)]).then(([prog, offs]) => {
+    Promise.all([
+      fetchSentenceProgress(sid),
+      fetchBadgeOffsets(sid),
+      hydrateCustomAnswersFromCloud(sid),
+      hydrateModifierTargetsFromCloud(sid),
+      hydrateReferentTargetsFromCloud(sid),
+    ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       setTranslationDone(prog?.translation_done ?? false);
       setWordTestDone(prog?.word_test_done ?? false);
       setPassedAt(prog?.passed_at ?? null);
       setLearningStep("analysis");
       setBadgeOffsets(offs);
+      setCustomAnswers(customs);
+      setModifierMap(mods);
+      setReferentMap(refs);
+    });
+    // 관용구는 전체 sentence 공유 — 한 번만 hydrate
+    void hydrateIdiomsFromCloud().then((m) => {
+      if (!cancelled) setIdiomMap(m);
     });
     return () => {
       cancelled = true;
@@ -779,7 +856,7 @@ const Index = () => {
   };
 
   const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
-    const next = upsertCustomAnswer(ownerId, patch);
+    const next = upsertCustomAnswer(ownerId, patch, sentence.id);
     setCustomAnswers(next);
   };
 
@@ -795,7 +872,7 @@ const Index = () => {
   const commitPatch = (ownerId: string) => {
     const pending = pendingPatchMap[ownerId];
     if (pending && Object.keys(pending).length > 0) {
-      const next = upsertCustomAnswer(ownerId, pending);
+      const next = upsertCustomAnswer(ownerId, pending, sentence.id);
       setCustomAnswers(next);
       setPendingPatchMap((prev) => {
         const n = { ...prev };
@@ -1821,40 +1898,71 @@ const Index = () => {
                 className="scale-75 -my-1"
               />
             </label>
-            {answerInputMode && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+            {answerInputMode && (() => {
+              const status = getOwnerStatus(selectedId);
+              const canSave = status === "dirty";
+              return (
+                <>
                   <button
                     type="button"
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
-                    title="저장된 모든 정답을 지웁니다"
+                    onClick={() => {
+                      if (selectedId) commitPatch(selectedId);
+                    }}
+                    disabled={!canSave}
+                    className={cn(
+                      "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors",
+                      canSave
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                        : "bg-muted text-muted-foreground/60 cursor-not-allowed",
+                    )}
+                    title={
+                      !selectedId
+                        ? "단어를 먼저 선택하세요"
+                        : canSave
+                        ? "현재 단어의 분석을 정답으로 저장"
+                        : status === "saved"
+                        ? "이미 저장된 정답입니다"
+                        : "변경사항이 없습니다"
+                    }
                   >
-                    <RotateCcw className="size-3" />
-                    정답 초기화
+                    <Pencil className="size-3" />
+                    {status === "saved" ? "재저장" : "정답 저장"}
                   </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="font-kr">
-                      모든 정답 데이터를 삭제할까요?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="font-kr">
-                      저장된 모든 customAnswers가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
-                      처음부터 다시 입력하시겠습니까?
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="font-kr">취소</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={resetCustomAnswers}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-kr"
-                    >
-                      모두 삭제
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+                        title="저장된 모든 정답을 지웁니다"
+                      >
+                        <RotateCcw className="size-3" />
+                        정답 초기화
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="font-kr">
+                          모든 정답 데이터를 삭제할까요?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="font-kr">
+                          저장된 모든 customAnswers가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+                          처음부터 다시 입력하시겠습니까?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="font-kr">취소</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={resetCustomAnswers}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-kr"
+                        >
+                          모두 삭제
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              );
+            })()}
             <AdminHintToggle />
             {/* 관용구 버튼은 분석 메뉴 '기타' 항목 안으로 이동됨 */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border shadow-sm">
@@ -2267,6 +2375,17 @@ const Index = () => {
                                     answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
                                     answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
                                   )}
+                                  style={{
+                                    transform: `translateX(${ownerId ? badgeOffsets[ownerId] ?? 0 : 0}px)`,
+                                    cursor: eraserMode ? "inherit" : "grab",
+                                    touchAction: "none",
+                                  }}
+                                  onPointerDown={(e) => ownerId && handleBadgePointerDown(e, ownerId)}
+                                  onPointerMove={handleBadgePointerMove}
+                                  onPointerUp={handleBadgePointerUp}
+                                  onPointerCancel={handleBadgePointerUp}
+                                  onDoubleClick={(e) => ownerId && handleBadgeDoubleClick(e, ownerId)}
+                                  title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
                                   <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
                                   <span className="truncate max-w-[120px]">{koreanLabel}</span>
@@ -2290,6 +2409,17 @@ const Index = () => {
                                     answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
                                     answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
                                   )}
+                                  style={{
+                                    transform: `translateX(${outerOwnerId ? badgeOffsets[outerOwnerId] ?? 0 : 0}px)`,
+                                    cursor: eraserMode ? "inherit" : "grab",
+                                    touchAction: "none",
+                                  }}
+                                  onPointerDown={(e) => outerOwnerId && handleBadgePointerDown(e, outerOwnerId)}
+                                  onPointerMove={handleBadgePointerMove}
+                                  onPointerUp={handleBadgePointerUp}
+                                  onPointerCancel={handleBadgePointerUp}
+                                  onDoubleClick={(e) => outerOwnerId && handleBadgeDoubleClick(e, outerOwnerId)}
+                                  title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
                                   <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
                                   <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
