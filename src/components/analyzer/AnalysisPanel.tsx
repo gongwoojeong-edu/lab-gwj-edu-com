@@ -135,6 +135,8 @@ interface AnalysisPanelProps {
   idiomExistingMeaning?: string; // 현재 선택 인덱스에 등록된 숙어가 있다면 의미
   onIdiomSave?: (meaning: string) => void;
   onIdiomRemove?: () => void;
+  canErase?: boolean;
+  onEraseSelection?: () => void;
 }
 
 // ============================================================
@@ -384,6 +386,8 @@ export const AnalysisPanel = ({
   idiomExistingMeaning,
   onIdiomSave,
   onIdiomRemove,
+  canErase,
+  onEraseSelection,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
 
@@ -544,6 +548,18 @@ export const AnalysisPanel = ({
           <StatusPill status={posStatus} />
         </div>
       </div>
+
+      {canErase && onEraseSelection && (
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={onEraseSelection}
+            className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors"
+          >
+            🧽 지우개
+          </button>
+        </div>
+      )}
 
       {idiomEnabled && (
         <IdiomSection
