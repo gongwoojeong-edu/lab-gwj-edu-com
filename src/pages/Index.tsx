@@ -960,12 +960,11 @@ const Index = () => {
 
     const hasCompletedOwner = owners.length > 0;
 
-    // === 지우개 모드 — 1회용. 클릭 후 자동 해제. ===
+    // === 지우개 모드 — 1회용. 클릭한 단어 위 모든 owner를 한 번에 삭제. ===
     if (eraserMode) {
       if (hasCompletedOwner) {
-        const [ownerId] = owners[0];
-        eraseOwner(ownerId);
-        toast({ title: "🧽 삭제됨" });
+        owners.forEach(([ownerId]) => eraseOwner(ownerId));
+        toast({ title: `🧽 ${owners.length}개 분석 삭제됨` });
       }
       // 미분석 토큰을 클릭해도 모드 해제 (헛클릭 방지)
       setEraserMode(false);
@@ -2362,25 +2361,28 @@ const Index = () => {
                 </span>
               );
 
-              // 토큰 사이 공백 — 사용자가 직접 단어 연결로 만든 owner만 spacer 채움.
-              // 자동 복원/단일 토큰 owner는 spacer 비움 (배경/언더라인만).
-              // 병렬은 spacer를 끊어 단어별 독립 박스로 표시.
+              // 토큰 사이 공백 — 같은 owner를 공유하는 인접 단어 사이는 색을 채워 묶음 시각화.
+              // 단, 병렬(parallel) owner는 단어별 독립 박스이므로 spacer 채우지 않음.
               const isLastWord = idx === wordUnits.length - 1;
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
-              const linkedSharedOwners = sharedOwners.filter((o) => userLinkedOwnerSet.has(o));
-              const spacerBgImage = buildLayerBg(linkedSharedOwners);
-              // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결 (사용자 액션이므로 채움)
+              // 병렬 owner는 spacer 채움 제외
+              const fillableSharedOwners = sharedOwners.filter((o) => {
+                const op = progressMap[o];
+                return !!op && !isParallelProgress(op);
+              });
+              const spacerBgImage = buildLayerBg(fillableSharedOwners);
+              // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결
               const isNextSelected = !isLastWord && selectedWordIndices.includes(idx + 1);
               const spacerSelectedBridge = isSelected && isNextSelected;
-              // 완료(general) bridge: user-linked owner인 경우에만 spacer도 동일 색·하단 보더
-              const generalSharedOwner = linkedSharedOwners.find((oid) => {
+              // 완료(general) bridge: 양쪽 모두 같은 general owner의 완료 인덱스에 속하면 spacer도 동일 색·하단 보더
+              const generalSharedOwner = fillableSharedOwners.find((oid) => {
                 const op = progressMap[oid];
-                return !!op && !isClauseProgress(op) && !isParallelProgress(op);
+                return !!op && !isClauseProgress(op);
               });
               const spacerCompletedBridge = !!generalSharedOwner && !spacerSelectedBridge;
-              // 절(clause) 언더라인 bridge — clause는 의미 단위라 user-linked 여부와 무관하게 이어 그림
+              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 clause owner에 속하면 spacer 하단도 같은 색 라인
               const clauseSharedOwner = sharedOwners.find((oid) => {
                 const op = progressMap[oid];
                 return !!op && isClauseProgress(op);
