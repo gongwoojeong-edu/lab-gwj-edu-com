@@ -862,7 +862,14 @@ const Index = () => {
     onVerbToggleVoice: handleVerbVoice,
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
+    // Idiom layer
+    idiomEnabled: selectedWordIndices.length >= 1,
+    idiomExistingMeaning: currentSelectionIdiom()?.meaning,
+    onIdiomSave: handleIdiomSave,
+    onIdiomRemove: handleIdiomRemove,
   };
+
+  const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
 
   const completedSelectionOwnerByIndex = useMemo(() => {
     const ownerMap: Record<number, string> = {};
