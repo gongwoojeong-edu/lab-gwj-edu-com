@@ -76,9 +76,15 @@ export const WordStageProgressBar = ({
   wordIndex,
   passedPerStage,
 }: Props) => {
+  const safePassed: Record<StageKey, number> = {
+    syllable: passedPerStage?.syllable ?? 0,
+    speak: passedPerStage?.speak ?? 0,
+    spell: passedPerStage?.spell ?? 0,
+    meaning: passedPerStage?.meaning ?? 0,
+  };
   const currentStageIdx = STAGE_ORDER.indexOf(currentStage);
   const overall = totalWords
-    ? (STAGE_ORDER.reduce((sum, k) => sum + passedPerStage[k], 0) / (totalWords * 4)) * 100
+    ? (STAGE_ORDER.reduce((sum, k) => sum + safePassed[k], 0) / (totalWords * 4)) * 100
     : 0;
 
   return (
@@ -101,7 +107,7 @@ export const WordStageProgressBar = ({
               <Bar
                 key={k}
                 label={STAGE_LABELS[k]}
-                passed={passedPerStage[k]}
+                passed={safePassed[k]}
                 total={totalWords}
                 state={state}
               />
