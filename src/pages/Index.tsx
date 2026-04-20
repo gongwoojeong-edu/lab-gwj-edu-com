@@ -368,7 +368,16 @@ const UserMenu = () => {
   );
 };
 
-const Index = () => {
+interface IndexProps {
+  /** 임베드 모드: 헤더/footer/학습진행 카드 숨김. SentenceLearn 같은 외부 컨테이너에서 분석기 UI만 사용. */
+  embedMode?: boolean;
+  /** 임베드 모드일 때 표시할 문장 id. 미지정 시 ?sentence= 쿼리 또는 다음 학습 문장 폴백. */
+  embedSentenceId?: string;
+  /** 임베드 모드에서 분석 완료(모든 단어 completed)가 감지될 때 호출. */
+  onAnalysisDone?: () => void;
+}
+
+const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
@@ -376,10 +385,19 @@ const Index = () => {
   const sentence = SENTENCES[sentenceIdx];
 
   // 로그인 사용자의 다음 학습 문장 자동 선택
-  // (?sentence=ID 쿼리가 있으면 그 문장으로 우선 점프 — SentenceLearn에서 분석기 호출)
+  // 우선순위: embedSentenceId prop > ?sentence= 쿼리 > resolveNextSentence
   useEffect(() => {
     let cancelled = false;
     setAutoLoading(true);
+
+    if (embedSentenceId) {
+      const idx = SENTENCES.findIndex((s) => s.id === embedSentenceId);
+      if (idx >= 0) {
+        setSentenceIdx(idx);
+        setAutoLoading(false);
+        return;
+      }
+    }
 
     const params = new URLSearchParams(window.location.search);
     const requestedId = params.get("sentence");
@@ -407,7 +425,7 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [embedSentenceId]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
