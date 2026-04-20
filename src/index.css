@@ -239,15 +239,9 @@
     cursor: url('/eraser-cursor.svg') 4 16, not-allowed !important;
   }
 
-  /* === 부배지 자동 시프트 — 다층 클러스터에서 좌/우 빈 공간으로 밀어내기 === */
-  .sub-badge-pill[data-shift="left"] {
-    transform: translateX(-28px);
-    transition: transform 180ms ease;
-  }
-  .sub-badge-pill[data-shift="right"] {
-    transform: translateX(28px);
-    transition: transform 180ms ease;
-  }
+  /* === 부배지 다층 stagger — vertical 분리로 좌우 충돌 방지 ===
+     동일 anchor에 inner+outer 2개 pill이 anchor될 때, outer는 더 위 row로 띄움.
+     인접 단어 anchor와도 horizontal 겹침이 거의 사라짐. */
 
   /* clause bracket 강조 — 박스 제거에 따른 가독성 보강 */
   .clause-bracket {
