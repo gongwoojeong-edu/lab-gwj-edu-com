@@ -212,57 +212,28 @@ const SentenceLearn = () => {
 
         {step === "analysis" && (
           <div className="space-y-4">
-            {/* 분석기 안내 + 점프 카드 */}
-            <Card className="p-5 sm:p-6 space-y-4 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
-              <div className="space-y-1.5">
+            {/* ① 구문 분석 — Index 분석기 임베드 */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2 px-1">
                 <div className="text-xs font-bold text-primary uppercase tracking-wider">
                   ① 구문 분석
                 </div>
-                <div className="text-sm text-foreground/80 leading-relaxed">
-                  단어별 품사·문장 성분·역할을 정독 분석기에서 확인하세요. 분석을 마친 뒤 아래
-                  버튼으로 분석 완료를 표시합니다.
-                </div>
+                {analysisDone && (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <Check className="w-3.5 h-3.5" /> 분석 완료
+                  </span>
+                )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button asChild size="sm" variant="default">
-                  <Link to={`/?sentence=${encodeURIComponent(sentence.id)}`}>
-                    <ExternalLink className="w-4 h-4 mr-1.5" />
-                    분석기 열기
-                  </Link>
-                </Button>
-                <Button
-                  size="sm"
-                  variant={analysisDone ? "outline" : "secondary"}
-                  onClick={async () => {
-                    try {
-                      const next = !analysisDone;
-                      await upsertSentenceProgress(sentence.id, { analysis_done: next });
-                      setAnalysisDone(next);
-                      toast({
-                        title: next ? "분석 완료로 표시했어요" : "분석 완료 해제",
-                      });
-                    } catch (e) {
-                      toast({
-                        title: "저장 실패",
-                        description: String(e),
-                        variant: "destructive",
-                      });
-                    }
-                  }}
-                >
-                  {analysisDone ? (
-                    <>
-                      <Check className="w-4 h-4 mr-1.5 text-emerald-600 dark:text-emerald-400" />
-                      분석 완료됨 (해제)
-                    </>
-                  ) : (
-                    "분석 완료로 표시"
-                  )}
-                </Button>
+              <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
+                <Index
+                  embedMode
+                  embedSentenceId={sentence.id}
+                  onAnalysisDone={() => setAnalysisDone(true)}
+                />
               </div>
-            </Card>
+            </div>
 
-            {/* 한글 해석 입력 */}
+            {/* ② 한글 해석 입력 */}
             <div className="space-y-1.5">
               <div className="text-xs font-bold text-primary uppercase tracking-wider px-1">
                 ② 한글 해석
