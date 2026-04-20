@@ -2137,15 +2137,21 @@ const Index = () => {
               );
 
               // 토큰 사이 공백 — 양쪽 단어가 공유하는 owner의 layer 색을 동일하게 누적
+              // 단, clause owner는 spacer를 채우지 않음(박스 제거 정책). 병렬은 .parallel-box로 채움.
               const isLastWord = idx === wordUnits.length - 1;
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
               const spacerBgImage = buildLayerBg(sharedOwners);
+              const sharedParallel =
+                !!parallelOwnerHere && parallelIndices.includes(idx + 1) && parallelIndices.includes(idx);
               const spacerNode = !isLastWord ? (
                 <span
                   key={`sp-${idx}`}
-                  className="inline-block self-end leading-tight"
+                  className={cn(
+                    "inline-block self-end leading-tight",
+                    sharedParallel && "parallel-box",
+                  )}
                   style={spacerBgImage ? { backgroundImage: spacerBgImage } : undefined}
                   aria-hidden
                 >
