@@ -515,7 +515,10 @@ const Index = () => {
 
     setProgressMap((prev) => {
       const next = { ...prev };
-      ownerIds.forEach((id) => delete next[id]);
+      ownerIds.forEach((id) => {
+        delete next[id];
+        finalizedOwnersRef.current.delete(id);
+      });
       return next;
     });
     setCompletedSelectionMap((prev) => {
