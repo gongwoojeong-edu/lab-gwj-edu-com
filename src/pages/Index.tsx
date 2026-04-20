@@ -2981,7 +2981,9 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
             </div>
           )}
         </div>
+        )}
 
+        {!embedMode && (
         <div className="glass-panel rounded-2xl p-3 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div
