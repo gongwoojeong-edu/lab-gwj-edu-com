@@ -355,6 +355,7 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
         currentWord={current.word}
         wordIndex={wordIdx}
         passedPerStage={passedPerStage}
+        perWordFlags={perWordFlags}
       />
     </>
   );
