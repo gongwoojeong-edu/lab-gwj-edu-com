@@ -1,7 +1,8 @@
-import { Check } from "lucide-react";
+import { Check, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type StageKey = "syllable" | "speak" | "spell" | "meaning";
+type FlagType = "stuck" | "teacher_skip";
 
 interface Props {
   totalWords: number;
@@ -9,6 +10,7 @@ interface Props {
   currentWord: string;
   wordIndex: number; // 0-based within current stage round
   passedPerStage: Record<StageKey, number>;
+  perWordFlags?: Record<string, Partial<Record<StageKey, FlagType>>>;
 }
 
 const STAGE_LABELS: Record<StageKey, string> = {
