@@ -569,7 +569,7 @@ const Index = () => {
 
   // ===== 명사 =====
   const handleNounForm = (f: NounForm) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.form === f;
@@ -589,7 +589,7 @@ const Index = () => {
   };
 
   const handleNounElement = (e: SentenceElement) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.element === e;
@@ -607,7 +607,7 @@ const Index = () => {
   };
 
   const handleNounRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as NounAnswer;
     const correct = answerInputMode || ans.role === r;
@@ -620,7 +620,7 @@ const Index = () => {
 
   // 평탄화 핸들러: element + role 한 번에 처리 (M은 role=null로 즉시 완료)
   const handleNounElementRole = (e: SentenceElement, r: string | null) => {
-    if (!selectedToken || selectedToken.answer.pos !== "명사") return;
+    if (!selectedId) return;
     if (answerInputMode) {
       if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
       updateProgress(selectedId ?? selectedToken.id, (prev) => ({
@@ -669,7 +669,7 @@ const Index = () => {
 
   // ===== 형용사 =====
   const handleAdjForm = (f: AdjForm) => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.form === f;
@@ -689,7 +689,7 @@ const Index = () => {
   };
 
   const handleAdjElement = (e: "C" | "M") => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { element: e });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.element === e;
@@ -707,7 +707,7 @@ const Index = () => {
   };
 
   const handleAdjRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as AdjAnswer;
     const correct = answerInputMode || ans.role === r;
@@ -719,7 +719,7 @@ const Index = () => {
   };
 
   const handleAdjElementRole = (e: "C" | "M", r: string | null) => {
-    if (!selectedToken || selectedToken.answer.pos !== "형용사") return;
+    if (!selectedId) return;
     if (answerInputMode) {
       if (selectedId) saveCustom(selectedId, { element: e, role: r ?? "수식어" });
       updateProgress(selectedId ?? selectedToken.id, (prev) => ({
@@ -767,7 +767,7 @@ const Index = () => {
 
   // ===== 부사 =====
   const handleAdvForm = (f: AdvForm) => {
-    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.form === f;
@@ -787,7 +787,7 @@ const Index = () => {
   };
 
   const handleAdvSubtype = (s: AdvSubtype) => {
-    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { subtype: s });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.subtype === s;
@@ -805,7 +805,7 @@ const Index = () => {
   };
 
   const handleAdvRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "부사") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.role === r;
@@ -818,7 +818,7 @@ const Index = () => {
 
   // ===== 기타 =====
   const handleEtcKind = (k: EtcKind) => {
-    if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { kind: k });
     const ans = selectedToken.answer as EtcAnswer;
     const correct = answerInputMode || ans.kind === k;
@@ -836,7 +836,7 @@ const Index = () => {
   };
 
   const handleEtcRole = (r: string) => {
-    if (!selectedToken || selectedToken.answer.pos !== "기타") return;
+    if (!selectedId) return;
     if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as EtcAnswer;
     const correct = answerInputMode || ans.role === r;
@@ -849,7 +849,7 @@ const Index = () => {
 
   // ===== 동사 =====
   const toggleVerb = (mut: (v: VerbProgress) => VerbProgress) => {
-    if (!selectedToken || selectedToken.answer.pos !== "동사") return;
+    if (!selectedId) return;
     updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       verb: { ...mut(prev.verb), confirmStatus: "idle" },
@@ -870,7 +870,7 @@ const Index = () => {
   const handleVerbProVerb = () => toggleVerb((v) => ({ ...v, proVerb: !v.proVerb }));
 
   const handleVerbConfirm = () => {
-    if (!selectedToken || selectedToken.answer.pos !== "동사") return;
+    if (!selectedId) return;
     const v = progress.verb;
     if (answerInputMode) {
       // 정답 입력 모드: 현재 동사 진행 상태를 그대로 정답으로 저장
