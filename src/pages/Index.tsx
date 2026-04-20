@@ -2000,6 +2000,7 @@ const Index = () => {
                 {completedCount} / {analyzableIds.length} 완료
               </span>
             </div>
+            <UserMenu />
           </div>
         </div>
       </nav>
