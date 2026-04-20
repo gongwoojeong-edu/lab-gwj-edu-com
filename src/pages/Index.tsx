@@ -454,11 +454,11 @@ const Index = () => {
   };
 
   // ===== 단어 단위 선택 =====
-  // 클릭 분기:
+  // 클릭 분기 (삭제는 오직 지우개 모드에서만):
   //   - eraserMode ON + 완료 owner 클릭 → 즉시 삭제
   //   - eraserMode ON + 미분석 토큰    → 무시
-  //   - Shift/Meta/Ctrl + 완료 owner   → 즉시 삭제 (보조 단축키)
-  //   - eraserMode OFF + 완료 owner 클릭 → 클릭한 토큰만 selection으로 → 다층 분석 진입
+  //   - Shift+클릭 (선택 진행 중)      → 누적 선택 (삭제 아님)
+  //   - eraserMode OFF + 완료 owner 클릭 → 클릭한 토큰 1개만 selection → 다층 분석 진입
   //   - 일반 클릭/드래그 → 새 분석 시작
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
