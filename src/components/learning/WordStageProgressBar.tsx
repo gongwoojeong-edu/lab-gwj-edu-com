@@ -150,6 +150,7 @@ export const WordStageProgressBar = ({
                 passed={safePassed[k]}
                 total={totalWords}
                 state={state}
+                teacherSkips={teacherSkipCounts[k]}
               />
             );
           })}
