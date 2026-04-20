@@ -539,7 +539,7 @@ export const AnalysisPanel = ({
         <button
           type="button"
           onClick={onEraseSelection}
-          disabled={!canErase || !onEraseSelection}
+          disabled={!onEraseSelection}
           className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           title="현재 선택된 분석을 모두 삭제"
         >
