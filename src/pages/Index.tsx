@@ -1639,9 +1639,7 @@ const Index = () => {
               const outerLayerIdx = outerOwnerId ? ownersHere.indexOf(outerOwnerId) : -1;
               const innerLayerNum = innerLayerIdx >= 0 ? (innerLayerIdx % 4) + 1 : 1;
               const outerLayerNum = outerLayerIdx >= 0 ? (outerLayerIdx % 4) + 1 : 2;
-              // 세로 위치: layer가 깊어질수록 위로 (px 단위)
-              const innerBadgeTop = -(14 + Math.max(innerLayerIdx, 0) * 14);
-              const outerBadgeTop = -(14 + Math.max(outerLayerIdx, 0) * 14);
+              // (수직 stacking 폐기 — 부배지는 한 줄 가로 정렬, top 고정)
 
               // 부배지(품사 라벨) — owner 중간 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
