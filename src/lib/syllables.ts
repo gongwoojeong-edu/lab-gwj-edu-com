@@ -15,8 +15,15 @@ const isVowel = (ch: string) => VOWELS.has(ch);
 export const splitIntoSyllables = (rawWord: string): string[] => {
   const word = rawWord.trim();
   if (!word) return [];
+  // 하이픈/슬래시 포함 단어는 먼저 그 단위로 1차 분할 (예: well-known → well · known)
+  if (/[-/]/.test(word)) {
+    return word
+      .split(/[-/]/)
+      .filter(Boolean)
+      .flatMap((part) => splitIntoSyllables(part));
+  }
   // 비알파벳(숫자/구두점 등) 포함 시 그대로 1개 청크로
-  if (!/^[A-Za-z'-]+$/.test(word)) return [word];
+  if (!/^[A-Za-z']+$/.test(word)) return [word];
   if (word.length <= 3) return [word];
 
   // 1) vowel group 위치 수집
