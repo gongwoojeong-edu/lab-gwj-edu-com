@@ -395,6 +395,8 @@ const Index = () => {
     setReferentMap(loadReferentTargets());
   }, []);
 
+  // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
+
   const resetCustomAnswers = () => {
     clearCustomAnswers();
     setCustomAnswers({});
@@ -438,6 +440,106 @@ const Index = () => {
   const [completedSelectionMap, setCompletedSelectionMap] = useState<Record<string, number[]>>({});
   const [dragStart, setDragStart] = useState<number | null>(null);
   const isDragging = dragStart !== null;
+
+  // owner별 자동 finalize 1회 처리 플래그 — 완료 owner를 재선택해도 selection이 사라지지 않도록
+  // (hydration effect가 finalizedOwnersRef를 참조하므로 미리 선언)
+  const finalizedOwnersRef = useRef<Set<string>>(new Set());
+
+  // ===== customAnswers → progressMap / completedSelectionMap 자동 복원 =====
+  // 새로고침 후에도 SVOC 배지·부배지·대괄호가 그대로 보이도록.
+  // 현재 sentence 범위의 owner들만 hydrate.
+  useEffect(() => {
+    if (!customAnswers || Object.keys(customAnswers).length === 0) return;
+
+    const hydratedProgress: Record<string, WordProgress> = {};
+    const hydratedSel: Record<string, number[]> = {};
+
+    Object.entries(customAnswers).forEach(([ownerId, patch]) => {
+      if (ownerId.startsWith(`${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}`)) {
+        const parts = ownerId.split(OWNER_KEY_SEPARATOR);
+        if (parts[1] !== sentence.id) return;
+        const range = parts[2]?.split("-").map(Number);
+        if (!range || range.length !== 2 || !Number.isFinite(range[0]) || !Number.isFinite(range[1])) return;
+        const [s, e] = range;
+        const indices: number[] = [];
+        for (let i = s; i <= e; i++) {
+          if (!isPunct(wordUnits[i]?.word ?? "")) indices.push(i);
+        }
+        if (indices.length === 0) return;
+        hydratedSel[ownerId] = indices;
+      } else {
+        const lastSep = ownerId.lastIndexOf(OWNER_KEY_SEPARATOR);
+        if (lastSep < 0) return;
+        const tid = ownerId.slice(0, lastSep);
+        const idxStr = ownerId.slice(lastSep + OWNER_KEY_SEPARATOR.length);
+        const idx = Number(idxStr);
+        if (!Number.isFinite(idx)) return;
+        const tokenInSentence = sentence.tokens.some(
+          (t) => t.type === "analyzable" && t.id === tid,
+        );
+        if (!tokenInSentence) return;
+        if (!wordUnits[idx] || wordUnits[idx].tokenId !== tid) {
+          const fb = wordUnits.findIndex((u) => u.tokenId === tid);
+          if (fb < 0) return;
+          hydratedSel[ownerId] = [fb];
+        } else {
+          hydratedSel[ownerId] = [idx];
+        }
+      }
+
+      const p: Record<string, unknown> = (patch ?? {}) as Record<string, unknown>;
+      const pos = p.pos as POS | undefined;
+      if (!pos) return;
+      const wp = emptyProgress();
+      wp.pos = pos;
+      wp.posStatus = "correct";
+      if (pos === "명사") {
+        if (typeof p.form === "string") { wp.noun.form = p.form as NounForm; wp.noun.formStatus = "correct"; }
+        if (typeof p.element === "string") { wp.noun.element = p.element as SentenceElement; wp.noun.elementStatus = "correct"; }
+        if (typeof p.role === "string") { wp.noun.role = p.role as string; wp.noun.roleStatus = "correct"; wp.completed = true; }
+        else if (wp.noun.element === "M") wp.completed = true;
+      } else if (pos === "형용사") {
+        if (typeof p.form === "string") { wp.adj.form = p.form as AdjForm; wp.adj.formStatus = "correct"; }
+        if (typeof p.element === "string") { wp.adj.element = p.element as "C" | "M"; wp.adj.elementStatus = "correct"; }
+        if (typeof p.role === "string") { wp.adj.role = p.role as string; wp.adj.roleStatus = "correct"; wp.completed = true; }
+        else if (wp.adj.element === "M") wp.completed = true;
+      } else if (pos === "부사") {
+        if (typeof p.form === "string") { wp.adv.form = p.form as AdvForm; wp.adv.formStatus = "correct"; }
+        if (typeof p.subtype === "string") { wp.adv.subtype = p.subtype as AdvSubtype; wp.adv.subtypeStatus = "correct"; }
+        if (typeof p.role === "string") { wp.adv.role = p.role as string; wp.adv.roleStatus = "correct"; }
+        if (wp.adv.form || wp.adv.role) wp.completed = true;
+      } else if (pos === "기타") {
+        if (typeof p.kind === "string") { wp.etc.kind = p.kind as EtcKind; wp.etc.kindStatus = "correct"; }
+        if (typeof p.role === "string") { wp.etc.role = p.role as string; wp.etc.roleStatus = "correct"; wp.completed = true; }
+      } else if (pos === "동사") {
+        if (typeof p.number === "string") wp.verb.number = p.number as VerbNumber;
+        if (typeof p.tense === "string") wp.verb.tense = p.tense as VerbTense;
+        if (Array.isArray(p.aspect)) wp.verb.aspect = p.aspect as VerbAspect[];
+        if (p.voice) wp.verb.voice = true;
+        if (p.proVerb) wp.verb.proVerb = true;
+        wp.verb.confirmStatus = "correct";
+        wp.completed = true;
+      }
+      hydratedProgress[ownerId] = wp;
+    });
+
+    if (Object.keys(hydratedSel).length > 0) {
+      setCompletedSelectionMap((prev) => {
+        const next = { ...prev };
+        Object.entries(hydratedSel).forEach(([k, v]) => { if (!next[k]) next[k] = v; });
+        return next;
+      });
+    }
+    if (Object.keys(hydratedProgress).length > 0) {
+      setProgressMap((prev) => {
+        const next = { ...prev };
+        Object.entries(hydratedProgress).forEach(([k, v]) => { if (!next[k]) next[k] = v; });
+        return next;
+      });
+      Object.keys(hydratedProgress).forEach((id) => finalizedOwnersRef.current.add(id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customAnswers, sentence.id, wordUnits]);
 
   // === SVG overlay 좌표 측정용 refs ===
   const sentenceContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1276,8 +1378,7 @@ const Index = () => {
     }));
   };
 
-  // owner별 자동 finalize 1회 처리 플래그 — 완료 owner를 재선택해도 selection이 사라지지 않도록
-  const finalizedOwnersRef = useRef<Set<string>>(new Set());
+  // (finalizedOwnersRef는 hydration effect와 함께 위쪽에서 선언됨)
 
   useEffect(() => {
     if (!selectedId) return;
@@ -1422,7 +1523,8 @@ const Index = () => {
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
 
-  // 인덱스별 모든 owner들 (다층 layer 지원: 좁은 owner = 안쪽 layer 우선)
+  // 인덱스별 모든 owner들 — **외곽(긴 범위) → 안쪽(짧은 범위)** 순으로 정렬.
+  // 따라서 owners[0] = Layer 1 (관대주격 등 외곽층), owners[last] = 가장 안쪽 layer.
   const completedOwnersByIndex = useMemo(() => {
     const m: Record<number, string[]> = {};
     Object.entries(completedSelectionMap).forEach(([ownerId, indices]) => {
@@ -1435,28 +1537,50 @@ const Index = () => {
       const idx = Number(k);
       m[idx].sort(
         (a, b) =>
-          (completedSelectionMap[a]?.length ?? 0) - (completedSelectionMap[b]?.length ?? 0),
+          (completedSelectionMap[b]?.length ?? 0) - (completedSelectionMap[a]?.length ?? 0),
       );
     });
     return m;
   }, [completedSelectionMap]);
 
-  // 안쪽(좁은) layer owner — 부속 배지/한글 라벨용
-  // 외곽(넓은) layer owner — 절 wrapper/배경용
+  // 가장 안쪽(좁은) owner — 부속 배지/한글 라벨용
   const innerOwnerByIndex = useMemo(() => {
-    const m: Record<number, string | undefined> = {};
-    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
-      m[Number(k)] = owners[0];
-    });
-    return m;
-  }, [completedOwnersByIndex]);
-  const outerOwnerByIndex = useMemo(() => {
     const m: Record<number, string | undefined> = {};
     Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
       m[Number(k)] = owners[owners.length - 1];
     });
     return m;
   }, [completedOwnersByIndex]);
+  // 가장 외곽(넓은) owner — 절 wrapper/배경용 (Layer 1)
+  const outerOwnerByIndex = useMemo(() => {
+    const m: Record<number, string | undefined> = {};
+    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
+      m[Number(k)] = owners[0];
+    });
+    return m;
+  }, [completedOwnersByIndex]);
+
+  // 병렬(parallel) owner 판별 — `기타 > 접속 > 병렬`
+  const isParallelProgress = (p: WordProgress | undefined): boolean => {
+    if (!p) return false;
+    return p.pos === "기타" && p.etc.kind === "접속" && p.etc.role === "병렬";
+  };
+  // 등위접속사 단어 (병렬 owner의 anchor 후보)
+  const COORD_CONJ = new Set(["and", "or", "but", "nor", "so", "yet", "for"]);
+  const findAnchorIdx = (
+    indices: number[],
+    p: WordProgress | undefined,
+  ): number => {
+    if (indices.length === 0) return -1;
+    if (isParallelProgress(p)) {
+      const conjIdx = indices.find((i) => {
+        const w = wordUnits[i]?.word?.toLowerCase().replace(/[^a-z]/g, "");
+        return w ? COORD_CONJ.has(w) : false;
+      });
+      if (conjIdx !== undefined) return conjIdx;
+    }
+    return indices[0];
+  };
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -1764,11 +1888,9 @@ const Index = () => {
               const selEnd = completedIndices[completedIndices.length - 1];
               const isFirstOfSelection = isCompleted && idx === selStart;
               const isLastOfSelection = isCompleted && idx === selEnd;
-              // 안쪽 부배지 anchor — owner 청크의 중간 인덱스
-              const innerMidIdx = completedIndices.length
-                ? completedIndices[Math.floor((completedIndices.length - 1) / 2)]
-                : -1;
-              const isInnerBadgeAnchor = isCompleted && idx === innerMidIdx;
+              // 안쪽 부배지 anchor — owner의 첫 인덱스 (병렬은 등위접속사 위치)
+              const innerAnchorIdx = findAnchorIdx(completedIndices, wp);
+              const isInnerBadgeAnchor = isCompleted && idx === innerAnchorIdx;
 
               // 외곽 layer (절) — 인덱스 범위만 잡고, 의미는 progress 에서.
               const outerOwnerId = outerOwnerByIndex[idx];
@@ -1776,47 +1898,49 @@ const Index = () => {
                 ? completedSelectionMap[outerOwnerId] ?? []
                 : [];
 
-              // === 안쪽 layer element 결정 — 100% progress 기반 (Item 3, 4) ===
-              // 원본 ownerAnswer.koreanLabel/pos 추론 금지.
+              // === 안쪽 layer element 결정 — 100% progress 기반 ===
               const innerBadge = wp ? buildElementBadge(wp) : undefined;
               const innerSubLabel = wp ? buildSubBadgeLabel(wp) : undefined;
               const isClauseSelection = wp ? isClauseProgress(wp) : false;
+              const isParallelSelection = isParallelProgress(wp);
               let completedElement: "S" | "V" | "O" | "C" | undefined;
-              let isModifier = false;
               if (isCompleted && innerBadge) {
-                if (innerBadge === "M") isModifier = true;
-                else if (!isClauseSelection) {
+                if (innerBadge !== "M" && !isClauseSelection) {
                   completedElement = innerBadge;
                 }
               }
+              // SVOC 배지 anchor도 첫 단어(또는 등위접속사)
+              const isElementBadgeAnchor = isCompleted && idx === innerAnchorIdx;
 
               // === 절(외곽 layer) 정보도 동일 progress 기반 ===
               const outerProgress = outerOwnerId ? progressMap[outerOwnerId] : undefined;
               const outerIsClauseLocal =
                 !!outerProgress && isClauseProgress(outerProgress);
+              const outerIsParallelLocal = isParallelProgress(outerProgress);
               const outerBadge = outerProgress ? buildElementBadge(outerProgress) : undefined;
               const outerSubLabel = outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
               const outerIsFirstLocal = outerIsClauseLocal && idx === outerIndices[0];
               const outerIsLastLocal =
                 outerIsClauseLocal && idx === outerIndices[outerIndices.length - 1];
-              const outerMidIdx = outerIndices.length
-                ? outerIndices[Math.floor((outerIndices.length - 1) / 2)]
-                : -1;
-              const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerMidIdx;
+              const outerAnchorIdx = findAnchorIdx(outerIndices, outerProgress);
+              const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerAnchorIdx;
 
               // === 절 브래킷: 외곽 progress의 element badge 기준 ===
               const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
                 outerIsClauseLocal ? outerBadge ?? "M" : undefined;
 
               // === 부배지 layer depth 계산 ===
-              // ownersHere 순서: 안쪽(좁은) → 외곽(넓은).
+              // ownersHere 순서: 외곽(긴 범위, Layer 1) → 안쪽(짧은 범위, Layer N).
+              const totalLayers = ownersHere.length;
               const innerLayerIdx = ownerId ? ownersHere.indexOf(ownerId) : -1;
               const outerLayerIdx = outerOwnerId ? ownersHere.indexOf(outerOwnerId) : -1;
-              const innerLayerNum = innerLayerIdx >= 0 ? (innerLayerIdx % 4) + 1 : 1;
-              const outerLayerNum = outerLayerIdx >= 0 ? (outerLayerIdx % 4) + 1 : 2;
-              // (수직 stacking 폐기 — 부배지는 한 줄 가로 정렬, top 고정)
+              const innerLayerNum = innerLayerIdx >= 0 ? innerLayerIdx + 1 : 1;
+              const outerLayerNum = outerLayerIdx >= 0 ? outerLayerIdx + 1 : 1;
+              // Layer 번호 표기 규칙: 단층(혼자)이거나 Layer 1이면 숫자 숨김. 2부터만.
+              const showInnerLayerNum = totalLayers >= 2 && innerLayerNum >= 2;
+              const showOuterLayerNum = totalLayers >= 2 && outerLayerNum >= 2;
 
-              // 부배지(품사 라벨) — owner 중간 인덱스에만, 절은 별도 외곽 부배지로 처리
+              // 부배지(품사 라벨) — owner 첫 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
                 isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
               const outerKoreanLabel =
@@ -1840,36 +1964,53 @@ const Index = () => {
               const idiomLast =
                 idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
 
-              // 외곽 절(보라) 배경은 outerIsClauseLocal 로 처리.
-              // 안쪽 완료 배경 — 수식어/일반 모두 동일 톤 (배지 유무로만 구분)
+              // 안쪽 완료 배경 — clause/parallel은 별도 처리, 일반(general)만 옅은 보라
               const innerCompleteBg =
-                isCompleted && !isSelected && !isClauseSelection;
+                isCompleted && !isSelected && !isClauseSelection && !isParallelSelection;
 
-              // === 다층 depth 색 stacking ===
-              // ownersHere는 좁은 layer(=안쪽) 순으로 정렬됨.
-              // 각 owner마다 layer-1/2/3/4 색을 cycle해서 반투명으로 누적 → 겹칠수록 자연스럽게 진해짐.
+              // === Owner 종류별 배경 분기 ===
+              // clause: 배경 거의 제거 (대괄호로 표현) / parallel: 진한 박스 / general: 옅은 보라 누적
               const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
               const buildLayerBg = (owners: string[]): string | undefined => {
                 if (owners.length === 0) return undefined;
-                // 안쪽(좁은) → depth 0 (Layer 1). 누적 시 진해짐.
-                return owners
-                  .map((_, i) => {
+                const layers = owners
+                  .map((oid, i) => {
+                    const op = progressMap[oid];
+                    if (!op) return null;
+                    if (isClauseProgress(op)) return null; // clause는 배경 X
+                    if (isParallelProgress(op)) return null; // parallel은 별도 .parallel-box
                     const v = layerVars[i % layerVars.length];
-                    return `linear-gradient(hsl(var(${v}) / 0.32), hsl(var(${v}) / 0.32))`;
+                    return `linear-gradient(hsl(var(${v}) / 0.20), hsl(var(${v}) / 0.20))`;
                   })
-                  .join(", ");
+                  .filter((x): x is string => !!x);
+                if (layers.length === 0) return undefined;
+                return layers.join(", ");
               };
               const wordLayerBg = buildLayerBg(ownersHere);
+
+              // 병렬 owner가 이 인덱스를 포함하면 박스 시각화
+              const parallelOwnerHere = ownersHere.find((oid) => isParallelProgress(progressMap[oid]));
+              const parallelIndices = parallelOwnerHere
+                ? completedSelectionMap[parallelOwnerHere] ?? []
+                : [];
+              const isParallelHere = parallelIndices.includes(idx);
+              const isParallelStart = isParallelHere && idx === parallelIndices[0];
+              const isParallelEnd = isParallelHere && idx === parallelIndices[parallelIndices.length - 1];
 
               const wordNode = (
                 <span
                   key={idx}
-                  className="inline-flex items-end leading-none whitespace-nowrap rounded-sm"
+                  className={cn(
+                    "inline-flex items-end leading-none whitespace-nowrap rounded-sm",
+                    isParallelHere && "parallel-box",
+                    isParallelStart && "parallel-box-start",
+                    isParallelEnd && "parallel-box-end",
+                  )}
                   style={wordLayerBg ? { backgroundImage: wordLayerBg } : undefined}
                 >
                   {bracketRole && outerIsFirstLocal && (
                     <span
-                      className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
+                      className={cn("self-end pr-0.5 clause-bracket", bracketColorClass, bracketWeight)}
                       aria-hidden
                     >
                       [
@@ -1911,7 +2052,7 @@ const Index = () => {
                               <span
                                 className={cn("sub-badge-pill", `sub-badge-pill-${innerLayerNum}`)}
                               >
-                                <span className="sub-badge-num">{innerLayerNum}</span>
+                                <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{koreanLabel}</span>
                               </span>
                             </TooltipTrigger>
@@ -1926,7 +2067,7 @@ const Index = () => {
                               <span
                                 className={cn("sub-badge-pill", `sub-badge-pill-${outerLayerNum}`)}
                               >
-                                <span className="sub-badge-num">{outerLayerNum}</span>
+                                <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
                               </span>
                             </TooltipTrigger>
@@ -1956,7 +2097,7 @@ const Index = () => {
                     >
                       {word}
                     </span>
-                    {completedElement && isFirstOfSelection && !isClauseSelection && (
+                    {completedElement && isElementBadgeAnchor && !isClauseSelection && (
                       <span
                         className={cn(
                           "absolute -bottom-3 px-1 py-0 rounded text-[9px] font-bold leading-none tracking-tight pointer-events-none",
@@ -1986,7 +2127,7 @@ const Index = () => {
                   </span>
                   {bracketRole && outerIsLastLocal && (
                     <span
-                      className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
+                      className={cn("self-end pl-0.5 clause-bracket", bracketColorClass, bracketWeight)}
                       aria-hidden
                     >
                       ]
@@ -1996,15 +2137,21 @@ const Index = () => {
               );
 
               // 토큰 사이 공백 — 양쪽 단어가 공유하는 owner의 layer 색을 동일하게 누적
+              // 단, clause owner는 spacer를 채우지 않음(박스 제거 정책). 병렬은 .parallel-box로 채움.
               const isLastWord = idx === wordUnits.length - 1;
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
               const spacerBgImage = buildLayerBg(sharedOwners);
+              const sharedParallel =
+                !!parallelOwnerHere && parallelIndices.includes(idx + 1) && parallelIndices.includes(idx);
               const spacerNode = !isLastWord ? (
                 <span
                   key={`sp-${idx}`}
-                  className="inline-block self-end leading-tight"
+                  className={cn(
+                    "inline-block self-end leading-tight",
+                    sharedParallel && "parallel-box",
+                  )}
                   style={spacerBgImage ? { backgroundImage: spacerBgImage } : undefined}
                   aria-hidden
                 >
