@@ -562,8 +562,7 @@ export const AnalysisPanel = ({
 
 // ============================================================
 // Idiom / Phrase Section — SVOC 분석과 독립
-// 정답 모드: 의미 입력 + 저장 / 기존 마크 시 수정·삭제
-// 일반 모드: 등록된 의미만 표시
+// 항상 패널 하단에 별도 카드로 노출. enabled=false 면 안내 메시지만 표시.
 // ============================================================
 const IdiomSection = ({
   surface,
@@ -571,12 +570,14 @@ const IdiomSection = ({
   answerInputMode,
   onSave,
   onRemove,
+  enabled,
 }: {
   surface: string;
   existingMeaning?: string;
   answerInputMode: boolean;
   onSave?: (meaning: string) => void;
   onRemove?: () => void;
+  enabled: boolean;
 }) => {
   const [draft, setDraft] = useState(existingMeaning ?? "");
 
