@@ -432,34 +432,34 @@ const Index = () => {
 
   // ===== 지우개: 선택된 단어들의 분석만 초기화 (숙어 마크는 유지) =====
   const handleEraser = () => {
-    const tokenIds = new Set<string>();
+    const ownerIds = new Set<string>();
     const indices = selectedWordIndices.slice();
     indices.forEach((i) => {
-      const tid = wordUnits[i]?.tokenId;
-      if (tid) tokenIds.add(tid);
+      const ownerId = buildOwnerId([i]);
+      if (ownerId) ownerIds.add(ownerId);
     });
     // 추가: 완료된 토큰 owner도 모두 포함 (selectedWordIndices가 완료 영역의 일부일 때)
     indices.forEach((i) => {
       const owner = Object.entries(completedSelectionMap).find(([, idxs]) =>
         idxs.includes(i),
       )?.[0];
-      if (owner) tokenIds.add(owner);
+      if (owner) ownerIds.add(owner);
     });
     setProgressMap((prev) => {
       const next = { ...prev };
-      tokenIds.forEach((id) => delete next[id]);
+      ownerIds.forEach((id) => delete next[id]);
       return next;
     });
     setCompletedSelectionMap((prev) => {
       const next = { ...prev };
-      tokenIds.forEach((id) => delete next[id]);
+      ownerIds.forEach((id) => delete next[id]);
       return next;
     });
     // clauseStart/clauseEnd customAnswer도 함께 정리
-    if (tokenIds.size > 0) {
+    if (ownerIds.size > 0) {
       const nextCustom = { ...customAnswers };
       let touched = false;
-      tokenIds.forEach((id) => {
+      ownerIds.forEach((id) => {
         const cur = nextCustom[id];
         if (cur && ("clauseStart" in cur || "clauseEnd" in cur)) {
           const { clauseStart: _cs, clauseEnd: _ce, ...rest } = cur as Record<string, unknown>;
@@ -756,10 +756,10 @@ const Index = () => {
   // ===== 부사 =====
   const handleAdvForm = (f: AdvForm) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { form: f });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { form: f });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.form === f;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
@@ -776,10 +776,10 @@ const Index = () => {
 
   const handleAdvSubtype = (s: AdvSubtype) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { subtype: s });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { subtype: s });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.subtype === s;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
@@ -794,10 +794,10 @@ const Index = () => {
 
   const handleAdvRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "부사") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as AdvAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       adv: { ...prev.adv, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -807,10 +807,10 @@ const Index = () => {
   // ===== 기타 =====
   const handleEtcKind = (k: EtcKind) => {
     if (!selectedToken || selectedToken.answer.pos !== "기타") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { kind: k });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { kind: k });
     const ans = selectedToken.answer as EtcAnswer;
     const correct = answerInputMode || ans.kind === k;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       etc: {
         ...prev.etc,
@@ -825,10 +825,10 @@ const Index = () => {
 
   const handleEtcRole = (r: string) => {
     if (!selectedToken || selectedToken.answer.pos !== "기타") return;
-    if (answerInputMode) saveCustom(selectedToken.id, { role: r });
+    if (answerInputMode && selectedId) saveCustom(selectedId, { role: r });
     const ans = selectedToken.answer as EtcAnswer;
     const correct = answerInputMode || ans.role === r;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       etc: { ...prev.etc, role: r, roleStatus: correct ? "correct" : "wrong" },
       completed: correct,
@@ -838,7 +838,7 @@ const Index = () => {
   // ===== 동사 =====
   const toggleVerb = (mut: (v: VerbProgress) => VerbProgress) => {
     if (!selectedToken || selectedToken.answer.pos !== "동사") return;
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       verb: { ...mut(prev.verb), confirmStatus: "idle" },
       completed: false,
@@ -862,14 +862,14 @@ const Index = () => {
     const v = progress.verb;
     if (answerInputMode) {
       // 정답 입력 모드: 현재 동사 진행 상태를 그대로 정답으로 저장
-      saveCustom(selectedToken.id, {
+      if (selectedId) saveCustom(selectedId, {
         number: v.number ?? undefined,
         tense: v.tense ?? undefined,
         aspect: v.aspect,
         voice: v.voice ? "수동" : undefined,
         proVerb: v.proVerb,
       });
-      updateProgress(selectedToken.id, (prev) => ({
+      updateProgress(selectedId ?? selectedToken.id, (prev) => ({
         ...prev,
         verb: { ...prev.verb, confirmStatus: "correct" },
         completed: true,
@@ -884,7 +884,7 @@ const Index = () => {
       (ans.voice === "수동") === v.voice &&
       (ans.proVerb ?? false) === v.proVerb;
 
-    updateProgress(selectedToken.id, (prev) => ({
+    updateProgress(selectedId ?? selectedToken.id, (prev) => ({
       ...prev,
       verb: { ...prev.verb, confirmStatus: correct ? "correct" : "wrong" },
       completed: correct,
