@@ -62,12 +62,12 @@
     --idiom-border: 28 40% 70%;
     --idiom-fg: 25 35% 30%;
 
-    /* Layer stacking colors — Layer1은 브랜드 보라(통일성), 2층부터 hue를 크게 벌려 구분
-       Layer1 violet(brand) / Layer2 amber / Layer3 crimson(340) / Layer4 teal(185) */
-    --layer-1: 275 70% 45%;   /* brand violet */
-    --layer-2: 38 95% 48%;    /* amber */
-    --layer-3: 340 80% 50%;   /* crimson — 보라와 hue 거리 ↑ */
-    --layer-4: 185 78% 36%;   /* teal — crimson 보색 거리 ↑ */
+    /* Layer stacking colors — 외곽 Layer1은 brand violet, Layer2도 violet 계열(접속절 내부 강조),
+       Layer3 crimson, Layer4 teal로 hue 충돌 회피 */
+    --layer-1: 275 70% 45%;   /* brand violet (외곽 절) */
+    --layer-2: 280 65% 50%;   /* violet (접속절 내부 2층 — 보라 유지) */
+    --layer-3: 340 80% 50%;   /* crimson */
+    --layer-4: 185 78% 36%;   /* teal */
 
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, hsl(275 100% 25%), hsl(280 60% 52%));
@@ -165,10 +165,10 @@
   /* 부배지(품사·역할 라벨) — layer depth별 색 알약(pill).
      수직 stacking 폐기 → 한 단어 anchor에 여러 부배지가 anchor되면 inline 가로 정렬 */
   .sub-badge-row {
-    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none;
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none;
   }
   .sub-badge-pill {
-    @apply relative inline-flex items-center gap-0 px-1.5 py-0 mx-1 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
+    @apply relative inline-flex items-center gap-0 px-2 py-0 mx-2 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
   .sub-badge-pill .sub-badge-num {
@@ -278,12 +278,12 @@
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-2 {
-    background: hsl(38 95% 48% / 0.28);
-    color: hsl(38 95% 30%);
-    border-color: hsl(38 95% 48% / 0.75);
+    background: hsl(280 65% 50% / 0.20);
+    color: hsl(280 65% 35%);
+    border-color: hsl(280 65% 50% / 0.7);
   }
   .sub-badge-pill-2 .sub-badge-num {
-    background: hsl(38 95% 45%);
+    background: hsl(280 65% 45%);
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-3 {

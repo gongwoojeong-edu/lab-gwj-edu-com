@@ -960,12 +960,11 @@ const Index = () => {
 
     const hasCompletedOwner = owners.length > 0;
 
-    // === 지우개 모드 — 1회용. 클릭 후 자동 해제. ===
+    // === 지우개 모드 — 1회용. 클릭한 단어 위 모든 owner를 한 번에 삭제. ===
     if (eraserMode) {
       if (hasCompletedOwner) {
-        const [ownerId] = owners[0];
-        eraseOwner(ownerId);
-        toast({ title: "🧽 삭제됨" });
+        owners.forEach(([ownerId]) => eraseOwner(ownerId));
+        toast({ title: `🧽 ${owners.length}개 분석 삭제됨` });
       }
       // 미분석 토큰을 클릭해도 모드 해제 (헛클릭 방지)
       setEraserMode(false);
