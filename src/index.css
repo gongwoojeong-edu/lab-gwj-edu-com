@@ -62,6 +62,13 @@
     --idiom-border: 28 40% 70%;
     --idiom-fg: 25 35% 30%;
 
+    /* Layer stacking colors — 다층 분석 시 layer depth별 다른 색
+       반투명으로 겹쳐서 nesting 시 자연스럽게 더 진해짐 */
+    --layer-1: 275 70% 55%;   /* violet */
+    --layer-2: 230 75% 60%;   /* indigo */
+    --layer-3: 200 85% 55%;   /* sky */
+    --layer-4: 160 65% 45%;   /* teal */
+
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, hsl(275 100% 25%), hsl(280 60% 52%));
     --gradient-surface: linear-gradient(180deg, hsl(265 55% 99%), hsl(265 40% 96%));
