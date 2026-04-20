@@ -7,7 +7,10 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import TeacherDashboard from "./pages/TeacherDashboard.tsx";
 import TeacherStudents from "./pages/TeacherStudents.tsx";
+import Login from "./pages/Login.tsx";
+import Signup from "./pages/Signup.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
+import { RequireAuth } from "./components/auth/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -19,10 +22,32 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/teacher" element={<TeacherDashboard />} />
-            <Route path="/teacher/students" element={<TeacherStudents />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route
+              path="/"
+              element={
+                <RequireAuth>
+                  <Index />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <TeacherDashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/students"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <TeacherStudents />
+                </RequireAuth>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -16,6 +16,7 @@ const getUserId = async (): Promise<string | null> => {
 // ---------- sentence_progress ----------
 export interface SentenceProgressRow {
   sentence_id: string;
+  pre_done: boolean;
   analysis_done: boolean;
   translation_done: boolean;
   word_test_done: boolean;
@@ -40,6 +41,7 @@ export const upsertSentenceProgress = async (
   const next = {
     user_id: userId,
     sentence_id: sentenceId,
+    pre_done: existing?.pre_done ?? false,
     analysis_done: existing?.analysis_done ?? false,
     translation_done: existing?.translation_done ?? false,
     word_test_done: existing?.word_test_done ?? false,

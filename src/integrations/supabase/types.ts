@@ -167,6 +167,7 @@ export type Database = {
           created_at: string
           id: string
           passed_at: string | null
+          pre_done: boolean
           sentence_id: string
           status: string
           translation_done: boolean
@@ -179,6 +180,7 @@ export type Database = {
           created_at?: string
           id?: string
           passed_at?: string | null
+          pre_done?: boolean
           sentence_id: string
           status?: string
           translation_done?: boolean
@@ -191,6 +193,7 @@ export type Database = {
           created_at?: string
           id?: string
           passed_at?: string | null
+          pre_done?: boolean
           sentence_id?: string
           status?: string
           translation_done?: boolean
@@ -224,6 +227,63 @@ export type Database = {
         }
         Relationships: []
       }
+      student_profiles: {
+        Row: {
+          created_at: string
+          current_level: string
+          current_no: number
+          display_name: string | null
+          start_level: string
+          student_no: string
+          teacher_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_level?: string
+          current_no?: number
+          display_name?: string | null
+          start_level?: string
+          student_no: string
+          teacher_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_level?: string
+          current_no?: number
+          display_name?: string | null
+          start_level?: string
+          student_no?: string
+          teacher_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_sentences: {
         Row: {
           code: string | null
@@ -247,6 +307,36 @@ export type Database = {
           id?: string
           level?: string | null
           text?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      word_pre_results: {
+        Row: {
+          completed: boolean
+          id: string
+          known_words: string[]
+          sentence_id: string
+          taken_at: string
+          unknown_words: string[]
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean
+          id?: string
+          known_words?: string[]
+          sentence_id: string
+          taken_at?: string
+          unknown_words?: string[]
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean
+          id?: string
+          known_words?: string[]
+          sentence_id?: string
+          taken_at?: string
+          unknown_words?: string[]
           user_id?: string | null
         }
         Relationships: []
@@ -286,10 +376,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "student" | "teacher" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -416,6 +512,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["student", "teacher", "admin"],
+    },
   },
 } as const

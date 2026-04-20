@@ -1,10 +1,11 @@
 import { Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type LearningStep = "analysis" | "translation" | "wordtest" | "pass";
+export type LearningStep = "pre" | "analysis" | "translation" | "wordtest" | "pass";
 
 interface Props {
   current: LearningStep;
+  preDone?: boolean;
   analysisDone: boolean;
   translationDone: boolean;
   wordTestDone: boolean;
@@ -12,20 +13,40 @@ interface Props {
 }
 
 const STEPS: { key: LearningStep; label: string }[] = [
-  { key: "analysis", label: "1. 구문 분석" },
-  { key: "translation", label: "2. 한글 해석" },
-  { key: "wordtest", label: "3. 단어 테스트" },
+  { key: "pre", label: "1. 단어 학습" },
+  { key: "analysis", label: "2. 구문 분석" },
+  { key: "translation", label: "3. 한글 해석" },
+  { key: "wordtest", label: "4. 단어 테스트" },
 ];
 
-export const StepProgressBar = ({ current, analysisDone, translationDone, wordTestDone, onJump }: Props) => {
-  const passed = analysisDone && translationDone && wordTestDone;
+export const StepProgressBar = ({
+  current,
+  preDone = false,
+  analysisDone,
+  translationDone,
+  wordTestDone,
+  onJump,
+}: Props) => {
+  const passed = preDone && analysisDone && translationDone && wordTestDone;
   const isDone = (k: LearningStep) =>
-    k === "analysis" ? analysisDone : k === "translation" ? translationDone : wordTestDone;
+    k === "pre"
+      ? preDone
+      : k === "analysis"
+        ? analysisDone
+        : k === "translation"
+          ? translationDone
+          : wordTestDone;
   const isLocked = (k: LearningStep) =>
-    k === "translation" ? !analysisDone : k === "wordtest" ? !translationDone : false;
+    k === "analysis"
+      ? !preDone
+      : k === "translation"
+        ? !analysisDone
+        : k === "wordtest"
+          ? !translationDone
+          : false;
 
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex items-center gap-2 text-sm flex-wrap">
       {STEPS.map((s, i) => {
         const done = isDone(s.key);
         const locked = isLocked(s.key);

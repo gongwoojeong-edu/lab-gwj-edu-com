@@ -107,9 +107,12 @@ import {
 } from "@/components/ui/dialog";
 import { BookMarked } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth, signOut } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react";
 import { StepProgressBar, type LearningStep } from "@/components/learning/StepProgressBar";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
+import { WordPreStep } from "@/components/learning/WordPreStep";
 import { buildWordTest } from "@/lib/wordTestBuilder";
 import {
   fetchSentenceProgress,
@@ -326,10 +329,61 @@ const ArrowOverlay = ({
   );
 };
 
+const UserMenu = () => {
+  const { user, roles } = useAuth();
+  if (!user) return null;
+  const studentNo = user.email?.split("@")[0] ?? "";
+  const isTeacher = roles.includes("teacher") || roles.includes("admin");
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-card border border-border shadow-sm">
+      <span className="text-[11px] font-mono font-bold">{studentNo}</span>
+      {isTeacher && (
+        <Link
+          to="/teacher"
+          className="text-[10px] font-bold text-accent underline underline-offset-2"
+        >
+          선생님
+        </Link>
+      )}
+      <button
+        type="button"
+        onClick={() => signOut()}
+        className="text-muted-foreground hover:text-destructive"
+        title="로그아웃"
+      >
+        <LogOut className="size-3.5" />
+      </button>
+    </div>
+  );
+};
+
 const Index = () => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
+  const [autoLoading, setAutoLoading] = useState(true);
+  const [allDone, setAllDone] = useState(false);
   const sentence = SENTENCES[sentenceIdx];
+
+  // 로그인 사용자의 다음 학습 문장 자동 선택
+  useEffect(() => {
+    let cancelled = false;
+    setAutoLoading(true);
+    void import("@/lib/nextSentence").then(({ resolveNextSentence }) =>
+      resolveNextSentence().then((res) => {
+        if (cancelled) return;
+        if (res.done || !res.sentence) {
+          setAllDone(true);
+        } else {
+          const idx = SENTENCES.findIndex((s) => s.id === res.sentence!.id);
+          if (idx >= 0) setSentenceIdx(idx);
+        }
+        setAutoLoading(false);
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
@@ -408,7 +462,8 @@ const Index = () => {
   const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
 
   // ===== 학습 흐름 (Cloud) =====
-  const [learningStep, setLearningStep] = useState<LearningStep>("analysis");
+  const [learningStep, setLearningStep] = useState<LearningStep>("pre");
+  const [preDone, setPreDone] = useState(false);
   const [translationDone, setTranslationDone] = useState(false);
   const [wordTestDone, setWordTestDone] = useState(false);
   const [passedAt, setPassedAt] = useState<string | null>(null);
@@ -521,10 +576,12 @@ const Index = () => {
       hydrateReferentTargetsFromCloud(sid),
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
+      const pre = prog?.pre_done ?? false;
+      setPreDone(pre);
       setTranslationDone(prog?.translation_done ?? false);
       setWordTestDone(prog?.word_test_done ?? false);
       setPassedAt(prog?.passed_at ?? null);
-      setLearningStep("analysis");
+      setLearningStep(pre ? "analysis" : "pre");
       setBadgeOffsets(offs);
       setCustomAnswers(customs);
       setModifierMap(mods);
@@ -1971,6 +2028,7 @@ const Index = () => {
                 {completedCount} / {analyzableIds.length} 완료
               </span>
             </div>
+            <UserMenu />
           </div>
         </div>
       </nav>
@@ -2609,15 +2667,51 @@ const Index = () => {
         <div className="glass-panel rounded-2xl p-4 space-y-3">
           <StepProgressBar
             current={learningStep}
+            preDone={preDone}
             analysisDone={analysisDone}
             translationDone={translationDone}
             wordTestDone={wordTestDone}
             onJump={(s) => {
+              if (s === "analysis" && !preDone) return;
               if (s === "translation" && !analysisDone) return;
               if (s === "wordtest" && !translationDone) return;
               setLearningStep(s);
             }}
           />
+          {learningStep === "pre" && (() => {
+            const surfaceMap: Record<string, string> = {};
+            Object.keys(progressMap).forEach((oid) => {
+              const tid = getOwnerTokenId(oid);
+              const tok = getTokenById(tid);
+              surfaceMap[oid] = tok && "text" in tok ? tok.text : "";
+            });
+            const completedOwners = Object.entries(progressMap)
+              .filter(([, v]) => v.completed)
+              .map(([k]) => k);
+            const entries = buildWordTest(surfaceMap, progressMap as never, completedOwners);
+            return (
+              <>
+                <WordPreStep
+                  sentenceId={sentence.id}
+                  entries={entries}
+                  onCompleted={() => {
+                    setPreDone(true);
+                    upsertSentenceProgress(sentence.id, { pre_done: true }).catch(() => {});
+                  }}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={!preDone}
+                    onClick={() => setLearningStep("analysis")}
+                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+                  >
+                    다음: 구문 분석 →
+                  </button>
+                </div>
+              </>
+            );
+          })()}
           {learningStep === "analysis" && (
             <div className="flex justify-end">
               <button
@@ -2664,22 +2758,52 @@ const Index = () => {
               .map(([k]) => k);
             const entries = buildWordTest(surfaceMap, progressMap as never, completedOwners);
             return (
-              <WordTestStep
-                sentenceId={sentence.id}
-                entries={entries}
-                onPassed={() => {
-                  setWordTestDone(true);
-                  const passedAtIso = new Date().toISOString();
-                  setPassedAt(passedAtIso);
-                  upsertSentenceProgress(sentence.id, {
-                    word_test_done: true,
-                    status: "pass",
-                    passed_at: passedAtIso,
-                  }).catch(() => {});
-                }}
-              />
+              <>
+                <WordTestStep
+                  sentenceId={sentence.id}
+                  entries={entries}
+                  onPassed={() => {
+                    setWordTestDone(true);
+                    const passedAtIso = new Date().toISOString();
+                    setPassedAt(passedAtIso);
+                    void upsertSentenceProgress(sentence.id, {
+                      word_test_done: true,
+                      status: "pass",
+                      passed_at: passedAtIso,
+                    }).catch(() => {});
+                    void import("@/lib/nextSentence").then(({ advanceAfterPass }) =>
+                      advanceAfterPass(sentence),
+                    );
+                  }}
+                />
+              </>
             );
           })()}
+          {preDone && analysisDone && translationDone && wordTestDone && (
+            <div className="flex justify-end pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  void import("@/lib/nextSentence").then(({ resolveNextSentence, advanceAfterPass }) =>
+                    advanceAfterPass(sentence).then(() => resolveNextSentence()).then((res) => {
+                      if (res.done || !res.sentence) {
+                        setAllDone(true);
+                        return;
+                      }
+                      const idx = SENTENCES.findIndex((s) => s.id === res.sentence!.id);
+                      if (idx >= 0) {
+                        setSentenceIdx(idx);
+                        setLearningStep("pre");
+                      }
+                    }),
+                  );
+                }}
+                className="px-4 py-2 rounded-md text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 font-kr"
+              >
+                다음 문장으로 →
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="glass-panel rounded-2xl p-3 flex items-center justify-between gap-4 flex-wrap">
