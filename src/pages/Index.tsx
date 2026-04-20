@@ -303,45 +303,90 @@ const Index = () => {
     clearActiveSelection();
   };
 
-  // ===== 단어 단위 선택 (누적 토글 + 드래그 누적) =====
-  // 규칙: 새 클릭/드래그가 기존 선택을 절대 비우지 않는다.
-  //       이미 선택된 단어를 다시 클릭하면 그 단어만 제거(토글).
-  //       전체 해제는 [지우개] 또는 분석 완료 시에만 발생.
-  //       완료된 토큰을 클릭하면 → 그 토큰의 저장된 인덱스를 통째로 selection으로 복원 (재편집).
-  const handleWordMouseDown = (idx: number, _e: React.MouseEvent) => {
+  // 선택된 인덱스들에서 분석 패널의 selectedId를 결정 (동사 토큰 우선)
+  const pickSelectedIdFromIndices = (indices: number[]): string | null => {
+    if (indices.length === 0) return null;
+    const tokenIds: string[] = [];
+    indices.forEach((i) => {
+      const tid = wordUnits[i]?.tokenId;
+      if (tid && !tokenIds.includes(tid)) tokenIds.push(tid);
+    });
+    if (tokenIds.length === 0) return null;
+    // 동사 토큰 우선 (절 분석 진입에 필수)
+    const verbTid = tokenIds.find((tid) => {
+      const tk = sentence.tokens.find(
+        (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
+          t.type === "analyzable" && t.id === tid,
+      );
+      return tk?.answer.pos === "동사";
+    });
+    return verbTid ?? tokenIds[0];
+  };
+
+  // ===== 단어 단위 선택 =====
+  // 완료 영역 클릭 정책:
+  //   1) 클릭한 영역의 완료 owner의 모든 인덱스가 이미 selection에 정확히 있으면 → owner 복원 (수정/지우개 모드)
+  //   2) 그 외에는 → 새 selection 시작 (다층 추가 분석 진입)
+  const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
+    e.stopPropagation();
 
-    const tokenId = wordUnits[idx].tokenId;
-    // 이 인덱스가 어떤 완료된 토큰에 속하는지 (있다면)
-    const completedOwner = Object.entries(completedSelectionMap).find(([, indices]) =>
+    // 이 인덱스를 포함하는 완료 owner들 (다층 가능)
+    const owners = Object.entries(completedSelectionMap).filter(([, indices]) =>
       indices.includes(idx),
-    )?.[0];
+    );
 
-    // 이미 완료된 토큰 영역을 클릭 → 그 토큰의 분석을 통째로 다시 로드 (재선택/수정/삭제)
-    if (completedOwner && progressMap[completedOwner]?.completed) {
-      const indices = completedSelectionMap[completedOwner] ?? [idx];
-      setSelectedId(completedOwner);
-      setSelectedWordIndices(indices);
+    // 정확히 같은 indices가 이미 selection에 있는 owner를 찾으면 → 패널 로드(수정 모드)
+    const matchedOwner = owners.find(([ownerId, indices]) => {
+      if (!progressMap[ownerId]?.completed) return false;
+      if (selectedId !== ownerId) return false;
+      const sortedSel = [...selectedWordIndices].sort((a, b) => a - b);
+      const sortedIdx = [...indices].sort((a, b) => a - b);
+      return arraysEqualSet(sortedSel, sortedIdx);
+    });
+    if (matchedOwner) {
+      // 두번째 클릭 → 수정/지우개 모드 유지 (이미 로드돼있으니 no-op)
       setDragStart(idx);
       return;
     }
 
-    if (tokenId) handleSelect(tokenId);
-    else setSelectedId(null);
+    // 완료 영역의 첫 클릭 → owner 복원 (한 번 클릭으로 즉시 수정 가능하게)
+    if (owners.length > 0) {
+      // 가장 좁은(가장 안쪽) owner 우선
+      const [ownerId, ownerIndices] = owners.sort(
+        (a, b) => a[1].length - b[1].length,
+      )[0];
+      if (progressMap[ownerId]?.completed) {
+        setSelectedId(ownerId);
+        setSelectedWordIndices([...ownerIndices].sort((a, b) => a - b));
+        setDragStart(idx);
+        return;
+      }
+    }
 
+    // 일반 경로: 토글/누적 selection
     setDragStart(idx);
     setSelectedWordIndices((prev) => {
-      // 토글: 이미 있으면 제거, 없으면 추가 (누적 유지)
+      let next: number[];
       if (prev.includes(idx)) {
-        return prev.filter((i) => i !== idx);
+        next = prev.filter((i) => i !== idx);
+      } else {
+        next = [...prev, idx].sort((a, b) => a - b);
       }
-      return [...prev, idx].sort((a, b) => a - b);
+      // selectedId는 현재 선택의 동사 토큰 우선
+      const sid = pickSelectedIdFromIndices(next);
+      if (sid) {
+        setSelectedId(sid);
+        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+      } else {
+        setSelectedId(null);
+      }
+      return next;
     });
   };
   const handleWordMouseEnter = (idx: number) => {
     if (dragStart === null) return;
     if (isPunct(wordUnits[idx].word)) return;
-    // 드래그: 시작점부터 현재까지를 기존 선택에 ADD (비우지 않음)
     const lo = Math.min(dragStart, idx);
     const hi = Math.max(dragStart, idx);
     setSelectedWordIndices((prev) => {
@@ -349,7 +394,13 @@ const Index = () => {
       for (let i = lo; i <= hi; i++) {
         if (!isPunct(wordUnits[i].word)) next.add(i);
       }
-      return Array.from(next).sort((a, b) => a - b);
+      const arr = Array.from(next).sort((a, b) => a - b);
+      const sid = pickSelectedIdFromIndices(arr);
+      if (sid) {
+        setSelectedId(sid);
+        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+      }
+      return arr;
     });
   };
   const finalizeSelection = () => {
@@ -889,17 +940,41 @@ const Index = () => {
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
 
-  const completedSelectionOwnerByIndex = useMemo(() => {
-    const ownerMap: Record<number, string> = {};
-
+  // 인덱스별 모든 owner들 (다층 layer 지원: 좁은 owner = 안쪽 layer 우선)
+  const completedOwnersByIndex = useMemo(() => {
+    const m: Record<number, string[]> = {};
     Object.entries(completedSelectionMap).forEach(([ownerId, indices]) => {
       indices.forEach((index) => {
-        ownerMap[index] = ownerId;
+        if (!m[index]) m[index] = [];
+        m[index].push(ownerId);
       });
     });
-
-    return ownerMap;
+    Object.keys(m).forEach((k) => {
+      const idx = Number(k);
+      m[idx].sort(
+        (a, b) =>
+          (completedSelectionMap[a]?.length ?? 0) - (completedSelectionMap[b]?.length ?? 0),
+      );
+    });
+    return m;
   }, [completedSelectionMap]);
+
+  // 안쪽(좁은) layer owner — 부속 배지/한글 라벨용
+  // 외곽(넓은) layer owner — 절 wrapper/배경용
+  const innerOwnerByIndex = useMemo(() => {
+    const m: Record<number, string | undefined> = {};
+    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
+      m[Number(k)] = owners[0];
+    });
+    return m;
+  }, [completedOwnersByIndex]);
+  const outerOwnerByIndex = useMemo(() => {
+    const m: Record<number, string | undefined> = {};
+    Object.entries(completedOwnersByIndex).forEach(([k, owners]) => {
+      m[Number(k)] = owners[owners.length - 1];
+    });
+    return m;
+  }, [completedOwnersByIndex]);
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -1097,22 +1172,34 @@ const Index = () => {
             />
           </div>
 
-          {/* === 접SV 절 브래킷 정보 미리 계산 === */}
+          {/* === 토큰 사이 인접 완료 layer 검사용 헬퍼 === */}
           {(() => null)()}
           <div
-            className="flex flex-wrap items-end gap-x-1 gap-y-7 pt-2 pb-1 select-none"
+            className="flex flex-wrap items-end gap-y-7 pt-2 pb-1 select-none"
             onMouseLeave={() => isDragging && finalizeSelection()}
           >
             {wordUnits.map((u, idx) => {
               const word = u.word;
               const punct = isPunct(word);
 
-              // 구두점/괄호: 비대화형
+              // 인접 완료 layer 공유 여부 (앞/뒤 단어가 같은 owner에 속하면 사이 공백을 보라로 채움)
+              const ownersHere = completedOwnersByIndex[idx] ?? [];
+              const ownersPrev = idx > 0 ? completedOwnersByIndex[idx - 1] ?? [] : [];
+              const ownersNext =
+                idx < wordUnits.length - 1 ? completedOwnersByIndex[idx + 1] ?? [] : [];
+              const sharedWithPrev = ownersHere.find((o) => ownersPrev.includes(o));
+              const sharedWithNext = ownersHere.find((o) => ownersNext.includes(o));
+
+              // 구두점/괄호: 비대화형 (단, 인접 완료 layer 사이면 그 자체에 보라 배경)
               if (punct) {
+                const fillBg = sharedWithPrev && sharedWithNext;
                 return (
                   <span
                     key={idx}
-                    className="text-base font-medium text-foreground self-end leading-tight"
+                    className={cn(
+                      "text-base font-medium text-foreground self-end leading-tight px-0.5",
+                      fillBg && "bg-primary/[0.10]",
+                    )}
                     aria-hidden
                   >
                     {word}
@@ -1122,32 +1209,58 @@ const Index = () => {
 
               const isSelected = selectedWordIndices.includes(idx);
               const selectedTokenId = u.tokenId;
-              const completedOwnerId = completedSelectionOwnerByIndex[idx];
-              const tokenId = selectedTokenId ?? completedOwnerId;
+              // 안쪽 owner(좁은 layer = 부속) 우선, 없으면 외곽 owner(절)
+              const ownerId = innerOwnerByIndex[idx];
+              const tokenId = selectedTokenId ?? ownerId;
               const token = tokenId
                 ? sentence.tokens.find(
                     (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
                       t.type === "analyzable" && t.id === tokenId,
                   )
                 : undefined;
-              const wp = tokenId ? progressMap[tokenId] : undefined;
-              const completedIndices = tokenId ? completedSelectionMap[tokenId] ?? [] : [];
+              const wp = ownerId ? progressMap[ownerId] : undefined;
+              const ownerToken = ownerId
+                ? sentence.tokens.find(
+                    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
+                      t.type === "analyzable" && t.id === ownerId,
+                  )
+                : undefined;
+              const completedIndices = ownerId ? completedSelectionMap[ownerId] ?? [] : [];
               const isCompleted = completedIndices.includes(idx) && !!wp?.completed;
-              const clauseStart = completedIndices[0];
-              const clauseEnd = completedIndices[completedIndices.length - 1];
-              const isFirstOfSelection = isCompleted && idx === clauseStart;
-              const isLastOfSelection = isCompleted && idx === clauseEnd;
+              const selStart = completedIndices[0];
+              const selEnd = completedIndices[completedIndices.length - 1];
+              const isFirstOfSelection = isCompleted && idx === selStart;
+              const isLastOfSelection = isCompleted && idx === selEnd;
 
-              // === 완료 시 element 결정 (M은 표시 안 함) ===
+              // 외곽 layer (절) — 별도
+              const outerOwnerId = outerOwnerByIndex[idx];
+              const outerToken = outerOwnerId
+                ? sentence.tokens.find(
+                    (t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> =>
+                      t.type === "analyzable" && t.id === outerOwnerId,
+                  )
+                : undefined;
+              const outerIndices = outerOwnerId
+                ? completedSelectionMap[outerOwnerId] ?? []
+                : [];
+              const outerIsClause =
+                !!outerToken &&
+                ((outerToken.answer.pos === "명사" && outerToken.answer.form === "접SV") ||
+                  (outerToken.answer.pos === "형용사" && outerToken.answer.form === "접SV") ||
+                  (outerToken.answer.pos === "부사" && outerToken.answer.form === "접SV"));
+              const outerIsFirst = outerIsClause && idx === outerIndices[0];
+              const outerIsLast =
+                outerIsClause && idx === outerIndices[outerIndices.length - 1];
+
+              // === 안쪽 layer element 결정 (M은 표시 안 함) ===
               let completedElement: "S" | "V" | "O" | "C" | undefined;
               let isModifier = false;
               let isClauseSelection = false;
-              if (isCompleted && token) {
+              if (isCompleted && token && ownerToken && token.id === ownerToken.id) {
                 const a = token.answer;
                 if (a.pos === "동사") completedElement = "V";
                 else if (a.pos === "명사") {
                   isClauseSelection = a.form === "접SV";
-                  // O 배지 숨김: 전치사의 o, to V, V-ing 등 (form/role 기준)
                   const hideObjectBadge =
                     INTERNAL_OBJECT_ROLES.has(a.role) || a.form === "to V" || a.form === "V-ing";
                   if (!hideObjectBadge) {
@@ -1162,32 +1275,30 @@ const Index = () => {
                   else if (a.element === "C") completedElement = "C";
                 } else if (a.pos === "부사") {
                   isClauseSelection = a.form === "접SV";
-                  isModifier = true; // 부사 전체 modifier
+                  isModifier = true;
                 } else if (a.pos === "기타") {
                   if (a.kind === "삽입" || a.kind === "부연") isModifier = true;
                 }
               }
 
-              // === 접SV 절 브래킷 표시 여부 ===
+              // === 절 브래킷: 외곽 layer 기준 ===
               let bracketRole: "S" | "V" | "O" | "C" | "M" | undefined;
-              if (isCompleted && token && completedIndices.length > 0) {
-                const a = token.answer;
-                if (a.pos === "명사" && a.form === "접SV") {
+              if (outerIsClause && outerToken) {
+                const a = outerToken.answer;
+                if (a.pos === "명사") {
                   if (a.element === "S") bracketRole = "S";
                   else if (a.element === "O") bracketRole = "O";
                   else if (a.element === "C") bracketRole = "C";
                   else bracketRole = "M";
-                } else if (a.pos === "형용사" && a.form === "접SV") {
-                  bracketRole = "M";
-                } else if (a.pos === "부사" && a.form === "접SV") {
+                } else {
                   bracketRole = "M";
                 }
               }
 
               let koreanLabel =
-                isCompleted && isFirstOfSelection && token ? token.answer.koreanLabel : undefined;
-              // 하단 SVOC 배지(또는 V 배지)와 중복되는 한글 문장성분 prefix 제거
-              // 합성 라벨("분사의 목적어", "전치사의 목적어 · 병렬", "to부정사의 목적어" 등)은 그대로 유지
+                isCompleted && isFirstOfSelection && token && token.id === ownerId
+                  ? token.answer.koreanLabel
+                  : undefined;
               if (koreanLabel && (completedElement || (token?.answer.pos === "동사"))) {
                 const stripPatterns = [
                   /^주어\s*·\s*/,
@@ -1205,7 +1316,6 @@ const Index = () => {
                     break;
                   }
                 }
-                // prefix 제거 후 빈 문자열이면 표시 안 함
                 if (!koreanLabel.trim()) koreanLabel = undefined;
               }
 
@@ -1219,19 +1329,30 @@ const Index = () => {
                   : bracketRole === "C"
                   ? "text-element-c"
                   : "text-muted-foreground/60";
-              const bracketWeight =
-                bracketRole ? "font-extrabold" : "font-normal";
+              const bracketWeight = bracketRole ? "font-extrabold" : "font-normal";
 
-              // === Idiom 레이어 (SVOC와 독립) ===
+              // === Idiom 레이어 ===
               const idiomMark = findIdiomCoveringIndex(idiomMap, sentence.id, idx);
-              const idiomFirst =
-                idiomMark && idiomMark.indices[0] === idx;
+              const idiomFirst = idiomMark && idiomMark.indices[0] === idx;
               const idiomLast =
                 idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
 
+              // 외곽 절(보라) 배경: outer layer의 모든 토큰
+              const inOuterClause = outerIsClause;
+              // 안쪽 완료(보라 진하게) 배경
+              const innerCompleteBg =
+                isCompleted && !isSelected && !isModifier && !isClauseSelection;
+
               const wordNode = (
-                <span key={idx} className="inline-flex items-end leading-none whitespace-nowrap">
-                  {bracketRole && isFirstOfSelection && (
+                <span
+                  key={idx}
+                  className={cn(
+                    "inline-flex items-end leading-none whitespace-nowrap",
+                    // 외곽 절 배경 — 시작/끝에 좌/우 패딩으로 시각화, 사이 공백은 별도 span이 처리
+                    inOuterClause && "bg-primary/[0.06]",
+                  )}
+                >
+                  {bracketRole && outerIsFirst && (
                     <span
                       className={cn("self-end pr-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -1250,7 +1371,6 @@ const Index = () => {
                     onMouseUp={handleWordMouseUp}
                     className={cn(
                       "relative inline-flex flex-col items-center cursor-pointer leading-none",
-                      // Idiom outer wrapper: 옅은 sepia (SVOC inner span과 공존)
                       idiomMark && "py-0.5",
                     )}
                     style={
@@ -1274,17 +1394,18 @@ const Index = () => {
                     )}
                     <span
                       className={cn(
-                        "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
-                        // 각 단어가 분리된 단위라는 시각 신호: 옅은 회색 배경 (idiom일 땐 생략 — sepia가 대신)
-                        !idiomMark && "bg-muted/40",
-                        // 완료된 단어들 — 일반: 옅은 보라 + 하단 라인으로 "처리됨" 표시
-                        isCompleted && !isSelected && !isModifier && !isClauseSelection &&
-                          "bg-primary/[0.10] border-b border-primary/30",
-                        // 완료된 modifier/접SV: 배경 없이 텍스트만 살짝 dim
+                        "px-1 py-0.5 text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
+                        // 안쪽 완료 (부속/일반) — 진한 보라
+                        innerCompleteBg && "bg-primary/[0.14] border-b border-primary/30",
+                        // 안쪽이 modifier/clause면 텍스트만 살짝 dim
                         isCompleted && !isSelected && (isModifier || isClauseSelection) &&
-                          "text-foreground/75",
+                          "text-foreground/80",
                         // 선택된 인덱스 하이라이트
-                        isSelected && "bg-primary/20",
+                        isSelected && "bg-primary/25",
+                        // 둥근 모서리: 자기 layer의 시작/끝만
+                        isFirstOfSelection && "rounded-l-sm",
+                        isLastOfSelection && "rounded-r-sm",
+                        !isFirstOfSelection && !isLastOfSelection && isCompleted && "rounded-none",
                       )}
                     >
                       {word}
@@ -1303,7 +1424,7 @@ const Index = () => {
                       </span>
                     )}
                   </span>
-                  {bracketRole && isLastOfSelection && (
+                  {bracketRole && outerIsLast && (
                     <span
                       className={cn("self-end pl-0.5 text-[18px]", bracketColorClass, bracketWeight)}
                       aria-hidden
@@ -1314,9 +1435,26 @@ const Index = () => {
                 </span>
               );
 
-              // Idiom의 첫 토큰에만 Tooltip을 부착 (의미 표시는 한 번이면 충분)
-              if (idiomMark && idiomFirst) {
-                return (
+              // 토큰 사이 공백 span — 다음 단어와 같은 owner를 공유하면 보라로 채움
+              const isLastWord = idx === wordUnits.length - 1;
+              const spacerBg =
+                !isLastWord && (sharedWithNext || (inOuterClause && ownersNext.includes(outerOwnerId ?? "")))
+                  ? "bg-primary/[0.10]"
+                  : sharedWithNext === undefined && inOuterClause && outerOwnerByIndex[idx + 1] === outerOwnerId
+                  ? "bg-primary/[0.06]"
+                  : "";
+              const spacerNode = !isLastWord ? (
+                <span
+                  key={`sp-${idx}`}
+                  className={cn("inline-block self-end leading-tight", spacerBg)}
+                  aria-hidden
+                >
+                  {"\u00A0"}
+                </span>
+              ) : null;
+
+              const node =
+                idiomMark && idiomFirst ? (
                   <Tooltip key={idx}>
                     <TooltipTrigger asChild>{wordNode}</TooltipTrigger>
                     <TooltipContent side="top" className="font-kr text-xs max-w-xs">
@@ -1326,10 +1464,16 @@ const Index = () => {
                       <p>{idiomMark.meaning}</p>
                     </TooltipContent>
                   </Tooltip>
+                ) : (
+                  wordNode
                 );
-              }
 
-              return wordNode;
+              return (
+                <span key={`u-${idx}`} className="contents">
+                  {node}
+                  {spacerNode}
+                </span>
+              );
             })}
           </div>
 
