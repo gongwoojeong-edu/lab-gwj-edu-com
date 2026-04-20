@@ -63,3 +63,36 @@ export const runExtraction = async (
   }
   return data as { count: number; words: ExtractedWord[] };
 };
+
+/** Teacher/admin only — overwrite the words array for a sentence. */
+export const saveExtractionWords = async (
+  sentenceId: string,
+  english: string,
+  words: ExtractedWord[],
+): Promise<void> => {
+  const cleaned = words
+    .map((w) => ({ word: w.word.trim(), meaning: w.meaning.trim(), pos: (w.pos ?? "").trim() }))
+    .filter((w) => w.word && w.meaning);
+  const { error } = await supabase
+    .from("sentence_word_extractions")
+    .upsert(
+      {
+        sentence_id: sentenceId,
+        english,
+        words: cleaned as unknown as never,
+        model: "manual-edit",
+      },
+      { onConflict: "sentence_id" },
+    );
+  if (error) throw error;
+};
+
+/** Admin only (per RLS) — remove the entire extraction cache for a sentence. */
+export const deleteExtraction = async (sentenceId: string): Promise<void> => {
+  const { error } = await supabase
+    .from("sentence_word_extractions")
+    .delete()
+    .eq("sentence_id", sentenceId);
+  if (error) throw error;
+};
+
