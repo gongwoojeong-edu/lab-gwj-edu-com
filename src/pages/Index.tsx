@@ -333,15 +333,13 @@ const Index = () => {
   // 정답 입력 모드에서 한 필드를 저장
   const buildOwnerId = (indices: number[]) => {
     const sorted = Array.from(new Set(indices)).sort((a, b) => a - b);
-    const tokenIds = Array.from(
-      new Set(sorted.map((index) => wordUnits[index]?.tokenId).filter(Boolean)),
-    ) as string[];
-
-    if (tokenIds.length !== 1 || sorted.length !== 1) {
-      return pickSelectedIdFromIndices(sorted);
+    if (sorted.length === 0) return null;
+    if (sorted.length === 1) {
+      const tid = wordUnits[sorted[0]]?.tokenId;
+      if (tid) return `${tid}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+      return null;
     }
-
-    return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+    return buildSpanOwnerId(sorted[0], sorted[sorted.length - 1]);
   };
 
   const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
