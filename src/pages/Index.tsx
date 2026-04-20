@@ -1040,6 +1040,7 @@ const Index = () => {
     setProgressMap({});
     setCompletedSelectionMap({});
     setDrawerOpen(false);
+    setEraserMode(false);
   };
 
   const panelProps = {
