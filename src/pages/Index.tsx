@@ -846,6 +846,20 @@ const Index = () => {
         /* ignore */
       }
     }
+    // pending patch / saved owner 표시도 정리
+    setPendingPatchMap((prev) => {
+      if (!prev[ownerId]) return prev;
+      const n = { ...prev };
+      delete n[ownerId];
+      return n;
+    });
+    setSavedOwnerSet((prev) => {
+      if (!prev.has(ownerId)) return prev;
+      const n = new Set(prev);
+      n.delete(ownerId);
+      saveSavedOwners(Array.from(n));
+      return n;
+    });
     // 수식/지시어 관계도 같이 삭제 (source가 owner인 항목)
     setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
     setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, ownerId));
