@@ -445,6 +445,23 @@ const Index = () => {
     setSavedOwnerSet(new Set(loadSavedOwners()));
   }, []);
 
+  // ===== sentence 변경 시 클라우드 hydration =====
+  useEffect(() => {
+    let cancelled = false;
+    const sid = sentence.id;
+    Promise.all([fetchSentenceProgress(sid), fetchBadgeOffsets(sid)]).then(([prog, offs]) => {
+      if (cancelled) return;
+      setTranslationDone(prog?.translation_done ?? false);
+      setWordTestDone(prog?.word_test_done ?? false);
+      setPassedAt(prog?.passed_at ?? null);
+      setLearningStep("analysis");
+      setBadgeOffsets(offs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sentence.id]);
+
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 
   const resetCustomAnswers = () => {
