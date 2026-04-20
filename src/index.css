@@ -168,7 +168,7 @@
     @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none;
   }
   .sub-badge-pill {
-    @apply inline-flex items-center gap-0 px-1 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
+    @apply relative inline-flex items-center gap-0 px-1 py-0 rounded-full text-[9px] font-semibold font-kr whitespace-nowrap tracking-tight leading-[14px] pointer-events-auto max-w-[140px];
     border: 1px solid transparent;
   }
   .sub-badge-pill .sub-badge-num {
@@ -180,6 +180,36 @@
   }
   /* layer 1 owner: 단층(혼자) 또는 외곽층 — 숫자 표기 숨김 */
   .sub-badge-pill .sub-badge-num.is-hidden { display: none; }
+
+  /* === 정답 입력 모드 — 미저장 / 저장 완료 시각 마킹 === */
+  .sub-badge-pill.is-dirty {
+    border-style: dashed !important;
+    border-color: hsl(var(--destructive) / 0.7) !important;
+  }
+  .sub-badge-pill.is-dirty::after {
+    content: "";
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: hsl(var(--destructive));
+    box-shadow: 0 0 0 1.5px hsl(var(--background));
+  }
+  .sub-badge-pill.is-saved::after {
+    content: "✓";
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    color: hsl(var(--element-v));
+    background: hsl(var(--background));
+    padding: 0 2px;
+    border-radius: 9999px;
+  }
 
   /* === 병렬(parallel) owner 전용 박스 === */
   .parallel-box {
