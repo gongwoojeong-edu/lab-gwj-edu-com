@@ -107,6 +107,8 @@ import {
 } from "@/components/ui/dialog";
 import { BookMarked } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth, signOut } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react";
 import { StepProgressBar, type LearningStep } from "@/components/learning/StepProgressBar";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
