@@ -329,7 +329,30 @@ const ArrowOverlay = ({
 const Index = () => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
+  const [autoLoading, setAutoLoading] = useState(true);
+  const [allDone, setAllDone] = useState(false);
   const sentence = SENTENCES[sentenceIdx];
+
+  // 로그인 사용자의 다음 학습 문장 자동 선택
+  useEffect(() => {
+    let cancelled = false;
+    setAutoLoading(true);
+    void import("@/lib/nextSentence").then(({ resolveNextSentence }) =>
+      resolveNextSentence().then((res) => {
+        if (cancelled) return;
+        if (res.done || !res.sentence) {
+          setAllDone(true);
+        } else {
+          const idx = SENTENCES.findIndex((s) => s.id === res.sentence!.id);
+          if (idx >= 0) setSentenceIdx(idx);
+        }
+        setAutoLoading(false);
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
@@ -408,7 +431,8 @@ const Index = () => {
   const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
 
   // ===== 학습 흐름 (Cloud) =====
-  const [learningStep, setLearningStep] = useState<LearningStep>("analysis");
+  const [learningStep, setLearningStep] = useState<LearningStep>("pre");
+  const [preDone, setPreDone] = useState(false);
   const [translationDone, setTranslationDone] = useState(false);
   const [wordTestDone, setWordTestDone] = useState(false);
   const [passedAt, setPassedAt] = useState<string | null>(null);
