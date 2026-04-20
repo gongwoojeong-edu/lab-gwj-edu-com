@@ -1044,7 +1044,24 @@ const Index = () => {
         /* ignore */
       }
     }
-    // 관용구는 별도 핸들러에서만 삭제 (지우개는 SVOC만)
+    // pending/saved도 같이 정리
+    setPendingPatchMap((prev) => {
+      let changed = false;
+      const n = { ...prev };
+      ownerIds.forEach((id) => {
+        if (n[id]) { delete n[id]; changed = true; }
+      });
+      return changed ? n : prev;
+    });
+    setSavedOwnerSet((prev) => {
+      let changed = false;
+      const n = new Set(prev);
+      ownerIds.forEach((id) => {
+        if (n.has(id)) { n.delete(id); changed = true; }
+      });
+      if (changed) saveSavedOwners(Array.from(n));
+      return changed ? n : prev;
+    });
     clearActiveSelection();
   };
 
