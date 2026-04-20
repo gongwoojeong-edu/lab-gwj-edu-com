@@ -1378,8 +1378,7 @@ const Index = () => {
     }));
   };
 
-  // owner별 자동 finalize 1회 처리 플래그 — 완료 owner를 재선택해도 selection이 사라지지 않도록
-  const finalizedOwnersRef = useRef<Set<string>>(new Set());
+  // (finalizedOwnersRef는 hydration effect와 함께 위쪽에서 선언됨)
 
   useEffect(() => {
     if (!selectedId) return;
