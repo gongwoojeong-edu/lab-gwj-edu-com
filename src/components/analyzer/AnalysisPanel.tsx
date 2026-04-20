@@ -145,16 +145,22 @@ interface AnalysisPanelProps {
   isPendingModifier?: boolean;
   /** 이미 target이 지정되어 있는지 — "지우기" 버튼 노출 */
   hasModifierTarget?: boolean;
+  /** 현재 지정된 수식 대상 단어 텍스트 (지정 완료 상태에서 라벨로 표시) */
+  currentModifierTargetLabel?: string | null;
   onAssignModifierTarget?: () => void;
   onClearModifierTarget?: () => void;
+  onCancelPendingModifier?: () => void;
 
   // ===== 지시어 화살표 (Referent Arrow, 대명사 전용) =====
   /** POS=명사 owner일 때 true → [지시어 지정] 버튼 노출 */
   canAssignReferentTarget?: boolean;
   isPendingReferent?: boolean;
   hasReferentTarget?: boolean;
+  /** 현재 지정된 지시 대상 단어 텍스트 */
+  currentReferentTargetLabel?: string | null;
   onAssignReferentTarget?: () => void;
   onClearReferentTarget?: () => void;
+  onCancelPendingReferent?: () => void;
 }
 
 // ============================================================
@@ -409,13 +415,17 @@ export const AnalysisPanel = ({
   canAssignModifierTarget,
   isPendingModifier,
   hasModifierTarget,
+  currentModifierTargetLabel,
   onAssignModifierTarget,
   onClearModifierTarget,
+  onCancelPendingModifier,
   canAssignReferentTarget,
   isPendingReferent,
   hasReferentTarget,
+  currentReferentTargetLabel,
   onAssignReferentTarget,
   onClearReferentTarget,
+  onCancelPendingReferent,
 }: AnalysisPanelProps) => {
   const answerInputMode = useAnswerInputMode();
   const hasSelection = !!selectedWord;
