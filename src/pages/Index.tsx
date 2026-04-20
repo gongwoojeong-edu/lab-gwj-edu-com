@@ -166,6 +166,21 @@ const Index = () => {
   const [answerInputMode, setAnswerInputMode] = useState(false);
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
 
+  // ===== 지우개 모드 (toggle) =====
+  // ON: 완료 owner 클릭 시 즉시 삭제. 미분석 토큰 클릭은 무시.
+  // OFF (기본): 완료 owner 클릭 → 다층 분석 진입. Shift+클릭은 삭제 단축키.
+  const [eraserMode, setEraserMode] = useState(false);
+
+  // ESC로 지우개 모드 해제
+  useEffect(() => {
+    if (!eraserMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setEraserMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [eraserMode]);
+
   // ===== 숙어 / Phrase store (SVOC와 독립) =====
   const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
 
@@ -407,10 +422,44 @@ const Index = () => {
     return buildSpanOwnerId(sorted[0], sorted[sorted.length - 1]);
   };
 
+  // ===== 단일 owner 즉시 삭제 (지우개 모드 / Shift 단축키 공용) =====
+  const eraseOwner = (ownerId: string) => {
+    setProgressMap((prev) => {
+      const next = { ...prev };
+      delete next[ownerId];
+      finalizedOwnersRef.current.delete(ownerId);
+      return next;
+    });
+    setCompletedSelectionMap((prev) => {
+      const next = { ...prev };
+      delete next[ownerId];
+      return next;
+    });
+    if (customAnswers[ownerId]) {
+      const nextCustom = { ...customAnswers };
+      delete nextCustom[ownerId];
+      setCustomAnswers(nextCustom);
+      try {
+        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
+      } catch {
+        /* ignore */
+      }
+    }
+    if (selectedId === ownerId) {
+      setSelectedId(null);
+      setSelectedWordIndices([]);
+      setDragStart(null);
+      setDrawerOpen(false);
+    }
+  };
+
   // ===== 단어 단위 선택 =====
-  // 완료 영역 클릭 정책:
-  //   - 단일 토큰 클릭은 항상 새 빈 분석으로 시작 (인접 완료 토큰 owner 자동 복원 X)
-  //   - owner 복원은 사용자가 명시적으로 완료 토큰 묶음 전체를 다시 드래그/클릭으로 선택했을 때만
+  // 클릭 분기:
+  //   - eraserMode ON + 완료 owner 클릭 → 즉시 삭제
+  //   - eraserMode ON + 미분석 토큰    → 무시
+  //   - Shift/Meta/Ctrl + 완료 owner   → 즉시 삭제 (보조 단축키)
+  //   - eraserMode OFF + 완료 owner 클릭 → 클릭한 토큰만 selection으로 → 다층 분석 진입
+  //   - 일반 클릭/드래그 → 새 분석 시작
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
@@ -420,41 +469,40 @@ const Index = () => {
       .filter(([oid, indices]) => indices.includes(idx) && progressMap[oid]?.completed)
       .sort(([, a], [, b]) => a.length - b.length);
 
-    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+    const hasCompletedOwner = owners.length > 0;
+    const modifierErase = e.shiftKey || e.metaKey || e.ctrlKey;
 
-    // 완료 owner 클릭 → 가장 좁은 owner의 전체 범위 복원
-    // (단일 토큰 / span / 절 모두 동일)
-    if (!additive && owners.length > 0) {
-      const [ownerId, indices] = owners[0];
-      const sorted = [...indices].sort((a, b) => a - b);
-      setSelectedId(ownerId);
-      setSelectedWordIndices(sorted);
-      setDragStart(idx);
+    // === 지우개 모드 ===
+    if (eraserMode) {
+      if (hasCompletedOwner) {
+        const [ownerId] = owners[0];
+        eraseOwner(ownerId);
+        toast({ title: "🧽 삭제됨" });
+      }
+      // 미분석 토큰: 아무 동작 X
       return;
     }
 
-    // 일반 경로: 새 빈 분석 시작
+    // === Shift+클릭 단축키 — 완료 owner 즉시 삭제 ===
+    if (modifierErase && hasCompletedOwner) {
+      const [ownerId] = owners[0];
+      eraseOwner(ownerId);
+      toast({ title: "🧽 삭제됨" });
+      return;
+    }
+
+    // === 일반 모드 — 단일 토큰 선택으로 새 분석/다층 분석 진입 ===
+    // 완료 owner 위에서도 owner 전체를 selection으로 잡지 않고 단일 토큰만 선택
+    // → 기존 owner는 보존된 채 그 위에 새 layer 분석 가능
     setDragStart(idx);
-    setSelectedWordIndices((prev) => {
-      let next: number[];
-      if (additive) {
-        if (prev.includes(idx)) {
-          next = prev.filter((i) => i !== idx);
-        } else {
-          next = [...prev, idx].sort((a, b) => a - b);
-        }
-      } else {
-        next = [idx];
-      }
-      const sid = pickSelectedIdFromIndices(next);
-      if (sid) {
-        setSelectedId(sid);
-        setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
-      } else {
-        setSelectedId(null);
-      }
-      return next;
-    });
+    setSelectedWordIndices([idx]);
+    const sid = pickSelectedIdFromIndices([idx]);
+    if (sid) {
+      setSelectedId(sid);
+      setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
+    } else {
+      setSelectedId(null);
+    }
   };
   const handleWordMouseEnter = (idx: number) => {
     if (dragStart === null) return;
@@ -992,6 +1040,7 @@ const Index = () => {
     setProgressMap({});
     setCompletedSelectionMap({});
     setDrawerOpen(false);
+    setEraserMode(false);
   };
 
   const panelProps = {
@@ -1260,7 +1309,27 @@ const Index = () => {
           </div>
         )}
 
-        <section className="glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden">
+        {eraserMode && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
+            <p className="text-[12px] font-semibold text-destructive font-kr">
+              🧽 지우개 모드 — 분석된 항목 클릭 시 즉시 삭제됩니다 (ESC 또는 다시 버튼 클릭으로 종료)
+            </p>
+            <button
+              type="button"
+              onClick={() => setEraserMode(false)}
+              className="text-[11px] font-bold font-kr text-destructive underline underline-offset-2"
+            >
+              종료
+            </button>
+          </div>
+        )}
+
+        <section
+          className={cn(
+            "glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden",
+            eraserMode && "ring-2 ring-destructive/40",
+          )}
+        >
           <div className="absolute top-0 left-0 w-full h-0.5 bg-secondary">
             <div
               className="h-full bg-gradient-to-r from-primary to-primary-glow transition-all"
@@ -1566,32 +1635,24 @@ const Index = () => {
                 ? `완료 영역 · ${completedSelectionMap[selectedId].length}개 단어`
                 : "선택 없음"}
             </span>
-            {(() => {
-              // 지우개는 "분석 완료된 owner와 선택이 겹칠 때"만 활성화
-              // 미분석 단어 단순 클릭 시에는 비활성화
-              const selectedIdxSet = new Set(activeSelectionIndices);
-              const overlapsCompleted = Object.entries(completedSelectionMap).some(
-                ([oid, idxs]) =>
-                  progressMap[oid]?.completed &&
-                  idxs.some((i) => selectedIdxSet.has(i)),
-              );
-              const selectedIsCompleted =
-                !!selectedId &&
-                !!progressMap[selectedId]?.completed &&
-                !!completedSelectionMap[selectedId]?.length;
-              const eraseEnabled = overlapsCompleted || selectedIsCompleted;
-              return (
-                <button
-                  type="button"
-                  onClick={handleEraser}
-                  disabled={!eraseEnabled}
-                  className="px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[11px] font-bold font-kr hover:bg-destructive/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="현재 선택 또는 완료된 분석 데이터를 모두 삭제"
-                >
-                  🧽 지우개
-                </button>
-              );
-            })()}
+            <button
+              type="button"
+              onClick={() => setEraserMode((v) => !v)}
+              aria-pressed={eraserMode}
+              className={cn(
+                "px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border",
+                eraserMode
+                  ? "bg-destructive text-destructive-foreground border-destructive shadow-sm"
+                  : "bg-destructive/10 text-destructive border-transparent hover:bg-destructive/20",
+              )}
+              title={
+                eraserMode
+                  ? "지우개 모드 ON — 분석된 항목 클릭 시 삭제 (ESC 또는 다시 클릭으로 종료)"
+                  : "지우개 모드 OFF — 클릭 시 활성화. Shift+클릭으로도 단일 삭제 가능"
+              }
+            >
+              🧽 지우개{eraserMode ? " ON" : ""}
+            </button>
             <Popover>
               <PopoverTrigger asChild>
                 <button
