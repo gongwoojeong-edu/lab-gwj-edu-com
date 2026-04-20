@@ -450,6 +450,26 @@ export const AnalysisPanel = ({
   const isAdv = currentPos === "부사";
   const isEtc = currentPos === "기타";
 
+  // 수식/지시어 props 묶음 — Noun/Adj 패널 내부 Layer 3 하단에서 사용
+  const modifierSectionProps = {
+    canAssignModifierTarget: !!canAssignModifierTarget,
+    isPendingModifier: !!isPendingModifier,
+    hasModifierTarget: !!hasModifierTarget,
+    currentModifierTargetLabel: currentModifierTargetLabel ?? null,
+    onAssignModifierTarget,
+    onClearModifierTarget,
+    onCancelPendingModifier,
+  };
+  const referentSectionProps = {
+    canAssignReferentTarget: !!canAssignReferentTarget,
+    isPendingReferent: !!isPendingReferent,
+    hasReferentTarget: !!hasReferentTarget,
+    currentReferentTargetLabel: currentReferentTargetLabel ?? null,
+    onAssignReferentTarget,
+    onClearReferentTarget,
+    onCancelPendingReferent,
+  };
+
   const renderSubPanel = () => {
     if (isNoun)
       return (
@@ -460,6 +480,7 @@ export const AnalysisPanel = ({
           onNounElementChange={onNounElementChange}
           onNounRoleChange={onNounRoleChange}
           onNounElementRole={onNounElementRole}
+          referent={referentSectionProps}
         />
       );
     if (isVerb)
@@ -483,6 +504,7 @@ export const AnalysisPanel = ({
           onAdjElementChange={onAdjElementChange}
           onAdjRoleChange={onAdjRoleChange}
           onAdjElementRole={onAdjElementRole}
+          modifier={modifierSectionProps}
         />
       );
     if (isAdv)
@@ -638,129 +660,7 @@ export const AnalysisPanel = ({
         </div>
       </div>
 
-      {/* === 수식 화살표 — 형용사/부사/명사M owner에서만 노출 === */}
-      {canAssignModifierTarget && (
-        <div className="mt-2 flex flex-col gap-1.5 border-t border-border/40 pt-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-              수식 화살표
-            </span>
-            {isPendingModifier ? (
-              <>
-                <span className="text-[11px] font-bold text-primary font-kr animate-pulse">
-                  🎯 본문에서 수식받을 단어를 클릭하세요
-                </span>
-                <button
-                  type="button"
-                  onClick={onCancelPendingModifier ?? onAssignModifierTarget}
-                  className="ml-auto px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
-                  title="지정 취소 (ESC)"
-                >
-                  취소
-                </button>
-              </>
-            ) : hasModifierTarget ? (
-              <>
-                <span className="text-[11px] font-semibold text-foreground font-kr">
-                  대상:{" "}
-                  <span className="text-primary font-bold">
-                    {currentModifierTargetLabel ?? "?"}
-                  </span>
-                </span>
-                <div className="ml-auto flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={onAssignModifierTarget}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-primary/10 text-primary border-transparent hover:bg-primary/20"
-                    title="다른 단어로 변경"
-                  >
-                    ↻ 변경
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onClearModifierTarget}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
-                    title="수식 화살표 삭제"
-                  >
-                    ✕ 삭제
-                  </button>
-                </div>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={onAssignModifierTarget}
-                className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-primary/10 text-primary border-transparent hover:bg-primary/20"
-                title="버튼을 누른 뒤 수식 대상이 될 단어를 클릭하세요"
-              >
-                → 수식 대상 지정
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* === 지시어 화살표 — 명사(대명사) owner에서만 노출 === */}
-      {canAssignReferentTarget && (
-        <div className="mt-2 flex flex-col gap-1.5 border-t border-border/40 pt-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-              지시어 (대명사)
-            </span>
-            {isPendingReferent ? (
-              <>
-                <span className="text-[11px] font-bold text-foreground font-kr animate-pulse">
-                  👉 본문에서 가리키는 단어를 클릭하세요
-                </span>
-                <button
-                  type="button"
-                  onClick={onCancelPendingReferent ?? onAssignReferentTarget}
-                  className="ml-auto px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
-                  title="지정 취소 (ESC)"
-                >
-                  취소
-                </button>
-              </>
-            ) : hasReferentTarget ? (
-              <>
-                <span className="text-[11px] font-semibold text-foreground font-kr">
-                  대상:{" "}
-                  <span className="text-foreground font-bold underline decoration-dotted">
-                    {currentReferentTargetLabel ?? "?"}
-                  </span>
-                </span>
-                <div className="ml-auto flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={onAssignReferentTarget}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-muted text-foreground border-transparent hover:bg-muted/70"
-                    title="다른 단어로 변경"
-                  >
-                    ↻ 변경
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onClearReferentTarget}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
-                    title="지시어 화살표 삭제"
-                  >
-                    ✕ 삭제
-                  </button>
-                </div>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={onAssignReferentTarget}
-                className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-muted text-foreground border-transparent hover:bg-muted/70"
-                title="버튼을 누른 뒤 가리키는 대상 단어를 클릭하세요"
-              >
-                → 지시어 지정
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 수식/지시어 UI는 NounPanel/AdjPanel 내부 Layer 3 하단으로 이동됨 */}
 
     </aside>
   );
@@ -885,6 +785,121 @@ export const IdiomSection = ({
 };
 
 // ============================================================
+// 공용: 관계(수식 / 지시어) 지정 섹션 — 명사/형용사 패널 내부 Layer 3 하단에 위치
+// ============================================================
+interface RelationSectionProps {
+  /** "modifier" | "referent" — variant에 따라 라벨/색만 다름 */
+  variant: "modifier" | "referent";
+  isPending: boolean;
+  hasTarget: boolean;
+  currentTargetLabel: string | null;
+  onAssign?: () => void;
+  onClear?: () => void;
+  onCancel?: () => void;
+}
+const RelationSection = ({
+  variant,
+  isPending,
+  hasTarget,
+  currentTargetLabel,
+  onAssign,
+  onClear,
+  onCancel,
+}: RelationSectionProps) => {
+  const isMod = variant === "modifier";
+  const title = isMod ? "수식 화살표" : "지시어 (대명사)";
+  const assignLabel = isMod ? "→ 수식 대상 지정" : "→ 지시어 지정";
+  const pendingMsg = isMod
+    ? "🎯 본문에서 수식받을 단어를 클릭하세요"
+    : "👉 본문에서 가리키는 단어를 클릭하세요";
+  const accent = isMod
+    ? "bg-primary/10 text-primary hover:bg-primary/20"
+    : "bg-muted text-foreground hover:bg-muted/70";
+  const targetText = isMod
+    ? "text-primary font-bold"
+    : "text-foreground font-bold underline decoration-dotted";
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 border-t border-border/40 pt-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+          {title}
+        </span>
+        {isPending ? (
+          <>
+            <span className={cn("text-[11px] font-bold font-kr animate-pulse", isMod ? "text-primary" : "text-foreground")}>
+              {pendingMsg}
+            </span>
+            <button
+              type="button"
+              onClick={onCancel ?? onAssign}
+              className="ml-auto px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
+              title="지정 취소 (ESC)"
+            >
+              취소
+            </button>
+          </>
+        ) : hasTarget ? (
+          <>
+            <span className="text-[11px] font-semibold text-foreground font-kr">
+              대상:{" "}
+              <span className={targetText}>{currentTargetLabel ?? "?"}</span>
+            </span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onAssign}
+                className={cn("px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border border-transparent", accent)}
+                title="다른 단어로 변경"
+              >
+                ↻ 변경
+              </button>
+              <button
+                type="button"
+                onClick={onClear}
+                className="px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border bg-secondary text-secondary-foreground border-transparent hover:bg-secondary/70"
+                title="삭제"
+              >
+                ✕ 삭제
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onAssign}
+            className={cn("px-2.5 py-1 rounded-md text-[11px] font-bold font-kr transition-colors border border-transparent", accent)}
+            title="버튼을 누른 뒤 본문 단어를 클릭하세요"
+          >
+            {assignLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// 패널에 주입되는 관계 섹션 props
+type ModifierSectionInput = {
+  canAssignModifierTarget: boolean;
+  isPendingModifier: boolean;
+  hasModifierTarget: boolean;
+  currentModifierTargetLabel: string | null;
+  onAssignModifierTarget?: () => void;
+  onClearModifierTarget?: () => void;
+  onCancelPendingModifier?: () => void;
+};
+type ReferentSectionInput = {
+  canAssignReferentTarget: boolean;
+  isPendingReferent: boolean;
+  hasReferentTarget: boolean;
+  currentReferentTargetLabel: string | null;
+  onAssignReferentTarget?: () => void;
+  onClearReferentTarget?: () => void;
+  onCancelPendingReferent?: () => void;
+};
+
+// ============================================================
 // 명사 패널
 // ============================================================
 interface NounPanelProps {
@@ -894,6 +909,7 @@ interface NounPanelProps {
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
   onNounElementRole: (e: SentenceElement, r: string | null) => void;
+  referent?: ReferentSectionInput;
 }
 
 const NounPanel = ({
@@ -902,6 +918,7 @@ const NounPanel = ({
   onNounFormChange,
   onNounRoleChange,
   onNounElementRole,
+  referent,
 }: NounPanelProps) => {
   const formCorrect = noun.formStatus === "correct";
   const formOnlyMode =
@@ -921,6 +938,10 @@ const NounPanel = ({
         const bonus = FORM_BONUS_ROLES_BY_ELEMENT[noun.form!]?.[key] ?? [];
         return { element: key, label, colorClass, options: [...common, ...bonus] };
       }));
+
+  // 지시어 섹션 노출 조건 — Index.tsx에서 canAssignReferentTarget를 명사 owner일 때 true로 제공.
+  // 추가로 role이 "대명사"이거나 form/role이 비어있을 때도 노출 (사용자가 대상 지정 가능).
+  const showReferent = !!referent?.canAssignReferentTarget;
 
   return (
     <>
@@ -951,6 +972,18 @@ const NounPanel = ({
           onPick={(e, r) => onNounElementRole(e as SentenceElement, r)}
         />
       )}
+      {/* Layer 3 하단: 지시어(대명사) 대상 지정 */}
+      {showReferent && referent && (
+        <RelationSection
+          variant="referent"
+          isPending={referent.isPendingReferent}
+          hasTarget={referent.hasReferentTarget}
+          currentTargetLabel={referent.currentReferentTargetLabel}
+          onAssign={referent.onAssignReferentTarget}
+          onClear={referent.onClearReferentTarget}
+          onCancel={referent.onCancelPendingReferent}
+        />
+      )}
       {noun.roleStatus === "correct" && (
         <CompletionBlock label={answer?.koreanLabel ?? noun.role ?? "완료"} />
       )}
@@ -968,6 +1001,7 @@ interface AdjPanelProps {
   onAdjElementChange: (e: "C" | "M") => void;
   onAdjRoleChange: (r: string) => void;
   onAdjElementRole: (e: "C" | "M", r: string | null) => void;
+  modifier?: ModifierSectionInput;
 }
 
 const AdjPanel = ({
@@ -976,6 +1010,7 @@ const AdjPanel = ({
   onAdjFormChange,
   onAdjRoleChange,
   onAdjElementRole,
+  modifier,
 }: AdjPanelProps) => {
   const formCorrect = adj.formStatus === "correct";
   const skipsElement = adj.form ? !!ADJ_FORM_SKIPS_ELEMENT[adj.form] : false;
@@ -986,9 +1021,6 @@ const AdjPanel = ({
   const elementRoleGroups = !formCorrect || skipsElement
     ? []
     : ADJ_ELEMENTS.map(({ key, label, colorClass }) => {
-        // 형용사 form일 때 form별 role 옵션을 element와 매칭
-        // ADJ_ROLES_BY_FORM["형용사"] = ["형용사", "a주격보어", "a목적격보어", "a명사수식"]
-        // C에는 보어 관련, M에는 수식 관련 — 단순 휴리스틱
         let options: RoleOption[];
         if (key === "C") {
           options = roleOptions.filter(
@@ -1001,6 +1033,11 @@ const AdjPanel = ({
         }
         return { element: key, label, colorClass, options };
       });
+
+  // 명사수식 role일 때만 modifier 섹션 노출
+  const isNounModifyingRole =
+    adj.roleStatus === "correct" && !!adj.role && /명사수식|명사뒤수식|명사앞수식/.test(adj.role);
+  const showModifier = isNounModifyingRole && !!modifier?.canAssignModifierTarget;
 
   return (
     <>
@@ -1031,20 +1068,20 @@ const AdjPanel = ({
           onPick={(e, r) => onAdjElementRole(e as "C" | "M", r)}
         />
       )}
+      {/* Layer 3 하단: 수식 대상 명사 지정 */}
+      {showModifier && modifier && (
+        <RelationSection
+          variant="modifier"
+          isPending={modifier.isPendingModifier}
+          hasTarget={modifier.hasModifierTarget}
+          currentTargetLabel={modifier.currentModifierTargetLabel}
+          onAssign={modifier.onAssignModifierTarget}
+          onClear={modifier.onClearModifierTarget}
+          onCancel={modifier.onCancelPendingModifier}
+        />
+      )}
       {adj.roleStatus === "correct" && (
         <CompletionBlock label={answer?.koreanLabel ?? adj.role ?? "완료"} />
-      )}
-      {/* 명사수식 역할일 때 — 어떤 명사를 수식하는지 지정하라는 안내 */}
-      {adj.roleStatus === "correct" && adj.role && /명사수식|명사뒤수식|명사앞수식/.test(adj.role) && (
-        <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-primary font-kr mb-0.5">
-            수식어 — 대상 명사 지정
-          </p>
-          <p className="text-[11px] font-kr text-muted-foreground leading-snug">
-            상단 <span className="font-bold text-primary">→ 수식 대상 지정</span> 버튼을 눌러
-            본문에서 수식받는 명사를 클릭하세요.
-          </p>
-        </div>
       )}
     </>
   );

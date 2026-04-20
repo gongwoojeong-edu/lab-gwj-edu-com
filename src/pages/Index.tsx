@@ -857,28 +857,34 @@ const Index = () => {
   };
 
   // ===== 단일 owner 즉시 삭제 (지우개 모드 / Shift 단축키 공용) =====
+  // 모든 관련 state를 동시에 정리 — 보라 잔상이 남지 않도록 customAnswers, pendingPatch,
+  // savedOwner, userLinkedOwnerSet, modifier/referent 관계까지 모두 제거.
   const eraseOwner = (ownerId: string) => {
     setProgressMap((prev) => {
+      if (!(ownerId in prev)) return prev;
       const next = { ...prev };
       delete next[ownerId];
       finalizedOwnersRef.current.delete(ownerId);
       return next;
     });
     setCompletedSelectionMap((prev) => {
+      if (!(ownerId in prev)) return prev;
       const next = { ...prev };
       delete next[ownerId];
       return next;
     });
-    if (customAnswers[ownerId]) {
-      const nextCustom = { ...customAnswers };
+    // customAnswers는 항상 제거 (재hydrate 방지) + localStorage 동기화
+    setCustomAnswers((prev) => {
+      if (!(ownerId in prev)) return prev;
+      const nextCustom = { ...prev };
       delete nextCustom[ownerId];
-      setCustomAnswers(nextCustom);
       try {
         window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
       } catch {
         /* ignore */
       }
-    }
+      return nextCustom;
+    });
     // pending patch / saved owner 표시도 정리
     setPendingPatchMap((prev) => {
       if (!prev[ownerId]) return prev;
@@ -2017,7 +2023,7 @@ const Index = () => {
           )}
           <div
             ref={sentenceContainerRef}
-            className="relative flex flex-wrap items-end pb-1 pt-8 gap-y-7 select-none"
+            className="relative flex flex-wrap items-end pb-1 pt-12 gap-y-10 select-none"
             onMouseLeave={() => isDragging && finalizeSelection()}
           >
             {/* === 수식 / 지시어 화살표 SVG overlay === */}
@@ -2039,8 +2045,8 @@ const Index = () => {
               const ownersPrev = idx > 0 ? completedOwnersByIndex[idx - 1] ?? [] : [];
               const ownersNext =
                 idx < wordUnits.length - 1 ? completedOwnersByIndex[idx + 1] ?? [] : [];
-              const sharedWithPrev = ownersHere.find((o) => ownersPrev.includes(o));
-              const sharedWithNext = ownersHere.find((o) => ownersNext.includes(o));
+              const sharedWithPrev = ownersHere.find((o) => ownersPrev.includes(o) && progressMap[o]?.completed);
+              const sharedWithNext = ownersHere.find((o) => ownersNext.includes(o) && progressMap[o]?.completed);
 
               // 구두점/괄호: 비대화형 (단, 인접 완료 layer 사이면 그 자체에 보라 배경)
               if (punct) {
@@ -2167,7 +2173,8 @@ const Index = () => {
                 const layers = owners
                   .map((oid, i) => {
                     const op = progressMap[oid];
-                    if (!op) return null;
+                    // 살아있는 완료 owner만 배경 생성 — 잔상 방지
+                    if (!op || !op.completed) return null;
                     if (isClauseProgress(op)) return null; // clause는 배경 X
                     if (isParallelProgress(op)) return null; // parallel은 별도 .parallel-box
                     const v = layerVars[i % layerVars.length];
@@ -2247,64 +2254,60 @@ const Index = () => {
                     }
                   >
                     {(koreanLabel || outerKoreanLabel) && (() => {
-                      // 부배지 자동 시프트: 같은 단어에 2개 anchor 시 좌우 빈 공간 더 큰 쪽으로 분산
-                      const bothPills = !!koreanLabel && !!outerKoreanLabel;
-                      const totalWords = wordUnits.length;
-                      const leftSpace = idx;
-                      const rightSpace = Math.max(0, totalWords - 1 - idx);
-                      const innerShift = bothPills
-                        ? leftSpace >= rightSpace ? "left" : undefined
-                        : undefined;
-                      const outerShift = bothPills
-                        ? rightSpace > leftSpace ? "right" : "left"
-                        : undefined;
+                      // 부배지 수직 stagger — 동일 단어에 2개 anchor면 outer를 inner보다 위로,
+                      // 동일 anchor 단어가 인접 단어와 같은 layer 깊이일 때도 layer 번호로 vertical offset
+                      // 인접 anchor 충돌 회피를 위해 inner는 -18px (기본), outer는 -34px (한 칸 위)
+                      const innerTop = -18;
+                      const outerTop = koreanLabel ? -34 : -18;
                       return (
-                      <span className="sub-badge-row" style={{ top: "-18px" }}>
+                      <>
                         {koreanLabel && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span
-                                data-shift={innerShift}
-                                className={cn(
-                                  "sub-badge-pill",
-                                  `sub-badge-pill-${innerLayerNum}`,
-                                  totalLayers === 1 && "is-solo",
-                                  answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
-                                  answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
-                                )}
-                              >
-                                <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
-                                <span className="truncate max-w-[120px]">{koreanLabel}</span>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs font-kr">
-                              {koreanLabel}
-                            </TooltipContent>
-                          </Tooltip>
+                          <span className="sub-badge-row" style={{ top: `${innerTop}px` }}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={cn(
+                                    "sub-badge-pill",
+                                    `sub-badge-pill-${innerLayerNum}`,
+                                    totalLayers === 1 && "is-solo",
+                                    answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
+                                    answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
+                                  )}
+                                >
+                                  <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
+                                  <span className="truncate max-w-[120px]">{koreanLabel}</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-kr">
+                                {koreanLabel}
+                              </TooltipContent>
+                            </Tooltip>
+                          </span>
                         )}
                         {outerKoreanLabel && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span
-                                data-shift={outerShift}
-                                className={cn(
-                                  "sub-badge-pill",
-                                  `sub-badge-pill-${outerLayerNum}`,
-                                  totalLayers === 1 && "is-solo",
-                                  answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
-                                  answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
-                                )}
-                              >
-                                <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
-                                <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs font-kr">
-                              {outerKoreanLabel}
-                            </TooltipContent>
-                          </Tooltip>
+                          <span className="sub-badge-row" style={{ top: `${outerTop}px` }}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={cn(
+                                    "sub-badge-pill",
+                                    `sub-badge-pill-${outerLayerNum}`,
+                                    totalLayers === 1 && "is-solo",
+                                    answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
+                                    answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
+                                  )}
+                                >
+                                  <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
+                                  <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs font-kr">
+                                {outerKoreanLabel}
+                              </TooltipContent>
+                            </Tooltip>
+                          </span>
                         )}
-                      </span>
+                      </>
                       );
                     })()}
 
@@ -2367,10 +2370,10 @@ const Index = () => {
               const sharedOwners = !isLastWord
                 ? ownersHere.filter((o) => ownersNext.includes(o))
                 : [];
-              // 병렬 owner는 spacer 채움 제외
+              // 병렬 owner는 spacer 채움 제외 + 살아있는 완료 owner만 사용
               const fillableSharedOwners = sharedOwners.filter((o) => {
                 const op = progressMap[o];
-                return !!op && !isParallelProgress(op);
+                return !!op && op.completed && !isParallelProgress(op);
               });
               const spacerBgImage = buildLayerBg(fillableSharedOwners);
               // 선택 중: 양쪽 모두 선택 → spacer도 동일 보라로 연결
@@ -2382,10 +2385,10 @@ const Index = () => {
                 return !!op && !isClauseProgress(op);
               });
               const spacerCompletedBridge = !!generalSharedOwner && !spacerSelectedBridge;
-              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 clause owner에 속하면 spacer 하단도 같은 색 라인
+              // 절(clause) 언더라인 bridge — 양쪽 모두 같은 살아있는 clause owner에 속할 때만
               const clauseSharedOwner = sharedOwners.find((oid) => {
                 const op = progressMap[oid];
-                return !!op && isClauseProgress(op);
+                return !!op && op.completed && isClauseProgress(op);
               });
               const clauseSpacerUnderline = clauseSharedOwner ? clauseUnderlineClass : "";
               const spacerNode = !isLastWord ? (
