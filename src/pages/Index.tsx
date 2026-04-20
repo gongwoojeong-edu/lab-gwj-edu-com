@@ -779,7 +779,7 @@ const Index = () => {
   };
 
   const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
-    const next = upsertCustomAnswer(ownerId, patch);
+    const next = upsertCustomAnswer(ownerId, patch, sentence.id);
     setCustomAnswers(next);
   };
 
@@ -795,7 +795,7 @@ const Index = () => {
   const commitPatch = (ownerId: string) => {
     const pending = pendingPatchMap[ownerId];
     if (pending && Object.keys(pending).length > 0) {
-      const next = upsertCustomAnswer(ownerId, pending);
+      const next = upsertCustomAnswer(ownerId, pending, sentence.id);
       setCustomAnswers(next);
       setPendingPatchMap((prev) => {
         const n = { ...prev };
