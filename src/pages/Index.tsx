@@ -2197,7 +2197,12 @@ const Index = () => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
-                                className={cn("sub-badge-pill", `sub-badge-pill-${innerLayerNum}`)}
+                                className={cn(
+                                  "sub-badge-pill",
+                                  `sub-badge-pill-${innerLayerNum}`,
+                                  answerInputMode && ownerId && hasPendingPatch(ownerId) && "is-dirty",
+                                  answerInputMode && ownerId && !hasPendingPatch(ownerId) && savedOwnerSet.has(ownerId) && "is-saved",
+                                )}
                               >
                                 <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{koreanLabel}</span>
@@ -2212,7 +2217,12 @@ const Index = () => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span
-                                className={cn("sub-badge-pill", `sub-badge-pill-${outerLayerNum}`)}
+                                className={cn(
+                                  "sub-badge-pill",
+                                  `sub-badge-pill-${outerLayerNum}`,
+                                  answerInputMode && outerOwnerId && hasPendingPatch(outerOwnerId) && "is-dirty",
+                                  answerInputMode && outerOwnerId && !hasPendingPatch(outerOwnerId) && savedOwnerSet.has(outerOwnerId) && "is-saved",
+                                )}
                               >
                                 <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
                                 <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
