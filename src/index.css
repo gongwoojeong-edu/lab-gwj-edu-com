@@ -62,12 +62,12 @@
     --idiom-border: 28 40% 70%;
     --idiom-fg: 25 35% 30%;
 
-    /* Layer stacking colors — 다층 분석 시 layer depth별 hue를 크게 벌려 색맹/흑백에서도 구분
-       Layer1 amber / Layer2 crimson / Layer3 teal / Layer4 deep-purple */
-    --layer-1: 38 95% 48%;    /* amber/yellow */
-    --layer-2: 350 78% 50%;   /* crimson red */
-    --layer-3: 175 75% 38%;   /* teal */
-    --layer-4: 270 70% 52%;   /* purple */
+    /* Layer stacking colors — Layer1은 브랜드 보라(통일성), 2층부터 hue를 크게 벌려 구분
+       Layer1 violet(brand) / Layer2 amber / Layer3 crimson / Layer4 teal */
+    --layer-1: 275 70% 45%;   /* brand violet */
+    --layer-2: 38 95% 48%;    /* amber */
+    --layer-3: 350 78% 50%;   /* crimson */
+    --layer-4: 175 75% 38%;   /* teal */
 
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, hsl(275 100% 25%), hsl(280 60% 52%));
