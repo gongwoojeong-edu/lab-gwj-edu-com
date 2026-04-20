@@ -402,6 +402,7 @@ const Index = () => {
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
     setReferentMap(loadReferentTargets());
+    setSavedOwnerSet(new Set(loadSavedOwners()));
   }, []);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
@@ -413,6 +414,9 @@ const Index = () => {
     setCompletedSelectionMap({});
     setSelectedId(null);
     setSelectedWordIndices([]);
+    setPendingPatchMap({});
+    setSavedOwnerSet(new Set());
+    saveSavedOwners([]);
     toast({
       title: "정답 데이터를 모두 삭제했습니다",
       description: "이제 처음부터 새로 입력할 수 있습니다.",
