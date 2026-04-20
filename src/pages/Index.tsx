@@ -368,7 +368,16 @@ const UserMenu = () => {
   );
 };
 
-const Index = () => {
+interface IndexProps {
+  /** 임베드 모드: 헤더/footer/학습진행 카드 숨김. SentenceLearn 같은 외부 컨테이너에서 분석기 UI만 사용. */
+  embedMode?: boolean;
+  /** 임베드 모드일 때 표시할 문장 id. 미지정 시 ?sentence= 쿼리 또는 다음 학습 문장 폴백. */
+  embedSentenceId?: string;
+  /** 임베드 모드에서 분석 완료(모든 단어 completed)가 감지될 때 호출. */
+  onAnalysisDone?: () => void;
+}
+
+const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
@@ -376,10 +385,19 @@ const Index = () => {
   const sentence = SENTENCES[sentenceIdx];
 
   // 로그인 사용자의 다음 학습 문장 자동 선택
-  // (?sentence=ID 쿼리가 있으면 그 문장으로 우선 점프 — SentenceLearn에서 분석기 호출)
+  // 우선순위: embedSentenceId prop > ?sentence= 쿼리 > resolveNextSentence
   useEffect(() => {
     let cancelled = false;
     setAutoLoading(true);
+
+    if (embedSentenceId) {
+      const idx = SENTENCES.findIndex((s) => s.id === embedSentenceId);
+      if (idx >= 0) {
+        setSentenceIdx(idx);
+        setAutoLoading(false);
+        return;
+      }
+    }
 
     const params = new URLSearchParams(window.location.search);
     const requestedId = params.get("sentence");
@@ -407,7 +425,7 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [embedSentenceId]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
@@ -899,11 +917,12 @@ const Index = () => {
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
   const analysisDone = sentenceComplete && Object.keys(pendingPatchMap).length === 0;
 
-  // 분석 완료 상태를 Supabase에 동기화
+  // 분석 완료 상태를 Supabase에 동기화 + 임베드 모드면 외부 콜백 호출
   useEffect(() => {
     if (!analysisDone) return;
     upsertSentenceProgress(sentence.id, { analysis_done: true }).catch(() => {});
-  }, [analysisDone, sentence.id]);
+    if (embedMode && onAnalysisDone) onAnalysisDone();
+  }, [analysisDone, sentence.id, embedMode, onAnalysisDone]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
@@ -1954,8 +1973,14 @@ const Index = () => {
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className={cn("min-h-screen bg-background", isAdmin && "pb-20")}>
-      {/* Header */}
+    <div
+      className={cn(
+        embedMode ? "bg-transparent" : "min-h-screen bg-background",
+        !embedMode && isAdmin && "pb-20",
+      )}
+    >
+      {/* Header — embedMode일 때 숨김 */}
+      {!embedMode && (
       <nav className="glass-panel sticky top-0 z-50 border-b px-6 lg:px-8 py-3">
         <div
           className={cn(
@@ -1998,9 +2023,10 @@ const Index = () => {
           </div>
         </div>
       </nav>
+      )}
 
-      {/* 하단 고정 staff 툴바 (선생님/관리자 전용) */}
-      {isAdmin && (() => {
+      {/* 하단 고정 staff 툴바 (선생님/관리자 전용) — embedMode일 때 숨김 */}
+      {!embedMode && isAdmin && (() => {
         const status = getOwnerStatus(selectedId);
         const canSave = answerInputMode && status === "dirty";
         return (
@@ -2231,8 +2257,9 @@ const Index = () => {
       {!allDone && (
       <main
         className={cn(
-          "max-w-7xl mx-auto p-4 lg:p-8 pt-4 lg:pt-24 flex flex-col gap-4",
-          !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
+          "max-w-7xl mx-auto flex flex-col gap-4",
+          embedMode ? "p-0 pt-0" : "p-4 lg:p-8 pt-4 lg:pt-24",
+          !embedMode && !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
         )}
       >
         <div className="flex items-center gap-3 flex-wrap">
@@ -2811,7 +2838,8 @@ const Index = () => {
           />
         </section>
 
-        {/* ========== 학습 흐름 진행 바 + 단계별 카드 ========== */}
+        {/* ========== 학습 흐름 진행 바 + 단계별 카드 — embedMode에서 숨김 (외부 컨테이너에서 관리) ========== */}
+        {!embedMode && (
         <div className="glass-panel rounded-2xl p-4 space-y-3">
           <StepProgressBar
             current={learningStep}
@@ -2953,7 +2981,9 @@ const Index = () => {
             </div>
           )}
         </div>
+        )}
 
+        {!embedMode && (
         <div className="glass-panel rounded-2xl p-3 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div
@@ -2986,6 +3016,7 @@ const Index = () => {
             ))}
           </div>
         </div>
+        )}
       </main>
       )}
 
@@ -3009,6 +3040,7 @@ const Index = () => {
         </Drawer>
       )}
 
+      {!embedMode && (
       <footer className="max-w-7xl mx-auto px-6 lg:px-8 pb-10 pt-4">
         <div className="flex justify-between items-center border-t border-border pt-6 text-[11px] text-muted-foreground font-kr">
           <span className="font-bold tracking-widest font-kr">
@@ -3017,6 +3049,7 @@ const Index = () => {
           <span className="italic">설명할 수 있어야 진짜 아는 것이다</span>
         </div>
       </footer>
+      )}
     </div>
     </TooltipProvider>
   );
