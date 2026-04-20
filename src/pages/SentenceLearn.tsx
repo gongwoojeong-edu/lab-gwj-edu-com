@@ -202,8 +202,17 @@ const SentenceLearn = () => {
             <WordPreStep
               sentenceId={sentence.id}
               entries={entries}
-              onCompleted={() => {
+              onCompleted={async () => {
                 setPreDone(true);
+                try {
+                  await upsertSentenceProgress(sentence.id, { pre_done: true });
+                } catch (e) {
+                  toast({
+                    title: "진행 저장 실패",
+                    description: String(e),
+                    variant: "destructive",
+                  });
+                }
                 setStep("analysis");
               }}
             />
