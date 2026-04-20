@@ -160,8 +160,12 @@ const Index = () => {
   const [answerInputMode, setAnswerInputMode] = useState(false);
   const [customAnswers, setCustomAnswers] = useState<CustomAnswerMap>({});
 
+  // ===== 숙어 / Phrase store (SVOC와 독립) =====
+  const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
+
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
+    setIdiomMap(loadIdioms());
   }, []);
 
   const resetCustomAnswers = () => {
