@@ -391,24 +391,20 @@ const Index = () => {
     clearActiveSelection();
   };
 
-  // 선택된 인덱스들에서 분석 패널의 selectedId를 결정 (동사 토큰 우선)
+  // 선택된 인덱스들에서 분석 패널의 selectedId를 결정
+  // - 단일 인덱스: tokenId::idx (단일 토큰 owner — 기존 정답과 머지)
+  // - 다중 인덱스: span::sentenceId::start-end (별개 owner — 기존 단일 분석과 충돌 X)
   const pickSelectedIdFromIndices = (indices: number[]): string | null => {
     if (indices.length === 0) return null;
-    const tokenIds: string[] = [];
-    indices.forEach((i) => {
-      const tid = wordUnits[i]?.tokenId;
-      if (tid && !tokenIds.includes(tid)) tokenIds.push(tid);
-    });
-    if (tokenIds.length === 0) return null;
-    if (tokenIds.length === 1 && indices.length === 1) {
-      return `${tokenIds[0]}${OWNER_KEY_SEPARATOR}${indices[0]}`;
+    const sorted = Array.from(new Set(indices)).sort((a, b) => a - b);
+    if (sorted.length === 1) {
+      const tid = wordUnits[sorted[0]]?.tokenId;
+      if (tid) return `${tid}${OWNER_KEY_SEPARATOR}${sorted[0]}`;
+      // analyzable 토큰이 없는 단어 단독은 분석 불가
+      return null;
     }
-    // 동사 토큰 우선 (절 분석 진입에 필수)
-    const verbTid = tokenIds.find((tid) => {
-      const tk = getTokenById(tid);
-      return tk?.answer.pos === "동사";
-    });
-    return verbTid ?? tokenIds[0];
+    // 다중 인덱스: 항상 span owner — 단일 토큰 분석과 분리 보존
+    return buildSpanOwnerId(sorted[0], sorted[sorted.length - 1]);
   };
 
   // ===== 단어 단위 선택 =====
