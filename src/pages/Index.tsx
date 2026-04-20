@@ -1941,7 +1941,7 @@ const Index = () => {
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className="min-h-screen bg-background">
+    <div className={cn("min-h-screen bg-background", isAdmin && "pb-20")}>
       {/* Header */}
       <nav className="glass-panel sticky top-0 z-50 border-b px-6 lg:px-8 py-3">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
