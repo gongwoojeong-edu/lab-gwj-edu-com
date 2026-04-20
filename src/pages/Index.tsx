@@ -2635,15 +2635,51 @@ const Index = () => {
         <div className="glass-panel rounded-2xl p-4 space-y-3">
           <StepProgressBar
             current={learningStep}
+            preDone={preDone}
             analysisDone={analysisDone}
             translationDone={translationDone}
             wordTestDone={wordTestDone}
             onJump={(s) => {
+              if (s === "analysis" && !preDone) return;
               if (s === "translation" && !analysisDone) return;
               if (s === "wordtest" && !translationDone) return;
               setLearningStep(s);
             }}
           />
+          {learningStep === "pre" && (() => {
+            const surfaceMap: Record<string, string> = {};
+            Object.keys(progressMap).forEach((oid) => {
+              const tid = getOwnerTokenId(oid);
+              const tok = getTokenById(tid);
+              surfaceMap[oid] = tok && "text" in tok ? tok.text : "";
+            });
+            const completedOwners = Object.entries(progressMap)
+              .filter(([, v]) => v.completed)
+              .map(([k]) => k);
+            const entries = buildWordTest(surfaceMap, progressMap as never, completedOwners);
+            return (
+              <>
+                <WordPreStep
+                  sentenceId={sentence.id}
+                  entries={entries}
+                  onCompleted={() => {
+                    setPreDone(true);
+                    upsertSentenceProgress(sentence.id, { pre_done: true }).catch(() => {});
+                  }}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={!preDone}
+                    onClick={() => setLearningStep("analysis")}
+                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+                  >
+                    다음: 구문 분석 →
+                  </button>
+                </div>
+              </>
+            );
+          })()}
           {learningStep === "analysis" && (
             <div className="flex justify-end">
               <button
@@ -2690,22 +2726,52 @@ const Index = () => {
               .map(([k]) => k);
             const entries = buildWordTest(surfaceMap, progressMap as never, completedOwners);
             return (
-              <WordTestStep
-                sentenceId={sentence.id}
-                entries={entries}
-                onPassed={() => {
-                  setWordTestDone(true);
-                  const passedAtIso = new Date().toISOString();
-                  setPassedAt(passedAtIso);
-                  upsertSentenceProgress(sentence.id, {
-                    word_test_done: true,
-                    status: "pass",
-                    passed_at: passedAtIso,
-                  }).catch(() => {});
-                }}
-              />
+              <>
+                <WordTestStep
+                  sentenceId={sentence.id}
+                  entries={entries}
+                  onPassed={() => {
+                    setWordTestDone(true);
+                    const passedAtIso = new Date().toISOString();
+                    setPassedAt(passedAtIso);
+                    void upsertSentenceProgress(sentence.id, {
+                      word_test_done: true,
+                      status: "pass",
+                      passed_at: passedAtIso,
+                    }).catch(() => {});
+                    void import("@/lib/nextSentence").then(({ advanceAfterPass }) =>
+                      advanceAfterPass(sentence),
+                    );
+                  }}
+                />
+              </>
             );
           })()}
+          {preDone && analysisDone && translationDone && wordTestDone && (
+            <div className="flex justify-end pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  void import("@/lib/nextSentence").then(({ resolveNextSentence, advanceAfterPass }) =>
+                    advanceAfterPass(sentence).then(() => resolveNextSentence()).then((res) => {
+                      if (res.done || !res.sentence) {
+                        setAllDone(true);
+                        return;
+                      }
+                      const idx = SENTENCES.findIndex((s) => s.id === res.sentence!.id);
+                      if (idx >= 0) {
+                        setSentenceIdx(idx);
+                        setLearningStep("pre");
+                      }
+                    }),
+                  );
+                }}
+                className="px-4 py-2 rounded-md text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 font-kr"
+              >
+                다음 문장으로 →
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="glass-panel rounded-2xl p-3 flex items-center justify-between gap-4 flex-wrap">
