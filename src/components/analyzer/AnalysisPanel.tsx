@@ -161,6 +161,12 @@ interface AnalysisPanelProps {
   onAssignReferentTarget?: () => void;
   onClearReferentTarget?: () => void;
   onCancelPendingReferent?: () => void;
+
+  // ===== 정답 저장 워크플로우 =====
+  answerInputMode?: boolean;
+  ownerStatus?: "empty" | "dirty" | "saved";
+  onSaveAnswer?: () => void;
+  onDiscardAnswer?: () => void;
 }
 
 // ============================================================
