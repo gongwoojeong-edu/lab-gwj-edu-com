@@ -229,20 +229,60 @@ const Index = () => {
   );
 
   const OWNER_KEY_SEPARATOR = "::";
+  const SPAN_PREFIX = "span";
 
-  const getOwnerTokenId = (ownerId: string) => ownerId.split(OWNER_KEY_SEPARATOR)[0] ?? ownerId;
+  const isSpanOwnerId = (ownerId: string) => ownerId.startsWith(`${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}`);
+
+  // span::{sentenceId}::{start}-{end}
+  const buildSpanOwnerId = (start: number, end: number) =>
+    `${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}${sentence.id}${OWNER_KEY_SEPARATOR}${start}-${end}`;
+
+  const parseSpanRange = (ownerId: string): [number, number] | null => {
+    if (!isSpanOwnerId(ownerId)) return null;
+    const parts = ownerId.split(OWNER_KEY_SEPARATOR);
+    const range = parts[2];
+    if (!range) return null;
+    const [s, e] = range.split("-").map((n) => Number(n));
+    if (Number.isFinite(s) && Number.isFinite(e)) return [s, e];
+    return null;
+  };
+
+  // span owner의 첫 analyzable 토큰을 owner의 "대표 토큰"으로 사용 (UI 표시 fallback)
+  const getOwnerTokenId = (ownerId: string) => {
+    if (isSpanOwnerId(ownerId)) {
+      const range = parseSpanRange(ownerId);
+      if (range) {
+        for (let i = range[0]; i <= range[1]; i++) {
+          const tid = wordUnits[i]?.tokenId;
+          if (tid) return tid;
+        }
+      }
+      return ownerId;
+    }
+    return ownerId.split(OWNER_KEY_SEPARATOR)[0] ?? ownerId;
+  };
 
   const getTokenById = (tokenId: string | null | undefined): AnalyzableToken | undefined =>
     sentence.tokens.find(
       (t): t is AnalyzableToken => t.type === "analyzable" && t.id === tokenId,
     );
 
-  const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken) => {
-    if (ownerId === token.id) {
+  // span owner의 가상 answer — 채점은 의미 없고 customAnswers 머지가 핵심
+  const SPAN_VIRTUAL_ANSWER: WordAnswer = {
+    pos: "명사",
+    form: "명사",
+    role: "",
+    koreanLabel: "",
+  } as WordAnswer;
+
+  const getMergedAnswerForOwner = (ownerId: string, token: AnalyzableToken | undefined) => {
+    if (isSpanOwnerId(ownerId)) {
+      return mergeAnswer(SPAN_VIRTUAL_ANSWER, customAnswers[ownerId]);
+    }
+    if (token && ownerId === token.id) {
       return mergeAnswer(token.answer, customAnswers[token.id]);
     }
-
-    return mergeAnswer(token.answer, customAnswers[ownerId]);
+    return mergeAnswer((token?.answer ?? SPAN_VIRTUAL_ANSWER), customAnswers[ownerId]);
   };
 
   const completedCount = new Set(
