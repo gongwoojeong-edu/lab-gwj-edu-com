@@ -107,7 +107,7 @@ export const WordStageProgressBar = ({
               <Bar
                 key={k}
                 label={STAGE_LABELS[k]}
-                passed={passedPerStage[k]}
+                passed={safePassed[k]}
                 total={totalWords}
                 state={state}
               />
