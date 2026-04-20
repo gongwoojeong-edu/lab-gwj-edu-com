@@ -1034,6 +1034,18 @@ const AdjPanel = ({
       {adj.roleStatus === "correct" && (
         <CompletionBlock label={answer?.koreanLabel ?? adj.role ?? "완료"} />
       )}
+      {/* 명사수식 역할일 때 — 어떤 명사를 수식하는지 지정하라는 안내 */}
+      {adj.roleStatus === "correct" && adj.role && /명사수식|명사뒤수식|명사앞수식/.test(adj.role) && (
+        <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-primary font-kr mb-0.5">
+            수식어 — 대상 명사 지정
+          </p>
+          <p className="text-[11px] font-kr text-muted-foreground leading-snug">
+            상단 <span className="font-bold text-primary">→ 수식 대상 지정</span> 버튼을 눌러
+            본문에서 수식받는 명사를 클릭하세요.
+          </p>
+        </div>
+      )}
     </>
   );
 };
