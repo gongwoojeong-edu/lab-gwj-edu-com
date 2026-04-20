@@ -2,74 +2,89 @@
 
 ## 목표
 
-[정답 저장] 버튼을 **"이 단어 분석 완료" 확정 사인**으로 정의. 저장 = 완료 마킹 + localStorage commit. 저장 후에도 자유롭게 재수정/재저장 가능.
+요청하신 7가지 시각/UX 이슈를 한 번에 정리.
 
-## 상태 정의 (정답 입력 모드 기준)
+---
 
-owner별로 3가지 상태:
+## 1. 종속절(Clause) — 언더라인 + 하단 SVOC 배지
 
-| 상태 | 조건 | 시각 표시 |
-|---|---|---|
-| **빈 상태** | progress 없음 | 표시 없음 |
-| **작업 중 (dirty)** | 변경했지만 미저장 | 부배지에 점선 테두리 + 빨간 점, 패널에 "미저장" |
-| **완료 (saved)** | [정답 저장] 클릭 후 | 부배지 실선 + ✓ 마크, 패널에 "분석 완료" |
+**현재**: 절은 `[ ]` 대괄호 + 외곽 부배지(한글)만 표시, SVOC 배지는 owner anchor에 작게 따로 노출.
 
-추가 수정 시 → 다시 dirty → 다시 저장 = 완료 갱신 (사이클 반복)
+**변경** (`src/pages/Index.tsx` + `src/index.css`):
+- 절 owner의 모든 단어 하단에 **연속 언더라인** (`border-b-2 border-{element-color}`)을 spacer까지 이어 그림 → 절 범위가 한눈에 보임
+- 대괄호 `[ ]`는 그대로 유지하되 굵기/색은 element 색과 동일하게 통일
+- 하단 SVOC 배지(`outerBadge`)는 절의 **시작 단어 바로 아래** 한 번만 크게 표시 (현재 `-bottom-7` → 언더라인과 겹치지 않도록 `-bottom-6` + 약간 더 크게)
+- 외곽 한글 부배지는 절 시작 단어 위에 anchor 유지
 
-## 변경 내용
+## 2. 병렬(Parallel) — 단어별 개별 박스
 
-### 1. `src/pages/Index.tsx`
+**현재**: 병렬 owner는 `.parallel-box` + spacer까지 이어진 보라 박스로 한 덩어리 처리.
 
-- 새 state
-  - `pendingPatchMap: Record<ownerId, Record<string, unknown>>` — 미저장 누적 patch
-  - `savedOwnerSet: Set<ownerId>` — [정답 저장] 클릭으로 "완료 확정"된 owner 집합 (localStorage `gwj.savedOwners.v1`에 영속)
-- 헬퍼
-  - `stagePatch(ownerId, patch)` — pendingPatchMap에 머지 (자동저장 X)
-  - `commitPatch(ownerId)` — pending → `upsertCustomAnswer`로 저장 + `savedOwnerSet`에 추가 + pending entry 제거 + toast "분석 완료 저장됨"
-  - `discardPatch(ownerId)` — pending entry 제거 (저장 상태 변화 없음)
-  - `getOwnerStatus(ownerId)` → `"empty" | "dirty" | "saved"`
-- 기존 자동저장 호출(`if (answerInputMode) saveCustom(...)`)을 모두 `stagePatch(...)`로 교체
-- 예외 (자동저장 유지)
-  - 절(clause) 범위 확정 — 구조적 데이터
-  - 지우개로 owner 삭제 — `customAnswers`와 `savedOwnerSet`에서 함께 제거
-- `getMergedAnswerForOwner`가 `customAnswers + pendingPatch`까지 머지 → 화면값은 즉시 반영
-- selectedId 변경 / 정답 입력 모드 OFF 시 dirty 남아있으면 AlertDialog: [저장 후 이동] / [버리고 이동] / [취소]
-- 다른 문장으로 이동 시 dirty가 있어도 위 규칙 동일 적용
+**변경** (`src/index.css` + `src/pages/Index.tsx`):
+- spacer의 `sharedParallel` 연결 제거 → spacer는 비움
+- `.parallel-box-start` / `.parallel-box-end` 무조건 모든 단어에 적용 (각 단어가 독립 박스)
+- `.parallel-box`의 border를 **`border-2`로 도드라지게** + 좌우 모두 둥근 radius
 
-### 2. `src/components/analyzer/AnalysisPanel.tsx`
+## 3. 다층(Layer 3) 부배지 간격
 
-- props 추가: `answerInputMode`, `ownerStatus: "empty"|"dirty"|"saved"`, `onSaveAnswer`, `onDiscardAnswer`
-- 정답 입력 모드일 때 패널 헤더에:
-  - `ownerStatus === "saved"` → 초록 ✓ 배지 "분석 완료" + [재저장] 버튼 (변경 없으면 disabled)
-  - `ownerStatus === "dirty"` → 빨간 점 + "미저장 변경" + [정답 저장] (primary) + [변경 취소]
-  - `ownerStatus === "empty"` → 버튼 숨김
+**현재**: `.sub-badge-row gap-1.5` + `.sub-badge-pill mx-0.5`.
 
-### 3. 부배지 시각 마킹 (`src/index.css` + `src/pages/Index.tsx`)
+**변경** (`src/index.css`):
+- `.sub-badge-row` `gap-1.5` → `gap-2`
+- `.sub-badge-pill` `mx-0.5` → `mx-1`
+- 같은 단어에 2개 이상 anchor될 때 명확히 분리되게 좌우 padding 미세 증가
 
-- 부배지 렌더 시 owner 상태 클래스 추가:
-  - `.sub-badge-pill.is-dirty` — 점선 테두리 (`border-dashed`) + 우측 상단 작은 빨간 점
-  - `.sub-badge-pill.is-saved` — 기본 실선 유지 + 우측 상단 작은 ✓ (정답 입력 모드에서만 노출)
-- 일반(학생) 모드에서는 dirty/saved 마킹 노출하지 않음 (혼란 방지)
+## 4. Layer 색상 차별화 + pill 배경↔텍스트 톤 매칭
 
-### 4. 영속화
+**변경** (`src/index.css`):
+- 각 layer의 **본문 배경**(`linear-gradient hsl(var(--layer-N) / 0.20)`)과 **부배지 pill 배경**의 hue/채도가 더 강하게 매칭되도록:
+  - Layer 2 amber: 본문 `/0.18` → `/0.22`, pill 배경 `/0.28`
+  - Layer 3 crimson: hue 350 → **340** (보라와 구분 강화), 본문/pill 모두 채도 +5
+  - Layer 4 teal: hue 175 → **185** (3차 crimson과 보색 거리 ↑)
+- pill의 텍스트 색을 본문 layer 색과 동일 hue로 통일 → "이 라벨이 어느 색 칠과 짝"인지 즉시 인지
 
-- `gwj.savedOwners.v1` (localStorage): `string[]` — 완료 확정 owner id 목록
-- 새로고침 시 복원, 문장 교체 시 해당 문장 토큰만 필터링해 사용
+## 5. `this day` 보라색 — 원인 + 해결
+
+**원인 확인**: `to this day`는 `src/data/sentences.ts` line 253에 정답 데이터로 등록되어 있고 (`pos: 부사, form: 전N`), `progressMap` hydration이 customAnswers/원본 정답에서 자동 복원하여 Layer 1 violet pill로 표시됨.
+
+**해결** (`src/pages/Index.tsx`):
+- **단층(혼자) owner는 violet 강조 제거** — pill 배경/테두리 transparent, 텍스트만 muted-foreground 톤
+- `.sub-badge-pill.is-solo` 클래스 추가, `totalLayers === 1`일 때 부여
+- `.sub-badge-pill-1.is-solo`에서 violet 배경/border/번호 모두 제거
+- 다층(2+)일 때만 layer별 색 알약 노출 — 원래 의도대로 복원
+
+## 6. 한글 힌트 노출 시간
+
+**변경** (`src/components/analyzer/KoreanHintButton.tsx`):
+- `durationMs` 기본값 `2500` → **`5000`** (5초)
+- 페이드아웃 시작 시점(`durationMs - 400`)도 자동 조정됨
+
+## 7. 본문 텍스트 수정 위치
+
+**현재 상태**: 본문(영어 문장 + 한국어 번역 + 토큰 분해)은 모두 **`src/data/sentences.ts`** 파일에 하드코딩.
+
+**옵션** (구현 변경 X, 안내):
+- 각 sentence는 `english`, `korean`, `tokens[]` 필드로 정의
+- 토큰별 정답(`pos/form/element/role/koreanLabel`)도 같은 파일에 인라인
+- UI에서 직접 편집하려면 별도 "문장 편집 모드" 페이지가 필요 (요청 시 다음 단계로 분리)
+
+→ 이번 plan은 **위치 안내까지만**. 편집 UI가 필요하면 별도 작업으로 분리.
+
+---
 
 ## 변경 파일
 
-- `src/pages/Index.tsx`
-- `src/components/analyzer/AnalysisPanel.tsx`
-- `src/index.css`
+- `src/index.css` — 절 언더라인, 병렬 박스, 부배지 간격, layer 색 재정의, `.is-solo` 룰
+- `src/pages/Index.tsx` — 절 언더라인 적용, 병렬 spacer 끊기, 단층 owner `is-solo` 클래스 부여
+- `src/components/analyzer/KoreanHintButton.tsx` — 기본 노출 시간 5000ms
 
 ## 검증
 
-1. 정답 입력 모드 ON → 필드 변경: 화면 즉시 반영 / localStorage 변화 없음 / 부배지 점선 + 빨간 점 / 패널 "미저장"
-2. [정답 저장] 클릭: localStorage 저장 / 부배지 실선 + ✓ / 패널 "분석 완료" / toast 안내
-3. 저장된 owner 다시 수정: 즉시 dirty 상태로 전환 / [재저장] 활성 / 누르면 다시 완료
-4. dirty 상태에서 다른 owner 클릭 또는 모드 OFF: 확인 다이얼로그 3종 동작
-5. [변경 취소]: 마지막 저장 값으로 복원, 완료 표시 유지
-6. 지우개로 owner 삭제: customAnswers + savedOwners 모두 정리
-7. 새로고침: 저장된 완료 상태/값 복원, 미저장 변경은 사라짐
-8. 일반 모드(학생 화면): dirty/saved 마킹 안 보임
+1. 절 owner 단어들 하단에 element 색 연속 언더라인, 시작 단어 아래 SVOC 배지 1회
+2. 병렬 owner의 `and / or` 등 각 단어가 두꺼운 테두리 개별 박스
+3. 한 단어에 부배지 2~3개 anchor 시 좌우 간격 시원
+4. Layer 2/3/4 본문 색칠 ↔ pill 색 톤이 한눈에 매칭, layer 간 hue 차이 뚜렷
+5. `to this day`처럼 단층 owner는 보라색 알약 사라지고 깔끔한 라벨만
+6. 한글 힌트 5초간 표시
+7. 본문 수정은 `src/data/sentences.ts`에서 가능 — 채팅으로 알려주면 직접 반영
 
