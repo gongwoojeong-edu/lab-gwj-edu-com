@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { ChevronLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

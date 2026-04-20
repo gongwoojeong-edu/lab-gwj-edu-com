@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, RotateCcw } from "lucide-react";
 import type { WordTestEntry } from "@/lib/wordTestBuilder";
-import { fetchLatestWordPre, insertWordPreResult } from "@/lib/wordPre";
+import { fetchLatestWordPre, insertWordPreResult, type AssistEntry } from "@/lib/wordPre";
 import { toast } from "@/hooks/use-toast";
 import {
   WordStageProgressBar,
@@ -25,13 +25,20 @@ interface Props {
 const STAGE_ORDER: StageKey[] = ["syllable", "speak", "spell", "meaning"];
 const EMPTY_SCORES: StageScores = { syllable: 0, speak: 0, spell: 0, meaning: 0 };
 
+type StageMeta = { stuck?: boolean; teacherSkipped?: boolean; lastHeard?: string };
+
 export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
   const [idx, setIdx] = useState(0);
   const [stage, setStage] = useState<StageKey>("syllable");
   const [scores, setScores] = useState<StageScores>(EMPTY_SCORES);
+  // 단계별 안전망 통과 플래그(이 단어 한정). 단어 넘어갈 때 초기화.
+  const [stagePassFlags, setStagePassFlags] = useState<
+    Partial<Record<StageKey, "stuck" | "teacher_skip">>
+  >({});
   const [perWordResults, setPerWordResults] = useState<
     Array<{ word: string; scores: StageScores }>
   >([]);
+  const [assistEntries, setAssistEntries] = useState<AssistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -52,7 +59,9 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
         setIdx(0);
         setStage("syllable");
         setScores(EMPTY_SCORES);
+        setStagePassFlags({});
         setPerWordResults([]);
+        setAssistEntries([]);
       }
       setLoading(false);
     });
@@ -61,13 +70,19 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
     };
   }, [sentenceId]);
 
-  const saveResults = async (results: Array<{ word: string; scores: StageScores }>) => {
+  const saveResults = async (
+    results: Array<{ word: string; scores: StageScores }>,
+    log: AssistEntry[],
+  ) => {
     setSaving(true);
     try {
       const known = results.map((r) => r.word);
-      // 스펠링 < 100인 단어를 unknown 으로 분류 (오답노트용)
-      const unknown = results.filter((r) => r.scores.spell < 100).map((r) => r.word);
-      await insertWordPreResult(sentenceId, known, unknown);
+      // 스펠링 < 100 이거나 어시스트(stuck/teacher_skip)로 통과한 단어를 unknown 으로 분류
+      const assistedWords = new Set(log.map((e) => e.word));
+      const unknown = results
+        .filter((r) => r.scores.spell < 100 || assistedWords.has(r.word))
+        .map((r) => r.word);
+      await insertWordPreResult(sentenceId, known, unknown, log);
       setDone(true);
       toast({ title: "단어 학습 완료", description: `${known.length}개 단어 통과` });
       onCompleted();
@@ -78,23 +93,59 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
     }
   };
 
-  const handleStageFinish = (score: number) => {
+  const handleStageFinish = (score: number, meta?: StageMeta) => {
     if (!current) return;
     const nextScores: StageScores = { ...scores, [stage]: score };
     setScores(nextScores);
 
-    // 90% 미달 → 같은 단계 재시작
-    if (score < PASS_THRESHOLD) {
+    const safetyPassed = !!(meta?.stuck || meta?.teacherSkipped);
+    const stagePassed = score >= PASS_THRESHOLD || safetyPassed;
+
+    // 어시스트 기록
+    let nextAssist = assistEntries;
+    if (meta?.stuck && (stage === "speak" || stage === "meaning")) {
+      const entry: AssistEntry = {
+        word: current.word,
+        stage,
+        type: "stuck",
+        attempts: 10,
+        lastHeard: meta.lastHeard,
+      };
+      nextAssist = [...assistEntries, entry];
+      setAssistEntries(nextAssist);
+    } else if (meta?.teacherSkipped && (stage === "speak" || stage === "meaning")) {
+      const entry: AssistEntry = {
+        word: current.word,
+        stage,
+        type: "teacher_skip",
+        attempts: 0,
+        lastHeard: meta.lastHeard,
+      };
+      nextAssist = [...assistEntries, entry];
+      setAssistEntries(nextAssist);
+    }
+
+    // 단계 미통과 → 같은 단계 재시작 (안전망 미해당 시)
+    if (!stagePassed) {
       toast({
         title: "다시 시도해 주세요",
         description: `${score}% — 90% 이상이어야 다음으로 넘어가요`,
         variant: "destructive",
       });
-      // 강제 remount: 단계 키를 바꿨다 되돌리는 대신 score만 리셋
       setTimeout(() => {
         setScores((prev) => ({ ...prev, [stage]: 0 }));
       }, 50);
       return;
+    }
+
+    // 안전망 통과 플래그 기록
+    let nextFlags = stagePassFlags;
+    if (meta?.stuck) {
+      nextFlags = { ...stagePassFlags, [stage]: "stuck" };
+      setStagePassFlags(nextFlags);
+    } else if (meta?.teacherSkipped) {
+      nextFlags = { ...stagePassFlags, [stage]: "teacher_skip" };
+      setStagePassFlags(nextFlags);
     }
 
     const stageIdx = STAGE_ORDER.indexOf(stage);
@@ -103,16 +154,19 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
       return;
     }
 
-    // 4단계까지 모두 완료 → 단어 패스
-    const allPass =
-      nextScores.syllable >= PASS_THRESHOLD &&
-      nextScores.speak >= PASS_THRESHOLD &&
-      nextScores.spell >= PASS_THRESHOLD &&
-      nextScores.meaning >= PASS_THRESHOLD;
+    // 4단계까지 모두 종료 → 단어 패스 판정
+    const allPass = STAGE_ORDER.every((k) => {
+      const s = nextScores[k];
+      const flag = nextFlags[k];
+      return s >= PASS_THRESHOLD || flag === "stuck" || flag === "teacher_skip";
+    });
 
     if (!allPass) {
-      // 안전망 (이 분기는 거의 발생하지 않음)
-      const failed = STAGE_ORDER.find((k) => nextScores[k] < PASS_THRESHOLD);
+      const failed = STAGE_ORDER.find((k) => {
+        const s = nextScores[k];
+        const flag = nextFlags[k];
+        return !(s >= PASS_THRESHOLD || flag === "stuck" || flag === "teacher_skip");
+      });
       if (failed) {
         setStage(failed);
         setScores((prev) => ({ ...prev, [failed]: 0 }));
@@ -124,16 +178,16 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
     setPerWordResults(updatedResults);
 
     if (idx + 1 >= total) {
-      // 전체 완료 → PASS 도장 → 저장
       setShowStamp(true);
       setTimeout(() => {
         setShowStamp(false);
-        void saveResults(updatedResults);
+        void saveResults(updatedResults, nextAssist);
       }, 1600);
     } else {
       setIdx(idx + 1);
       setStage("syllable");
       setScores(EMPTY_SCORES);
+      setStagePassFlags({});
     }
   };
 
@@ -141,7 +195,9 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
     setIdx(0);
     setStage("syllable");
     setScores(EMPTY_SCORES);
+    setStagePassFlags({});
     setPerWordResults([]);
+    setAssistEntries([]);
     setDone(false);
   };
 
@@ -190,13 +246,11 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
     );
   }
 
-  // remount key for panel (stage 재시작 시 내부 state 초기화)
   const panelKey = `${idx}-${stage}-${scores[stage] === 0 ? "fresh" : "x"}`;
 
   return (
     <>
       <Card className="p-6 sm:p-8 space-y-6 border-primary/20 mb-32">
-        {/* 한글 뜻 힌트 */}
         <div className="text-center">
           <div className="text-xs text-muted-foreground mb-1">뜻</div>
           <div className="text-lg font-bold text-foreground">{current.expected}</div>
