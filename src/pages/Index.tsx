@@ -890,6 +890,12 @@ const Index = () => {
       saveSavedOwners(Array.from(n));
       return n;
     });
+    setUserLinkedOwnerSet((prev) => {
+      if (!prev.has(ownerId)) return prev;
+      const n = new Set(prev);
+      n.delete(ownerId);
+      return n;
+    });
     // 수식/지시어 관계도 같이 삭제 (source가 owner인 항목)
     setModifierMap((prev) => removeModifierTargetBySource(prev, sentence.id, ownerId));
     setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, ownerId));
@@ -1539,6 +1545,7 @@ const Index = () => {
     setDragStart(null);
     setProgressMap({});
     setCompletedSelectionMap({});
+    setUserLinkedOwnerSet(new Set());
     setDrawerOpen(false);
     setEraserMode(false);
     setPendingModifierSource(null);
