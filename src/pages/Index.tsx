@@ -884,6 +884,7 @@ const Index = () => {
   }, [completedSelectionMap]);
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="min-h-screen bg-background">
       {/* Header */}
       <nav className="glass-panel sticky top-0 z-50 border-b px-6 lg:px-8 py-3">
