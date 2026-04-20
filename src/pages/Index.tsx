@@ -363,6 +363,31 @@ const Index = () => {
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
   const { showModifierArrows, showReferentArrows } = useHintSettings();
 
+  // ESC: pending modifier/referent 즉시 취소
+  useEffect(() => {
+    if (!pendingModifierSource && !pendingReferentSource) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPendingModifierSource(null);
+        setPendingReferentSource(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pendingModifierSource, pendingReferentSource]);
+
+  // pending 중 다른 owner를 선택하면 pending 자동 취소
+  useEffect(() => {
+    if (pendingModifierSource && selectedId && selectedId !== pendingModifierSource) {
+      setPendingModifierSource(null);
+    }
+    if (pendingReferentSource && selectedId && selectedId !== pendingReferentSource) {
+      setPendingReferentSource(null);
+    }
+    // selectedId만 watch — pending source 변경 자체는 무시
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
   useEffect(() => {
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
@@ -1354,6 +1379,17 @@ const Index = () => {
     hasModifierTarget:
       !!selectedId &&
       getTargetsForSentence(modifierMap, sentence.id).some((r) => r.source === selectedId),
+    currentModifierTargetLabel: (() => {
+      if (!selectedId) return null;
+      const rel = getTargetsForSentence(modifierMap, sentence.id).find(
+        (r) => r.source === selectedId,
+      );
+      if (!rel) return null;
+      const idx = ownerIdToWordIdx(rel.target);
+      if (idx === null) return null;
+      return wordUnits[idx]?.word ?? null;
+    })(),
+    onCancelPendingModifier: () => setPendingModifierSource(null),
     // ===== 지시어 화살표 — 명사 owner에서만 활성 (대명사/일반 명사 모두 가리키는 대상 지정 가능) =====
     canAssignReferentTarget: !!selectedId && progress.pos === "명사",
     isPendingReferent: !!selectedId && pendingReferentSource === selectedId,
@@ -1371,6 +1407,17 @@ const Index = () => {
     hasReferentTarget:
       !!selectedId &&
       getReferentsForSentence(referentMap, sentence.id).some((r) => r.source === selectedId),
+    currentReferentTargetLabel: (() => {
+      if (!selectedId) return null;
+      const rel = getReferentsForSentence(referentMap, sentence.id).find(
+        (r) => r.source === selectedId,
+      );
+      if (!rel) return null;
+      const idx = ownerIdToWordIdx(rel.target);
+      if (idx === null) return null;
+      return wordUnits[idx]?.word ?? null;
+    })(),
+    onCancelPendingReferent: () => setPendingReferentSource(null),
   };
 
   const allIdiomsCount = useMemo(() => getAllIdiomsFlat(idiomMap).length, [idiomMap]);
