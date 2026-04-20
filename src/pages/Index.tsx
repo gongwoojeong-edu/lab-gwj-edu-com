@@ -361,15 +361,22 @@ const Index = () => {
   // OFF (기본): 완료 owner 클릭 → 다층 분석 진입. Shift+클릭은 삭제 단축키.
   const [eraserMode, setEraserMode] = useState(false);
 
-  // ESC로 지우개 모드 해제
+  // ESC로 지우개 모드 해제 + body class 토글 (커스텀 커서 적용)
   useEffect(() => {
+    document.body.classList.toggle("eraser-active", eraserMode);
     if (!eraserMode) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setEraserMode(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [eraserMode]);
+  // 언마운트 시 body class 정리
+  useEffect(() => () => {
+    document.body.classList.remove("eraser-active");
+  }, []);
 
   // ===== 숙어 / Phrase store (SVOC와 독립) =====
   const [idiomMap, setIdiomMap] = useState<IdiomMap>({});
@@ -809,6 +816,15 @@ const Index = () => {
         ...prev,
         [tokenId]: indices,
       }));
+      // 2개 이상 단어를 묶어 만든 owner는 "사용자 직접 연결"로 등록 → spacer 채우기 허용
+      if (indices.length >= 2) {
+        setUserLinkedOwnerSet((prev) => {
+          if (prev.has(tokenId)) return prev;
+          const n = new Set(prev);
+          n.add(tokenId);
+          return n;
+        });
+      }
     }
 
     if (options?.persistClause && indices.length > 0) {
@@ -935,14 +951,15 @@ const Index = () => {
 
     const hasCompletedOwner = owners.length > 0;
 
-    // === 지우개 모드 — 유일한 삭제 진입점 ===
+    // === 지우개 모드 — 1회용. 클릭 후 자동 해제. ===
     if (eraserMode) {
       if (hasCompletedOwner) {
         const [ownerId] = owners[0];
         eraseOwner(ownerId);
         toast({ title: "🧽 삭제됨" });
       }
-      // 미분석 토큰: 아무 동작 X
+      // 미분석 토큰을 클릭해도 모드 해제 (헛클릭 방지)
+      setEraserMode(false);
       return;
     }
 
