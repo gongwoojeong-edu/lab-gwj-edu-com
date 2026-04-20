@@ -1312,8 +1312,7 @@ const Index = () => {
               const idiomLast =
                 idiomMark && idiomMark.indices[idiomMark.indices.length - 1] === idx;
 
-              // 외곽 절(보라) 배경: outer layer의 모든 토큰
-              const outerIsClauseLocal = outerIsClauseLocal;
+              // 외곽 절(보라) 배경은 outerIsClauseLocal 로 처리.
               // 안쪽 완료(보라 진하게) 배경
               const innerCompleteBg =
                 isCompleted && !isSelected && !isModifier && !isClauseSelection;
