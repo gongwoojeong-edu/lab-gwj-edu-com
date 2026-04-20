@@ -1973,8 +1973,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
 
   return (
     <TooltipProvider delayDuration={150}>
-    <div className={cn("min-h-screen bg-background", isAdmin && "pb-20")}>
-      {/* Header */}
+    <div
+      className={cn(
+        embedMode ? "bg-transparent" : "min-h-screen bg-background",
+        !embedMode && isAdmin && "pb-20",
+      )}
+    >
+      {/* Header — embedMode일 때 숨김 */}
+      {!embedMode && (
       <nav className="glass-panel sticky top-0 z-50 border-b px-6 lg:px-8 py-3">
         <div
           className={cn(
