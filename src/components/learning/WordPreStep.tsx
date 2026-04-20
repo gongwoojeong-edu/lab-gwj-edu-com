@@ -154,16 +154,22 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
     }
 
     let nextAssist = assistEntries;
-    if ((meta?.stuck || meta?.teacherSkipped) && (stage === "speak" || stage === "meaning")) {
+    if (meta?.stuck || meta?.teacherSkipped) {
       const entry: AssistEntry = {
         word: current.word,
-        stage,
+        stage: stage as AssistEntry["stage"],
         type: meta.teacherSkipped ? "teacher_skip" : "stuck",
         attempts: meta.stuck ? 10 : 0,
         lastHeard: meta.lastHeard,
       };
       nextAssist = [...assistEntries, entry];
       setAssistEntries(nextAssist);
+      if (meta.teacherSkipped) {
+        toast({
+          title: "🔓 선생님 패스키 통과",
+          description: `${current.word} · ${STAGE_LABEL_FULL[stage]} — 기록되었습니다`,
+        });
+      }
     }
 
     // bump passed counter for this stage
