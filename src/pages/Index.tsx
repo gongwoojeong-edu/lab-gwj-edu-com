@@ -248,6 +248,28 @@ const Index = () => {
   const [dragStart, setDragStart] = useState<number | null>(null);
   const isDragging = dragStart !== null;
 
+  // === SVG overlay 좌표 측정용 refs ===
+  const sentenceContainerRef = useRef<HTMLDivElement | null>(null);
+  const tokenRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+  const setTokenRef = (idx: number) => (el: HTMLSpanElement | null) => {
+    if (el) tokenRefs.current.set(idx, el);
+    else tokenRefs.current.delete(idx);
+  };
+  // 컨테이너 사이즈/스크롤 변경 시 화살표 좌표 재계산을 위한 트리거
+  const [arrowLayoutVersion, setArrowLayoutVersion] = useState(0);
+  useEffect(() => {
+    const el = sentenceContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setArrowLayoutVersion((v) => v + 1));
+    ro.observe(el);
+    const onResize = () => setArrowLayoutVersion((v) => v + 1);
+    window.addEventListener("resize", onResize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
   // 모바일에서 단어 선택 시 Drawer open
   useEffect(() => {
     if (isMobile && selectedId) setDrawerOpen(true);
