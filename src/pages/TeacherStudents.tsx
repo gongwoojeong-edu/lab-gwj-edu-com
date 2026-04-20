@@ -84,6 +84,50 @@ const TeacherStudents = () => {
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
   const [level, setLevel] = useState<LevelCode>("L05");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinTarget, setPinTarget] = useState<Student | null>(null);
+  const [pinValue, setPinValue] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
+
+  const openPin = (s: Student) => {
+    setPinTarget(s);
+    setPinValue("");
+    setPinOpen(true);
+  };
+
+  const submitPin = async () => {
+    if (!pinTarget) return;
+    if (pinValue.length < 4) {
+      toast({ title: "PIN은 4자리 이상 숫자여야 합니다", variant: "destructive" });
+      return;
+    }
+    setPinSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .update({ teacher_pin: pinValue })
+        .eq("display_name", pinTarget.name)
+        .select("user_id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: "일치하는 학생 계정을 찾지 못했어요",
+          description: `'${pinTarget.name}' 이름의 학생 계정이 등록되어 있어야 PIN이 적용됩니다.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "🔐 패스키가 설정되었습니다",
+          description: `${pinTarget.name} · ${data.length}개 계정`,
+        });
+        setPinOpen(false);
+      }
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setPinSaving(false);
+    }
+  };
 
   useEffect(() => {
     setStudents(loadStudents());
