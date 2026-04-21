@@ -185,26 +185,37 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
       <Card className="p-6 space-y-5 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
         <div>
           <div className="text-xs text-muted-foreground uppercase tracking-wider">3. 단어 테스트</div>
-          <div className="text-lg font-extrabold text-foreground">시험 모드 선택</div>
+          <div className="text-lg font-extrabold text-foreground">시험 모드</div>
           <div className="text-xs text-muted-foreground mt-1">
             {entries.length}문제 · 시도 {attemptNo}회
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {(Object.keys(MODE_LABEL) as WordTestMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={cn(
-                "px-3 py-3 rounded-xl border-2 text-xs font-bold transition-all",
-                mode === m
-                  ? "border-primary bg-primary text-primary-foreground shadow"
-                  : "border-border bg-card text-foreground hover:border-primary/50",
-              )}
-            >
-              {MODE_LABEL[m]}
-            </button>
-          ))}
+        <div className="space-y-2">
+          <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            이번 시도 모드 (자동)
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {MODE_SEQUENCE.map((m, i) => {
+              const isCurrent = m === mode;
+              return (
+                <div
+                  key={m}
+                  className={cn(
+                    "px-3 py-3 rounded-xl border-2 text-xs font-bold text-center transition-all",
+                    isCurrent
+                      ? "border-primary bg-primary text-primary-foreground shadow"
+                      : "border-border bg-muted/40 text-muted-foreground",
+                  )}
+                >
+                  <div className="text-[10px] opacity-80 mb-0.5">{i + 1}회차</div>
+                  {MODE_LABEL[m]}
+                </div>
+              );
+            })}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            시험모드는 시도 회차에 따라 <b>스펠링 → 뜻 → 혼합</b> 순서로 자동 적용됩니다.
+          </div>
         </div>
         <div className="flex justify-end">
           <Button onClick={startQuiz} size="lg">시작하기 →</Button>
