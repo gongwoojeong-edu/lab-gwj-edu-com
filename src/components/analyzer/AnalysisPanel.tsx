@@ -876,7 +876,7 @@ const NounPanel = ({
     formCorrect &&
     !!noun.form &&
     (noun.form === "접SV" ||
-      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && answer?.element === undefined));
+      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && noun.element == null));
 
   // 형태전용(접SV 등): 평탄 element-role 그리드 대신 기존 RoleRow 재사용
   const formOnlyRoleOptions = formOnlyMode && noun.form ? FORM_ONLY_ROLES[noun.form] ?? [] : [];
@@ -936,7 +936,7 @@ const NounPanel = ({
         />
       )}
       {noun.roleStatus === "correct" && (
-        <CompletionBlock label={answer?.koreanLabel ?? noun.role ?? "완료"} />
+        <CompletionBlock label={noun.role ?? noun.form ?? "완료"} />
       )}
     </>
   );
@@ -1031,7 +1031,7 @@ const AdjPanel = ({
         />
       )}
       {adj.roleStatus === "correct" && (
-        <CompletionBlock label={answer?.koreanLabel ?? adj.role ?? "완료"} />
+        <CompletionBlock label={adj.role ?? adj.form ?? "완료"} />
       )}
     </>
   );
@@ -1299,7 +1299,7 @@ const AdvPanel = ({
           })}
         </div>
       </div>
-      {done && <CompletionBlock label={answer?.koreanLabel ?? adv.role ?? "완료"} />}
+      {done && <CompletionBlock label={adv.role ?? adv.form ?? "완료"} />}
     </>
   );
 };
@@ -1451,7 +1451,7 @@ const EtcPanel = ({
           })}
         </div>
       </div>
-      {done && <CompletionBlock label={answer?.koreanLabel ?? etc.role ?? "완료"} />}
+      {done && <CompletionBlock label={etc.role ?? etc.kind ?? "완료"} />}
     </>
   );
 };
