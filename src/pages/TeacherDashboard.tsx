@@ -24,7 +24,8 @@ import { toast } from "@/hooks/use-toast";
 import { LogOut, ChevronLeft, Shield, ShieldCheck, GraduationCap } from "lucide-react";
 import { addUserRole, fetchAllUserRoles, removeUserRole } from "@/lib/userRoles";
 import SessionDateBar from "@/components/teacher/SessionDateBar";
-import HandoutInputRow from "@/components/teacher/HandoutInputRow";
+import WordHoInput from "@/components/teacher/WordHoInput";
+import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import {
   fetchHandoutResultsByDate,
   toIsoDate,
@@ -218,7 +219,12 @@ const TeacherDashboard = () => {
                     <th className="py-2 pr-3">시작 레벨</th>
                     <th className="py-2 pr-3">현재 진행</th>
                     <th className="py-2 pr-3 text-right">Pass</th>
-                    <th className="py-2 pr-3">단어HO / 구문HO</th>
+                    <th className="py-2 pr-3">
+                      단어HO <span className="text-[10px] text-muted-foreground/70">(≥80)</span>
+                    </th>
+                    <th className="py-2 pr-3">
+                      구문HO <span className="text-[10px] text-muted-foreground/70">(P/F)</span>
+                    </th>
                     <th className="py-2 pr-3">마지막 활동</th>
                     {isAdmin && <th className="py-2 pr-3">권한</th>}
                   </tr>
@@ -254,7 +260,7 @@ const TeacherDashboard = () => {
                           {st?.pass_count ?? 0}
                         </td>
                         <td className="py-2 pr-3">
-                          <HandoutInputRow
+                          <WordHoInput
                             userId={s.user_id}
                             teacherId={user?.id ?? null}
                             testDate={testDateIso}
@@ -262,6 +268,15 @@ const TeacherDashboard = () => {
                             onSaved={handleHandoutSaved}
                             onEnterNext={() => focusNext(s.user_id)}
                             registerInput={registerInput}
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <SyntaxHoToggle
+                            userId={s.user_id}
+                            teacherId={user?.id ?? null}
+                            testDate={testDateIso}
+                            current={handoutMap[s.user_id] ?? null}
+                            onSaved={handleHandoutSaved}
                           />
                         </td>
                         <td className="py-2 pr-3 text-muted-foreground text-xs">
