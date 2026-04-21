@@ -1255,6 +1255,9 @@ const AdvPanel = ({
 
   return (
     <>
+      {adv.form === "접SV" && onClauseDepthChange && (
+        <ClauseDepthRow value={adv.clauseDepth ?? 1} onChange={onClauseDepthChange} />
+      )}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
