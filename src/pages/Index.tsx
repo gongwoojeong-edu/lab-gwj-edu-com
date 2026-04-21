@@ -2173,28 +2173,18 @@ const Index = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (selectedId) commitPatch(selectedId);
-                    }}
-                    disabled={!canSave}
+                    onClick={commitAllPatches}
+                    disabled={Object.keys(pendingPatchMap).length === 0}
                     className={cn(
                       "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors shrink-0",
-                      canSave
+                      Object.keys(pendingPatchMap).length > 0
                         ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                         : "bg-muted text-muted-foreground/60 cursor-not-allowed",
                     )}
-                    title={
-                      !selectedId
-                        ? "단어를 먼저 선택하세요"
-                        : canSave
-                        ? "현재 단어의 분석을 정답으로 저장"
-                        : status === "saved"
-                        ? "이미 저장된 정답입니다"
-                        : "변경사항이 없습니다"
-                    }
+                    title="미저장 변경사항을 모두 저장합니다"
                   >
                     <Pencil className="size-3" />
-                    {status === "saved" ? "재저장" : "정답 저장"}
+                    정답 저장 (전체 {Object.keys(pendingPatchMap).length})
                   </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
