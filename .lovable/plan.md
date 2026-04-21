@@ -1,91 +1,69 @@
 
 
-## 통합 플랜: 학생 학습 중 정답 비공개 + 제출 후 자기첨삭 + 한글해석 단계 분리
+## 학생 화면에 정답 라벨이 노출되는 원인과 해결안
 
-### A. 학습 중 정답 노출 차단
+### 원인 (확정)
 
-**1. `src/pages/Index.tsx` — 시드 정답 비교 제거**
-분석 핸들러 16곳에서 `selectedToken?.answer.*` 비교 로직 제거:
-- `handlePos`, `handleNounForm/Element/Role/ElementRole`, `handleAdjForm/Element/Role/ElementRole`, `handleAdvForm/Subtype/Role`, `handleEtcKind/Role`, `handleVerb*`
-- 변경: `const correct = answerInputMode || token.answer.x === val` → `const correct = true` (학생 입력 항상 수용)
-- `wrong` 분기 및 자동 리셋 제거 → 학생 선택 그대로 유지
+학생의 `progressMap`이 비어 있어야 라벨이 안 뜨는데, 다음 두 경로로 자동으로 채워지고 있습니다:
 
-**2. `src/components/analyzer/AnalysisPanel.tsx` — 시드 한글 라벨 차단**
-- `CompletionBlock label={answer?.koreanLabel ...}` 4곳(NounPanel L939, AdjPanel L1034, AdvPanel L1302, EtcPanel L1454) → `progress.role ?? progress.form ?? "완료"`
-- `answer?.element` 분기(L879)는 `progress.noun.element` 기반으로 변경
+1. **localStorage `gwj.customAnswers.v1` (user 분리 없음)** — 같은 브라우저에서 admin이 한 번이라도 답안 입력 모드로 정답을 넣었거나, 학생 본인이 admin 모드를 켰다 끈 흔적이 모두 남습니다. 로그아웃해도 안 지워집니다. → `loadCustomAnswers()`로 그대로 읽혀 `customAnswers` state에 들어갑니다.
+2. **`hydrateCustomAnswersFromCloud(sentenceId)`** — 본인 `owner_progress`만 가져오긴 하지만, "정답을 입력해본 학생/관리자/이전 시도" 모두 한 사용자 안에서는 구분이 없습니다. 그리고 `customAnswers → progressMap` auto-hydrate가 admin/학생 구분 없이 동작합니다 (`Index.tsx` L720~811).
 
-**3. 학생 답안 클라우드 저장 (채점 가능하게)**
-`Index.tsx`에 useEffect 추가:
-- `progressMap` 변경 시 `completed=true`로 전이된 owner를 감지
-- `upsertOwnerProgress({ sentence_id, owner_id, progress, completed: true })` fire-and-forget
-- `gradeAnalysis()`가 학생 답을 정상 비교 가능하도록
+이 progress가 `buildSubBadgeLabel(wp)` / `buildElementBadge(wp)`로 들어가 WordChip 위(주어/단수과거/ing 명사앞숫자/to V의수식…)와 아래(S/V/O) 배지로 그대로 노출됩니다.
+
+추가로 학생 화면에 "선생님 모드", "자동 순차 학습", "한글 힌트" 토글이 노출되어 학생이 admin용 동작을 트리거할 수 있는 구조도 영향이 있습니다.
 
 ---
 
-### B. 한글 해석 단계 분리 (베껴쓰기 차단)
+### 해결안
 
-**4. `src/pages/SentenceLearn.tsx` — 단계 재구성**
-기존 `analysis` 단계를 두 개로 분할:
-- `analysis-input`: 분석 UI + 한글힌트 사용 가능
-- `translation`: 분석 UI 완전 언마운트, 원문만 + 해석 입력
+#### 1. 학생 모드에서 customAnswers/progress hydrate 차단
 
-새 흐름:
-```
-[분석 입력] → "분석 제출 → 한글해석" 버튼
-   ↓ (분석 완전 잠금, 되돌아갈 수 없음)
-[한글 해석] 원문만 노출 → 해석 제출
-   ↓
-[단어테스트]
-```
+`src/pages/Index.tsx` 라우팅이 `/`(학생 진입) 와 `/teacher/answers`(선생님 정답입력) 양쪽에서 같은 `<Index />`를 사용. 진입 경로에 따라 모드가 갈리도록 prop 추가:
 
-**5. 단계 가드 강화**
-- `StepProgressBar` 클릭에서 `translation` 진입 후에는 `pre`/`analysis-input` 클릭 disabled
-- `setStep` 함수에 백워드 전이 가드: `translationDone === true` 면 분석 단계 진입 차단, 자동으로 `post` 또는 `translation`으로 리다이렉트
-- URL `?step=analysis` 같은 수동 우회도 useEffect에서 차단
+- `/` (학생): `<Index studentMode />`
+- `/teacher/answers` (admin): `<Index />` (현재 그대로)
 
-**6. `translation` 단계 화면**
-- `Index` 컴포넌트(분석 패널/단어칩/한글힌트) 전부 미렌더
-- 상단에 원문 카드(영어 큰 글씨), 하단에 `TranslationStep`(textarea + 제출)만
-- 해석 제출 시 자동으로 `post`(단어테스트) 단계로 이동
+`studentMode === true` 일 때:
+- `loadCustomAnswers()` / `hydrateCustomAnswersFromCloud()` **호출 자체를 스킵**, `customAnswers`는 항상 빈 객체
+- `customAnswers → progressMap` auto-hydrate useEffect (L720~811) **early-return**
+- 결과: 학생 화면 진입 시 progressMap이 무조건 비어 있고, 학생 본인이 클릭한 owner만 progress가 채워짐 → 클릭 전에는 어떤 라벨/배지도 표시 안 됨
 
----
+#### 2. localStorage 누수 차단 (현장 데이터 보호)
 
-### C. 제출 후 정답 열람 (자기첨삭 모드)
+- `loadCustomAnswers()` 진입 시 user_id를 함께 저장한 키로 분리:
+  - 키 변경: `gwj.customAnswers.v1` → `gwj.customAnswers.v2.<user_id>` (anonymous는 `__anon`)
+  - 다른 user로 로그인하면 다른 키를 읽으므로 admin이 같은 브라우저에서 입력한 답이 학생에게 새지 않음
+- 학생 모드에서는 어차피 1번 처리로 읽지도 않지만, admin이 학생 계정으로 잠시 들어가더라도 안전망 역할
 
-**7. 진입 조건 + 토글**
-SentenceLearn 진입 시 `sentence_attempt_logs`에 시도 1건 이상 존재하면 분석 화면 우상단 **[정답 보기 / 닫기]** 토글 노출. 시도 0건이면 토글 자체 숨김.
+#### 3. 학생 모드에서 admin/teacher 전용 UI 숨김
 
-**8. `src/integrations/supabase/storage.ts`**
-- `fetchMasterProgressMap(sentenceId)` 추가: admin user의 owner_progress 전체 → `Record<owner_id, progress>`
+학생 화면(`studentMode`)에서 다음을 모두 비표시:
+- "선생님 모드" 배지/링크 (`Index.tsx` L2244)
+- "자동 순차 학습" 배지 (L2255)
+- "한글 힌트" 토글 (한글힌트는 학생 학습 베껴쓰기 차단을 위해 어차피 분석 단계에서만 노출)
+- `AdminHintToggle` (이미 isAdmin 가드 있음 — 재확인)
+- `AnswerInputModeProvider`의 토글 진입점 (admin 전용)
 
-**9. `Index.tsx` + `AnalysisPanel.tsx` — reviewMode 분기**
-- 새 prop `reviewMode: boolean` + `masterProgress: Record<string, progress>`
-- ON일 때:
-  - 모든 분석 핸들러 early-return (읽기 전용)
-  - owner 칩에 마스터 라벨 보조 배지 함께 표시 (예: "내 답: 명사·주어 / 정답: 명사·목적어")
-  - 학생-마스터 불일치 owner는 amber outline + ⚠ (힌트 모드와 같은 시각언어)
-- 마스터 미등록 지문이면 토글 비활성 + "마스터 미등록" 안내
+`HintSettingsContext`의 `isAdmin: true` 하드코딩(L23)을 실제 role에서 읽도록 변경(`useUserRole`로 admin 여부 판정).
 
-**10. 진입 경로 (Hand out 학습 완료 후에도 언제든 열람)**
-- SentenceLearn 미통 인트로에 **[내 답 vs 정답 보기]** 버튼 → `/learn/sentence/:id?mode=review`
-- StudentHome 최근 학습 카드(PASS/미통 무관)에 **[정답 첨삭]** 보조 버튼
-- WordTestStep 결과 화면(PASS/TRY AGAIN) 하단에 **[정답과 비교하기]** CTA
+#### 4. 학생 자기 답안만 별도 테이블/스코프에 저장
 
-**11. URL 동기화**
-`?mode=review` 쿼리 파라미터로 reviewMode 자동 ON. SentenceLearn에서 review 모드일 때는 단계 가드 무시(아무 단계든 자유 열람), 단 모든 입력은 읽기 전용.
+승인된 통합 플랜 3번 ("학생 owner 완료 시 upsertOwnerProgress 자동 호출")은 그대로 진행하되, 마스터 답안과 학생 답안이 **같은 `owner_progress` 테이블에서 user_id로 분리**되도록 보장 (이미 `user_id` 컬럼 존재). RLS 점검: 본인 row만 SELECT 가능해야 함.
+
+→ 학생 화면 `hydrateCustomAnswersFromCloud`를 (1)에서 끈 결과, 학생은 본인 답안조차 hydrate 안 됨. 이건 **자기첨삭 모드(reviewMode)** 진입 시에만 별도 fetch로 표시 (승인된 플랜 8~9번).
 
 ---
 
 ### 작업 순서
-1. `Index.tsx` 16개 핸들러에서 시드 정답 비교 제거
-2. `AnalysisPanel.tsx` `koreanLabel` / `answer?.element` 의존 제거
-3. `Index.tsx`에 학생 owner 완료 시 `upsertOwnerProgress` 자동 호출
-4. `SentenceLearn.tsx`에 `translation` 단계 도입 + 분석/해석 분리 렌더
-5. 단계 가드(백워드 차단) + `StepProgressBar` 잠금
-6. `analysis-input` 하단에 "분석 제출 → 한글해석" 버튼
-7. `storage.ts`에 `fetchMasterProgressMap` 추가
-8. `Index.tsx`에 `reviewMode` 상태 + URL `?mode=review` 동기화 + 토글 버튼
-9. `AnalysisPanel.tsx`에 reviewMode 분기 (마스터 보조표시 + 읽기 전용)
-10. SentenceLearn 미통 인트로 / StudentHome 카드 / WordTestStep 결과에 정답 열람 진입 버튼
-11. 검증: 학습 중 정답 미노출 → 분석 제출 후 해석 화면에서 분석 복귀 불가 → 단어테스트 후 자기첨삭 모드로 정답 열람 가능
+
+1. `src/pages/Index.tsx`에 `studentMode?: boolean` prop 추가, `/` 라우트에서 true 전달
+2. `studentMode`일 때 `loadCustomAnswers` / `hydrateCustomAnswersFromCloud` / hydrate useEffect 모두 스킵
+3. `studentMode`일 때 "선생님 모드" 배지·"자동 순차 학습" 배지·`AnswerInputMode` 진입점·`AdminHintToggle` 비표시
+4. `HintSettingsContext` `isAdmin`을 `useUserRole().isAdmin` 기반으로 변경
+5. `loadCustomAnswers/saveCustomAnswers/clearCustomAnswers`에 user_id 스코프 키 적용 + 마이그레이션(이전 키는 무시·삭제)
+6. 검증
+   - admin 계정으로 정답 입력 → 로그아웃 → 학생 계정으로 같은 지문 진입 → **어떤 라벨/배지도 안 보여야 함**
+   - 학생이 분석 클릭 → 본인 클릭한 owner만 progress·라벨 노출
+   - admin 계정으로 다시 진입 → 정답 입력 화면(`/teacher/answers`) 정상 동작
 
