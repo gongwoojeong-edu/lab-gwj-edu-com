@@ -56,6 +56,25 @@ const TeacherHome = () => {
   const [handoutMap, setHandoutMap] = useState<Record<string, HandoutResult>>({});
   const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [upcoming, setUpcoming] = useState<UpcomingAssignment[]>([]);
+
+  const studentNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    students.forEach((s) => m.set(s.user_id, s.display_name ?? s.student_no));
+    return m;
+  }, [students]);
+
+  useEffect(() => {
+    const inSevenDays = new Date(Date.now() + 7 * 24 * 3_600_000).toISOString();
+    supabase
+      .from("assignments")
+      .select("id, title, due_at, sentence_id, student_id")
+      .gte("due_at", new Date().toISOString())
+      .lte("due_at", inSevenDays)
+      .order("due_at", { ascending: true })
+      .limit(5)
+      .then(({ data }) => setUpcoming((data ?? []) as UpcomingAssignment[]));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
