@@ -16,6 +16,7 @@ import { buildWordTest, type WordTestEntry } from "@/lib/wordTestBuilder";
 import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { TranslationStep } from "@/components/learning/TranslationStep";
+import { WordTestStep } from "@/components/learning/WordTestStep";
 import { cn } from "@/lib/utils";
 
 import { toast } from "@/hooks/use-toast";
@@ -281,10 +282,11 @@ const SentenceLearn = () => {
         )}
 
         {step === "post" && (
-          <Card className="p-6 space-y-3">
-            <div className="text-sm font-bold">3. 단어 테스트 (다음 라운드)</div>
-            <p className="text-sm text-muted-foreground">분석/해석 완료 후 활성화됩니다.</p>
-          </Card>
+          <WordTestStep
+            sentenceId={sentence.id}
+            entries={entries}
+            onPassed={() => navigate("/learn")}
+          />
         )}
       </main>
     </div>
