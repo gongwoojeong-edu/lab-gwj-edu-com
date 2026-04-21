@@ -680,10 +680,10 @@ const Index = ({
     const sid = sentence.id;
     Promise.all([
       fetchSentenceProgress(sid),
-      fetchBadgeOffsets(sid),
-      hydrateCustomAnswersFromCloud(sid),
-      hydrateModifierTargetsFromCloud(sid),
-      hydrateReferentTargetsFromCloud(sid),
+      fetchBadgeOffsets(sid, hydrateUserId),
+      hydrateCustomAnswersFromCloud(sid, hydrateUserId),
+      hydrateModifierTargetsFromCloud(sid, hydrateUserId),
+      hydrateReferentTargetsFromCloud(sid, hydrateUserId),
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       const pre = prog?.pre_done ?? false;
@@ -697,13 +697,13 @@ const Index = ({
       setModifierMap(mods);
       setReferentMap(refs);
     });
-    void hydrateIdiomsFromCloud().then((m) => {
+    void hydrateIdiomsFromCloud(hydrateUserId).then((m) => {
       if (!cancelled) setIdiomMap(m);
     });
     return () => {
       cancelled = true;
     };
-  }, [sentence.id]);
+  }, [sentence.id, hydrateUserId]);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 
