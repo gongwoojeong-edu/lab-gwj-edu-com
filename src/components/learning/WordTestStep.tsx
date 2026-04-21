@@ -376,9 +376,21 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
 
         <div className="flex justify-end gap-2 flex-wrap">
           {passed ? (
-            <Button size="lg" onClick={onPassed}>
-              <Check className="w-4 h-4 mr-1" /> 학습 홈으로
-            </Button>
+            allModesPassed ? (
+              <Button size="lg" onClick={onPassed}>
+                <Check className="w-4 h-4 mr-1" /> 3종 모두 통과! 학습 홈으로
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={() => {
+                  setAttemptNo((n) => n + 1);
+                  setPhase("intro");
+                }}
+              >
+                다음 시험으로 → ({passedModes.size}/{MODE_SEQUENCE.length} 통과)
+              </Button>
+            )
           ) : (
             <>
               {onSkipToNext && (
