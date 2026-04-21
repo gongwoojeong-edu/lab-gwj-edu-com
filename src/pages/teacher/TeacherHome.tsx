@@ -10,8 +10,10 @@ import {
   RefreshCcw,
   ClipboardList,
   ClipboardCheck,
+  Clock,
 } from "lucide-react";
 import { LEVEL_LABEL } from "@/lib/levels";
+import { supabase } from "@/integrations/supabase/client";
 import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
 import { useAuth } from "@/hooks/useAuth";
 import SessionDateBar from "@/components/teacher/SessionDateBar";
