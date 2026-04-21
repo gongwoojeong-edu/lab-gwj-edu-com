@@ -674,7 +674,7 @@ export const IdiomSection = ({
 
       {!enabled ? (
         <p className="text-[10px] text-muted-foreground/70 italic font-kr px-1">
-          2개 이상 단어를 선택하면 관용구로 등록할 수 있습니다.
+          단어를 선택하면 관용구/특수 의미로 등록할 수 있습니다.
         </p>
       ) : answerInputMode ? (
         <div className="space-y-1.5">
