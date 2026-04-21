@@ -19,6 +19,7 @@ import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
+import { useViewMode } from "@/hooks/useViewMode";
 
 import { toast } from "@/hooks/use-toast";
 
@@ -34,6 +35,7 @@ const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
   const { roles } = useAuth();
+  const { setMode } = useViewMode();
   const isStaff = roles.includes("teacher") || roles.includes("admin");
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,7 +159,7 @@ const SentenceLearn = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  localStorage.setItem("view_mode", "teacher");
+                  setMode("teacher");
                   navigate("/teacher");
                 }}
               >
