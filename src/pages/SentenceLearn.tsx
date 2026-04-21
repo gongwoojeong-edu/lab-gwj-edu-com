@@ -121,7 +121,7 @@ const SentenceLearn = () => {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center bg-background">
         <Card className="p-8 space-y-4 max-w-md">
-          <div className="text-xl font-bold text-foreground">지문을 찾을 수 없어요</div>
+          <div className="text-xl font-bold text-foreground">Passage를 찾을 수 없어요</div>
           <Button onClick={() => navigate("/learn")}>학습 홈으로</Button>
         </Card>
       </div>
@@ -193,7 +193,7 @@ const SentenceLearn = () => {
                 <div className="text-sm font-bold">아직 단어가 준비되지 않았어요</div>
               </div>
               <p className="text-sm text-foreground/80">
-                선생님이 이 지문의 단어 추출을 아직 하지 않았어요. 잠시 후 다시 시도해 주세요.
+                선생님이 이 Passage의 단어 추출을 아직 하지 않았어요. 잠시 후 다시 시도해 주세요.
               </p>
               <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
                 새로고침

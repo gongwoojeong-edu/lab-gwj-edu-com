@@ -161,7 +161,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s1",
     no: 1,
-    level: "L10",
+    level: "L08",
     english:
       "Radio provided the driving force to solidify the era of patronage; however, the invention that soon followed remains to this day the most significant communication medium that has influenced and aided the development of sports.",
     korean:
