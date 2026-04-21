@@ -2410,7 +2410,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
 
               // 구두점/괄호: 비대화형 (단, 인접 완료 layer 사이면 그 자체에 보라 배경)
               if (punct) {
-                const fillBg = sharedWithPrev && sharedWithNext;
+                const fillBg = showTeacherAnnotations && sharedWithPrev && sharedWithNext;
                 return (
                   <span
                     key={idx}
@@ -2461,7 +2461,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
               const isClauseSelection = wp ? isClauseProgress(wp) : false;
               const isParallelSelection = isParallelProgress(wp);
               let completedElement: "S" | "V" | "O" | "C" | undefined;
-              if (isCompleted && innerBadge) {
+              if (showTeacherAnnotations && isCompleted && innerBadge) {
                 if (innerBadge !== "M" && !isClauseSelection) {
                   completedElement = innerBadge;
                 }
@@ -2474,17 +2474,17 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
               const outerIsClauseLocal =
                 !!outerProgress && isClauseProgress(outerProgress);
               const outerIsParallelLocal = isParallelProgress(outerProgress);
-              const outerBadge = outerProgress ? buildElementBadge(outerProgress) : undefined;
-              const outerSubLabel = outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
+              const outerBadge = showTeacherAnnotations && outerProgress ? buildElementBadge(outerProgress) : undefined;
+              const outerSubLabel = showTeacherAnnotations && outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
               const outerIsFirstLocal = outerIsClauseLocal && idx === outerIndices[0];
               const outerIsLastLocal =
                 outerIsClauseLocal && idx === outerIndices[outerIndices.length - 1];
               const outerAnchorIdx = findAnchorIdx(outerIndices, outerProgress);
               const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerAnchorIdx;
 
-              // === 절 브래킷: 외곽 progress의 element badge 기준 ===
+              // === 절 브래킷: 외곽 progress의 element badge 기준 (학생 모드는 숨김) ===
               const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
-                outerIsClauseLocal ? outerBadge ?? "M" : undefined;
+                showTeacherAnnotations && outerIsClauseLocal ? outerBadge ?? "M" : undefined;
 
               // === 부배지 layer depth 계산 ===
               // ownersHere 순서: 외곽(긴 범위, Layer 1) → 안쪽(짧은 범위, Layer N).
@@ -2499,9 +2499,9 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
 
               // 부배지(품사 라벨) — owner 첫 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
-                isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
+                showTeacherAnnotations && isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
               const outerKoreanLabel =
-                outerIsClauseLocal && outerIsBadgeAnchor ? outerSubLabel : undefined;
+                showTeacherAnnotations && outerIsClauseLocal && outerIsBadgeAnchor ? outerSubLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
@@ -2523,7 +2523,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
 
               // 안쪽 완료 배경 — clause/parallel은 별도 처리, 일반(general)만 옅은 보라
               const innerCompleteBg =
-                isCompleted && !isSelected && !isClauseSelection && !isParallelSelection;
+                showTeacherAnnotations && isCompleted && !isSelected && !isClauseSelection && !isParallelSelection;
 
               // === Owner 종류별 배경 분기 ===
               // clause: 배경 거의 제거 (대괄호로 표현) / parallel: 진한 박스 / general: 옅은 보라 누적
@@ -2544,10 +2544,12 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                 if (layers.length === 0) return undefined;
                 return layers.join(", ");
               };
-              const wordLayerBg = buildLayerBg(ownersHere);
+              const wordLayerBg = showTeacherAnnotations ? buildLayerBg(ownersHere) : undefined;
 
-              // 병렬 owner가 이 인덱스를 포함하면 박스 시각화
-              const parallelOwnerHere = ownersHere.find((oid) => isParallelProgress(progressMap[oid]));
+              // 병렬 owner가 이 인덱스를 포함하면 박스 시각화 (학생 모드는 시각화 차단)
+              const parallelOwnerHere = showTeacherAnnotations
+                ? ownersHere.find((oid) => isParallelProgress(progressMap[oid]))
+                : undefined;
               const parallelIndices = parallelOwnerHere
                 ? completedSelectionMap[parallelOwnerHere] ?? []
                 : [];
