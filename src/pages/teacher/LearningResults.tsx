@@ -52,9 +52,27 @@ const LearningResults = () => {
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [teacherId, setTeacherId] = useState<string | null>(null);
+  // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
+  const [printedSet, setPrintedSet] = useState<Record<string, string>>({});
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
+  }, []);
+
+  // 인쇄대기열에서 인쇄 완료된 행도 실시간 반영
+  useEffect(() => {
+    const unsub = subscribeToPrintRequests((evt, row) => {
+      if (!row) return;
+      if (
+        (evt === "UPDATE" || evt === "INSERT") &&
+        row.status === "printed" &&
+        row.handled_at
+      ) {
+        const key = `${row.user_id}::${row.sentence_id}`;
+        setPrintedSet((p) => ({ ...p, [key]: row.handled_at as string }));
+      }
+    });
+    return unsub;
   }, []);
 
   // HO 점수 입력 후 handoutMap 갱신
