@@ -97,6 +97,25 @@ const StudentHome = () => {
           setRecent(enriched);
           setAssignments((assignData ?? []) as AssignmentRow[]);
         }
+
+        // 본인의 pending 시험지 요청 + 각 sentence별 정답대조 요청 상태 로드
+        const sentenceIds = enriched.map((e) => e.sentence.id);
+        const pendingPrints = await fetchMyPendingPrintRequests();
+        const printMap: Record<string, PrintRequest> = {};
+        pendingPrints.forEach((p) => {
+          if (sentenceIds.includes(p.sentence_id)) printMap[p.sentence_id] = p;
+        });
+        const reviewPairs = await Promise.all(
+          sentenceIds.map(async (sid) => [sid, await fetchOpenRequest(sid, 1)] as const),
+        );
+        const reviewMap: Record<string, AnalysisReviewRequest> = {};
+        reviewPairs.forEach(([sid, r]) => {
+          if (r) reviewMap[sid] = r;
+        });
+        if (mounted) {
+          setPrintReqs(printMap);
+          setReviewReqs(reviewMap);
+        }
       }
       setLoading(false);
     })();
@@ -104,6 +123,108 @@ const StudentHome = () => {
       mounted = false;
     };
   }, [user?.id]);
+
+  const setBusyFor = (id: string, v: boolean) =>
+    setBusy((prev) => ({ ...prev, [id]: v }));
+
+  const handleRequestPrint = async (sentenceId: string) => {
+    setBusyFor(`print:${sentenceId}`, true);
+    try {
+      const row = await createPrintRequest({ sentence_id: sentenceId });
+      setPrintReqs((prev) => ({ ...prev, [sentenceId]: row }));
+      toast({ title: "선생님께 시험지 요청을 보냈어요" });
+    } catch (e) {
+      const msg = String(e);
+      toast({
+        title: "요청 실패",
+        description: msg.includes("print_requests_pending_unique")
+          ? "이미 요청 중입니다."
+          : msg,
+        variant: "destructive",
+      });
+    } finally {
+      setBusyFor(`print:${sentenceId}`, false);
+    }
+  };
+
+  const handleCancelPrint = async (sentenceId: string) => {
+    const cur = printReqs[sentenceId];
+    if (!cur) return;
+    setBusyFor(`print:${sentenceId}`, true);
+    try {
+      await cancelMyPrintRequest(cur.id);
+      setPrintReqs((prev) => {
+        const next = { ...prev };
+        delete next[sentenceId];
+        return next;
+      });
+      toast({ title: "요청을 취소했어요" });
+    } finally {
+      setBusyFor(`print:${sentenceId}`, false);
+    }
+  };
+
+  const handleRequestReview = async (sentenceId: string) => {
+    setBusyFor(`review:${sentenceId}`, true);
+    try {
+      const grade = await gradeAnalysis(sentenceId);
+      if (grade.rate < 0.5) {
+        toast({
+          title: "분석률이 부족해요",
+          description: `현재 ${Math.round(grade.rate * 100)}% — 50% 이상 분석 후 요청 가능`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const isPass = recent.find((r) => r.sentence.id === sentenceId)?.status === "pass";
+      const track = grade.rate >= 0.8 && grade.requiredOwnersFilled
+        ? "normal"
+        : (!isPass && grade.rate >= 0.5 ? "fail_assist" : null);
+      if (!track) {
+        toast({
+          title: "요청 조건 미충족",
+          description: "80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const row = await createReviewRequest({
+        sentence_id: sentenceId,
+        attempt_no: 1,
+        analysis_rate: grade.rate,
+        required_filled: grade.requiredOwnersFilled,
+        track,
+      });
+      if (row) setReviewReqs((prev) => ({ ...prev, [sentenceId]: row }));
+      toast({ title: "정답 대조 요청을 보냈어요" });
+    } catch (e) {
+      const msg = String(e);
+      toast({
+        title: "요청 실패",
+        description: msg.includes("uq_arr_open_per_attempt") ? "이미 진행 중인 요청이 있어요." : msg,
+        variant: "destructive",
+      });
+    } finally {
+      setBusyFor(`review:${sentenceId}`, false);
+    }
+  };
+
+  const handleCancelReview = async (sentenceId: string) => {
+    const cur = reviewReqs[sentenceId];
+    if (!cur) return;
+    setBusyFor(`review:${sentenceId}`, true);
+    try {
+      await cancelReviewRequest(cur.id);
+      setReviewReqs((prev) => {
+        const next = { ...prev };
+        delete next[sentenceId];
+        return next;
+      });
+      toast({ title: "요청을 취소했어요" });
+    } finally {
+      setBusyFor(`review:${sentenceId}`, false);
+    }
+  };
 
   const handleStart = () => {
     if (next) navigate(`/learn/sentence/${encodeURIComponent(next.id)}`);
