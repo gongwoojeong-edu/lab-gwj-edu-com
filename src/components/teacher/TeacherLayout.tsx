@@ -130,7 +130,7 @@ const TeacherSidebarInner = () => {
                 <SidebarMenuButton asChild>
                   <NavLink to="/teacher/assignments" className={({ isActive }) => linkCls(isActive)}>
                     <ClipboardList className="size-4" />
-                    {!collapsed && <span>교재 부여</span>}
+                    {!collapsed && <span>특별과제</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

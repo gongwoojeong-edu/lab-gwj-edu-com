@@ -30,7 +30,7 @@ const TILES = [
   { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
   { to: "/teacher/bookshelf", title: "책장", desc: "레벨별 교재 관리", icon: BookOpen },
   { to: "/teacher/students", title: "학생 목록", desc: "학생 진행/권한 관리", icon: Users },
-  { to: "/teacher/assignments", title: "교재 부여", desc: "학생에게 교재 배정", icon: ClipboardList },
+  { to: "/teacher/assignments", title: "특별과제", desc: "학생에게 특별과제 부여", icon: ClipboardList },
   { to: "/teacher/print-queue", title: "인쇄 대기열", desc: "시험지 승인·출력", icon: Printer },
   { to: "/teacher/retests", title: "재시험 관리", desc: "단어 테스트 재시도", icon: RefreshCcw },
 ];
