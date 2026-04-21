@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -276,8 +276,8 @@ const TeacherHome = () => {
                     const isExpanded = expandedStudentId === s.user_id;
                     const row = handoutMap[s.user_id] ?? null;
                     return (
-                      <>
-                        <tr key={s.user_id} className="hover:bg-muted/20">
+                      <React.Fragment key={s.user_id}>
+                        <tr className="hover:bg-muted/20">
                           <td className="px-2 py-2">
                             <Button
                               type="button"
@@ -333,7 +333,7 @@ const TeacherHome = () => {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
