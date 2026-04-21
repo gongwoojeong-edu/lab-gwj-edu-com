@@ -35,6 +35,10 @@ import { toast } from "@/hooks/use-toast";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import ClassKpiCards from "@/components/stats/ClassKpiCards";
+import {
+  fetchAssignmentProgress,
+  type AssignmentProgressMap,
+} from "@/lib/assignmentProgress";
 
 const TILES = [
   { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },

@@ -200,6 +200,9 @@ const AssignmentsPast = () => {
                           includeAnalysis={r.include_analysis}
                           includeTranslation={r.include_translation}
                           includeWordtest={r.include_wordtest}
+                          progress={progressByAsg[r.id]}
+                          studentNameMap={studentNameMap}
+                          targetUserIds={targetIds}
                         />
                       </div>
                       <ChevronDown
