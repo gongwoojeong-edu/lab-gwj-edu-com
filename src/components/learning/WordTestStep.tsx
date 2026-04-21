@@ -294,6 +294,30 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
               style={{ width: `${progress}%` }}
             />
           </div>
+          {timeLimitSec > 0 && (
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground">남은 시간</span>
+                <span
+                  className={cn(
+                    "font-bold tabular-nums",
+                    timeLeft <= 5 ? "text-destructive" : "text-foreground",
+                  )}
+                >
+                  {timeLeft}초
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-1000 ease-linear",
+                    timeLeft <= 5 ? "bg-destructive" : "bg-primary",
+                  )}
+                  style={{ width: `${Math.max(0, (timeLeft / timeLimitSec) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="text-center space-y-2 py-4">
