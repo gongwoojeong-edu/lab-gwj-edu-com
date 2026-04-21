@@ -385,6 +385,7 @@ const StudentHome = () => {
                             </span>
                           </div>
                           <AssignmentStepBadges
+                            includePre={a.include_pre}
                             includeAnalysis={a.include_analysis}
                             includeTranslation={a.include_translation}
                             includeWordtest={a.include_wordtest}
