@@ -358,6 +358,8 @@ const Assignments = () => {
   ) => {
     setter((prev) => ({
       ...prev,
+      // [전체] 모두 on / [분석만] 단어학습+구문분석 / [단어만] 단어학습+단어시험
+      includePre: true,
       includeAnalysis: preset === "all" || preset === "analysis",
       includeTranslation: preset === "all",
       includeWordtest: preset === "all" || preset === "wordtest",
@@ -384,9 +386,10 @@ const Assignments = () => {
       <div className="flex flex-wrap items-center gap-4 px-3 py-2 rounded-md border border-border bg-muted/30">
         {(
           [
-            ["includeAnalysis", "분석"],
-            ["includeTranslation", "번역"],
-            ["includeWordtest", "단어테스트"],
+            ["includePre", "단어학습"],
+            ["includeAnalysis", "구문분석"],
+            ["includeTranslation", "한글해석"],
+            ["includeWordtest", "단어시험"],
           ] as Array<[keyof FormState, string]>
         ).map(([k, label]) => (
           <label key={k} className="inline-flex items-center gap-2 cursor-pointer">
