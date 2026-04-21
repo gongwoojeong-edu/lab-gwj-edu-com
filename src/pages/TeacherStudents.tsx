@@ -88,6 +88,9 @@ const TeacherStudents = () => {
   const [pinTarget, setPinTarget] = useState<Student | null>(null);
   const [pinValue, setPinValue] = useState("");
   const [pinSaving, setPinSaving] = useState(false);
+  // name → threshold (0..1) loaded from student_profiles
+  const [thresholdByName, setThresholdByName] = useState<Record<string, number>>({});
+  const [thresholdSaving, setThresholdSaving] = useState<string | null>(null);
 
   const openPin = (s: Student) => {
     setPinTarget(s);
@@ -129,9 +132,50 @@ const TeacherStudents = () => {
     }
   };
 
+  const saveThreshold = async (s: Student, percent: number) => {
+    const clamped = Math.max(50, Math.min(100, Math.round(percent)));
+    setThresholdByName((p) => ({ ...p, [s.name]: clamped / 100 }));
+    setThresholdSaving(s.name);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .update({ word_test_pass_threshold: clamped / 100 })
+        .eq("display_name", s.name)
+        .select("user_id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: "계정 매칭 실패",
+          description: `'${s.name}' 이름 계정이 없습니다.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `✅ ${s.name} 통과기준 ${clamped}점 저장` });
+      }
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setThresholdSaving(null);
+    }
+  };
+
   useEffect(() => {
     setStudents(loadStudents());
   }, []);
+
+  // Load thresholds from DB by display_name
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("display_name, word_test_pass_threshold");
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((row: { display_name: string | null; word_test_pass_threshold: number | null }) => {
+        if (row.display_name) map[row.display_name] = Number(row.word_test_pass_threshold ?? 0.8);
+      });
+      setThresholdByName(map);
+    })();
+  }, [students.length]);
 
   const sorted = useMemo(
     () => [...students].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
