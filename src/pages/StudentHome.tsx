@@ -486,17 +486,6 @@ const StudentHome = () => {
                             )}
                           </div>
                         </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                onClick={() => navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}`)}
-                              >
-                                다시 도전
-                              </Button>
-                            )}
-                          </div>
-                        </div>
                       </Card>
                     );
                   })}
