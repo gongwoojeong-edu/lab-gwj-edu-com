@@ -1,84 +1,93 @@
 
 
-## 플랜 보강 (3차) — 사이드바·인쇄 워크플로 정리
+## 플랜 — 사이드바·대시보드·학습결과·인쇄 통합 정리
 
 ### 1. 사이드바 메뉴 정리
-
 **파일**: `src/components/teacher/TeacherLayout.tsx`
 
-#### 1-1. "책장", "학습관리" 그룹 라벨 도드라지게
-현재 그룹 라벨이 작은 회색 텍스트(`text-xs muted`)라 영역 구분이 약함. 변경:
-- 폰트 크기 `text-sm font-bold text-foreground` 로 격상.
-- 아이콘 크기도 `size-4` 로 키움.
-- 활성(그룹 내 라우트가 현재 경로) 시 추가로 `bg-primary/10 text-primary rounded-md px-2` 적용 → 어느 영역에 있는지 한눈에.
+- "과거 과제함" 메뉴 항목 **삭제** (특별과제 페이지 내부에서 접근 가능 → 중복 제거).
+- "과거 과제함" → "과거 과제"로 라벨 변경(만약 다른 곳에 남는 자리 있으면). 실제로는 위 삭제로 메뉴에서 사라짐.
+- "학습결과함" → **"학습결과"** 로 라벨 변경.
+- 기존 활성 음영 강조 유지.
 
-#### 1-2. "과거 과제함" 글씨 정상화
-현재 `size="sm"` + `text-xs` 로 다른 메뉴보다 작게 표시됨. 변경:
-- `SidebarMenuButton` 의 `size="sm"` 제거.
-- `text-xs` 제거 → 다른 항목과 동일한 폰트 크기.
+### 2. 대시보드 — "마감 임박 특별과제" 학습완료 표기
+**파일**: `src/pages/teacher/TeacherHome.tsx`
 
-### 2. "재시험 관리" 메뉴 제거 + 학습결과함으로 통합
+- 각 과제 행에 이미 `progressByAsg[a.id]` 진척 데이터를 보유.
+- 새 헬퍼: `targetUserIds` 전원이 모든 step `pass`/`done` 이면 행 우측에 **녹색 [학습완료]** 배지 추가, 마감 시간 배지 옆 또는 대체.
+- 단일 학생 과제(`student_id` 지정)면 그 학생만 평가, 전체 과제면 모든 학생 통과 시에만 [완료].
+- 일부만 완료면 `(N/M 완료)` 작은 라벨 추가.
 
-#### 2-1. 사이드바에서 "재시험 관리" 항목 삭제
-**파일**: `src/components/teacher/TeacherLayout.tsx`
-- `RefreshCcw` 아이콘과 `/teacher/retests` 링크 `SidebarMenuItem` 제거.
-- import 정리.
+### 3. PDF 누르면 학생화면으로 리다이렉트되는 버그 (★ 핵심)
 
-#### 2-2. 라우트 정리
-**파일**: `src/App.tsx`
-- `/teacher/retests` Route 유지(직접 URL 접근은 가능). 단 사이드바 진입점만 제거.
+**원인**: `RequireAuth.tsx` line 54-60 — 교사가 `viewMode === "student"` 상태이면 모든 `/teacher/*` 라우트가 `/learn` 으로 강제 리다이렉트됨. 새 탭에서 핸드아웃 열 때 동일 origin 으로 viewMode 가 공유되어 학생 화면으로 튕김.
 
-#### 2-3. 학습결과함에 [재시험] 버튼 삽입
-**파일**: `src/pages/teacher/LearningResults.tsx`
-- 각 sentence row 액션 영역에 **[재시험]** 버튼 추가 (`RefreshCcw` 아이콘).
-- 클릭 시: 해당 학생·문장에 대해 재시험을 부여하는 동작.
-  - 구현: `word_test_results` 의 최신 결과를 `passed=false` 로 표기(단순 마킹) 또는 `assignments` 에 retest 플래그로 신규 row 추가 — 가장 가벼운 1안 채택: 학생 다음 학습 사이클에서 해당 문장이 재출제 되도록 `sentence_progress.status='retest'` 로 업데이트.
-- 버튼 옆 토스트: "재시험 등록됨 — 학생이 다음 접속 시 해당 문장 다시 출제".
+**수정** (`src/components/auth/RequireAuth.tsx`):
+- line 54-60 의 `mode === "student"` 강제 리다이렉트 조건을 **완화**: 핸드아웃처럼 인쇄 전용 라우트(`/teacher/handout/`)는 viewMode 와 무관하게 통과시킴.
+- 단순화 안: `requireRole` 이 명시되어 통과한 사용자는 viewMode 강제 리다이렉트 면제. (즉 staff 권한이 있고 페이지가 staff role 을 명시적으로 요구한다면 viewMode 무시)
+- 결과: 학습결과함의 `[PDF]`/`[인쇄]` 새 탭이 정상적으로 핸드아웃을 표시.
 
-### 3. 학습결과함 — 모든 학습 활동 반영 (이전 플랜 재확인)
+### 4. 학습결과 페이지 — 한 줄 통합 + 인쇄 후 HO 활성
 
 **파일**: `src/pages/teacher/LearningResults.tsx`
 
-이전 플랜 그대로 진행:
-- 데이터 소스 확장: `print_requests(printed)` ∪ `sentence_attempt_logs` ∪ `handout_results` ∪ `sentence_translations` ∪ `word_test_results` ∪ `word_pre_results`.
-- HO 점수 학생 헤더 인라인 배치.
-- 각 sentence row 우측 액션:
-  - **[PDF]** — 새 탭으로 핸드아웃 미리보기 (`handleOpenPdf`).
-  - **[인쇄]** — `print_requests` 행 신규 insert(`status='printed'`) + `ensureHandoutRow` + 새 탭 `/teacher/handout/...` 자동 인쇄 트리거.
-  - **[재시험]** — 위 2-3 동작.
-- 학생 카드 상단 일괄 버튼은 유지하되 라벨도 **[전체 인쇄]** 로 단축.
+#### 4-1. 페이지 제목/메뉴 라벨
+- `학습결과함` → `학습결과` (h1 텍스트).
 
-### 4. 인쇄대기열 — 워크플로 변경 (사용자 의도 반영)
+#### 4-2. 한 줄 컬럼 재설계 (기존 표 헤더 교체)
+| 문장코드 | 구문분석 (P/F) | 단어시험 (점수) | 단어HO (점수) | 구문HO (P/F) | 인쇄 |
 
-**파일**: `src/pages/teacher/PrintQueue.tsx`
+- **문장코드** — 그대로.
+- **구문분석** — `analysis_passed` 면 P(녹색), 아니면 F(빨강). + 매치율 % 작게 병기 (`P 87%` 형태).
+- **단어시험** — `best_word_score` 점수, pass/fail 색상.
+- **단어HO** — `WordHoInput` 인라인 (수동 입력란). 자동계산 옵션:
+  - **신규 입력 형식**: 사용자가 `8/10` 또는 `8/10` 입력 시 80점으로 자동 환산. 수동 점수 입력도 그대로 허용. `WordHoInput` 의 onChange/parse 확장.
+  - 인쇄 전이면 **disabled** (회색 placeholder "—"), 인쇄 완료된 sentence 행만 활성화.
+- **구문HO** — `SyntaxHoToggle` 인라인. 동일하게 인쇄 전이면 비활성, 인쇄 후 활성.
+- **인쇄** — 단일 버튼 [인쇄]. 클릭 시:
+  1. 새 탭 핸드아웃 오픈 (자동 인쇄 트리거 쿼리 `?student=&autoprint=1` 추가),
+  2. `print_requests` 에 `status='printed'` 행 insert,
+  3. `ensureHandoutRow(...)` 로 HO 행 보장,
+  4. 로컬 state `printedSet` 에 `{userId, sentenceId}` 추가하여 그 행의 HO 입력 즉시 활성.
+- 이전의 [재시험] 버튼은 행 우측 컴팩트 아이콘 메뉴(`⋮`) 하위로 이동 — 한 줄 폭 절약.
+- 인쇄 항목 선택 박스(체크박스) 신규 추가: 행 선두 체크 → 헤더 [선택 인쇄] 일괄 버튼. 학생 카드 헤더의 [전체 인쇄]는 유지.
 
-**변경된 흐름**:
-- 각 행에 단일 버튼 **[PDF]** (`Printer` 아이콘) — 라벨 단축.
-- 클릭 → `handleOpenHandout` 가 PDF만 새 탭 오픈. **이 시점에는 처리 완료로 마킹하지 않음**.
-- 새 탭 PDF 화면에서 사용자가 브라우저 인쇄(또는 핸드아웃 페이지의 [인쇄] 버튼)를 누른 시점에 백그라운드에서 처리됨 표기.
-  - 구현: `Handout.tsx` 에 `window.onbeforeprint` 리스너 추가 → `?fromQueue=1&reqId=...` 쿼리가 있으면 `markPrintRequestHandled(reqId)` + `ensureHandoutRow` 호출.
-  - `PrintQueue` 의 `handleOpenHandout` 가 새 탭 URL에 `?fromQueue=1&reqId={req.id}&studentId={user_id}` 포함.
-- [처리 완료] 별도 버튼 제거 (이전 플랜과 동일).
-- 인쇄 처리되면 실시간 구독에 의해 해당 행이 목록에서 사라지고, 학습결과함에 자동 합류.
+#### 4-3. 인쇄 완료 마킹
+- 인쇄대기열에서 인쇄 처리되면 (`subscribeToPrintRequests`) 학습결과 페이지도 실시간 구독해 동일 `printedSet` 갱신.
+- 인쇄 완료 후 행에 [인쇄완료 ✓ HH:mm] 표기 + HO 입력 활성.
+- HO 입력 활성 조건: `attemptMap[key].printed_at != null` OR 로컬 `printedSet` 에 포함.
 
-#### 라벨 통일
-- `PrintQueue` 의 `[핸드아웃 PDF]` → **[PDF]**
-- `LearningResults` 의 `[핸드아웃 인쇄]` → **[인쇄]**
-- `[전체 핸드아웃 인쇄]` → **[전체 인쇄]**
+#### 4-4. 성능 개선
+- `handlePrint` 종료 후 전체 `refresh()` 호출 제거 → 로컬 state 직접 갱신(낙관적 업데이트).
+- 클릭 즉시 새 탭 오픈 → 백그라운드에서 insert/ensureHandoutRow.
+- `attemptMap` 갱신은 print_requests realtime 구독에 위임.
 
-### 5. 함께 처리 (이전 플랜 누적 유지)
+### 5. 인쇄대기열 — 인쇄 후 학습결과로 이동 강화
+**파일**: `src/pages/teacher/PrintQueue.tsx`, `src/pages/Handout.tsx`
 
-- `setPassageReady` 헬퍼로 책장 [학생 공개/비공개] 토글 정상화.
-- `Index.tsx`: 단일 [정답 저장 (전체)] 버튼, 보라 배너 제거, N중 부배지 cascade.
-- `AdminHintToggle`/`HintSettingsContext`: 수식선/지시어 토글 제거 — 항상 표시.
-- 사이드바 `대시보드` 그룹 라벨도 활성 시 동일 음영(2번에 포함).
+- PrintQueue 의 [PDF] 버튼 라벨 → **[인쇄]** 로 변경(직관성).
+- Handout 새 탭 URL 에 `?fromQueue=1&autoprint=1` 추가 — 페이지 로드 후 자동으로 `window.print()` 호출.
+- `Handout.tsx`: `autoprint=1` 이면 데이터 로드 직후 `setTimeout(() => window.print(), 300)`.
+- `onbeforeprint` 에서 기존대로 `markPrintRequestHandled` + `ensureHandoutRow` 처리(현행 유지).
+- 처리 후 PrintQueue 페이지에는 realtime 으로 행 사라지고, 학습결과 페이지에 새 라인 자동 합류 (실시간 구독).
+
+### 6. 콘솔 경고 정리 (forwardRef)
+**파일**: `src/components/teacher/WordHoInput.tsx`, `src/components/teacher/SyntaxHoToggle.tsx`
+
+- `LearningResults` 가 두 컴포넌트에 ref 를 전달하지는 않지만, `Card` 내부 layout 에서 ref forwarding warning 발생.
+- `WordHoInput` 을 `React.forwardRef` 로 감싸 ref 를 내부 input 으로 전달.
+- `SyntaxHoToggle` 도 동일 패턴(Button ref 위임).
+- 콘솔 노이즈 제거 + React strict mode 호환.
 
 ### 변경 파일 요약
 
-- `src/components/teacher/TeacherLayout.tsx` — 그룹 라벨 강조, 과거과제함 폰트 정상화, 재시험관리 항목 제거.
-- `src/pages/teacher/PrintQueue.tsx` — 단일 [PDF] 버튼, 처리완료 자동화 쿼리.
-- `src/pages/teacher/LearningResults.tsx` — 데이터 소스 확장, [PDF]/[인쇄]/[재시험] 액션, HO 인라인.
-- `src/pages/Handout.tsx` — `?fromQueue=1&reqId=...` 처리(`onbeforeprint`).
-- `src/lib/sentenceSource.ts` — `setPassageReady` 헬퍼.
-- `src/pages/teacher/PassageEditor.tsx` — `togglePublish` 수정.
-- `src/pages/Index.tsx` — 단일 [정답 저장(전체)], 배너 제거, N중
+- `src/components/auth/RequireAuth.tsx` — staff role 명시 라우트는 viewMode 무시 (PDF 리다이렉트 버그 해결).
+- `src/components/teacher/TeacherLayout.tsx` — 과거과제함 항목 제거, 학습결과함→학습결과 라벨 변경.
+- `src/pages/teacher/TeacherHome.tsx` — 마감 임박 과제에 [학습완료] 배지.
+- `src/pages/teacher/LearningResults.tsx` — 페이지 제목 변경, 한 줄 통합 표, 인쇄 후 HO 활성, 8/10→80 자동환산, 낙관적 갱신, 선택 인쇄.
+- `src/pages/teacher/PrintQueue.tsx` — [PDF] → [인쇄] 라벨, autoprint 쿼리.
+- `src/pages/Handout.tsx` — `autoprint=1` 시 자동 인쇄 트리거.
+- `src/components/teacher/WordHoInput.tsx`, `SyntaxHoToggle.tsx` — `forwardRef` 전환.
+
+DB 스키마 변경 없음.
+
