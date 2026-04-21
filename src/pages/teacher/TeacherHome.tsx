@@ -157,6 +157,66 @@ const TeacherHome = () => {
           })}
         </div>
 
+        {/* 마감 임박 특별과제 */}
+        <Card className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="size-4 text-amber-600" />
+              <h2 className="text-sm font-bold">마감 임박 특별과제</h2>
+              <span className="text-xs text-muted-foreground">(향후 7일)</span>
+            </div>
+            <Link
+              to="/teacher/assignments"
+              className="text-xs text-primary hover:underline"
+            >
+              전체 보기 →
+            </Link>
+          </div>
+          {upcoming.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-3">
+              예정된 과제 없음 — 새 과제는 '특별과제'에서 만드세요.
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {upcoming.map((a) => {
+                const dueMs = new Date(a.due_at).getTime() - Date.now();
+                const totalH = Math.max(0, Math.floor(dueMs / 3_600_000));
+                const days = Math.floor(totalH / 24);
+                const hours = totalH % 24;
+                const urgent = dueMs < 24 * 3_600_000;
+                const remainText = days > 0 ? `${days}일 ${hours}시간` : `${hours}시간`;
+                const target = a.student_id
+                  ? studentNameMap.get(a.student_id) ?? "—"
+                  : "전체 학생";
+                return (
+                  <li
+                    key={a.id}
+                    className="py-2 flex items-center gap-3 text-sm"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{a.title}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {target}
+                        {a.sentence_id && ` · ${a.sentence_id}`}
+                      </div>
+                    </div>
+                    <span
+                      className={
+                        urgent
+                          ? "inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-destructive/15 text-destructive"
+                          : "inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                      }
+                    >
+                      <Clock className="w-3 h-3" />
+                      {remainText} 남음
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+
         {/* Handout input */}
         <div className="space-y-3">
           <div>
