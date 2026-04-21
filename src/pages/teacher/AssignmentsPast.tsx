@@ -109,6 +109,8 @@ const AssignmentsPast = () => {
       cancelled = true;
     };
   }, [rows, students]);
+
+  const studentName = (id: string | null | undefined) => {
     if (!id) return "—";
     const s = students.find((x) => x.user_id === id);
     return s?.display_name ?? s?.student_no ?? id.slice(0, 6);
