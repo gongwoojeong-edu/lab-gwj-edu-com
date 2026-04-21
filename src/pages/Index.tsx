@@ -528,7 +528,9 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   // ===== 지시어 화살표 (Referent Target, 대명사 전용) =====
   const [referentMap, setReferentMap] = useState<ReferentTargetMap>({});
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
-  const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
+  const { showModifierArrows, showReferentArrows, isAdmin: ctxIsAdmin } = useHintSettings();
+  // 학생 모드에서는 admin UI 전부 숨김 — role이 admin이어도 노출 차단
+  const isAdmin = !studentMode && ctxIsAdmin;
 
   // ===== 학습 흐름 (Cloud) =====
   const [learningStep, setLearningStep] = useState<LearningStep>("pre");
@@ -626,23 +628,43 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   }, [selectedId]);
 
   useEffect(() => {
+    // 학생 모드: localStorage 정답 캐시 로드 차단 — 어떤 라벨도 새지 않도록.
+    if (studentMode) {
+      setCustomAnswers({});
+      setIdiomMap(loadIdioms());
+      setModifierMap(loadModifierTargets());
+      setReferentMap(loadReferentTargets());
+      setSavedOwnerSet(new Set());
+      return;
+    }
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
     setReferentMap(loadReferentTargets());
     setSavedOwnerSet(new Set(loadSavedOwners()));
-  }, []);
+  }, [studentMode]);
 
   // ===== sentence 변경 시 클라우드 hydration =====
   useEffect(() => {
     let cancelled = false;
     const sid = sentence.id;
+    // 학생 모드: 본인 owner_progress조차 hydrate하지 않는다.
+    // (자기첨삭 모드(reviewMode)에서만 별도 fetch로 비교)
+    const customsP = studentMode
+      ? Promise.resolve({} as CustomAnswerMap)
+      : hydrateCustomAnswersFromCloud(sid);
+    const modsP = studentMode
+      ? Promise.resolve({} as ModifierTargetMap)
+      : hydrateModifierTargetsFromCloud(sid);
+    const refsP = studentMode
+      ? Promise.resolve({} as ReferentTargetMap)
+      : hydrateReferentTargetsFromCloud(sid);
     Promise.all([
       fetchSentenceProgress(sid),
       fetchBadgeOffsets(sid),
-      hydrateCustomAnswersFromCloud(sid),
-      hydrateModifierTargetsFromCloud(sid),
-      hydrateReferentTargetsFromCloud(sid),
+      customsP,
+      modsP,
+      refsP,
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       const pre = prog?.pre_done ?? false;
@@ -656,14 +678,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       setModifierMap(mods);
       setReferentMap(refs);
     });
-    // 관용구는 전체 sentence 공유 — 한 번만 hydrate
+    // 관용구는 전체 sentence 공유 — 한 번만 hydrate (학생 모드에서도 OK: 관용구는 정답 단서 아님)
     void hydrateIdiomsFromCloud().then((m) => {
       if (!cancelled) setIdiomMap(m);
     });
     return () => {
       cancelled = true;
     };
-  }, [sentence.id]);
+  }, [sentence.id, studentMode]);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 
