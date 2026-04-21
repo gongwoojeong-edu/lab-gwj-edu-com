@@ -44,6 +44,7 @@ import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { resolveNextSentence } from "@/lib/nextSentence";
+import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
 
 import { toast } from "@/hooks/use-toast";
 
@@ -179,19 +180,24 @@ const SentenceLearn = () => {
   };
 
   /** Word test 종료(PASS/FAIL 무관) → 분석 채점 + attempt log 기록 + status 업데이트 */
-  const recordAttempt = async (wordTest: { passed: boolean; score: number }) => {
+  const recordAttempt = async (
+    wordTest: { passed: boolean; score: number },
+    opts?: { teacherOverride?: boolean },
+  ) => {
     if (!sentence) return;
     try {
       const grade = await gradeAnalysis(sentence.id);
       const threshold = profile?.analysis_pass_threshold ?? 0.8;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
-      const analysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
-      const overallPass = analysisPassed && wordTest.passed;
+      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
+      const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
+      const wordTestPassed = opts?.teacherOverride ? true : wordTest.passed;
+      const overallPass = analysisPassed && wordTestPassed;
       setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
 
-      // 필수 owner 누락 안내 (학생에게)
-      if (grade.hasMaster && !requiredOk) {
+      // 필수 owner 누락 안내 (학생에게) — override 시에는 생략
+      if (!opts?.teacherOverride && grade.hasMaster && !requiredOk) {
         toast({
           title: "주절 S/V·접속절 V 분석이 필요해요",
           description: "분석률이 충분해도 주어/동사·접속절의 동사 분석은 모두 완료되어야 통과합니다.",
@@ -200,24 +206,31 @@ const SentenceLearn = () => {
       }
 
       const attemptCount = await fetchAttemptCount(sentence.id);
+      const ownerDiffPayload = opts?.teacherOverride
+        ? ([{ owner_id: "__teacher_override__", teacherOverride: true } as unknown as OwnerDiffEntry, ...grade.diffs])
+        : grade.diffs;
       await insertAttemptLog({
         sentence_id: sentence.id,
         attempt_no: attemptCount + 1,
         analysis_match_rate: grade.rate,
         analysis_passed: analysisPassed,
         word_test_score: wordTest.score,
-        word_test_passed: wordTest.passed,
-        owner_diff: grade.diffs,
+        word_test_passed: wordTestPassed,
+        owner_diff: ownerDiffPayload,
         translation_text: translationText || null,
         started_at: sessionStartedAt,
         completed_at: new Date().toISOString(),
       });
 
       await upsertSentenceProgress(sentence.id, {
-        word_test_done: wordTest.passed,
+        word_test_done: wordTestPassed,
         status: overallPass ? "pass" : "fail",
         passed_at: overallPass ? new Date().toISOString() : null,
       });
+
+      if (opts?.teacherOverride) {
+        setPreviousStatus("pass");
+      }
     } catch (e) {
       console.error("attempt log failed", e);
       toast({ title: "기록 저장 실패", description: String(e), variant: "destructive" });
@@ -284,21 +297,18 @@ const SentenceLearn = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-primary/10 text-primary border border-primary/20">
-              학생 모드
-            </span>
+          <div className="flex items-center gap-2">
             {isStaff && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                type="button"
                 onClick={() => {
                   setMode("teacher");
                   navigate("/teacher");
                 }}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
               >
-                🛠 <span className="hidden sm:inline ml-1">선생님 화면</span>
-              </Button>
+                선생님 화면으로 이동
+              </button>
             )}
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-1" />
@@ -492,31 +502,46 @@ const SentenceLearn = () => {
               </div>
             </div>
 
-            <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3">
+            <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm text-foreground">
                 {canAdvanceToTranslation
                   ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
                   : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
               </div>
-              <Button
-                size="sm"
-                disabled={!canAdvanceToTranslation}
-                onClick={async () => {
-                  try {
-                    await upsertSentenceProgress(sentence.id, { analysis_done: true });
-                  } catch (e) {
-                    toast({
-                      title: "진행 저장 실패",
-                      description: String(e),
-                      variant: "destructive",
-                    });
-                  }
-                  setAnalysisDone(true);
-                  safeSetStep("translation");
-                }}
-              >
-                한글 해석 →
-              </Button>
+              <div className="flex items-center gap-2">
+                <TeacherAnalysisOverride
+                  label="선생님 확인 후 분석 스킵"
+                  description="견해차나 오류가 있을 때 선생님 PIN을 확인하면 분석 단계를 스킵하고 한글 해석으로 넘어갑니다."
+                  onApproved={async () => {
+                    try {
+                      await upsertSentenceProgress(sentence.id, { analysis_done: true });
+                    } catch (e) {
+                      toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
+                    }
+                    setAnalysisDone(true);
+                    safeSetStep("translation");
+                  }}
+                />
+                <Button
+                  size="sm"
+                  disabled={!canAdvanceToTranslation}
+                  onClick={async () => {
+                    try {
+                      await upsertSentenceProgress(sentence.id, { analysis_done: true });
+                    } catch (e) {
+                      toast({
+                        title: "진행 저장 실패",
+                        description: String(e),
+                        variant: "destructive",
+                      });
+                    }
+                    setAnalysisDone(true);
+                    safeSetStep("translation");
+                  }}
+                >
+                  한글 해석 →
+                </Button>
+              </div>
             </Card>
           </div>
         )}
@@ -565,6 +590,28 @@ const SentenceLearn = () => {
             }}
             onSkipToNext={handleSkipToNext}
           />
+        )}
+
+        {/* 분석 게이트에 막혀 PASS 처리되지 않은 경우 — 선생님 PIN 통과 안내 */}
+        {step === "post" && analysisGrade && !analysisGrade.passed && (
+          <Card className="p-4 border-2 border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm text-foreground">
+              <div className="font-bold">분석 결과에 견해차가 있다면 선생님께 확인을 요청하세요.</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                분석 일치율 {Math.round(analysisGrade.rate * 100)}% · 선생님이 PIN을 입력하면 즉시 PASS 처리됩니다.
+              </div>
+            </div>
+            <TeacherAnalysisOverride
+              label="선생님 확인 후 통과"
+              description="분석 결과에 견해차가 있을 때 선생님 PIN을 확인하면 이 지문이 PASS 처리됩니다."
+              variant="outline"
+              className="text-xs"
+              onApproved={async () => {
+                await recordAttempt({ passed: false, score: 0 }, { teacherOverride: true });
+                navigate("/learn");
+              }}
+            />
+          </Card>
         )}
 
         {/* 분석 채점 결과 (선생님/관리자에게만 보임) */}

@@ -122,16 +122,16 @@ const StudentHome = () => {
               </>
             )}
             {(roles.includes("teacher") || roles.includes("admin")) && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                type="button"
                 onClick={() => {
                   setMode("teacher");
                   navigate("/teacher");
                 }}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
               >
-                🛠 선생님 화면
-              </Button>
+                선생님 화면으로 이동
+              </button>
             )}
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-1" /> 로그아웃
