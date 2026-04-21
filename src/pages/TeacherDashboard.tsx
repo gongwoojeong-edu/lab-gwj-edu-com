@@ -106,6 +106,18 @@ const TeacherDashboard = () => {
     toast({ title: "시작 레벨이 변경되었습니다" });
   };
 
+  const handleToggleHint = async (userId: string, enabled: boolean) => {
+    try {
+      await updateStudentHintMode(userId, enabled);
+      setStudents((prev) =>
+        prev.map((s) => (s.user_id === userId ? { ...s, hint_mode_enabled: enabled } : s)),
+      );
+      toast({ title: enabled ? "힌트 모드 ON" : "힌트 모드 OFF" });
+    } catch (e) {
+      toast({ title: "힌트 모드 변경 실패", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -151,7 +163,9 @@ const TeacherDashboard = () => {
                     <th className="py-2 pr-3">이름</th>
                     <th className="py-2 pr-3">시작 레벨</th>
                     <th className="py-2 pr-3">현재 진행</th>
-                    <th className="py-2 pr-3 text-right">Pass 수</th>
+                    <th className="py-2 pr-3 text-right">Pass</th>
+                    <th className="py-2 pr-3 text-right">미통</th>
+                    <th className="py-2 pr-3">힌트모드</th>
                     <th className="py-2 pr-3">마지막 활동</th>
                     {isAdmin && <th className="py-2 pr-3">권한</th>}
                   </tr>
@@ -159,6 +173,7 @@ const TeacherDashboard = () => {
                 <tbody>
                   {students.map((s) => {
                     const st = stats[s.user_id];
+                    const failN = failCounts[s.user_id] ?? 0;
                     return (
                       <tr key={s.user_id} className="border-b border-border/50">
                         <td className="py-2 pr-3 font-mono">{s.student_no}</td>
