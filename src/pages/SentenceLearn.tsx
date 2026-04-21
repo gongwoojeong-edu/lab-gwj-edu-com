@@ -741,7 +741,7 @@ const SentenceLearn = () => {
                     variant: "destructive",
                   });
                 }
-                safeSetStep("analysis");
+                advanceFrom("pre");
               }}
             />
           )
