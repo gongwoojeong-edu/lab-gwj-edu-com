@@ -65,6 +65,23 @@ const HandoutPage = () => {
     };
   }, [passageCode, studentId]);
 
+  // ===== 인쇄대기열에서 진입 시: 실제 인쇄 직전에 처리완료 자동 마킹 =====
+  useEffect(() => {
+    if (!fromQueue || !reqId || !studentId) return;
+    let handled = false;
+    const onBeforePrint = () => {
+      if (handled) return;
+      handled = true;
+      // fire-and-forget: 인쇄 흐름을 막지 않음
+      Promise.all([
+        markPrintRequestHandled(reqId),
+        ensureHandoutRow(studentId, null, toIsoDate(new Date())),
+      ]).catch((e) => console.error("[Handout] auto-mark failed", e));
+    };
+    window.addEventListener("beforeprint", onBeforePrint);
+    return () => window.removeEventListener("beforeprint", onBeforePrint);
+  }, [fromQueue, reqId, studentId]);
+
   const segments = useMemo(
     () => (passage ? buildClozeSegments(passage.tokens) : null),
     [passage],
