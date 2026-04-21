@@ -387,9 +387,37 @@ interface IndexProps {
   studentMode?: boolean;
   /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용 */
   onAnalysisProgress?: (rate: number) => void;
+  /**
+   * Hydrate 대상 user_id를 명시. 미지정 시 현재 로그인 사용자(기존 동작).
+   * 비교/첨삭 화면에서 학생 또는 admin(마스터키) 데이터를 표시할 때 사용.
+   */
+  hydrateUserId?: string;
+  /**
+   * 비교 모드: 모든 편집/클릭/드래그/툴바/AnalysisPanel 비활성화.
+   * 마우스 클릭 시 onOwnerToggle 콜백만 호출 (수동 마킹 토글용).
+   */
+  compareMode?: boolean;
+  /** 빨강 음영 처리할 owner_id 집합 (마스터키와 불일치) */
+  diffOwnerIds?: Set<string>;
+  /** 회색 점선 처리할 owner_id 집합 (학생 미입력) */
+  missingOwnerIds?: Set<string>;
+  /** compareMode에서 owner 클릭 시 호출 — 수동 마킹 토글 */
+  onOwnerToggle?: (ownerId: string) => void;
 }
 
-const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false, onAnalysisProgress }: IndexProps = {}) => {
+const Index = ({
+  embedMode = false,
+  embedSentenceId,
+  onAnalysisDone,
+  hintWrongOwnerIds,
+  studentMode = false,
+  onAnalysisProgress,
+  hydrateUserId,
+  compareMode = false,
+  diffOwnerIds,
+  missingOwnerIds,
+  onOwnerToggle,
+}: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
