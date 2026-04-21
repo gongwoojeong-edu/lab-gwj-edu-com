@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, Save } from "lucide-react";
+import { ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
 import Index from "@/pages/Index";
-import { ExtractedWordsPanel } from "@/components/analyzer/ExtractedWordsPanel";
 import { hydrateSentencesFromDb, saveSentenceTokens } from "@/lib/sentenceSource";
 import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
 import { SENTENCES } from "@/data/sentences";
@@ -17,10 +16,9 @@ const PassageEditor = () => {
     unitNo: string;
     passageCode: string;
   }>();
-  const navigate = useNavigate();
   const [passage, setPassage] = useState<Passage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     if (!passageCode) return;
@@ -33,27 +31,27 @@ const PassageEditor = () => {
     })();
   }, [passageCode]);
 
-  const handleSave = async () => {
-    if (!passageCode) return;
+  const togglePublish = async () => {
+    if (!passageCode || !passage) return;
     const cur = SENTENCES.find((s) => s.id === passageCode);
-    if (!cur) {
-      toast({ title: "메모리에 지문이 없어요", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
+    const tokens = cur?.tokens ?? [];
+    const nextReady = passage.analysis_status !== "ready";
+    setToggling(true);
     try {
-      await saveSentenceTokens(passageCode, cur.tokens, true);
-      toast({ title: "저장되었습니다 (ready)" });
+      await saveSentenceTokens(passageCode, tokens, nextReady);
+      toast({
+        title: nextReady ? "학생에게 공개되었습니다 (ready)" : "비공개로 전환했습니다 (draft)",
+      });
       const refreshed = await fetchPassageByCode(passageCode);
       setPassage(refreshed);
     } catch (e) {
       toast({
-        title: "저장 실패",
+        title: "상태 변경 실패",
         description: (e as Error).message,
         variant: "destructive",
       });
     } finally {
-      setSaving(false);
+      setToggling(false);
     }
   };
 
@@ -79,6 +77,8 @@ const PassageEditor = () => {
     );
   }
 
+  const isReady = passage.analysis_status === "ready";
+
   return (
     <TeacherLayout>
       <div className="p-4 space-y-4">
@@ -97,47 +97,51 @@ const PassageEditor = () => {
             <p className="text-xs text-muted-foreground line-clamp-1 max-w-3xl">
               {passage.english}
             </p>
+            <p className="text-[11px] text-muted-foreground mt-1 font-kr">
+              💡 분석은 하단 <b>[정답 입력]</b> 토글을 켠 뒤 단어를 클릭해 입력 →{" "}
+              <b>[정답 저장]</b> 으로 저장하세요 (마스터키).
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <span
               className={
                 "text-[10px] font-bold px-2 py-1 rounded-full " +
-                (passage.analysis_status === "ready"
+                (isReady
                   ? "bg-primary/15 text-primary"
                   : "bg-muted text-muted-foreground")
               }
             >
               {passage.analysis_status}
             </span>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? (
+            <Button
+              onClick={togglePublish}
+              disabled={toggling}
+              variant={isReady ? "outline" : "default"}
+            >
+              {toggling ? (
                 <Loader2 className="size-3.5 mr-1 animate-spin" />
+              ) : isReady ? (
+                <EyeOff className="size-3.5 mr-1" />
               ) : (
-                <Save className="size-3.5 mr-1" />
+                <Eye className="size-3.5 mr-1" />
               )}
-              분석 저장 (ready)
+              {isReady ? "비공개 전환 (draft)" : "학생 공개 (ready)"}
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
-          <Card className="overflow-hidden">
-            <div className="border-b border-border bg-muted/30 px-3 py-2 text-xs font-bold">
-              구문분석 정답 입력
-            </div>
-            <div className="max-h-[calc(100vh-220px)] overflow-auto">
-              <Index embedMode embedSentenceId={passage.code} />
-            </div>
-          </Card>
-          <Card className="overflow-hidden">
-            <div className="border-b border-border bg-muted/30 px-3 py-2 text-xs font-bold">
-              단어 추출 / 편집
-            </div>
-            <div className="p-3">
-              <ExtractedWordsPanel sentenceId={passage.code} english={passage.english} />
-            </div>
-          </Card>
-        </div>
+        <Card className="overflow-hidden">
+          <div className="border-b border-border bg-muted/30 px-3 py-2 text-xs font-bold">
+            마스터키 분석 입력기
+          </div>
+          <div className="max-h-[calc(100vh-220px)] overflow-auto">
+            <Index
+              embedMode
+              embedSentenceId={passage.code}
+              showStaffToolbar
+            />
+          </div>
+        </Card>
       </div>
     </TeacherLayout>
   );
