@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock } from "lucide-react";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
