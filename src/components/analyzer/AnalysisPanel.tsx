@@ -884,6 +884,7 @@ interface NounPanelProps {
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
   onNounElementRole: (e: SentenceElement, r: string | null) => void;
+  onClauseDepthChange?: (d: ClauseDepth) => void;
   referent?: ReferentSectionInput;
 }
 
@@ -893,6 +894,7 @@ const NounPanel = ({
   onNounFormChange,
   onNounRoleChange,
   onNounElementRole,
+  onClauseDepthChange,
   referent,
 }: NounPanelProps) => {
   const formCorrect = noun.formStatus === "correct";
@@ -976,6 +978,7 @@ interface AdjPanelProps {
   onAdjElementChange: (e: "C" | "M") => void;
   onAdjRoleChange: (r: string) => void;
   onAdjElementRole: (e: "C" | "M", r: string | null) => void;
+  onClauseDepthChange?: (d: ClauseDepth) => void;
   modifier?: ModifierSectionInput;
 }
 
@@ -985,6 +988,7 @@ const AdjPanel = ({
   onAdjFormChange,
   onAdjRoleChange,
   onAdjElementRole,
+  onClauseDepthChange,
   modifier,
 }: AdjPanelProps) => {
   const formCorrect = adj.formStatus === "correct";
@@ -1219,6 +1223,7 @@ interface AdvPanelProps {
   onAdvFormChange: (f: AdvForm) => void;
   onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
+  onClauseDepthChange?: (d: ClauseDepth) => void;
 }
 
 const AdvPanel = ({
@@ -1227,6 +1232,7 @@ const AdvPanel = ({
   onAdvFormChange,
   onAdvSubtypeChange,
   onAdvRoleChange,
+  onClauseDepthChange,
 }: AdvPanelProps) => {
   const mask = useMaskStatus();
   const advRoleStatus = mask(adv.roleStatus);
