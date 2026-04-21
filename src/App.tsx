@@ -93,6 +93,22 @@ const App = () => (
                 </RequireAuth>
               }
             />
+            <Route
+              path="/teacher/compare/:sentenceId/:studentId"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <AnalysisCompare />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/handout/analysis/:sentenceId/:studentId"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <AnalysisHandout />
+                </RequireAuth>
+              }
+            />
 
             {/* 선생님 대시보드 */}
             <Route
