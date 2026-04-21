@@ -263,17 +263,49 @@ const TeacherHome = () => {
 
         {/* Handout input */}
         <div className="space-y-3">
-          <div>
-            <h2 className="text-lg font-bold">오늘의 핸드아웃 성적 입력</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              단어HO 점수와 구문HO P/F를 입력하면 자동 저장됩니다. Enter 키로 다음 학생 칸으로 이동합니다.
-            </p>
+          <div className="flex items-end justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-lg font-bold">오늘의 핸드아웃 성적 입력</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                인쇄 대기열에서 PDF를 열면 자동으로 학생이 추가됩니다. Enter로 다음 학생 칸으로 이동합니다.
+              </p>
+            </div>
+            <Popover open={addOpen} onOpenChange={setAddOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={missingStudents.length === 0}>
+                  <Plus className="size-4 mr-1" />
+                  학생 추가
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-72" align="end">
+                <Command>
+                  <CommandInput placeholder="학생 검색…" />
+                  <CommandList>
+                    <CommandEmpty>해당 학생 없음</CommandEmpty>
+                    <CommandGroup>
+                      {missingStudents.map((s) => (
+                        <CommandItem
+                          key={s.user_id}
+                          value={`${s.student_no} ${s.display_name ?? ""}`}
+                          onSelect={() => handleAddStudent(s.user_id)}
+                        >
+                          <span className="font-mono text-xs text-muted-foreground mr-2">
+                            {s.student_no}
+                          </span>
+                          <span>{s.display_name ?? "-"}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <SessionDateBar
             date={testDate}
             onDateChange={setTestDate}
-            studentCount={students.length}
+            studentCount={visibleStudents.length}
             filledCount={filledCount}
           />
 
@@ -284,6 +316,13 @@ const TeacherHome = () => {
           ) : students.length === 0 ? (
             <Card className="p-8 text-sm text-muted-foreground text-center">
               등록된 학생이 없습니다.
+            </Card>
+          ) : visibleStudents.length === 0 ? (
+            <Card className="p-8 text-sm text-muted-foreground text-center space-y-2">
+              <div>오늘 인쇄된 핸드아웃이 없습니다.</div>
+              <div className="text-xs">
+                인쇄 대기열에서 PDF를 열거나, 위의 <strong>학생 추가</strong> 버튼으로 즉석 채점할 학생을 선택하세요.
+              </div>
             </Card>
           ) : (
             <Card className="overflow-hidden">
@@ -299,7 +338,7 @@ const TeacherHome = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {students.map((s) => {
+                  {visibleStudents.map((s) => {
                     const isExpanded = expandedStudentId === s.user_id;
                     const row = handoutMap[s.user_id] ?? null;
                     return (
