@@ -43,6 +43,7 @@ interface AssignmentRow {
   description: string | null;
   sentence_id: string | null;
   due_at: string;
+  include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
@@ -86,7 +87,7 @@ const StudentHome = () => {
             .limit(5),
           supabase
             .from("assignments")
-            .select("id, title, description, sentence_id, due_at, include_analysis, include_translation, include_wordtest")
+            .select("id, title, description, sentence_id, due_at, include_pre, include_analysis, include_translation, include_wordtest")
             .or(`student_id.eq.${user.id},student_id.is.null`)
             .gte("due_at", new Date().toISOString())
             .order("due_at", { ascending: true })
@@ -384,6 +385,7 @@ const StudentHome = () => {
                             </span>
                           </div>
                           <AssignmentStepBadges
+                            includePre={a.include_pre}
                             includeAnalysis={a.include_analysis}
                             includeTranslation={a.include_translation}
                             includeWordtest={a.include_wordtest}

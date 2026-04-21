@@ -44,6 +44,7 @@ interface UpcomingAssignment {
   due_at: string;
   sentence_id: string | null;
   student_id: string | null;
+  include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
@@ -72,7 +73,7 @@ const TeacherHome = () => {
     const inSevenDays = new Date(Date.now() + 7 * 24 * 3_600_000).toISOString();
     supabase
       .from("assignments")
-      .select("id, title, due_at, sentence_id, student_id, include_analysis, include_translation, include_wordtest")
+      .select("id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest")
       .gte("due_at", new Date().toISOString())
       .lte("due_at", inSevenDays)
       .order("due_at", { ascending: true })
@@ -204,6 +205,7 @@ const TeacherHome = () => {
                         {a.sentence_id && ` · ${a.sentence_id}`}
                       </div>
                       <AssignmentStepBadges
+                        includePre={a.include_pre}
                         includeAnalysis={a.include_analysis}
                         includeTranslation={a.include_translation}
                         includeWordtest={a.include_wordtest}

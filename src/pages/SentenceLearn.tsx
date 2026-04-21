@@ -56,6 +56,7 @@ import {
 } from "@/lib/analysisReview";
 import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 type Step = "pre" | "analysis" | "translation" | "post";
@@ -91,6 +92,12 @@ const SentenceLearn = () => {
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[] } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
+  const [skipFlags, setSkipFlags] = useState<{ pre: boolean; analysis: boolean; translation: boolean; wordtest: boolean }>({
+    pre: true,
+    analysis: true,
+    translation: true,
+    wordtest: true,
+  });
   const ANALYSIS_GATE = 0.8;
   const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
 
@@ -116,13 +123,28 @@ const SentenceLearn = () => {
         return;
       }
 
-      const [prog, extraction, owners, prof, logs, attemptCnt] = await Promise.all([
+      const [prog, extraction, owners, prof, logs, attemptCnt, assignRes] = await Promise.all([
         fetchSentenceProgress(found.id),
         fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
         fetchMyProfile(),
         fetchAttemptLogs(found.id),
         fetchAttemptCount(found.id),
+        // 활성 특별과제 lookup (해당 sentence + 마감 미경과 + 본인 또는 전체 대상) — 가장 임박 1건
+        (async () => {
+          const { data: u } = await supabase.auth.getUser();
+          if (!u.user) return null;
+          const { data } = await supabase
+            .from("assignments")
+            .select("include_pre, include_analysis, include_translation, include_wordtest")
+            .eq("sentence_id", found.id)
+            .or(`student_id.eq.${u.user.id},student_id.is.null`)
+            .gte("due_at", new Date().toISOString())
+            .order("due_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          return data;
+        })(),
       ]);
       if (!mounted) return;
       const nextAttemptNo = attemptCnt + 1;
@@ -131,9 +153,43 @@ const SentenceLearn = () => {
       const openReq = await fetchOpenRequest(found.id, nextAttemptNo);
       if (mounted) setOpenRequest(openReq);
 
-      setPreDone(!!prog?.pre_done);
-      setAnalysisDone(!!prog?.analysis_done);
-      setTranslationDone(!!prog?.translation_done);
+      // 특별과제의 단계 포함 여부 — 없으면 기본(모두 true)
+      const flags = {
+        pre: assignRes ? !!assignRes.include_pre : true,
+        analysis: assignRes ? !!assignRes.include_analysis : true,
+        translation: assignRes ? !!assignRes.include_translation : true,
+        wordtest: assignRes ? !!assignRes.include_wordtest : true,
+      };
+      setSkipFlags(flags);
+
+      // OFF 단계는 자동으로 done 처리 (DB에도 upsert)
+      let preDoneEff = !!prog?.pre_done;
+      let analysisDoneEff = !!prog?.analysis_done;
+      let translationDoneEff = !!prog?.translation_done;
+      const autoPatch: Record<string, boolean> = {};
+      if (!flags.pre && !preDoneEff) {
+        preDoneEff = true;
+        autoPatch.pre_done = true;
+      }
+      if (!flags.analysis && !analysisDoneEff) {
+        analysisDoneEff = true;
+        autoPatch.analysis_done = true;
+      }
+      if (!flags.translation && !translationDoneEff) {
+        translationDoneEff = true;
+        autoPatch.translation_done = true;
+      }
+      if (Object.keys(autoPatch).length > 0) {
+        try {
+          await upsertSentenceProgress(found.id, autoPatch);
+        } catch (e) {
+          console.warn("auto-skip upsert failed", e);
+        }
+      }
+
+      setPreDone(preDoneEff);
+      setAnalysisDone(analysisDoneEff);
+      setTranslationDone(translationDoneEff);
       setProfile(prof);
       setAttemptLogs(logs);
       const status = (prog?.status ?? "pending") as "pending" | "pass" | "fail";
@@ -173,9 +229,10 @@ const SentenceLearn = () => {
       }
       setEntries(built);
 
-      if (!prog?.pre_done) setStep("pre");
-      else if (!prog?.analysis_done) setStep("analysis");
-      else if (!prog?.translation_done) setStep("translation");
+      // 초기 step 결정 — OFF 단계는 건너뜀
+      if (!preDoneEff && flags.pre) setStep("pre");
+      else if (!analysisDoneEff && flags.analysis) setStep("analysis");
+      else if (!translationDoneEff && flags.translation) setStep("translation");
       else setStep("post");
 
       setLoading(false);
@@ -214,13 +271,32 @@ const SentenceLearn = () => {
 
   const stepStates = useMemo(
     () => ({
-      pre: { done: preDone, locked: false },
-      analysis: { done: analysisDone, locked: !preDone || translationDone },
-      translation: { done: translationDone, locked: !analysisDone },
-      post: { done: false, locked: !(preDone && analysisDone && translationDone) },
+      pre: { done: preDone, locked: false, skipped: !skipFlags.pre },
+      analysis: { done: analysisDone, locked: !preDone || translationDone, skipped: !skipFlags.analysis },
+      translation: { done: translationDone, locked: !analysisDone, skipped: !skipFlags.translation },
+      post: { done: false, locked: !(preDone && analysisDone && translationDone), skipped: !skipFlags.wordtest },
     }),
-    [preDone, analysisDone, translationDone],
+    [preDone, analysisDone, translationDone, skipFlags],
   );
+
+  /** 다음으로 진입 가능한 OFF가 아닌 단계로 자동 점프 */
+  const advanceFrom = (current: Step) => {
+    const order: Step[] = ["pre", "analysis", "translation", "post"];
+    const flagOf: Record<Step, boolean> = {
+      pre: skipFlags.pre,
+      analysis: skipFlags.analysis,
+      translation: skipFlags.translation,
+      post: skipFlags.wordtest,
+    };
+    const idx = order.indexOf(current);
+    for (let i = idx + 1; i < order.length; i++) {
+      if (flagOf[order[i]]) {
+        safeSetStep(order[i]);
+        return;
+      }
+    }
+    safeSetStep("post");
+  };
 
   /** 백워드 전이 차단: 한글해석 제출 후에는 분석/단어학습 단계 진입 차단 */
   const safeSetStep = (next: Step) => {
@@ -244,7 +320,8 @@ const SentenceLearn = () => {
       const requiredOk = grade.requiredOwnersFilled;
       const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
       const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
-      const wordTestPassed = opts?.teacherOverride ? true : wordTest.passed;
+      // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
+      const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
       const overallPass = analysisPassed && wordTestPassed;
       setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
 
@@ -312,7 +389,7 @@ const SentenceLearn = () => {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
     }
     setAnalysisDone(true);
-    safeSetStep("translation");
+    advanceFrom("analysis");
   };
 
   /** 자기 첨삭 요청 생성 */
@@ -602,24 +679,31 @@ const SentenceLearn = () => {
           {(Object.keys(STEP_LABELS) as Step[]).map((k) => {
             const s = stepStates[k];
             const active = step === k;
+            const disabled = s.locked || s.skipped;
             return (
               <button
                 key={k}
-                onClick={() => !s.locked && safeSetStep(k)}
-                disabled={s.locked}
+                onClick={() => !disabled && safeSetStep(k)}
+                disabled={disabled}
                 className={cn(
                   "flex-1 px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all",
                   active
                     ? "border-primary bg-primary text-primary-foreground shadow"
-                    : s.done
-                      ? "border-primary/40 bg-primary/5 text-primary"
-                      : s.locked
-                        ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-70"
-                        : "border-border bg-card text-foreground hover:border-primary/40",
+                    : s.skipped
+                      ? "border-dashed border-border bg-muted/40 text-muted-foreground cursor-not-allowed opacity-60"
+                      : s.done
+                        ? "border-primary/40 bg-primary/5 text-primary"
+                        : s.locked
+                          ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-70"
+                          : "border-border bg-card text-foreground hover:border-primary/40",
                 )}
               >
                 <div className="flex items-center justify-center gap-1.5">
-                  {s.locked && <Lock className="w-3 h-3" />}
+                  {s.skipped ? (
+                    <span className="text-[10px] font-extrabold opacity-80">스킵</span>
+                  ) : s.locked ? (
+                    <Lock className="w-3 h-3" />
+                  ) : null}
                   {STEP_LABELS[k]}
                 </div>
               </button>
@@ -657,7 +741,7 @@ const SentenceLearn = () => {
                     variant: "destructive",
                   });
                 }
-                safeSetStep("analysis");
+                advanceFrom("pre");
               }}
             />
           )
@@ -705,7 +789,7 @@ const SentenceLearn = () => {
                       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
                     }
                     setAnalysisDone(true);
-                    safeSetStep("translation");
+                    advanceFrom("analysis");
                   }}
                 />
                 <Button
@@ -758,7 +842,7 @@ const SentenceLearn = () => {
           </div>
         )}
 
-        {step === "post" && (
+        {step === "post" && skipFlags.wordtest && (
           <WordTestStep
             sentenceId={sentence.id}
             entries={entries}
@@ -768,6 +852,26 @@ const SentenceLearn = () => {
             }}
             onSkipToNext={handleSkipToNext}
           />
+        )}
+
+        {step === "post" && !skipFlags.wordtest && (
+          <Card className="p-6 space-y-4 border-primary/30 bg-primary/5 text-center">
+            <div className="text-sm font-bold text-primary">단어시험 단계가 비활성화된 과제예요</div>
+            <p className="text-xs text-muted-foreground">
+              선생님이 이 과제에서 단어시험 단계를 빼셨어요. 자동으로 통과 처리됩니다.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  await recordAttempt({ passed: true, score: 1 });
+                  navigate("/learn");
+                }}
+              >
+                통과 처리하고 학습 홈으로
+              </Button>
+            </div>
+          </Card>
         )}
 
         {/* 분석 게이트에 막혀 PASS 처리되지 않은 경우 — 자기 첨삭 요청 + 선생님 PIN 통과 */}
