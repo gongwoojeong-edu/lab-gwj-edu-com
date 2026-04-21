@@ -122,13 +122,28 @@ const SentenceLearn = () => {
         return;
       }
 
-      const [prog, extraction, owners, prof, logs, attemptCnt] = await Promise.all([
+      const [prog, extraction, owners, prof, logs, attemptCnt, assignRes] = await Promise.all([
         fetchSentenceProgress(found.id),
         fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
         fetchMyProfile(),
         fetchAttemptLogs(found.id),
         fetchAttemptCount(found.id),
+        // 활성 특별과제 lookup (해당 sentence + 마감 미경과 + 본인 또는 전체 대상) — 가장 임박 1건
+        (async () => {
+          const { data: u } = await supabase.auth.getUser();
+          if (!u.user) return null;
+          const { data } = await supabase
+            .from("assignments")
+            .select("include_pre, include_analysis, include_translation, include_wordtest")
+            .eq("sentence_id", found.id)
+            .or(`student_id.eq.${u.user.id},student_id.is.null`)
+            .gte("due_at", new Date().toISOString())
+            .order("due_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          return data;
+        })(),
       ]);
       if (!mounted) return;
       const nextAttemptNo = attemptCnt + 1;
@@ -137,9 +152,43 @@ const SentenceLearn = () => {
       const openReq = await fetchOpenRequest(found.id, nextAttemptNo);
       if (mounted) setOpenRequest(openReq);
 
-      setPreDone(!!prog?.pre_done);
-      setAnalysisDone(!!prog?.analysis_done);
-      setTranslationDone(!!prog?.translation_done);
+      // 특별과제의 단계 포함 여부 — 없으면 기본(모두 true)
+      const flags = {
+        pre: assignRes ? !!assignRes.include_pre : true,
+        analysis: assignRes ? !!assignRes.include_analysis : true,
+        translation: assignRes ? !!assignRes.include_translation : true,
+        wordtest: assignRes ? !!assignRes.include_wordtest : true,
+      };
+      setSkipFlags(flags);
+
+      // OFF 단계는 자동으로 done 처리 (DB에도 upsert)
+      let preDoneEff = !!prog?.pre_done;
+      let analysisDoneEff = !!prog?.analysis_done;
+      let translationDoneEff = !!prog?.translation_done;
+      const autoPatch: Record<string, boolean> = {};
+      if (!flags.pre && !preDoneEff) {
+        preDoneEff = true;
+        autoPatch.pre_done = true;
+      }
+      if (!flags.analysis && !analysisDoneEff) {
+        analysisDoneEff = true;
+        autoPatch.analysis_done = true;
+      }
+      if (!flags.translation && !translationDoneEff) {
+        translationDoneEff = true;
+        autoPatch.translation_done = true;
+      }
+      if (Object.keys(autoPatch).length > 0) {
+        try {
+          await upsertSentenceProgress(found.id, autoPatch);
+        } catch (e) {
+          console.warn("auto-skip upsert failed", e);
+        }
+      }
+
+      setPreDone(preDoneEff);
+      setAnalysisDone(analysisDoneEff);
+      setTranslationDone(translationDoneEff);
       setProfile(prof);
       setAttemptLogs(logs);
       const status = (prog?.status ?? "pending") as "pending" | "pass" | "fail";
@@ -179,9 +228,10 @@ const SentenceLearn = () => {
       }
       setEntries(built);
 
-      if (!prog?.pre_done) setStep("pre");
-      else if (!prog?.analysis_done) setStep("analysis");
-      else if (!prog?.translation_done) setStep("translation");
+      // 초기 step 결정 — OFF 단계는 건너뜀
+      if (!preDoneEff && flags.pre) setStep("pre");
+      else if (!analysisDoneEff && flags.analysis) setStep("analysis");
+      else if (!translationDoneEff && flags.translation) setStep("translation");
       else setStep("post");
 
       setLoading(false);
