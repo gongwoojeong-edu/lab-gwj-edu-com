@@ -28,6 +28,7 @@ import {
 } from "@/lib/analysisReview";
 import { gradeAnalysis } from "@/lib/analysisGrading";
 import { toast } from "@/hooks/use-toast";
+import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 
 interface RecentItem {
   sentence: Sentence;
@@ -239,11 +240,16 @@ const StudentHome = () => {
       <header className="sticky top-0 z-30 backdrop-blur-md bg-background/70 border-b border-border">
         <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <img
+              src={gwjEduLogo}
+              alt="공우정에듀 로고"
+              width={32}
+              height={32}
+              loading="lazy"
+              className="w-8 h-8 object-contain"
+            />
             <div>
-              <div className="text-sm font-bold text-foreground leading-none">공우정 영어</div>
+              <div className="text-sm font-bold text-foreground leading-none">공우정에듀</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
                 {profile?.student_no ?? "—"} · {profile?.display_name ?? ""}
               </div>
