@@ -13,13 +13,16 @@ import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchAllStudents,
   fetchStudentStatsMap,
+  fetchStudentFailCounts,
   updateStudentStartLevel,
+  updateStudentHintMode,
   type StudentProfile,
   type StudentStats,
 } from "@/lib/studentProfile";
 import { useAuth, signOut, type AppRole } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { LogOut, ChevronLeft, Shield, ShieldCheck, GraduationCap } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { addUserRole, fetchAllUserRoles, removeUserRole } from "@/lib/userRoles";
 
 const ROLE_OPTIONS: { value: AppRole; label: string; icon: typeof Shield }[] = [
@@ -33,6 +36,7 @@ const TeacherDashboard = () => {
   const isAdmin = myRoles.includes("admin");
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [stats, setStats] = useState<Record<string, StudentStats>>({});
+  const [failCounts, setFailCounts] = useState<Record<string, number>>({});
   const [rolesMap, setRolesMap] = useState<Record<string, AppRole[]>>({});
   const [loading, setLoading] = useState(true);
 
@@ -45,10 +49,11 @@ const TeacherDashboard = () => {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([fetchAllStudents(), fetchStudentStatsMap()]).then(([s, st]) => {
+    Promise.all([fetchAllStudents(), fetchStudentStatsMap(), fetchStudentFailCounts()]).then(([s, st, fc]) => {
       if (mounted) {
         setStudents(s);
         setStats(st);
+        setFailCounts(fc);
         setLoading(false);
       }
     });
