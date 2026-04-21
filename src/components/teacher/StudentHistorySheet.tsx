@@ -261,6 +261,15 @@ const StudentHistorySheet = ({ open, onOpenChange, userId, studentName, studentN
                                 </span>
                               </span>
                             </td>
+                            <td className="py-1.5 pr-2 text-right">
+                              {userId && (
+                                <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[10px]">
+                                  <Link to={`/teacher/compare/${r.sentence_id}/${userId}`} target="_blank">
+                                    <Eye className="size-3" /> 비교
+                                  </Link>
+                                </Button>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
