@@ -22,11 +22,16 @@ import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import {
   fetchHandoutResultsByDate,
+  ensureHandoutRow,
   toIsoDate,
   type HandoutResult,
 } from "@/lib/handoutResults";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Plus } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import ClassKpiCards from "@/components/stats/ClassKpiCards";
@@ -64,6 +69,7 @@ const TeacherHome = () => {
   const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [upcoming, setUpcoming] = useState<UpcomingAssignment[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -119,8 +125,29 @@ const TeacherHome = () => {
     else inputRefs.current.delete(userId);
   };
 
+  const visibleStudents = useMemo(
+    () => students.filter((s) => handoutMap[s.user_id] != null),
+    [students, handoutMap],
+  );
+
+  const missingStudents = useMemo(
+    () => students.filter((s) => handoutMap[s.user_id] == null),
+    [students, handoutMap],
+  );
+
+  const handleAddStudent = async (userId: string) => {
+    try {
+      const row = await ensureHandoutRow(userId, user?.id ?? null, testDateIso);
+      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+      setAddOpen(false);
+      toast({ title: "성적 입력 행 추가됨" });
+    } catch (e) {
+      toast({ title: "추가 실패", description: String(e), variant: "destructive" });
+    }
+  };
+
   const focusNext = (currentUserId: string) => {
-    const ids = students.map((s) => s.user_id);
+    const ids = visibleStudents.map((s) => s.user_id);
     const idx = ids.indexOf(currentUserId);
     for (let i = idx + 1; i < ids.length; i++) {
       const el = inputRefs.current.get(ids[i]);
