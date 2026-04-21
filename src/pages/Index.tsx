@@ -1902,8 +1902,8 @@ const Index = ({
     onVerbToggleVoice: handleVerbVoice,
     onVerbToggleProVerb: handleVerbProVerb,
     onVerbConfirm: handleVerbConfirm,
-    // 관용구는 분석과 독립이지만 단일 단어에서는 주도 UI가 되지 않음
-    idiomEnabled: activeSelectionIndices.length >= 2,
+    // 관용구는 분석과 독립 — 1개 단어에도 특수 의미 등록 가능
+    idiomEnabled: activeSelectionIndices.length >= 1,
     idiomExistingMeaning: currentSelectionIdiom()?.meaning,
     onIdiomSave: handleIdiomSave,
     onIdiomRemove: handleIdiomRemove,

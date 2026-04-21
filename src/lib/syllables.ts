@@ -78,7 +78,37 @@ export const splitIntoSyllables = (rawWord: string): string[] => {
     prev = s;
   }
   chunks.push(word.slice(prev));
-  return chunks.filter(Boolean);
+  let result = chunks.filter(Boolean);
+
+  // ── 후처리 1: Silent-e 병합 ─────────────────────────────────────
+  // 마지막 청크가 "자음+e" (ce, ge, se, te, ne, ve, de, re, le, me, pe, be, ke, ze)
+  // 형태이고 길이 ≤ 2이면 직전 청크에 합친다.
+  // 예: en|han|ce → en|hance, de|ci|de → de|cide
+  // 단, "le"는 의도적으로 분리(simple→sim|ple)하므로 예외.
+  while (result.length >= 2) {
+    const last = result[result.length - 1];
+    const lower = last.toLowerCase();
+    if (lower.length <= 2 && /^[bcdfghjklmnpqrstvwxz]+e$/.test(lower) && lower !== "le") {
+      const merged2 = result[result.length - 2] + last;
+      result = [...result.slice(0, -2), merged2];
+      continue;
+    }
+    break;
+  }
+
+  // ── 후처리 2: 짧은 자음 청크 병합 ───────────────────────────────
+  // 마지막 청크가 모음 없는 자음만 (예: 잔여 자음군)이거나 길이 ≤ 1이면
+  // 직전 청크에 합친다. "tion", "ble", "tle" 같은 정상 청크는 모음이 있으므로 보존.
+  while (result.length >= 2) {
+    const last = result[result.length - 1];
+    if (last.length <= 1 || !/[aeiouy]/i.test(last)) {
+      result = [...result.slice(0, -2), result[result.length - 2] + last];
+      continue;
+    }
+    break;
+  }
+
+  return result;
 };
 
 /** Web Speech API로 한 청크 발음. onEnd 콜백을 통해 재생 종료 시점을 알 수 있다. */
@@ -112,4 +142,8 @@ export const speakChunk = (
 
 /** 단어 전체를 한 번에 자연스럽게 발음 */
 export const speakWord = (word: string, onEnd?: () => void) =>
-  speakChunk(word, { rate: 0.95 }, onEnd);
+  speakChunk(word, { rate: 0.7 }, onEnd);
+
+/** 단일 음절 청크 발음 — 알파벳 이름으로 들리지 않게 약간 더 천천히 */
+export const speakSyllable = (chunk: string, onEnd?: () => void) =>
+  speakChunk(chunk, { rate: 0.65 }, onEnd);
