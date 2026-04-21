@@ -126,6 +126,10 @@
     --idiom-bg: 30 25% 22%;
     --idiom-border: 28 30% 38%;
     --idiom-fg: 35 40% 80%;
+
+    --streak: 35 90% 60%;
+    --streak-foreground: 38 95% 80%;
+    --streak-bg: 32 50% 18%;
   }
 }
 
