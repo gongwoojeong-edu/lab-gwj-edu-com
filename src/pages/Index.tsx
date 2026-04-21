@@ -1414,7 +1414,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     const next = upsertIdiom(sentence.id, sorted, surface, meaning);
     setIdiomMap(next);
     toast({
-      title: "🟫 관용구 저장됨",
+      title: "🟩 관용구 저장됨",
       description: `"${surface}" — ${meaning}`,
     });
   };
@@ -2782,7 +2782,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                     <TooltipTrigger asChild>{wordNode}</TooltipTrigger>
                     <TooltipContent side="top" className="font-kr text-xs max-w-xs">
                       <p className="font-bold mb-0.5" style={{ color: "hsl(var(--idiom-fg))" }}>
-                        🟫 {idiomMark.surface}
+                        🟩 {idiomMark.surface}
                       </p>
                       <p>{idiomMark.meaning}</p>
                     </TooltipContent>

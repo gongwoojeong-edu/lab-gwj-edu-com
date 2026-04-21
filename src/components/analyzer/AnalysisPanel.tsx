@@ -657,7 +657,7 @@ export const IdiomSection = ({
         <p className="text-[10px] font-bold uppercase tracking-widest font-kr"
           style={{ color: "hsl(var(--idiom-fg))" }}
         >
-          🟫 관용구 / Phrase
+          🟩 관용구 / Phrase
         </p>
         {existingMeaning && (
           <span
@@ -703,7 +703,7 @@ export const IdiomSection = ({
                 border: "1px solid hsl(var(--idiom-border))",
               }}
             >
-              {existingMeaning ? "수정 저장" : "🟫 관용구 저장"}
+              {existingMeaning ? "수정 저장" : "🟩 관용구 저장"}
             </button>
             {existingMeaning && (
               <button
