@@ -964,13 +964,36 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     if (embedMode && onAnalysisDone) onAnalysisDone();
   }, [analysisDone, sentence.id, embedMode, onAnalysisDone]);
 
-  // 분석 진행률(0~1) 외부 통지 — 게이트 표시용
+  // 마스터키 owner_id 집합 hydrate — sentence 변경 시 한 번
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/analysisGrading").then(({ fetchMasterAnswers }) =>
+      fetchMasterAnswers(sentence.id).then((m) => {
+        if (cancelled) return;
+        setMasterOwnerIds(new Set(Object.keys(m)));
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [sentence.id]);
+
+  // 분석 진행률(0~1) 외부 통지 — 마스터키 정답 owner 대비 (없으면 단어 분석 대비로 fallback)
   useEffect(() => {
     if (!onAnalysisProgress) return;
+    if (masterOwnerIds.size > 0) {
+      let filled = 0;
+      masterOwnerIds.forEach((oid) => {
+        const wp = progressMap[oid];
+        if (wp && wp.pos) filled += 1;
+      });
+      onAnalysisProgress(filled / masterOwnerIds.size);
+      return;
+    }
+    // fallback: 마스터 미등록 문장 — 학생이 막히지 않도록 단어 분석률 사용
     const total = analyzableIds.length;
-    const rate = total > 0 ? completedCount / total : 0;
-    onAnalysisProgress(rate);
-  }, [completedCount, analyzableIds.length, onAnalysisProgress]);
+    onAnalysisProgress(total > 0 ? completedCount / total : 0);
+  }, [completedCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
@@ -1810,7 +1833,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       activeSelectionIndices.length > 0
         ? activeSelectionIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
         : selectedToken?.text ?? null,
-    answer: selectedAnswer,
+    answer: studentMode ? null : selectedAnswer,
     pos: progress.pos,
     posStatus: progress.posStatus,
     onPosChange: handlePos,
@@ -2365,8 +2388,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
           >
             {/* === 수식 / 지시어 화살표 SVG overlay === */}
             <ArrowOverlay
-              showModifier={showModifierArrows}
-              showReferent={showReferentArrows}
+              showModifier={showTeacherAnnotations && showModifierArrows}
+              showReferent={showTeacherAnnotations && showReferentArrows}
               modifierRelations={getTargetsForSentence(modifierMap, sentence.id)}
               referentRelations={getReferentsForSentence(referentMap, sentence.id)}
               tokenRefs={tokenRefs.current}
