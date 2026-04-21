@@ -11,6 +11,7 @@ import { LEVEL_LABEL } from "@/lib/levels";
 import { fetchStudentRewards, type StudentRewards } from "@/lib/rewards";
 import type { StudentProfile } from "@/lib/studentProfile";
 import { useViewMode } from "@/hooks/useViewMode";
+import { cn } from "@/lib/utils";
 
 interface RecentItem {
   sentence: Sentence;
