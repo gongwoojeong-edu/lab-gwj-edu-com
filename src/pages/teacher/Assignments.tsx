@@ -286,6 +286,7 @@ const Assignments = () => {
       selectedPassageCode: row.sentence_id ?? "",
       description: row.description ?? "",
       dueDate: new Date(row.due_at),
+      includePre: row.include_pre,
       includeAnalysis: row.include_analysis,
       includeTranslation: row.include_translation,
       includeWordtest: row.include_wordtest,
