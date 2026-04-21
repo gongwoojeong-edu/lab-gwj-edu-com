@@ -389,7 +389,7 @@ const SentenceLearn = () => {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
     }
     setAnalysisDone(true);
-    safeSetStep("translation");
+    advanceFrom("analysis");
   };
 
   /** 자기 첨삭 요청 생성 */
