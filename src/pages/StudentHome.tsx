@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Play, Trophy, Sparkles } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem } from "lucide-react";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { LEVEL_LABEL } from "@/lib/levels";
+import { fetchStudentRewards, type StudentRewards } from "@/lib/rewards";
 import type { StudentProfile } from "@/lib/studentProfile";
 
 interface RecentPass {
@@ -20,6 +21,7 @@ const StudentHome = () => {
   const { user, roles } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [rewards, setRewards] = useState<StudentRewards | null>(null);
   const [next, setNext] = useState<Sentence | null>(null);
   const [done, setDone] = useState(false);
   const [recent, setRecent] = useState<{ sentence: Sentence; passed_at: string }[]>([]);
@@ -28,11 +30,12 @@ const StudentHome = () => {
     let mounted = true;
     (async () => {
       setLoading(true);
-      const r = await resolveNextSentence();
+      const [r, rw] = await Promise.all([resolveNextSentence(), fetchStudentRewards()]);
       if (!mounted) return;
       setProfile(r.profile);
       setNext(r.sentence);
       setDone(r.done);
+      setRewards(rw);
 
       if (user) {
         const { data } = await supabase
@@ -81,7 +84,19 @@ const StudentHome = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {rewards && (
+              <>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-bold">
+                  <Flame className="w-3.5 h-3.5" />
+                  {rewards.current_streak}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold">
+                  <Gem className="w-3.5 h-3.5" />
+                  {rewards.points}
+                </span>
+              </>
+            )}
             {(roles.includes("teacher") || roles.includes("admin")) && (
               <>
                 <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
