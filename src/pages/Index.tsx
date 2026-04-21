@@ -2332,6 +2332,7 @@ const Index = ({
           !embedMode && !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
         )}
       >
+        {!embedMode && (
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2 flex-wrap">
@@ -2361,6 +2362,7 @@ const Index = ({
             </div>
           )}
         </div>
+        )}
 
         {answerInputMode && (
           <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 flex items-center gap-2">
@@ -2878,7 +2880,8 @@ const Index = ({
             })}
           </div>
 
-          {/* 선택 도구바: 지우개 + 관용구 — 항상 노출 */}
+          {/* 선택 도구바: 지우개 + 관용구 — embedMode에서는 숨김 (인쇄 깔끔) */}
+          {!embedMode && (
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
               {selectedWordIndices.length > 0
@@ -2921,7 +2924,7 @@ const Index = ({
             )}
             {/* 관용구 버튼 제거됨 — 분석 메뉴 '기타' 패널 안에서 등록/삭제 가능 */}
           </div>
-
+          )}
           <div
             className="absolute -bottom-10 -right-10 size-64 rounded-full blur-3xl opacity-40 pointer-events-none"
             style={{ background: "hsl(var(--primary-glow) / 0.2)" }}

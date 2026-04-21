@@ -239,6 +239,7 @@ const HandoutPage = () => {
         </Button>
       </div>
 
+      {/* ===== Page 1 ===== */}
       <div className="handout-page">
         {/* Header */}
         <div className="header-row">
@@ -265,7 +266,7 @@ const HandoutPage = () => {
                 </>
               )}
             </div>
-            <div className="header-meta">출력: {printedAt}</div>
+            <div className="header-meta">출력: {printedAt} · 1 / 2</div>
           </div>
           <div className="qr-wrap">
             <QRCodeSVG value={audioUrl} size={68} level="M" />
@@ -287,11 +288,13 @@ const HandoutPage = () => {
             {segments
               ? segments.map((seg, i) =>
                   seg.kind === "cloze" && seg.choices ? (
-                    <span key={i} className="cloze-box">
-                      [ {seg.choices[0]} / {seg.choices[1]} ]
+                    <span key={i}>
+                      <span className="cloze-box">
+                        [ {seg.choices[0]} / {seg.choices[1]} ]
+                      </span>{" "}
                     </span>
                   ) : (
-                    <span key={i}>{seg.text}</span>
+                    <span key={i}>{seg.text} </span>
                   ),
                 )
               : passage.english}
@@ -299,7 +302,7 @@ const HandoutPage = () => {
         </div>
 
         {/* ② 한글 해석 + 첨삭 */}
-        <div className="handout-section" style={{ flex: "0 0 auto" }}>
+        <div className="handout-section" style={{ flex: "1 1 auto" }}>
           <div className="handout-section-title">② 한글 해석</div>
           <div className="translation-box">{studentTranslation || " "}</div>
           <div className="feedback-label no-print">
@@ -317,6 +320,21 @@ const HandoutPage = () => {
             <div className="feedback-box">{feedback || " "}</div>
           </div>
         </div>
+      </div>
+
+      {/* ===== Page 2 ===== */}
+      <div className="handout-page">
+        <div className="header-row">
+          <div className="header-info">
+            <div className="header-eyebrow">Gongwoojeong · Hand-out</div>
+            <div className="header-title">공우정바른학원 · 구조도 · 지스트 · 영작</div>
+            <div className="header-meta">
+              {passage.code}
+              {student?.display_name && <> · {student.display_name} ({student.student_no})</>}
+            </div>
+            <div className="header-meta">출력: {printedAt} · 2 / 2</div>
+          </div>
+        </div>
 
         {/* ③ 구조도 */}
         <div className="handout-section" style={{ flex: "1 1 auto" }}>
@@ -328,7 +346,7 @@ const HandoutPage = () => {
                 : "한 문장씩 핵심어와 흐름을 표로 정리하세요."}
             </span>
           </div>
-          <div className="handout-grid" />
+          <div className="handout-grid" style={{ minHeight: "90mm" }} />
         </div>
 
         {/* ④/⑤ 지스트 + 영작 */}
@@ -340,11 +358,13 @@ const HandoutPage = () => {
                 <div className="write-line" />
                 <div className="write-line" />
                 <div className="write-line" />
+                <div className="write-line" />
               </div>
             </div>
             <div>
               <div className="handout-section-title">⑤ 영작</div>
               <div className="write-lines">
+                <div className="write-line" />
                 <div className="write-line" />
                 <div className="write-line" />
                 <div className="write-line" />
