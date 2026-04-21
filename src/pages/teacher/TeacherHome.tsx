@@ -28,6 +28,7 @@ import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { Button } from "@/components/ui/button";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
+import ClassKpiCards from "@/components/stats/ClassKpiCards";
 
 const TILES = [
   { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
@@ -139,6 +140,9 @@ const TeacherHome = () => {
             오늘의 핸드아웃 점수를 입력하거나 좌측 메뉴에서 교재·학습관리를 선택하세요.
           </p>
         </div>
+
+        {/* 반 전체 통계 KPI */}
+        <ClassKpiCards />
 
         {/* Quick tiles */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
