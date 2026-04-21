@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignments: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_at: string
+          id: string
+          sentence_id: string | null
+          student_id: string | null
+          teacher_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_at: string
+          id?: string
+          sentence_id?: string | null
+          student_id?: string | null
+          teacher_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_at?: string
+          id?: string
+          sentence_id?: string | null
+          student_id?: string | null
+          teacher_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       badge_offsets: {
         Row: {
           dx: number
