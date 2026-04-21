@@ -380,7 +380,7 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
@@ -388,6 +388,7 @@ const TeacherStudents = () => {
             {sorted.map((s) => {
               const pct = Math.round((thresholdByName[s.name] ?? 0.8) * 100);
               const aPct = Math.round((analysisByName[s.name] ?? 0.8) * 100);
+              const tlSec = Math.round(timeLimitByName[s.name] ?? 20);
               const isExpanded = expandedStudentId === s.id;
               return (
                 <Fragment key={s.id}>
@@ -434,6 +435,24 @@ const TeacherStudents = () => {
                         <span className="text-xs text-muted-foreground">%</span>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={120}
+                          step={5}
+                          defaultValue={tlSec}
+                          disabled={timeLimitSaving === s.name}
+                          className="h-8 w-20 text-center font-bold tabular-nums"
+                          onBlur={(e) => {
+                            const v = Number(e.target.value);
+                            if (!Number.isNaN(v) && v !== tlSec) saveTimeLimit(s, v);
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground">{tlSec === 0 ? "OFF" : "초"}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground tabular-nums">
                       {formatDate(s.createdAt)}
                     </TableCell>
@@ -471,7 +490,7 @@ const TeacherStudents = () => {
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={7} className="bg-muted/20 py-5">
+                      <TableCell colSpan={8} className="bg-muted/20 py-5">
                         {profileUserIdByName[s.name] ? (
                           <DailyTestSummary userId={profileUserIdByName[s.name]} days={14} />
                         ) : (
