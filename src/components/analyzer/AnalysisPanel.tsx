@@ -114,17 +114,21 @@ interface AnalysisPanelProps {
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
   onNounElementRole: (e: SentenceElement, r: string | null) => void;
+  /** 절(접SV) 깊이 변경 — 명사절일 때만 호출됨 */
+  onNounClauseDepthChange?: (d: ClauseDepth) => void;
 
   adj: AdjProgress;
   onAdjFormChange: (f: AdjForm) => void;
   onAdjElementChange: (e: "C" | "M") => void;
   onAdjRoleChange: (r: string) => void;
   onAdjElementRole: (e: "C" | "M", r: string | null) => void;
+  onAdjClauseDepthChange?: (d: ClauseDepth) => void;
 
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
   onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
+  onAdvClauseDepthChange?: (d: ClauseDepth) => void;
 
   etc: EtcProgress;
   onEtcKindChange: (k: EtcKind) => void;
