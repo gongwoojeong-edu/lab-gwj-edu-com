@@ -27,6 +27,7 @@ import {
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { Button } from "@/components/ui/button";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
+import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 
 const TILES = [
   { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
@@ -43,6 +44,9 @@ interface UpcomingAssignment {
   due_at: string;
   sentence_id: string | null;
   student_id: string | null;
+  include_analysis: boolean;
+  include_translation: boolean;
+  include_wordtest: boolean;
 }
 
 const TeacherHome = () => {
@@ -68,7 +72,7 @@ const TeacherHome = () => {
     const inSevenDays = new Date(Date.now() + 7 * 24 * 3_600_000).toISOString();
     supabase
       .from("assignments")
-      .select("id, title, due_at, sentence_id, student_id")
+      .select("id, title, due_at, sentence_id, student_id, include_analysis, include_translation, include_wordtest")
       .gte("due_at", new Date().toISOString())
       .lte("due_at", inSevenDays)
       .order("due_at", { ascending: true })
@@ -193,12 +197,18 @@ const TeacherHome = () => {
                     key={a.id}
                     className="py-2 flex items-center gap-3 text-sm"
                   >
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 space-y-1">
                       <div className="font-medium truncate">{a.title}</div>
                       <div className="text-[11px] text-muted-foreground">
                         {target}
                         {a.sentence_id && ` · ${a.sentence_id}`}
                       </div>
+                      <AssignmentStepBadges
+                        includeAnalysis={a.include_analysis}
+                        includeTranslation={a.include_translation}
+                        includeWordtest={a.include_wordtest}
+                        size="xs"
+                      />
                     </div>
                     <span
                       className={
