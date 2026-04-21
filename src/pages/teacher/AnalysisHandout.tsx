@@ -104,8 +104,8 @@ const AnalysisHandout = () => {
             </div>
           </header>
 
-          {/* 본문: 학생 분석 그래픽 */}
-          <section className="border border-border rounded-md p-3 mb-3 bg-card">
+          {/* 본문: 학생 분석 그래픽 — 메모용 줄간격 2.5x */}
+          <section className="border border-border rounded-md p-3 mb-3 bg-card leading-[2.5]">
             <Index
               embedMode
               studentMode={false}

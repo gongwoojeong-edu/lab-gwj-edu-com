@@ -135,7 +135,7 @@ const HandoutPage = () => {
           white-space: nowrap;
         }
         .passage-text {
-          line-height: 2.0;
+          line-height: 2.5;
           font-size: 11pt;
           letter-spacing: 0.01em;
           word-spacing: 0.5mm;

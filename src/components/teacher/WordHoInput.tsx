@@ -98,23 +98,27 @@ const WordHoInput = ({
           }
         }}
         className={cn(
-          "h-8 w-16 text-center text-sm tabular-nums",
-          status === "error" && "border-destructive focus-visible:ring-destructive",
-          isLow &&
-            status !== "error" &&
-            "border-amber-500 focus-visible:ring-amber-500",
+          // 인라인 underline 스타일 — 포커스 시 보라색 밑줄
+          "h-9 w-20 px-1 text-center text-lg font-semibold tabular-nums",
+          "rounded-none bg-transparent border-0 border-b-2 border-input",
+          "shadow-none ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0",
+          "focus-visible:border-primary focus-visible:outline-none transition-colors",
+          status === "error" && "border-destructive",
+          isLow && status !== "error" && "border-amber-500 text-amber-700",
         )}
         placeholder="—"
       />
       {isLow && (
-        <span className="text-[10px] font-bold text-amber-600">재시</span>
+        <span className="text-[10px] font-bold text-amber-600 tracking-wide">
+          재시
+        </span>
       )}
       <div className="w-4 flex items-center justify-center">
         {status === "saving" && (
           <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
         )}
         {status === "saved" && (
-          <Check className="w-3.5 h-3.5 text-emerald-500 animate-fade-in" />
+          <Check className="w-3.5 h-3.5 text-primary animate-fade-in" />
         )}
       </div>
     </div>

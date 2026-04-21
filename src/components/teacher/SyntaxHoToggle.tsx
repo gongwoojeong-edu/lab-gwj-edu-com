@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { upsertHandoutResult, type HandoutResult } from "@/lib/handoutResults";
 import { toast } from "sonner";
@@ -57,40 +56,44 @@ const SyntaxHoToggle = ({
     }
   };
 
+  // Segmented control 스타일
+  const segBtn = (active: boolean, tone: "pass" | "fail") =>
+    cn(
+      "h-8 w-10 text-xs font-bold rounded-md transition-colors",
+      "flex items-center justify-center",
+      active
+        ? tone === "pass"
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "bg-amber-500 text-white shadow-sm"
+        : "text-muted-foreground hover:bg-primary/5",
+    );
+
   return (
     <div className="flex items-center gap-2">
-      <div className="flex gap-1">
-        <Button
+      <div className="inline-flex items-center gap-0.5 rounded-lg border border-input bg-muted/30 p-0.5">
+        <button
           type="button"
-          size="sm"
-          variant={val === "PASS" ? "default" : "outline"}
-          className={cn(
-            "h-8 w-8 p-0 text-xs font-bold",
-            val === "PASS" && "bg-emerald-600 hover:bg-emerald-700",
-          )}
+          className={segBtn(val === "PASS", "pass")}
           onClick={() => save("PASS")}
+          aria-pressed={val === "PASS"}
         >
           P
-        </Button>
-        <Button
+        </button>
+        <button
           type="button"
-          size="sm"
-          variant={val === "FAIL" ? "default" : "outline"}
-          className={cn(
-            "h-8 w-8 p-0 text-xs font-bold",
-            val === "FAIL" && "bg-amber-600 hover:bg-amber-700",
-          )}
+          className={segBtn(val === "FAIL", "fail")}
           onClick={() => save("FAIL")}
+          aria-pressed={val === "FAIL"}
         >
           F
-        </Button>
+        </button>
       </div>
       <div className="w-4 flex items-center justify-center">
         {status === "saving" && (
           <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
         )}
         {status === "saved" && (
-          <Check className="w-3.5 h-3.5 text-emerald-500 animate-fade-in" />
+          <Check className="w-3.5 h-3.5 text-primary animate-fade-in" />
         )}
       </div>
     </div>
