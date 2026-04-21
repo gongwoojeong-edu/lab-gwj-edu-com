@@ -22,6 +22,7 @@ import Retests from "./pages/teacher/Retests.tsx";
 import HandoutPage from "./pages/Handout.tsx";
 import AnalysisReview from "./pages/AnalysisReview.tsx";
 import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
+import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
@@ -78,6 +79,14 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <AnalysisRequests />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/review/:requestId"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <TeacherAnalysisReview />
                 </RequireAuth>
               }
             />

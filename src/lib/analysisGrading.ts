@@ -117,11 +117,19 @@ export const fetchStudentAnswers = async (
 ): Promise<Record<string, AnyProgress>> => {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return {};
+  return fetchStudentAnswersByUserId(sentenceId, u.user.id);
+};
+
+/** 특정 학생(userId)의 owner_progress 조회 — 선생님 검토 화면용. RLS op2_select 가 teacher/admin 허용. */
+export const fetchStudentAnswersByUserId = async (
+  sentenceId: string,
+  userId: string,
+): Promise<Record<string, AnyProgress>> => {
   const { data } = await supabase
     .from("owner_progress")
     .select("owner_id, progress")
     .eq("sentence_id", sentenceId)
-    .eq("user_id", u.user.id);
+    .eq("user_id", userId);
   const rows = (data ?? []) as { owner_id: string; progress: unknown }[];
   const map: Record<string, AnyProgress> = {};
   rows.forEach((r) => {
