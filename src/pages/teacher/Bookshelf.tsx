@@ -50,10 +50,10 @@ const Bookshelf = () => {
                     <div className="text-3xl font-extrabold mb-3">{tb}</div>
                     <div className="text-xs text-muted-foreground">교재 수</div>
                     <div className="mt-4 flex items-center gap-3 text-xs">
-                      <span className="inline-flex items-center gap-1 text-emerald-600">
+                      <span className="inline-flex items-center gap-1 text-[hsl(var(--success-foreground,142_71%_29%))]">
                         <FileCheck className="size-3.5" /> {ready}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-amber-600">
+                      <span className="inline-flex items-center gap-1 text-[hsl(var(--warning-foreground,38_92%_40%))]">
                         <FileEdit className="size-3.5" /> {draft}
                       </span>
                       <span className="ml-auto text-muted-foreground">지문 {passages}개</span>

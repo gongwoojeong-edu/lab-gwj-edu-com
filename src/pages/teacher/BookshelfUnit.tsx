@@ -115,8 +115,8 @@ const BookshelfUnit = () => {
                             className={cn(
                               "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
                               ready
-                                ? "bg-emerald-500/15 text-emerald-600"
-                                : "bg-amber-500/15 text-amber-600",
+                                ? "bg-[hsl(142_71%_29%_/_0.15)] text-[hsl(var(--success-foreground,142_71%_29%))]"
+                                : "bg-[hsl(38_92%_40%_/_0.15)] text-[hsl(var(--warning-foreground,38_92%_40%))]",
                             )}
                           >
                             {ready ? (
