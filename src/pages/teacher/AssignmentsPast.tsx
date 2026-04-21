@@ -9,6 +9,10 @@ import { format } from "date-fns";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  fetchAssignmentProgress,
+  type AssignmentProgressMap,
+} from "@/lib/assignmentProgress";
 
 interface AssignmentRow {
   id: string;
@@ -36,7 +40,16 @@ const AssignmentsPast = () => {
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [progressBySentence, setProgressBySentence] = useState<Record<string, AttemptRow[]>>({});
+  const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const studentNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    students.forEach((s) =>
+      m.set(s.user_id, s.display_name ?? s.student_no ?? s.user_id.slice(0, 6)),
+    );
+    return m;
+  }, [students]);
 
   useEffect(() => {
     void (async () => {
