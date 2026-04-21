@@ -70,7 +70,7 @@ const PrintQueue = () => {
       ]);
       toast({ title: "인쇄 완료 · 학습결과함으로 이동합니다" });
       setRows((prev) => prev.filter((r) => r.id !== req.id));
-      navigate("/teacher");
+      navigate("/teacher/results");
     } catch (e) {
       toast({ title: "처리 실패", description: String(e), variant: "destructive" });
     } finally {
@@ -88,7 +88,7 @@ const PrintQueue = () => {
       }
       toast({ title: "처리 완료 · 학습결과함으로 이동합니다" });
       setRows((prev) => prev.filter((r) => r.id !== id));
-      navigate("/teacher");
+      navigate("/teacher/results");
     } catch (e) {
       toast({ title: "처리 실패", description: String(e), variant: "destructive" });
     } finally {
