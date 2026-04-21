@@ -1,0 +1,222 @@
+// ============================================================
+// AnalysisSubmitConfirmDialog — 분석 → 한글해석 전환 직전 게이트
+// ============================================================
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, AlertTriangle, CheckCircle2, XCircle, Info } from "lucide-react";
+import { gradeAnalysis, type AnalysisGradeResult } from "@/lib/analysisGrading";
+import { decideTrack } from "@/lib/analysisReview";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sentenceId: string;
+  /** 현재 sentence_progress.status (이미 미통이면 fail_assist 트랙 안내) */
+  currentStatus: "pending" | "pass" | "fail";
+  /** "그래도 제출 →" 클릭 시 */
+  onConfirmSubmit: () => void;
+}
+
+const rateBarClass = (rate: number) => {
+  if (rate >= 0.8) return "bg-emerald-500";
+  if (rate >= 0.5) return "bg-amber-500";
+  return "bg-destructive";
+};
+
+export const AnalysisSubmitConfirmDialog = ({
+  open,
+  onOpenChange,
+  sentenceId,
+  currentStatus,
+  onConfirmSubmit,
+}: Props) => {
+  const [loading, setLoading] = useState(false);
+  const [grade, setGrade] = useState<AnalysisGradeResult | null>(null);
+  const [showDiff, setShowDiff] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    setLoading(true);
+    setShowDiff(false);
+    gradeAnalysis(sentenceId)
+      .then((g) => {
+        if (mounted) setGrade(g);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [open, sentenceId]);
+
+  const ratePct = grade ? Math.round(grade.rate * 100) : 0;
+  const filledCount = grade ? grade.masterCount - grade.diffs.filter((d) => d.status === "missing").length : 0;
+  const track = grade
+    ? decideTrack({
+        rate: grade.rate,
+        requiredFilled: grade.requiredOwnersFilled,
+        sentenceStatus: currentStatus,
+      })
+    : null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            📊 분석 제출 확인
+          </DialogTitle>
+          <DialogDescription>
+            지금까지 분석한 정도를 확인하고 한글 해석으로 넘어갈지 결정하세요.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading || !grade ? (
+          <div className="py-10 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          </div>
+        ) : !grade.hasMaster ? (
+          <div className="py-6 text-center space-y-2">
+            <Info className="w-6 h-6 text-muted-foreground mx-auto" />
+            <div className="text-sm text-muted-foreground">
+              이 문장에는 마스터 답안이 아직 등록되지 않았어요. 자유롭게 진행하세요.
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* 분석률 막대 */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-foreground">현재 분석률</span>
+                <span className="font-mono font-extrabold text-foreground">{ratePct}%</span>
+              </div>
+              <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn("h-full transition-all", rateBarClass(grade.rate))}
+                  style={{ width: `${ratePct}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                마스터 owner {grade.masterCount}개 · 분석 완료 {filledCount}개
+              </div>
+            </div>
+
+            {/* 필수 owner 체크리스트 */}
+            <div className="rounded-lg border border-border bg-card/50 p-3 space-y-1.5">
+              <div className="text-xs font-bold text-foreground">필수 owner 충족 여부</div>
+              {grade.requiredOwnersFilled ? (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> 모든 필수 owner 분석 완료
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {grade.missingRequiredOwnerIds.map((id) => (
+                    <li
+                      key={id}
+                      className="flex items-center gap-1.5 text-xs text-destructive"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span className="font-mono">{id}</span> 미입력
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* 자기 첨삭 트랙 안내 */}
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+              <div className="text-xs font-bold text-foreground">자기 첨삭 요청 가능 여부</div>
+              {track === "normal" && (
+                <div className="text-xs text-emerald-700 dark:text-emerald-400">
+                  🟢 정상 트랙 — 지금 제출 후 결과 화면에서 정답 대조 요청이 가능합니다.
+                </div>
+              )}
+              {track === "fail_assist" && (
+                <div className="text-xs text-amber-700 dark:text-amber-400">
+                  🟡 미통 보조 트랙 — 미통 상태이므로 결과 화면에서 정답 대조 요청이 가능합니다.
+                </div>
+              )}
+              {track === null && grade.rate < 0.5 && (
+                <div className="text-xs text-muted-foreground">
+                  🔒 분석률이 50% 미만이라 정답 대조 요청을 받을 수 없어요. 더 분석한 뒤 제출하세요.
+                </div>
+              )}
+              {track === null && grade.rate >= 0.5 && (
+                <div className="text-xs text-muted-foreground">
+                  🟡 미통이 되면 미통 보조 트랙으로 정답 대조 요청이 가능해집니다. (현재{" "}
+                  {currentStatus === "pending" ? "첫 시도" : currentStatus.toUpperCase()})
+                </div>
+              )}
+            </div>
+
+            {/* 세부 diff 토글 */}
+            {grade.diffs.length > 0 && (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setShowDiff((v) => !v)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  {showDiff ? "세부 보기 닫기" : `놓친 owner ${grade.diffs.length}개 보기 (id만 노출)`}
+                </button>
+                {showDiff && (
+                  <div className="rounded border border-dashed border-muted-foreground/30 p-2 max-h-32 overflow-y-auto space-y-0.5">
+                    {grade.diffs.map((d) => (
+                      <div key={d.owner_id} className="text-[10px] font-mono text-muted-foreground">
+                        <span
+                          className={cn(
+                            "inline-block w-14 font-bold",
+                            d.status === "missing" && "text-destructive",
+                            d.status === "miss" && "text-destructive",
+                            d.status === "partial" && "text-amber-600 dark:text-amber-400",
+                          )}
+                        >
+                          {d.status}
+                        </span>
+                        {d.owner_id}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {grade.rate < 0.5 && (
+              <div className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded p-2">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>분석률이 매우 낮아요. 더 진행한 뒤 제출하는 것을 권장합니다.</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            ← 더 분석하기
+          </Button>
+          <Button
+            onClick={() => {
+              onOpenChange(false);
+              onConfirmSubmit();
+            }}
+            disabled={loading}
+          >
+            그래도 제출 →
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};

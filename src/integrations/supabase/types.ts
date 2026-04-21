@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_review_requests: {
+        Row: {
+          analysis_rate: number
+          attempt_no: number
+          created_at: string
+          id: string
+          requested_at: string
+          required_filled: boolean
+          responded_at: string | null
+          responded_by: string | null
+          response_note: string | null
+          sentence_id: string
+          status: Database["public"]["Enums"]["analysis_review_status"]
+          track: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_rate?: number
+          attempt_no?: number
+          created_at?: string
+          id?: string
+          requested_at?: string
+          required_filled?: boolean
+          responded_at?: string | null
+          responded_by?: string | null
+          response_note?: string | null
+          sentence_id: string
+          status?: Database["public"]["Enums"]["analysis_review_status"]
+          track?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_rate?: number
+          attempt_no?: number
+          created_at?: string
+          id?: string
+          requested_at?: string
+          required_filled?: boolean
+          responded_at?: string | null
+          responded_by?: string | null
+          response_note?: string | null
+          sentence_id?: string
+          status?: Database["public"]["Enums"]["analysis_review_status"]
+          track?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           created_at: string
@@ -639,6 +690,7 @@ export type Database = {
       }
     }
     Enums: {
+      analysis_review_status: "pending" | "approved" | "rejected" | "cancelled"
       app_role: "student" | "teacher" | "admin"
     }
     CompositeTypes: {
@@ -767,6 +819,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      analysis_review_status: ["pending", "approved", "rejected", "cancelled"],
       app_role: ["student", "teacher", "admin"],
     },
   },

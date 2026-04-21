@@ -20,6 +20,8 @@ import Assignments from "./pages/teacher/Assignments.tsx";
 import PrintQueue from "./pages/teacher/PrintQueue.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
 import HandoutPage from "./pages/Handout.tsx";
+import AnalysisReview from "./pages/AnalysisReview.tsx";
+import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
@@ -60,6 +62,22 @@ const App = () => (
               element={
                 <RequireAuth>
                   <SentenceLearn />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn/sentence/:sentenceId/review"
+              element={
+                <RequireAuth>
+                  <AnalysisReview />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/requests"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <AnalysisRequests />
                 </RequireAuth>
               }
             />
