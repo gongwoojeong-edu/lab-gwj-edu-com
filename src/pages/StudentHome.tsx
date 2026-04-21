@@ -28,6 +28,7 @@ import {
 } from "@/lib/analysisReview";
 import { gradeAnalysis } from "@/lib/analysisGrading";
 import { toast } from "@/hooks/use-toast";
+import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 
 interface RecentItem {
   sentence: Sentence;
