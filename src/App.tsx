@@ -24,6 +24,8 @@ import HandoutPage from "./pages/Handout.tsx";
 import AnalysisReview from "./pages/AnalysisReview.tsx";
 import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
 import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
+import AnalysisCompare from "./pages/teacher/AnalysisCompare.tsx";
+import AnalysisHandout from "./pages/teacher/AnalysisHandout.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
