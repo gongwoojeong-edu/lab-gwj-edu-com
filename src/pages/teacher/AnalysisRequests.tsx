@@ -116,8 +116,8 @@ const AnalysisRequests = () => {
   }, [rows]);
 
   const goReview = (req: AnalysisReviewRequest) => {
-    // 선생님이 학생 화면을 직접 보러 이동
-    navigate(`/learn/sentence/${encodeURIComponent(req.sentence_id)}/review`);
+    // 선생님 전용 사이드바이사이드 검토 화면 (좌: 학생 / 우: 마스터)
+    navigate(`/teacher/review/${req.id}`);
   };
 
   return (
