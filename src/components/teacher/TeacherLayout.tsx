@@ -23,7 +23,6 @@ import {
   Eye,
   LogOut,
   Inbox,
-  Archive,
   FolderArchive,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
