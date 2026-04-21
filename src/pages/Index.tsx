@@ -587,6 +587,11 @@ const Index = ({
     e: React.PointerEvent<HTMLSpanElement>,
     ownerId: string,
   ) => {
+    if (compareMode) {
+      e.stopPropagation();
+      if (onOwnerToggle) onOwnerToggle(ownerId);
+      return;
+    }
     if (eraserMode) return;
     e.stopPropagation();
     e.preventDefault();
