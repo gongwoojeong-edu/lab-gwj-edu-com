@@ -319,6 +319,7 @@ const Assignments = () => {
           description: editForm.description.trim() || null,
           sentence_id: editForm.selectedPassageCode || null,
           due_at: endOfDay.toISOString(),
+          include_pre: editForm.includePre,
           include_analysis: editForm.includeAnalysis,
           include_translation: editForm.includeTranslation,
           include_wordtest: editForm.includeWordtest,
