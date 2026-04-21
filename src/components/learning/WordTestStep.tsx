@@ -27,11 +27,15 @@ interface Props {
   sentenceId: string;
   entries: WordTestEntry[];
   onPassed: () => void;
+  /** Fired whenever the test finishes (PASS or TRY AGAIN). Used to record attempt log. */
+  onTestCompleted?: (result: { passed: boolean; score: number; wrong: WrongWord[]; mode: WordTestMode }) => void;
+  /** Fired when user clicks "다음 지문 →" after a TRY AGAIN result. */
+  onSkipToNext?: () => void;
 }
 
 type Phase = "intro" | "quiz" | "result" | "remediation" | "remediation_done";
 
-export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
+export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, onSkipToNext }: Props) => {
   const [phase, setPhase] = useState<Phase>("intro");
   const [mode, setMode] = useState<WordTestMode>("mixed");
   const [threshold, setThreshold] = useState(0.8);
@@ -123,6 +127,11 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
       } else {
         await resetStreakOnFail();
       }
+      try {
+        onTestCompleted?.({ passed: isPass, score: sc, wrong, mode });
+      } catch (cbErr) {
+        console.warn("onTestCompleted callback failed", cbErr);
+      }
       setPhase("result");
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
@@ -173,7 +182,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
           <div className="text-xs text-muted-foreground uppercase tracking-wider">3. 단어 테스트</div>
           <div className="text-lg font-extrabold text-foreground">시험 모드 선택</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {entries.length}문제 · 통과 기준 {Math.round(threshold * 100)}점 · 시도 {attemptNo}회
+            {entries.length}문제 · 시도 {attemptNo}회
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -270,28 +279,30 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
           "p-6 sm:p-8 space-y-5 border-2",
           passed
             ? "border-emerald-500/50 bg-emerald-50/30 dark:bg-emerald-500/5"
-            : "border-destructive/50 bg-destructive/5",
+            : "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5",
         )}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {passed ? (
-            <Trophy className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+            <Trophy className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
           ) : (
-            <AlertTriangle className="w-10 h-10 text-destructive" />
+            <AlertTriangle className="w-12 h-12 text-amber-600 dark:text-amber-400" />
           )}
-          <div>
-            <div className="text-2xl font-extrabold">
-              {Math.round(score * 100)}점{" "}
-              <span className={cn("text-base", passed ? "text-emerald-600" : "text-destructive")}>
-                / 통과 기준 {Math.round(threshold * 100)}점
-              </span>
-            </div>
-            <div className="text-sm font-bold">
-              {passed ? (
-                <span className="text-emerald-600 dark:text-emerald-400">PASS 🎉</span>
-              ) : (
-                <span className="text-destructive">FAIL — 틀린 단어 복습이 필요해요</span>
+          <div className="space-y-1">
+            <div
+              className={cn(
+                "inline-flex items-center px-4 py-1.5 rounded-full text-base font-extrabold tracking-wider",
+                passed
+                  ? "bg-emerald-500 text-white"
+                  : "bg-amber-500 text-white",
               )}
+            >
+              {passed ? "PASS 🎉" : "TRY AGAIN"}
+            </div>
+            <div className="text-sm text-muted-foreground font-medium">
+              {passed
+                ? "단어 테스트 통과! 다음 단계로 넘어가세요."
+                : `틀린 단어 ${wrongWords.length}개를 복습하면 재시험을 볼 수 있어요.`}
             </div>
           </div>
         </div>
@@ -305,7 +316,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
               {wrongWords.map((w) => (
                 <div
                   key={w.word}
-                  className="flex items-center justify-between gap-2 p-2 rounded-md border border-destructive/40 bg-card"
+                  className="flex items-center justify-between gap-2 p-2 rounded-md border border-amber-500/40 bg-card"
                 >
                   <span className="font-bold">{w.word}</span>
                   <span className="text-xs text-muted-foreground truncate">{w.expected}</span>
@@ -315,15 +326,22 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
           {passed ? (
             <Button size="lg" onClick={onPassed}>
               <Check className="w-4 h-4 mr-1" /> 학습 홈으로
             </Button>
           ) : (
-            <Button size="lg" onClick={goRemediation}>
-              틀린 단어 복습 시작 →
-            </Button>
+            <>
+              {onSkipToNext && (
+                <Button size="lg" variant="outline" onClick={onSkipToNext}>
+                  다음 지문 →
+                </Button>
+              )}
+              <Button size="lg" onClick={goRemediation}>
+                틀린 단어 복습 시작 →
+              </Button>
+            </>
           )}
         </div>
       </Card>
@@ -356,7 +374,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
         <div>
           <div className="text-lg font-extrabold text-primary">복습 완료!</div>
           <div className="text-xs text-muted-foreground">
-            이제 재시험을 볼 수 있어요. 통과 기준 {Math.round(threshold * 100)}점.
+            이제 재시험을 볼 수 있어요.
           </div>
         </div>
       </div>

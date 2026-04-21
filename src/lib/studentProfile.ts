@@ -9,7 +9,32 @@ export interface StudentProfile {
   current_level: LevelCode;
   current_no: number;
   teacher_id: string | null;
+  analysis_pass_threshold: number;
+  hint_mode_enabled: boolean;
 }
+
+export const updateStudentHintMode = async (
+  userId: string,
+  enabled: boolean,
+): Promise<void> => {
+  await supabase
+    .from("student_profiles")
+    .update({ hint_mode_enabled: enabled })
+    .eq("user_id", userId);
+};
+
+export const fetchStudentFailCounts = async (): Promise<Record<string, number>> => {
+  const { data } = await supabase
+    .from("sentence_progress")
+    .select("user_id, status")
+    .eq("status", "fail");
+  const map: Record<string, number> = {};
+  ((data ?? []) as { user_id: string | null }[]).forEach((r) => {
+    if (!r.user_id) return;
+    map[r.user_id] = (map[r.user_id] ?? 0) + 1;
+  });
+  return map;
+};
 
 export const fetchMyProfile = async (): Promise<StudentProfile | null> => {
   const { data: u } = await supabase.auth.getUser();

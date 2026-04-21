@@ -375,9 +375,11 @@ interface IndexProps {
   embedSentenceId?: string;
   /** 임베드 모드에서 분석 완료(모든 단어 completed)가 감지될 때 호출. */
   onAnalysisDone?: () => void;
+  /** 힌트 모드: 직전 시도에서 마스터키와 불일치였던 owner_id 집합 — 살짝 강조 */
+  hintWrongOwnerIds?: Set<string>;
 }
 
-const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProps = {}) => {
+const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
@@ -2573,6 +2575,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone }: IndexProp
                     className={cn(
                       "relative inline-flex flex-col items-center cursor-pointer leading-none",
                       idiomMark && "py-0.5",
+                      hintWrongOwnerIds && ownerId && hintWrongOwnerIds.has(ownerId) &&
+                        "ring-2 ring-amber-500/60 ring-offset-1 rounded-md bg-amber-500/5",
                     )}
                     style={
                       idiomMark

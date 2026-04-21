@@ -14,13 +14,15 @@ const getUserId = async (): Promise<string | null> => {
 };
 
 // ---------- sentence_progress ----------
+export type SentenceProgressStatus = "pending" | "pass" | "fail";
+
 export interface SentenceProgressRow {
   sentence_id: string;
   pre_done: boolean;
   analysis_done: boolean;
   translation_done: boolean;
   word_test_done: boolean;
-  status: "in_progress" | "pass";
+  status: SentenceProgressStatus;
   passed_at: string | null;
 }
 
@@ -45,11 +47,83 @@ export const upsertSentenceProgress = async (
     analysis_done: existing?.analysis_done ?? false,
     translation_done: existing?.translation_done ?? false,
     word_test_done: existing?.word_test_done ?? false,
-    status: existing?.status ?? "in_progress",
+    status: existing?.status ?? "pending",
     passed_at: existing?.passed_at ?? null,
     ...patch,
   };
   await supabase.from("sentence_progress").upsert(next, { onConflict: "user_id,sentence_id" });
+};
+
+// ---------- sentence_attempt_logs ----------
+export interface AttemptLogInput {
+  sentence_id: string;
+  attempt_no: number;
+  analysis_match_rate: number;
+  analysis_passed: boolean;
+  word_test_score: number;
+  word_test_passed: boolean;
+  owner_diff: unknown;
+  translation_text?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface AttemptLogRow {
+  id: string;
+  user_id: string;
+  sentence_id: string;
+  attempt_no: number;
+  analysis_match_rate: number;
+  analysis_passed: boolean;
+  word_test_score: number;
+  word_test_passed: boolean;
+  owner_diff: unknown;
+  translation_text: string | null;
+  started_at: string | null;
+  completed_at: string;
+  created_at: string;
+}
+
+export const insertAttemptLog = async (input: AttemptLogInput): Promise<void> => {
+  const userId = await getUserId();
+  if (!userId) return;
+  const payload = {
+    user_id: userId,
+    sentence_id: input.sentence_id,
+    attempt_no: input.attempt_no,
+    analysis_match_rate: input.analysis_match_rate,
+    analysis_passed: input.analysis_passed,
+    word_test_score: input.word_test_score,
+    word_test_passed: input.word_test_passed,
+    owner_diff: (input.owner_diff ?? []) as never,
+    translation_text: input.translation_text ?? null,
+    started_at: input.started_at ?? null,
+    completed_at: input.completed_at ?? new Date().toISOString(),
+  };
+  await supabase.from("sentence_attempt_logs").insert(payload);
+};
+
+export const fetchAttemptLogs = async (sentenceId: string, userId?: string): Promise<AttemptLogRow[]> => {
+  const uid = userId ?? (await getUserId());
+  if (!uid) return [];
+  const { data } = await supabase
+    .from("sentence_attempt_logs")
+    .select("*")
+    .eq("sentence_id", sentenceId)
+    .eq("user_id", uid)
+    .order("completed_at", { ascending: false });
+  return (data as AttemptLogRow[]) ?? [];
+};
+
+export const fetchAttemptCount = async (sentenceId: string): Promise<number> => {
+  const userId = await getUserId();
+  if (!userId) return 0;
+  const { count } = await supabase
+    .from("sentence_attempt_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("sentence_id", sentenceId)
+    .eq("user_id", userId);
+  return count ?? 0;
 };
 
 // ---------- owner_progress ----------

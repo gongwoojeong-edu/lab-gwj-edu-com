@@ -30,7 +30,7 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
     .from("sentence_progress")
     .select("sentence_id, status")
     .eq("user_id", u.user.id)
-    .eq("status", "pass");
+    .in("status", ["pass", "fail"]);
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
   for (let i = beginIdx; i < LEVELS.length; i++) {
