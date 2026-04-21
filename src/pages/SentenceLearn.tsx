@@ -284,21 +284,18 @@ const SentenceLearn = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-primary/10 text-primary border border-primary/20">
-              학생 모드
-            </span>
+          <div className="flex items-center gap-2">
             {isStaff && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                type="button"
                 onClick={() => {
                   setMode("teacher");
                   navigate("/teacher");
                 }}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
               >
-                🛠 <span className="hidden sm:inline ml-1">선생님 화면</span>
-              </Button>
+                선생님 화면으로 이동
+              </button>
             )}
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-1" />
