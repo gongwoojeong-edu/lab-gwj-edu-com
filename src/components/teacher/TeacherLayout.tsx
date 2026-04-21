@@ -169,14 +169,6 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/assignments/past" className={({ isActive }) => linkCls(isActive)}>
-                    <Archive className="size-4" />
-                    {!collapsed && <span>과거 과제함</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
                   <NavLink to="/teacher/print-queue" className={({ isActive }) => linkCls(isActive)}>
                     <Printer className="size-4" />
                     {!collapsed && <span>시험지 요청</span>}
@@ -195,7 +187,7 @@ const TeacherSidebarInner = () => {
                 <SidebarMenuButton asChild>
                   <NavLink to="/teacher/results" className={({ isActive }) => linkCls(isActive)}>
                     <FolderArchive className="size-4" />
-                    {!collapsed && <span>학습결과함</span>}
+                    {!collapsed && <span>학습결과</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
