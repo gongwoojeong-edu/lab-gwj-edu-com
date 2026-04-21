@@ -34,6 +34,7 @@ import { LEVELS, LEVEL_LABEL } from "@/lib/levels";
 import { cn } from "@/lib/utils";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
+import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 
 interface Props {
   children: ReactNode;
@@ -220,11 +221,16 @@ export const TeacherLayout = ({ children }: Props) => {
             <div className="flex items-center gap-3">
               <SidebarTrigger />
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5 text-primary-foreground" />
-                </div>
+                <img
+                  src={gwjEduLogo}
+                  alt="공우정에듀 로고"
+                  width={28}
+                  height={28}
+                  loading="lazy"
+                  className="w-7 h-7 object-contain"
+                />
                 <div>
-                  <div className="text-sm font-bold leading-none">공우정 영어 — 선생님</div>
+                  <div className="text-sm font-bold leading-none">공우정에듀</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
                     {user?.email?.split("@")[0]}
                   </div>
