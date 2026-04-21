@@ -385,9 +385,11 @@ interface IndexProps {
    * - 학생이 클릭한 owner만 progress가 채워짐 → 클릭 전엔 어떤 라벨/배지도 안 보임
    */
   studentMode?: boolean;
+  /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용 */
+  onAnalysisProgress?: (rate: number) => void;
 }
 
-const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false }: IndexProps = {}) => {
+const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false, onAnalysisProgress }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
