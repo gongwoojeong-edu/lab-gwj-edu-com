@@ -271,13 +271,32 @@ const SentenceLearn = () => {
 
   const stepStates = useMemo(
     () => ({
-      pre: { done: preDone, locked: false },
-      analysis: { done: analysisDone, locked: !preDone || translationDone },
-      translation: { done: translationDone, locked: !analysisDone },
-      post: { done: false, locked: !(preDone && analysisDone && translationDone) },
+      pre: { done: preDone, locked: false, skipped: !skipFlags.pre },
+      analysis: { done: analysisDone, locked: !preDone || translationDone, skipped: !skipFlags.analysis },
+      translation: { done: translationDone, locked: !analysisDone, skipped: !skipFlags.translation },
+      post: { done: false, locked: !(preDone && analysisDone && translationDone), skipped: !skipFlags.wordtest },
     }),
-    [preDone, analysisDone, translationDone],
+    [preDone, analysisDone, translationDone, skipFlags],
   );
+
+  /** 다음으로 진입 가능한 OFF가 아닌 단계로 자동 점프 */
+  const advanceFrom = (current: Step) => {
+    const order: Step[] = ["pre", "analysis", "translation", "post"];
+    const flagOf: Record<Step, boolean> = {
+      pre: skipFlags.pre,
+      analysis: skipFlags.analysis,
+      translation: skipFlags.translation,
+      post: skipFlags.wordtest,
+    };
+    const idx = order.indexOf(current);
+    for (let i = idx + 1; i < order.length; i++) {
+      if (flagOf[order[i]]) {
+        safeSetStep(order[i]);
+        return;
+      }
+    }
+    safeSetStep("post");
+  };
 
   /** 백워드 전이 차단: 한글해석 제출 후에는 분석/단어학습 단계 진입 차단 */
   const safeSetStep = (next: Step) => {
