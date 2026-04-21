@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, LogOut, Lock, Sparkles, Check } from "lucide-react";
 import Index from "@/pages/Index";
 import { SENTENCES, type Sentence } from "@/data/sentences";
-import { signOut } from "@/hooks/useAuth";
+import { signOut, useAuth } from "@/hooks/useAuth";
 import { LEVEL_LABEL } from "@/lib/levels";
 import {
   fetchOwnerProgressForSentence,
@@ -17,6 +17,7 @@ import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
+import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 
 import { toast } from "@/hooks/use-toast";
@@ -32,6 +33,8 @@ const STEP_LABELS: Record<Step, string> = {
 const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const isStaff = roles.includes("teacher") || roles.includes("admin");
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
@@ -44,6 +47,8 @@ const SentenceLearn = () => {
     let mounted = true;
     (async () => {
       setLoading(true);
+      // DB 지문 머지 대기 — 새로 추가된 교재의 sentenceId도 정상 로드됨
+      await hydrateSentencesFromDb();
       const found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
       if (!mounted) return;
       setSentence(found);
@@ -146,10 +151,24 @@ const SentenceLearn = () => {
               </div>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => signOut()}>
-            <LogOut className="w-4 h-4 mr-1" />
-            <span className="hidden sm:inline">로그아웃</span>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {isStaff && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  localStorage.setItem("view_mode", "teacher");
+                  navigate("/teacher");
+                }}
+              >
+                🛠 <span className="hidden sm:inline ml-1">선생님 화면</span>
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => signOut()}>
+              <LogOut className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">로그아웃</span>
+            </Button>
+          </div>
         </div>
       </header>
 

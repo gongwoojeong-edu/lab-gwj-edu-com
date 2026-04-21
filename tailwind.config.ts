@@ -35,6 +35,11 @@ export default {
           c: "hsl(var(--element-c))",
           m: "hsl(var(--element-m))",
         },
+        streak: {
+          DEFAULT: "hsl(var(--streak))",
+          foreground: "hsl(var(--streak-foreground))",
+          bg: "hsl(var(--streak-bg))",
+        },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
