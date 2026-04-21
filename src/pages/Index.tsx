@@ -2276,11 +2276,13 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
             </div>
             <KoreanHintButton korean={sentence.korean} />
           </div>
-          <div className="flex items-center gap-1.5 ml-2">
-            <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-2 py-1 rounded-md bg-secondary">
-              자동 순차 학습
-            </span>
-          </div>
+          {!studentMode && (
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-2 py-1 rounded-md bg-secondary">
+                자동 순차 학습
+              </span>
+            </div>
+          )}
         </div>
 
         {answerInputMode && (
