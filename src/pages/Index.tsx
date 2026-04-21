@@ -2303,11 +2303,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
               {isAdmin && (
                 <Link
                   to="/teacher"
-                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold font-kr bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors"
-                  title="선생님 모드 진입"
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                  title="선생님 화면으로 이동"
                 >
-                  <GraduationCap className="size-3" />
-                  선생님 모드
+                  선생님 화면으로 이동
                 </Link>
               )}
             </div>
