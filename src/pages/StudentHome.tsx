@@ -237,16 +237,32 @@ const StudentHome = () => {
                               minute: "2-digit",
                             })}
                           </div>
-                          {isFail && (
+                          <div className="flex items-center gap-1">
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              onClick={() => navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}`)}
+                              variant="ghost"
+                              className="h-7 text-xs px-2"
+                              title="학습지 인쇄"
+                              onClick={() =>
+                                window.open(
+                                  `/learn/handout/${encodeURIComponent(sentence.id)}`,
+                                  "_blank",
+                                )
+                              }
                             >
-                              다시 도전
+                              🖨️
                             </Button>
-                          )}
+                            {isFail && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}`)}
+                              >
+                                다시 도전
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </Card>
                     );
