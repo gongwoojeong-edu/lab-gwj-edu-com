@@ -385,9 +385,11 @@ interface IndexProps {
    * - 학생이 클릭한 owner만 progress가 채워짐 → 클릭 전엔 어떤 라벨/배지도 안 보임
    */
   studentMode?: boolean;
+  /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용 */
+  onAnalysisProgress?: (rate: number) => void;
 }
 
-const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false }: IndexProps = {}) => {
+const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false, onAnalysisProgress }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
@@ -957,6 +959,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     upsertSentenceProgress(sentence.id, { analysis_done: true }).catch(() => {});
     if (embedMode && onAnalysisDone) onAnalysisDone();
   }, [analysisDone, sentence.id, embedMode, onAnalysisDone]);
+
+  // 분석 진행률(0~1) 외부 통지 — 게이트 표시용
+  useEffect(() => {
+    if (!onAnalysisProgress) return;
+    const total = analyzableIds.length;
+    const rate = total > 0 ? completedCount / total : 0;
+    onAnalysisProgress(rate);
+  }, [completedCount, analyzableIds.length, onAnalysisProgress]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
@@ -2667,8 +2677,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                     <span
                       className={cn(
                         "px-1 py-0.5 text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
-                        // 안쪽 완료 (수식어/부속/일반 동일) — 연한 보라 + 얇은 하단 보더
-                        innerCompleteBg && "bg-primary/[0.07] border-b border-primary/20",
+                        // 안쪽 완료 (수식어/부속/일반 동일) — 진한 보라 음영 + 얇은 하단 보더
+                        innerCompleteBg && "bg-primary/15 border-b border-primary/30",
                         // clause(절)면 텍스트만 살짝 dim
                         isCompleted && !isSelected && isClauseSelection &&
                           "text-foreground/80",
