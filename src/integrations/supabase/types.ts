@@ -332,6 +332,86 @@ export type Database = {
         }
         Relationships: []
       }
+      textbook_passages: {
+        Row: {
+          analysis_status: string
+          code: string
+          created_at: string
+          english: string
+          id: string
+          korean: string | null
+          passage_no: number
+          textbook_id: string
+          tokens: Json | null
+          updated_at: string
+        }
+        Insert: {
+          analysis_status?: string
+          code: string
+          created_at?: string
+          english: string
+          id?: string
+          korean?: string | null
+          passage_no: number
+          textbook_id: string
+          tokens?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          analysis_status?: string
+          code?: string
+          created_at?: string
+          english?: string
+          id?: string
+          korean?: string | null
+          passage_no?: number
+          textbook_id?: string
+          tokens?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "textbook_passages_textbook_id_fkey"
+            columns: ["textbook_id"]
+            isOneToOne: false
+            referencedRelation: "textbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      textbooks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          level: string
+          title: string
+          unit_no: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          level: string
+          title: string
+          unit_no: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          level?: string
+          title?: string
+          unit_no?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
