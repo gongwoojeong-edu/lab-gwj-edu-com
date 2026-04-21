@@ -9,9 +9,9 @@ interface AssignmentStepBadgesProps {
 }
 
 const STEPS: Array<{ key: "analysis" | "translation" | "wordtest"; label: string }> = [
-  { key: "analysis", label: "분석" },
-  { key: "translation", label: "번역" },
-  { key: "wordtest", label: "단어테스트" },
+  { key: "translation", label: "단어학습" },
+  { key: "analysis", label: "구문분석" },
+  { key: "wordtest", label: "단어시험" },
 ];
 
 export const AssignmentStepBadges = ({
