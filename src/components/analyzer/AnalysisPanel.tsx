@@ -36,6 +36,11 @@ import type {
 export type StepStatus = "idle" | "correct" | "wrong";
 
 // ============================================================
+// 절 깊이 (1=주절 종속절, 2=절 안의 절, 3=3중 중첩) — 접SV form일 때만 의미 있음
+// ============================================================
+export type ClauseDepth = 1 | 2 | 3;
+
+// ============================================================
 // 명사 진행 상태
 // ============================================================
 export interface NounProgress {
@@ -45,6 +50,7 @@ export interface NounProgress {
   formStatus: StepStatus;
   elementStatus: StepStatus;
   roleStatus: StepStatus;
+  clauseDepth?: ClauseDepth | null; // form === '접SV' 일 때만 의미 있음
 }
 
 // ============================================================
@@ -57,6 +63,7 @@ export interface AdjProgress {
   formStatus: StepStatus;
   elementStatus: StepStatus;
   roleStatus: StepStatus;
+  clauseDepth?: ClauseDepth | null;
 }
 
 // ============================================================
@@ -69,6 +76,7 @@ export interface AdvProgress {
   formStatus: StepStatus;
   subtypeStatus: StepStatus;
   roleStatus: StepStatus;
+  clauseDepth?: ClauseDepth | null;
 }
 
 // ============================================================
@@ -106,17 +114,21 @@ interface AnalysisPanelProps {
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
   onNounElementRole: (e: SentenceElement, r: string | null) => void;
+  /** 절(접SV) 깊이 변경 — 명사절일 때만 호출됨 */
+  onNounClauseDepthChange?: (d: ClauseDepth) => void;
 
   adj: AdjProgress;
   onAdjFormChange: (f: AdjForm) => void;
   onAdjElementChange: (e: "C" | "M") => void;
   onAdjRoleChange: (r: string) => void;
   onAdjElementRole: (e: "C" | "M", r: string | null) => void;
+  onAdjClauseDepthChange?: (d: ClauseDepth) => void;
 
   adv: AdvProgress;
   onAdvFormChange: (f: AdvForm) => void;
   onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
+  onAdvClauseDepthChange?: (d: ClauseDepth) => void;
 
   etc: EtcProgress;
   onEtcKindChange: (k: EtcKind) => void;
@@ -282,8 +294,14 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
     "대부정사",
   ],
   "V-ing": ["부정형", "수동형", "완료형"],
+  // 명사절 — 5개 form × 4개 SVOC role(주어/목적어/보어/전치사목적어) = 20버튼
+  // 각 form을 그룹 헤더로, 항목은 SVOC role로 표시
   "접SV": [
-    { header: "명사절", items: ["that", "whether/if", "의SV", "관대what", "복합관대~ever"] },
+    { header: "that", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "whether/if", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "의SV", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "관대what", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "복합관대~ever", items: ["주어", "목적어", "보어", "전목적어"] },
   ],
 };
 
@@ -394,15 +412,18 @@ export const AnalysisPanel = ({
   onNounElementChange,
   onNounRoleChange,
   onNounElementRole,
+  onNounClauseDepthChange,
   adj,
   onAdjFormChange,
   onAdjElementChange,
   onAdjRoleChange,
   onAdjElementRole,
+  onAdjClauseDepthChange,
   adv,
   onAdvFormChange,
   onAdvSubtypeChange,
   onAdvRoleChange,
+  onAdvClauseDepthChange,
   etc,
   onEtcKindChange,
   onEtcRoleChange,
@@ -480,6 +501,7 @@ export const AnalysisPanel = ({
           onNounElementChange={onNounElementChange}
           onNounRoleChange={onNounRoleChange}
           onNounElementRole={onNounElementRole}
+          onClauseDepthChange={onNounClauseDepthChange}
           referent={referentSectionProps}
         />
       );
@@ -504,6 +526,7 @@ export const AnalysisPanel = ({
           onAdjElementChange={onAdjElementChange}
           onAdjRoleChange={onAdjRoleChange}
           onAdjElementRole={onAdjElementRole}
+          onClauseDepthChange={onAdjClauseDepthChange}
           modifier={modifierSectionProps}
         />
       );
@@ -515,6 +538,7 @@ export const AnalysisPanel = ({
           onAdvFormChange={onAdvFormChange}
           onAdvSubtypeChange={onAdvSubtypeChange}
           onAdvRoleChange={onAdvRoleChange}
+          onClauseDepthChange={onAdvClauseDepthChange}
         />
       );
     if (isEtc)
@@ -860,6 +884,7 @@ interface NounPanelProps {
   onNounElementChange: (e: SentenceElement) => void;
   onNounRoleChange: (r: string) => void;
   onNounElementRole: (e: SentenceElement, r: string | null) => void;
+  onClauseDepthChange?: (d: ClauseDepth) => void;
   referent?: ReferentSectionInput;
 }
 
@@ -869,6 +894,7 @@ const NounPanel = ({
   onNounFormChange,
   onNounRoleChange,
   onNounElementRole,
+  onClauseDepthChange,
   referent,
 }: NounPanelProps) => {
   const formCorrect = noun.formStatus === "correct";
@@ -904,6 +930,9 @@ const NounPanel = ({
         locked={false}
         onSelect={(k) => onNounFormChange(k as NounForm)}
       />
+      {noun.form === "접SV" && onClauseDepthChange && (
+        <ClauseDepthRow value={noun.clauseDepth ?? 1} onChange={onClauseDepthChange} />
+      )}
       {formOnlyMode ? (
         <RoleRow
           unlocked
@@ -952,6 +981,7 @@ interface AdjPanelProps {
   onAdjElementChange: (e: "C" | "M") => void;
   onAdjRoleChange: (r: string) => void;
   onAdjElementRole: (e: "C" | "M", r: string | null) => void;
+  onClauseDepthChange?: (d: ClauseDepth) => void;
   modifier?: ModifierSectionInput;
 }
 
@@ -961,6 +991,7 @@ const AdjPanel = ({
   onAdjFormChange,
   onAdjRoleChange,
   onAdjElementRole,
+  onClauseDepthChange,
   modifier,
 }: AdjPanelProps) => {
   const formCorrect = adj.formStatus === "correct";
@@ -999,6 +1030,9 @@ const AdjPanel = ({
         locked={false}
         onSelect={(k) => onAdjFormChange(k as AdjForm)}
       />
+      {adj.form === "접SV" && onClauseDepthChange && (
+        <ClauseDepthRow value={adj.clauseDepth ?? 1} onChange={onClauseDepthChange} />
+      )}
       {skipsElement ? (
         <RoleRow
           unlocked={!!adj.form}
@@ -1195,6 +1229,7 @@ interface AdvPanelProps {
   onAdvFormChange: (f: AdvForm) => void;
   onAdvSubtypeChange: (s: AdvSubtype) => void;
   onAdvRoleChange: (r: string) => void;
+  onClauseDepthChange?: (d: ClauseDepth) => void;
 }
 
 const AdvPanel = ({
@@ -1203,6 +1238,7 @@ const AdvPanel = ({
   onAdvFormChange,
   onAdvSubtypeChange,
   onAdvRoleChange,
+  onClauseDepthChange,
 }: AdvPanelProps) => {
   const mask = useMaskStatus();
   const advRoleStatus = mask(adv.roleStatus);
@@ -1219,6 +1255,9 @@ const AdvPanel = ({
 
   return (
     <>
+      {adv.form === "접SV" && onClauseDepthChange && (
+        <ClauseDepthRow value={adv.clauseDepth ?? 1} onChange={onClauseDepthChange} />
+      )}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
@@ -1458,6 +1497,50 @@ const EtcPanel = ({
 
 // ============================================================
 // 공통 Row 컴포넌트
+// ============================================================
+// 절 깊이 토글 — 접SV form일 때만 노출. 깊이별 색상 자동 배정.
+// ============================================================
+const CLAUSE_DEPTH_CLASSES: Record<ClauseDepth, string> = {
+  1: "bg-element-s-bg text-element-s border-element-s/40",
+  2: "bg-element-o-bg text-element-o border-element-o/40",
+  3: "bg-element-c-bg text-element-c border-element-c/40",
+};
+
+const ClauseDepthRow = ({
+  value,
+  onChange,
+}: {
+  value: ClauseDepth;
+  onChange: (d: ClauseDepth) => void;
+}) => (
+  <div className="space-y-1">
+    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+      절 깊이 (중첩 단계)
+    </p>
+    <div className="flex gap-1">
+      {([1, 2, 3] as ClauseDepth[]).map((d) => {
+        const sel = value === d;
+        return (
+          <button
+            key={d}
+            type="button"
+            onClick={() => onChange(d)}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-[11px] font-bold font-kr border transition-all",
+              sel
+                ? CLAUSE_DEPTH_CLASSES[d]
+                : "bg-card text-muted-foreground border-border hover:border-primary/40",
+            )}
+            title={d === 1 ? "종속절" : d === 2 ? "절 안의 절" : "3중 중첩"}
+          >
+            깊이 {d}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
 // ============================================================
 interface FormItem {
   key: string;
