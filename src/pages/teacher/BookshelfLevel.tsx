@@ -1,0 +1,300 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { TeacherLayout } from "@/components/teacher/TeacherLayout";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ChevronLeft,
+  Loader2,
+  Plus,
+  BookOpen,
+  FileText,
+  Sparkles,
+} from "lucide-react";
+import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import {
+  fetchTextbooksByLevel,
+  createTextbook,
+  bulkInsertPassages,
+  splitPassageText,
+  type Textbook,
+} from "@/lib/textbooks";
+import { toast } from "@/hooks/use-toast";
+
+const BookshelfLevel = () => {
+  const { level } = useParams<{ level: LevelCode }>();
+  const navigate = useNavigate();
+  const [textbooks, setTextbooks] = useState<Textbook[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // create textbook dialog
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newUnit, setNewUnit] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // bulk-insert passages dialog
+  const [insertOpen, setInsertOpen] = useState(false);
+  const [insertTarget, setInsertTarget] = useState<Textbook | null>(null);
+  const [bulkText, setBulkText] = useState("");
+  const [splitMode, setSplitMode] = useState<"blank" | "line" | "sentence">("blank");
+  const [inserting, setInserting] = useState(false);
+
+  const reload = () => {
+    if (!level) return;
+    setLoading(true);
+    fetchTextbooksByLevel(level)
+      .then(setTextbooks)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level]);
+
+  const handleCreate = async () => {
+    if (!level) return;
+    const unitNo = parseInt(newUnit, 10);
+    if (!Number.isFinite(unitNo) || unitNo < 1) {
+      toast({ title: "유닛 번호는 1 이상의 정수여야 합니다", variant: "destructive" });
+      return;
+    }
+    if (!newTitle.trim()) {
+      toast({ title: "제목을 입력하세요", variant: "destructive" });
+      return;
+    }
+    setCreating(true);
+    try {
+      await createTextbook({ level, unit_no: unitNo, title: newTitle.trim() });
+      toast({ title: "교재가 추가되었습니다" });
+      setCreateOpen(false);
+      setNewUnit("");
+      setNewTitle("");
+      reload();
+    } catch (e) {
+      toast({
+        title: "추가 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const openInsert = (tb: Textbook) => {
+    setInsertTarget(tb);
+    setBulkText("");
+    setSplitMode("blank");
+    setInsertOpen(true);
+  };
+
+  const previewItems = bulkText ? splitPassageText(bulkText, splitMode) : [];
+
+  const handleBulkInsert = async () => {
+    if (!insertTarget) return;
+    const items = splitPassageText(bulkText, splitMode);
+    if (items.length === 0) {
+      toast({ title: "본문을 입력하세요", variant: "destructive" });
+      return;
+    }
+    setInserting(true);
+    try {
+      const inserted = await bulkInsertPassages(insertTarget, items);
+      toast({ title: `${inserted.length}개 지문이 추가되었습니다` });
+      setInsertOpen(false);
+      navigate(`/teacher/bookshelf/${level}/${insertTarget.unit_no}`);
+    } catch (e) {
+      toast({
+        title: "추가 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setInserting(false);
+    }
+  };
+
+  return (
+    <TeacherLayout>
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <Link
+              to="/teacher/bookshelf"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="size-3" /> 책장
+            </Link>
+            <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
+              <BookOpen className="size-6 text-primary" />
+              {level && LEVEL_LABEL[level]}
+              <span className="text-sm font-mono text-muted-foreground">{level}</span>
+            </h1>
+          </div>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4 mr-1" /> 새 교재 만들기
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="animate-spin text-primary" />
+          </div>
+        ) : textbooks.length === 0 ? (
+          <Card className="p-10 text-center text-sm text-muted-foreground">
+            아직 교재가 없습니다. 우측 상단의 <strong>새 교재 만들기</strong>로 시작하세요.
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {textbooks.map((tb) => (
+              <Card key={tb.id} className="p-5 hover:border-primary/30 transition-colors">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-muted-foreground font-mono">
+                      U{tb.unit_no}
+                    </div>
+                    <h2 className="text-lg font-bold mt-0.5">{tb.title}</h2>
+                    {tb.description && (
+                      <p className="text-xs text-muted-foreground mt-1">{tb.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openInsert(tb)}>
+                      <Sparkles className="size-3.5 mr-1" /> 교재 만들기
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(`/teacher/bookshelf/${level}/${tb.unit_no}`)}
+                    >
+                      <FileText className="size-3.5 mr-1" /> 열기
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Create textbook dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>새 교재 만들기 — {level && LEVEL_LABEL[level]}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="unit">유닛 번호</Label>
+              <Input
+                id="unit"
+                type="number"
+                min={1}
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                placeholder="예: 1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="title">제목</Label>
+              <Input
+                id="title"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="예: 고1 S1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating && <Loader2 className="size-3.5 mr-1 animate-spin" />}추가
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk insert dialog */}
+      <Dialog open={insertOpen} onOpenChange={setInsertOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              본문 일괄 삽입 — {insertTarget?.title} (U{insertTarget?.unit_no})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>분할 방식</Label>
+              <Select value={splitMode} onValueChange={(v) => setSplitMode(v as typeof splitMode)}>
+                <SelectTrigger className="w-60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blank">빈 줄 기준 (권장)</SelectItem>
+                  <SelectItem value="line">한 줄 = 한 지문</SelectItem>
+                  <SelectItem value="sentence">한 문장(. ! ?) 기준</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="bulk">영어 본문</Label>
+              <Textarea
+                id="bulk"
+                rows={10}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder={"여러 지문을 빈 줄로 구분해 붙여넣으세요.\n\n예) Radio provided the driving force...\n\nWho knew that sportscaster..."}
+              />
+            </div>
+            {previewItems.length > 0 && (
+              <div className="rounded-md border border-border p-3 bg-muted/30 max-h-52 overflow-auto text-xs space-y-2">
+                <div className="font-bold text-foreground">
+                  미리보기 — {previewItems.length}개 지문이 추가됩니다
+                </div>
+                {previewItems.map((p, i) => (
+                  <div key={i} className="text-muted-foreground">
+                    <span className="font-mono text-primary mr-2">
+                      {String(i + 1).padStart(3, "0")}
+                    </span>
+                    {p.length > 120 ? p.slice(0, 120) + "…" : p}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setInsertOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleBulkInsert} disabled={inserting || previewItems.length === 0}>
+              {inserting && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              {previewItems.length}개 추가
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </TeacherLayout>
+  );
+};
+
+export default BookshelfLevel;
