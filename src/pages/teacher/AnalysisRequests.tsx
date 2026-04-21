@@ -125,7 +125,7 @@ const AnalysisRequests = () => {
       <div className="max-w-5xl mx-auto p-6 space-y-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl font-extrabold text-foreground">정답 대조 요청</h1>
+            <h1 className="text-2xl font-extrabold text-foreground">선생님분석본보기요청</h1>
             <p className="text-sm text-muted-foreground">
               학생들이 보낸 자기 첨삭 요청을 실시간으로 처리합니다.
             </p>

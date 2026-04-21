@@ -2601,7 +2601,7 @@ const Index = ({
                 if (layers.length === 0) return undefined;
                 return layers.join(", ");
               };
-              const wordLayerBg = showTeacherAnnotations ? buildLayerBg(ownersHere) : undefined;
+              const wordLayerBg = showTeacherAnnotations && !idiomMark ? buildLayerBg(ownersHere) : undefined;
 
               // 병렬 owner가 이 인덱스를 포함하면 박스 시각화 (학생 모드는 시각화 차단)
               const parallelOwnerHere = showTeacherAnnotations

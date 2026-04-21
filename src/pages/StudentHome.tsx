@@ -223,7 +223,7 @@ const StudentHome = () => {
         track,
       });
       if (row) setReviewReqs((prev) => ({ ...prev, [sentenceId]: row }));
-      toast({ title: "정답 대조 요청을 보냈어요" });
+      toast({ title: "선생님분석본보기 요청을 보냈어요" });
     } catch (e) {
       const msg = String(e);
       toast({
