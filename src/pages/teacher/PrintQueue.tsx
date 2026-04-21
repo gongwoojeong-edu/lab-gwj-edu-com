@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Printer, FileText, Loader2 } from "lucide-react";
+import { Printer, Loader2 } from "lucide-react";
 import {
   fetchPendingPrintRequests,
   subscribeToPrintRequests,
@@ -57,7 +57,7 @@ const PrintQueue = () => {
   const handleOpenPdf = (req: PrintRequest) => {
     const url =
       `/teacher/handout/${encodeURIComponent(req.sentence_id)}` +
-      `?student=${req.user_id}&fromQueue=1&reqId=${req.id}`;
+      `?student=${req.user_id}&fromQueue=1&reqId=${req.id}&autoprint=1`;
     window.open(url, "_blank");
   };
 
@@ -114,7 +114,7 @@ const PrintQueue = () => {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Button size="sm" onClick={() => handleOpenPdf(req)}>
-                      <FileText className="size-4 mr-1" /> PDF
+                      <Printer className="size-4 mr-1" /> 인쇄
                     </Button>
                   </div>
                 </Card>

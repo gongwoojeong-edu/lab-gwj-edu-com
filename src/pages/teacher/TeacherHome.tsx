@@ -46,7 +46,7 @@ const TILES = [
   { to: "/teacher/students", title: "학생 목록", desc: "학생 진행/권한 관리", icon: Users },
   { to: "/teacher/assignments", title: "특별과제", desc: "학생에게 특별과제 부여", icon: ClipboardList },
   { to: "/teacher/print-queue", title: "인쇄 대기열", desc: "시험지 승인·출력", icon: Printer },
-  { to: "/teacher/retests", title: "재시험 관리", desc: "단어 테스트 재시도", icon: RefreshCcw },
+  { to: "/teacher/results", title: "학습결과", desc: "오늘 학습 결과·HO 입력", icon: RefreshCcw },
 ];
 
 interface UpcomingAssignment {
@@ -271,6 +271,30 @@ const TeacherHome = () => {
                 const target = a.student_id
                   ? studentNameMap.get(a.student_id) ?? "—"
                   : "전체 학생";
+
+                // ===== 학습완료 집계 =====
+                const targetIds = a.student_id
+                  ? [a.student_id]
+                  : students.map((s) => s.user_id);
+                const progressMap = progressByAsg[a.id];
+                const isStepDone = (st: { status: string }) =>
+                  st.status === "pass" || st.status === "done";
+                const isUserComplete = (uid: string) => {
+                  const p = progressMap?.get(uid);
+                  if (!p) return false;
+                  if (a.include_pre && !isStepDone(p.pre)) return false;
+                  if (a.include_analysis && !isStepDone(p.analysis)) return false;
+                  if (a.include_translation && !isStepDone(p.translation)) return false;
+                  if (a.include_wordtest && !isStepDone(p.wordtest)) return false;
+                  return true;
+                };
+                const completedCount = progressMap
+                  ? targetIds.filter(isUserComplete).length
+                  : 0;
+                const allComplete =
+                  progressMap != null && targetIds.length > 0 && completedCount === targetIds.length;
+                const partial = completedCount > 0 && !allComplete;
+
                 return (
                   <li
                     key={a.id}
@@ -290,13 +314,18 @@ const TeacherHome = () => {
                         size="xs"
                         progress={progressByAsg[a.id]}
                         studentNameMap={studentNameMap}
-                        targetUserIds={
-                          a.student_id
-                            ? [a.student_id]
-                            : students.map((s) => s.user_id)
-                        }
+                        targetUserIds={targetIds}
                       />
                     </div>
+                    {allComplete ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                        ✓ 학습완료
+                      </span>
+                    ) : partial ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-muted text-foreground">
+                        {completedCount}/{targetIds.length} 완료
+                      </span>
+                    ) : null}
                     <span
                       className={
                         urgent

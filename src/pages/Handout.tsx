@@ -25,6 +25,7 @@ const HandoutPage = () => {
   const studentId = params.get("student");
   const fromQueue = params.get("fromQueue") === "1";
   const reqId = params.get("reqId");
+  const autoprint = params.get("autoprint") === "1";
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
@@ -81,6 +82,19 @@ const HandoutPage = () => {
     window.addEventListener("beforeprint", onBeforePrint);
     return () => window.removeEventListener("beforeprint", onBeforePrint);
   }, [fromQueue, reqId, studentId]);
+
+  // ===== autoprint=1 쿼리: 데이터 로드 후 자동 인쇄 트리거 =====
+  useEffect(() => {
+    if (!autoprint || loading || !passage) return;
+    const t = setTimeout(() => {
+      try {
+        window.print();
+      } catch (e) {
+        console.error("[Handout] auto-print failed", e);
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [autoprint, loading, passage]);
 
   const segments = useMemo(
     () => (passage ? buildClozeSegments(passage.tokens) : null),

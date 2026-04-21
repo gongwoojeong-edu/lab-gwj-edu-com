@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
+import { subscribeToPrintRequests } from "@/lib/printRequests";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
@@ -51,9 +52,27 @@ const LearningResults = () => {
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [teacherId, setTeacherId] = useState<string | null>(null);
+  // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
+  const [printedSet, setPrintedSet] = useState<Record<string, string>>({});
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
+  }, []);
+
+  // 인쇄대기열에서 인쇄 완료된 행도 실시간 반영
+  useEffect(() => {
+    const unsub = subscribeToPrintRequests((evt, row) => {
+      if (!row) return;
+      if (
+        (evt === "UPDATE" || evt === "INSERT") &&
+        row.status === "printed" &&
+        row.handled_at
+      ) {
+        const key = `${row.user_id}::${row.sentence_id}`;
+        setPrintedSet((p) => ({ ...p, [key]: row.handled_at as string }));
+      }
+    });
+    return unsub;
   }, []);
 
   // HO 점수 입력 후 handoutMap 갱신
@@ -252,35 +271,36 @@ const LearningResults = () => {
   const handlePrint = async (userId: string, sentenceId: string) => {
     const key = `print:${userId}:${sentenceId}`;
     setBusy((p) => ({ ...p, [key]: true }));
+    // 1) 즉시 새 탭 오픈 (autoprint=1) — 사용자 클릭 컨텍스트 보존
+    window.open(
+      `/teacher/handout/${encodeURIComponent(sentenceId)}?student=${userId}&autoprint=1`,
+      "_blank",
+    );
+    // 2) 낙관적 마킹 — HO 입력란 즉시 활성화
+    const nowIso = new Date().toISOString();
+    const stateKey = `${userId}::${sentenceId}`;
+    setPrintedSet((p) => ({ ...p, [stateKey]: nowIso }));
+    // 3) 백그라운드 처리: print_requests 로깅 + handout 행 보장
     try {
       const { data: u } = await supabase.auth.getUser();
-      // 인쇄 추적 로그: print_requests 에 status='printed' 직접 insert
-      // (학생이 요청 안 했어도 선생님이 임의 인쇄 가능)
-      // RLS: pr_insert_self 는 user_id=auth.uid() 만 허용 → 우리는 학생 본인이 아님.
-      // 따라서 selectable 테이블 권한 정책상 staff insert 가 따로 없으면 실패할 수 있음.
-      // 일단 시도하고, 실패해도 인쇄/결과함 진입은 진행.
       try {
         await supabase.from("print_requests").insert({
           user_id: userId,
           sentence_id: sentenceId,
           teacher_id: u.user?.id ?? null,
           status: "printed",
-          handled_at: new Date().toISOString(),
+          handled_at: nowIso,
           handled_by: u.user?.id ?? null,
           note: "teacher-print",
         });
       } catch (e) {
         console.warn("[LearningResults] print_requests insert skipped", e);
       }
-      await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
-      window.open(
-        `/teacher/handout/${encodeURIComponent(sentenceId)}?student=${userId}`,
-        "_blank",
-      );
-      toast({ title: "인쇄 처리됨 — 학습결과함에 합류" });
-      refresh();
+      const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
+      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+      toast({ title: "인쇄 처리됨 — HO 입력란 활성화" });
     } catch (e) {
-      toast({ title: "인쇄 실패", description: String(e), variant: "destructive" });
+      toast({ title: "인쇄 처리 일부 실패", description: String(e), variant: "destructive" });
     } finally {
       setBusy((p) => ({ ...p, [key]: false }));
     }
@@ -335,7 +355,7 @@ const LearningResults = () => {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Archive className="size-6 text-primary" />
-            학습결과함
+            학습결과
             <span className="text-sm font-normal text-muted-foreground">
               · 학생 {groupedEntries.length}명
             </span>
@@ -369,7 +389,7 @@ const LearningResults = () => {
               const handout = handoutMap[userId];
               return (
                 <Card key={userId} className="p-4 space-y-3">
-                  {/* 학생 헤더 — HO 점수 인라인 입력 */}
+                  {/* 학생 헤더 */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-foreground">
                       {s?.display_name ?? "학생"}
@@ -380,30 +400,6 @@ const LearningResults = () => {
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
-
-                    <div className="flex items-center gap-3 ml-2 pl-3 border-l border-border">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-semibold text-muted-foreground">단어HO</span>
-                        <WordHoInput
-                          userId={userId}
-                          teacherId={teacherId}
-                          testDate={date}
-                          current={handout ?? null}
-                          onSaved={handleHandoutSaved}
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-semibold text-muted-foreground">구문HO</span>
-                        <SyntaxHoToggle
-                          userId={userId}
-                          teacherId={teacherId}
-                          testDate={date}
-                          current={handout ?? null}
-                          onSaved={handleHandoutSaved}
-                        />
-                      </div>
-                    </div>
-
                     <Button
                       size="sm"
                       variant="outline"
@@ -417,13 +413,14 @@ const LearningResults = () => {
 
                   <div className="overflow-hidden rounded-md border border-border">
                     <table className="w-full text-sm">
-                      <thead className="bg-muted/40 text-xs text-muted-foreground">
+                      <thead className="bg-muted/40 text-[11px] text-muted-foreground">
                         <tr>
                           <th className="text-left px-3 py-2 font-medium">문장 코드</th>
-                          <th className="text-left px-3 py-2 font-medium">단어 시험</th>
-                          <th className="text-left px-3 py-2 font-medium">구문 분석</th>
-                          <th className="text-left px-3 py-2 font-medium">상태</th>
-                          <th className="text-right px-3 py-2 font-medium">액션</th>
+                          <th className="text-left px-3 py-2 font-medium">구문분석</th>
+                          <th className="text-left px-3 py-2 font-medium">단어시험</th>
+                          <th className="text-left px-3 py-2 font-medium">단어 HO</th>
+                          <th className="text-left px-3 py-2 font-medium">구문 HO</th>
+                          <th className="text-right px-3 py-2 font-medium">인쇄</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -435,30 +432,53 @@ const LearningResults = () => {
                             a?.best_analysis_rate != null
                               ? Math.round(a.best_analysis_rate * 100)
                               : null;
-                          const allPassed = a?.word_passed && a?.analysis_passed;
-                          const printedAt = a?.printed_at;
+                          const stateKey = `${userId}::${sid}`;
+                          const printedAt = printedSet[stateKey] ?? a?.printed_at ?? null;
+                          const isPrinted = !!printedAt;
                           const printKey = `print:${userId}:${sid}`;
                           const retestKey = `retest:${userId}:${sid}`;
                           return (
-                            <tr key={sid} className="hover:bg-muted/20">
-                              <td className="px-3 py-2 font-mono text-xs">
-                                <div>{sid}</div>
-                                {printedAt && (
-                                  <div className="text-[10px] text-muted-foreground inline-flex items-center gap-1 mt-0.5">
-                                    <Printer className="size-3 text-primary" />
-                                    {fmtTime(printedAt)}
-                                  </div>
+                            <tr key={sid} className="hover:bg-muted/20 align-middle">
+                              <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <span>{sid}</span>
+                                  {isPrinted && (
+                                    <span className="text-[10px] text-primary inline-flex items-center gap-0.5">
+                                      <Printer className="size-3" />
+                                      {fmtTime(printedAt!)}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {aScore == null ? (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-xs">
+                                    <Badge
+                                      className={
+                                        a?.analysis_passed
+                                          ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
+                                          : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
+                                      }
+                                    >
+                                      {a?.analysis_passed ? "P" : "F"}
+                                    </Badge>
+                                    <span className="text-muted-foreground tabular-nums">
+                                      {aScore}%
+                                    </span>
+                                  </span>
                                 )}
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-3 py-2 whitespace-nowrap">
                                 {wScore == null ? (
                                   <span className="text-xs text-muted-foreground">—</span>
                                 ) : (
                                   <span
                                     className={
                                       a?.word_passed
-                                        ? "text-primary font-semibold"
-                                        : "text-destructive font-semibold"
+                                        ? "text-primary font-semibold tabular-nums"
+                                        : "text-destructive font-semibold tabular-nums"
                                     }
                                   >
                                     {wScore}
@@ -466,43 +486,35 @@ const LearningResults = () => {
                                 )}
                               </td>
                               <td className="px-3 py-2">
-                                {aScore == null ? (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                ) : (
-                                  <span
-                                    className={
-                                      a?.analysis_passed
-                                        ? "text-primary font-semibold"
-                                        : "text-destructive font-semibold"
-                                    }
-                                  >
-                                    {aScore}
-                                  </span>
-                                )}
+                                <WordHoInput
+                                  userId={userId}
+                                  teacherId={teacherId}
+                                  testDate={date}
+                                  current={handout ?? null}
+                                  onSaved={handleHandoutSaved}
+                                  disabled={!isPrinted}
+                                />
                               </td>
                               <td className="px-3 py-2">
-                                {!a ? (
-                                  <Badge variant="outline" className="text-[10px]">
-                                    미응시
-                                  </Badge>
-                                ) : allPassed ? (
-                                  <Badge className="text-[10px]">완료</Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="text-[10px]">
-                                    부분
-                                  </Badge>
-                                )}
+                                <SyntaxHoToggle
+                                  userId={userId}
+                                  teacherId={teacherId}
+                                  testDate={date}
+                                  current={handout ?? null}
+                                  onSaved={handleHandoutSaved}
+                                  disabled={!isPrinted}
+                                />
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center justify-end gap-1.5">
                                   <Button
                                     size="sm"
-                                    variant="outline"
+                                    variant="ghost"
                                     className="h-7 px-2 text-xs"
                                     onClick={() => handleOpenPdf(userId, sid)}
+                                    title="PDF 미리보기"
                                   >
-                                    <FileText className="size-3 mr-1" />
-                                    PDF
+                                    <FileText className="size-3" />
                                   </Button>
                                   <Button
                                     size="sm"
@@ -519,9 +531,9 @@ const LearningResults = () => {
                                     className="h-7 px-2 text-xs"
                                     disabled={!!busy[retestKey]}
                                     onClick={() => handleRetest(userId, sid)}
+                                    title="재시험 등록"
                                   >
-                                    <RefreshCcw className="size-3 mr-1" />
-                                    재시험
+                                    <RefreshCcw className="size-3" />
                                   </Button>
                                 </div>
                               </td>

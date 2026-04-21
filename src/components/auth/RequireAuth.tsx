@@ -51,7 +51,12 @@ export const RequireAuth = ({
     );
   }
   // staff가 학생 모드면 학생 라우트로 보내기 (선생님 라우트 진입 시)
+  // 단, 라우트가 명시적으로 requireRole="teacher"|"admin" 을 요구해 통과한 경우는
+  // viewMode 와 무관하게 통과시킨다 (예: /teacher/handout/* 새 탭 인쇄).
+  const routeRequiresStaff =
+    requireRole === "teacher" || requireRole === "admin";
   if (
+    !routeRequiresStaff &&
     isStaff(roles) &&
     mode === "student" &&
     location.pathname.startsWith("/teacher")
