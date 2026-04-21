@@ -275,6 +275,9 @@ const SentenceLearn = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-primary/10 text-primary border border-primary/20">
+              학생 모드
+            </span>
             {isStaff && (
               <Button
                 variant="outline"
@@ -470,7 +473,7 @@ const SentenceLearn = () => {
               <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
                 <Index
                   embedMode
-                  studentMode={!isStaff}
+                  studentMode={true}
                   embedSentenceId={sentence.id}
                   onAnalysisDone={() => setAnalysisDone(true)}
                   onAnalysisProgress={setAnalysisRate}

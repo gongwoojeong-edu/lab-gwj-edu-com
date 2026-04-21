@@ -534,6 +534,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const { showModifierArrows, showReferentArrows, isAdmin: ctxIsAdmin } = useHintSettings();
   // 학생 모드에서는 admin UI 전부 숨김 — role이 admin이어도 노출 차단
   const isAdmin = !studentMode && ctxIsAdmin;
+  // 학생 모드에서 정답성 시각요소(보라 음영/배지/대괄호/언더라인/화살표/패널 정답) 일괄 숨김 플래그
+  const showTeacherAnnotations = !studentMode;
+  // 마스터키 owner_id 집합 — 학생 화면 분석률의 분모 계산에만 사용 (정답 본문은 사용 안 함)
+  const [masterOwnerIds, setMasterOwnerIds] = useState<Set<string>>(new Set());
 
   // ===== 학습 흐름 (Cloud) =====
   const [learningStep, setLearningStep] = useState<LearningStep>("pre");
@@ -960,13 +964,36 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     if (embedMode && onAnalysisDone) onAnalysisDone();
   }, [analysisDone, sentence.id, embedMode, onAnalysisDone]);
 
-  // 분석 진행률(0~1) 외부 통지 — 게이트 표시용
+  // 마스터키 owner_id 집합 hydrate — sentence 변경 시 한 번
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/analysisGrading").then(({ fetchMasterAnswers }) =>
+      fetchMasterAnswers(sentence.id).then((m) => {
+        if (cancelled) return;
+        setMasterOwnerIds(new Set(Object.keys(m)));
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [sentence.id]);
+
+  // 분석 진행률(0~1) 외부 통지 — 마스터키 정답 owner 대비 (없으면 단어 분석 대비로 fallback)
   useEffect(() => {
     if (!onAnalysisProgress) return;
+    if (masterOwnerIds.size > 0) {
+      let filled = 0;
+      masterOwnerIds.forEach((oid) => {
+        const wp = progressMap[oid];
+        if (wp && wp.pos) filled += 1;
+      });
+      onAnalysisProgress(filled / masterOwnerIds.size);
+      return;
+    }
+    // fallback: 마스터 미등록 문장 — 학생이 막히지 않도록 단어 분석률 사용
     const total = analyzableIds.length;
-    const rate = total > 0 ? completedCount / total : 0;
-    onAnalysisProgress(rate);
-  }, [completedCount, analyzableIds.length, onAnalysisProgress]);
+    onAnalysisProgress(total > 0 ? completedCount / total : 0);
+  }, [completedCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
@@ -1806,7 +1833,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       activeSelectionIndices.length > 0
         ? activeSelectionIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
         : selectedToken?.text ?? null,
-    answer: selectedAnswer,
+    answer: studentMode ? null : selectedAnswer,
     pos: progress.pos,
     posStatus: progress.posStatus,
     onPosChange: handlePos,
@@ -2361,8 +2388,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
           >
             {/* === 수식 / 지시어 화살표 SVG overlay === */}
             <ArrowOverlay
-              showModifier={showModifierArrows}
-              showReferent={showReferentArrows}
+              showModifier={showTeacherAnnotations && showModifierArrows}
+              showReferent={showTeacherAnnotations && showReferentArrows}
               modifierRelations={getTargetsForSentence(modifierMap, sentence.id)}
               referentRelations={getReferentsForSentence(referentMap, sentence.id)}
               tokenRefs={tokenRefs.current}
@@ -2383,7 +2410,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
 
               // 구두점/괄호: 비대화형 (단, 인접 완료 layer 사이면 그 자체에 보라 배경)
               if (punct) {
-                const fillBg = sharedWithPrev && sharedWithNext;
+                const fillBg = showTeacherAnnotations && sharedWithPrev && sharedWithNext;
                 return (
                   <span
                     key={idx}
@@ -2434,7 +2461,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
               const isClauseSelection = wp ? isClauseProgress(wp) : false;
               const isParallelSelection = isParallelProgress(wp);
               let completedElement: "S" | "V" | "O" | "C" | undefined;
-              if (isCompleted && innerBadge) {
+              if (showTeacherAnnotations && isCompleted && innerBadge) {
                 if (innerBadge !== "M" && !isClauseSelection) {
                   completedElement = innerBadge;
                 }
@@ -2447,17 +2474,17 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
               const outerIsClauseLocal =
                 !!outerProgress && isClauseProgress(outerProgress);
               const outerIsParallelLocal = isParallelProgress(outerProgress);
-              const outerBadge = outerProgress ? buildElementBadge(outerProgress) : undefined;
-              const outerSubLabel = outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
+              const outerBadge = showTeacherAnnotations && outerProgress ? buildElementBadge(outerProgress) : undefined;
+              const outerSubLabel = showTeacherAnnotations && outerProgress ? buildSubBadgeLabel(outerProgress) : undefined;
               const outerIsFirstLocal = outerIsClauseLocal && idx === outerIndices[0];
               const outerIsLastLocal =
                 outerIsClauseLocal && idx === outerIndices[outerIndices.length - 1];
               const outerAnchorIdx = findAnchorIdx(outerIndices, outerProgress);
               const outerIsBadgeAnchor = outerIsClauseLocal && idx === outerAnchorIdx;
 
-              // === 절 브래킷: 외곽 progress의 element badge 기준 ===
+              // === 절 브래킷: 외곽 progress의 element badge 기준 (학생 모드는 숨김) ===
               const bracketRole: "S" | "V" | "O" | "C" | "M" | undefined =
-                outerIsClauseLocal ? outerBadge ?? "M" : undefined;
+                showTeacherAnnotations && outerIsClauseLocal ? outerBadge ?? "M" : undefined;
 
               // === 부배지 layer depth 계산 ===
               // ownersHere 순서: 외곽(긴 범위, Layer 1) → 안쪽(짧은 범위, Layer N).
@@ -2472,9 +2499,9 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
 
               // 부배지(품사 라벨) — owner 첫 인덱스에만, 절은 별도 외곽 부배지로 처리
               const koreanLabel =
-                isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
+                showTeacherAnnotations && isCompleted && isInnerBadgeAnchor && !isClauseSelection ? innerSubLabel : undefined;
               const outerKoreanLabel =
-                outerIsClauseLocal && outerIsBadgeAnchor ? outerSubLabel : undefined;
+                showTeacherAnnotations && outerIsClauseLocal && outerIsBadgeAnchor ? outerSubLabel : undefined;
 
               const bracketColorClass =
                 bracketRole === "S"
@@ -2496,7 +2523,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
 
               // 안쪽 완료 배경 — clause/parallel은 별도 처리, 일반(general)만 옅은 보라
               const innerCompleteBg =
-                isCompleted && !isSelected && !isClauseSelection && !isParallelSelection;
+                showTeacherAnnotations && isCompleted && !isSelected && !isClauseSelection && !isParallelSelection;
 
               // === Owner 종류별 배경 분기 ===
               // clause: 배경 거의 제거 (대괄호로 표현) / parallel: 진한 박스 / general: 옅은 보라 누적
@@ -2517,10 +2544,12 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                 if (layers.length === 0) return undefined;
                 return layers.join(", ");
               };
-              const wordLayerBg = buildLayerBg(ownersHere);
+              const wordLayerBg = showTeacherAnnotations ? buildLayerBg(ownersHere) : undefined;
 
-              // 병렬 owner가 이 인덱스를 포함하면 박스 시각화
-              const parallelOwnerHere = ownersHere.find((oid) => isParallelProgress(progressMap[oid]));
+              // 병렬 owner가 이 인덱스를 포함하면 박스 시각화 (학생 모드는 시각화 차단)
+              const parallelOwnerHere = showTeacherAnnotations
+                ? ownersHere.find((oid) => isParallelProgress(progressMap[oid]))
+                : undefined;
               const parallelIndices = parallelOwnerHere
                 ? completedSelectionMap[parallelOwnerHere] ?? []
                 : [];
