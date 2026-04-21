@@ -287,11 +287,13 @@ const HandoutPage = () => {
             {segments
               ? segments.map((seg, i) =>
                   seg.kind === "cloze" && seg.choices ? (
-                    <span key={i} className="cloze-box">
-                      [ {seg.choices[0]} / {seg.choices[1]} ]
+                    <span key={i}>
+                      <span className="cloze-box">
+                        [ {seg.choices[0]} / {seg.choices[1]} ]
+                      </span>{" "}
                     </span>
                   ) : (
-                    <span key={i}>{seg.text}</span>
+                    <span key={i}>{seg.text} </span>
                   ),
                 )
               : passage.english}
