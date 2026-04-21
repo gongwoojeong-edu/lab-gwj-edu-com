@@ -564,6 +564,14 @@ const TeacherStudents = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StudentHistorySheet
+        open={historySheet !== null}
+        onOpenChange={(o) => !o && setHistorySheet(null)}
+        userId={historySheet?.userId ?? null}
+        studentName={historySheet?.name ?? null}
+        studentNo={historySheet?.no ?? null}
+      />
     </main>
   );
 };
