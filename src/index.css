@@ -57,10 +57,10 @@
     --element-m: 260 8% 55%;        /* Modifier — neutral grey (unused as tag) */
     --element-m-bg: 260 10% 95%;
 
-    /* Idiom / Phrase layer — light sepia, SVOC와 시각적으로 충돌하지 않도록 채도 낮춤 */
-    --idiom-bg: 30 35% 90%;
-    --idiom-border: 28 40% 70%;
-    --idiom-fg: 25 35% 30%;
+    /* Idiom / Phrase layer — soft green, SVOC와 시각적으로 충돌하지 않도록 채도 낮춤 */
+    --idiom-bg: 145 50% 90%;
+    --idiom-border: 145 55% 55%;
+    --idiom-fg: 145 60% 25%;
 
     /* Reward tokens — streak (warm) & points (brand) */
     --streak: 32 95% 50%;
@@ -68,10 +68,10 @@
     --streak-bg: 38 100% 92%;
 
     /* Layer stacking colors — 외곽 Layer1은 brand violet, Layer2도 violet 계열(접속절 내부 강조),
-       Layer3 crimson, Layer4 teal로 hue 충돌 회피 */
+       Layer3 red(선명한 빨강), Layer4 teal로 hue 충돌 회피 */
     --layer-1: 275 70% 45%;   /* brand violet (외곽 절) */
     --layer-2: 280 65% 50%;   /* violet (접속절 내부 2층 — 보라 유지) */
-    --layer-3: 38 95% 50%;    /* bright amber/yellow (3층) */
+    --layer-3: 0 75% 55%;     /* bright red (3층) */
     --layer-4: 185 78% 36%;   /* teal */
 
     /* Gradients */
@@ -123,9 +123,9 @@
     --input: 260 20% 20%;
     --ring: 280 70% 65%;
 
-    --idiom-bg: 30 25% 22%;
-    --idiom-border: 28 30% 38%;
-    --idiom-fg: 35 40% 80%;
+    --idiom-bg: 145 35% 22%;
+    --idiom-border: 145 40% 38%;
+    --idiom-fg: 145 50% 80%;
 
     --streak: 35 90% 60%;
     --streak-foreground: 38 95% 80%;
@@ -290,12 +290,12 @@
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-3 {
-    background: hsl(38 95% 50% / 0.22);
-    color: hsl(32 90% 38%);
-    border-color: hsl(38 95% 50% / 0.8);
+    background: hsl(0 75% 55% / 0.20);
+    color: hsl(0 75% 38%);
+    border-color: hsl(0 75% 55% / 0.7);
   }
   .sub-badge-pill-3 .sub-badge-num {
-    background: hsl(38 95% 48%);
+    background: hsl(0 75% 50%);
     color: hsl(0 0% 100%);
   }
   .sub-badge-pill-4 {

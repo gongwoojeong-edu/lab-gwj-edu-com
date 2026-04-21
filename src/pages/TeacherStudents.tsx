@@ -91,6 +91,8 @@ const TeacherStudents = () => {
   // name → threshold (0..1) loaded from student_profiles
   const [thresholdByName, setThresholdByName] = useState<Record<string, number>>({});
   const [thresholdSaving, setThresholdSaving] = useState<string | null>(null);
+  const [analysisByName, setAnalysisByName] = useState<Record<string, number>>({});
+  const [analysisSaving, setAnalysisSaving] = useState<string | null>(null);
 
   const openPin = (s: Student) => {
     setPinTarget(s);
@@ -150,12 +152,39 @@ const TeacherStudents = () => {
           variant: "destructive",
         });
       } else {
-        toast({ title: `✅ ${s.name} 통과기준 ${clamped}점 저장` });
+        toast({ title: `✅ ${s.name} 단어 통과기준 ${clamped}% 저장` });
       }
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
     } finally {
       setThresholdSaving(null);
+    }
+  };
+
+  const saveAnalysisThreshold = async (s: Student, percent: number) => {
+    const clamped = Math.max(50, Math.min(100, Math.round(percent)));
+    setAnalysisByName((p) => ({ ...p, [s.name]: clamped / 100 }));
+    setAnalysisSaving(s.name);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .update({ analysis_pass_threshold: clamped / 100 })
+        .eq("display_name", s.name)
+        .select("user_id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: "계정 매칭 실패",
+          description: `'${s.name}' 이름 계정이 없습니다.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `✅ ${s.name} 분석 통과기준 ${clamped}% 저장` });
+      }
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setAnalysisSaving(null);
     }
   };
 
@@ -168,12 +197,17 @@ const TeacherStudents = () => {
     (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("display_name, word_test_pass_threshold");
-      const map: Record<string, number> = {};
-      (data ?? []).forEach((row: { display_name: string | null; word_test_pass_threshold: number | null }) => {
-        if (row.display_name) map[row.display_name] = Number(row.word_test_pass_threshold ?? 0.8);
+        .select("display_name, word_test_pass_threshold, analysis_pass_threshold");
+      const wtMap: Record<string, number> = {};
+      const anMap: Record<string, number> = {};
+      (data ?? []).forEach((row: { display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null }) => {
+        if (row.display_name) {
+          wtMap[row.display_name] = Number(row.word_test_pass_threshold ?? 0.8);
+          anMap[row.display_name] = Number(row.analysis_pass_threshold ?? 0.8);
+        }
       });
-      setThresholdByName(map);
+      setThresholdByName(wtMap);
+      setAnalysisByName(anMap);
     })();
   }, [students.length]);
 
@@ -244,7 +278,7 @@ const TeacherStudents = () => {
           </Link>
           <h1 className="text-2xl font-extrabold tracking-tight mt-1">학생 관리</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            학생을 등록하고 레벨을 지정하세요. (로컬 저장 — 백엔드 연결 예정)
+            학생을 등록하고 레벨·통과기준을 지정하세요. (분석 통과율은 저학년일수록 높게 설정 권장)
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -301,7 +335,8 @@ const TeacherStudents = () => {
             <TableRow>
               <TableHead>이름</TableHead>
               <TableHead>레벨</TableHead>
-              <TableHead>통과기준</TableHead>
+              <TableHead>단어 통과%</TableHead>
+              <TableHead>분석 통과%</TableHead>
               <TableHead>등록일</TableHead>
               <TableHead>상태</TableHead>
               <TableHead className="text-right">작업</TableHead>
@@ -310,13 +345,14 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
             )}
             {sorted.map((s) => {
               const pct = Math.round((thresholdByName[s.name] ?? 0.8) * 100);
+              const aPct = Math.round((analysisByName[s.name] ?? 0.8) * 100);
               return (
                 <TableRow key={s.id}>
                   <TableCell className="font-semibold">{s.name}</TableCell>
@@ -340,7 +376,25 @@ const TeacherStudents = () => {
                           if (!Number.isNaN(v) && v !== pct) saveThreshold(s, v);
                         }}
                       />
-                      <span className="text-xs text-muted-foreground">점</span>
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        min={50}
+                        max={100}
+                        step={5}
+                        defaultValue={aPct}
+                        disabled={analysisSaving === s.name}
+                        className="h-8 w-20 text-center font-bold tabular-nums"
+                        onBlur={(e) => {
+                          const v = Number(e.target.value);
+                          if (!Number.isNaN(v) && v !== aPct) saveAnalysisThreshold(s, v);
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground tabular-nums">

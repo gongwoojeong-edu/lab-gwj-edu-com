@@ -1198,6 +1198,23 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     setReferentMap((prev) => removeReferentTargetBySource(prev, sentence.id, ownerId));
     if (pendingModifierSource === ownerId) setPendingModifierSource(null);
     if (pendingReferentSource === ownerId) setPendingReferentSource(null);
+
+    // 관용구 잔상 제거 — owner의 단어 인덱스 범위와 겹치는 idiom을 모두 삭제
+    const ownerIndices = completedSelectionMap[ownerId];
+    if (ownerIndices && ownerIndices.length > 0) {
+      const sentIdioms = idiomMap[sentence.id] ?? [];
+      const toRemove = sentIdioms.filter((m) =>
+        m.indices.some((i) => ownerIndices.includes(i)),
+      );
+      if (toRemove.length > 0) {
+        let nextIdiomMap = idiomMap;
+        toRemove.forEach((m) => {
+          nextIdiomMap = removeIdiom(sentence.id, m.indices);
+        });
+        setIdiomMap(nextIdiomMap);
+      }
+    }
+
     if (selectedId === ownerId) {
       setSelectedId(null);
       setSelectedWordIndices([]);
@@ -1414,7 +1431,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     const next = upsertIdiom(sentence.id, sorted, surface, meaning);
     setIdiomMap(next);
     toast({
-      title: "🟫 관용구 저장됨",
+      title: "🟩 관용구 저장됨",
       description: `"${surface}" — ${meaning}`,
     });
   };
@@ -2239,7 +2256,13 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
               <br />
               훌륭합니다 — 진짜 아는 것을 증명하셨습니다.
             </p>
-            <div className="flex items-center justify-center gap-2 pt-2">
+            <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+              <Link
+                to="/learn"
+                className="px-4 py-2 rounded-md text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 font-kr"
+              >
+                다음 학습 →
+              </Link>
               <button
                 type="button"
                 onClick={() => signOut()}
@@ -2250,7 +2273,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
               {isAdmin && (
                 <Link
                   to="/teacher"
-                  className="px-4 py-2 rounded-md text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 font-kr"
+                  className="px-4 py-2 rounded-md text-sm font-bold bg-accent text-accent-foreground hover:bg-accent/90 font-kr"
                 >
                   선생님 대시보드 →
                 </Link>
@@ -2470,12 +2493,21 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                 showTeacherAnnotations && outerIsClauseLocal ? outerBadge ?? "M" : undefined;
 
               // === 부배지 layer depth 계산 ===
-              // ownersHere 순서: 외곽(긴 범위, Layer 1) → 안쪽(짧은 범위, Layer N).
-              const totalLayers = ownersHere.length;
-              const innerLayerIdx = ownerId ? ownersHere.indexOf(ownerId) : -1;
-              const outerLayerIdx = outerOwnerId ? ownersHere.indexOf(outerOwnerId) : -1;
-              const innerLayerNum = innerLayerIdx >= 0 ? innerLayerIdx + 1 : 1;
-              const outerLayerNum = outerLayerIdx >= 0 ? outerLayerIdx + 1 : 1;
+              // ownersHere 순서: 외곽(긴 범위) → 안쪽(짧은 범위).
+              // "라벨 있는(meaningful)" owner만 카운트해서 layer 번호를 부여한다.
+              // → 3층에 해당하는 owner가 단순 부사 1개뿐이고 라벨이 비어 있으면,
+              //   안쪽 owner는 자동으로 layer-2(보라)로 표기되어 빨강 색이 떠 있지 않게 됨.
+              const meaningfulOwners = ownersHere.filter((oid) => !!buildSubBadgeLabel(progressMap[oid]));
+              const totalLayers = meaningfulOwners.length || ownersHere.length;
+              const layerNumOf = (oid: string | undefined): number => {
+                if (!oid) return 1;
+                const idxIn = meaningfulOwners.indexOf(oid);
+                if (idxIn >= 0) return idxIn + 1;
+                const fallback = ownersHere.indexOf(oid);
+                return fallback >= 0 ? fallback + 1 : 1;
+              };
+              const innerLayerNum = layerNumOf(ownerId);
+              const outerLayerNum = layerNumOf(outerOwnerId);
               // Layer 번호 표기 규칙: 단층(혼자)이거나 Layer 1이면 숫자 숨김. 2부터만.
               const showInnerLayerNum = totalLayers >= 2 && innerLayerNum >= 2;
               const showOuterLayerNum = totalLayers >= 2 && outerLayerNum >= 2;
@@ -2782,7 +2814,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                     <TooltipTrigger asChild>{wordNode}</TooltipTrigger>
                     <TooltipContent side="top" className="font-kr text-xs max-w-xs">
                       <p className="font-bold mb-0.5" style={{ color: "hsl(var(--idiom-fg))" }}>
-                        🟫 {idiomMark.surface}
+                        🟩 {idiomMark.surface}
                       </p>
                       <p>{idiomMark.meaning}</p>
                     </TooltipContent>

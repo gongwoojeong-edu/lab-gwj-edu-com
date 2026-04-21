@@ -30,6 +30,10 @@ export interface AnalysisGradeResult {
   diffs: OwnerDiffEntry[];
   masterCount: number;
   hasMaster: boolean;
+  /** 마스터키 기준 "필수 owner"(주절 S/V, 접속절 V)가 모두 학생 progress에 채워졌는지 */
+  requiredOwnersFilled: boolean;
+  /** 미충족된 필수 owner ID 목록 (학생에게 안내용) */
+  missingRequiredOwnerIds: string[];
 }
 
 const norm = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
@@ -126,6 +130,27 @@ export const fetchStudentAnswers = async (
   return map;
 };
 
+/**
+ * 마스터 owner가 "필수"인지 판정.
+ * 규칙:
+ *  - 주절(외곽 절이 아님 = 일반 owner) 중 element가 S 또는 V인 owner
+ *  - 접속절(noun.form === "접SV" 또는 etc.kind === "접SV" 등 form="접SV") owner의 element=V
+ *  - verb POS owner는 항상 필수 (주절/종속절 모두의 동사)
+ */
+const isRequiredMaster = (m: AnyProgress): boolean => {
+  if (!m || !m.pos) return false;
+  if (m.pos === "verb") return true;
+  if (m.pos === "noun") {
+    const form = m.noun?.form ?? "";
+    const el = m.noun?.element ?? "";
+    // 접속절: form === "접SV" → 동사 element 필수
+    if (form === "접SV" && el === "V") return true;
+    // 주절 명사/대명사 중 S 또는 V (V는 보통 verb POS이지만 보강)
+    if (el === "S" || el === "V") return true;
+  }
+  return false;
+};
+
 /** 일치율 산출: 완전일치 1.0, POS만 같음 0.4, 누락/불일치 0 */
 export const gradeAnalysis = async (sentenceId: string): Promise<AnalysisGradeResult> => {
   const [master, student] = await Promise.all([
@@ -134,14 +159,24 @@ export const gradeAnalysis = async (sentenceId: string): Promise<AnalysisGradeRe
   ]);
   const masterIds = Object.keys(master);
   if (masterIds.length === 0) {
-    return { rate: 1, diffs: [], masterCount: 0, hasMaster: false };
+    return {
+      rate: 1,
+      diffs: [],
+      masterCount: 0,
+      hasMaster: false,
+      requiredOwnersFilled: true,
+      missingRequiredOwnerIds: [],
+    };
   }
   const diffs: OwnerDiffEntry[] = [];
   let total = 0;
+  const missingRequiredOwnerIds: string[] = [];
   for (const ownerId of masterIds) {
     const m = master[ownerId];
     const s = student[ownerId];
-    if (!s) {
+    const required = isRequiredMaster(m);
+    if (!s || !s.pos) {
+      if (required) missingRequiredOwnerIds.push(ownerId);
       diffs.push({ owner_id: ownerId, status: "missing", master_pos: m.pos, student_pos: null });
       continue;
     }
@@ -157,5 +192,12 @@ export const gradeAnalysis = async (sentenceId: string): Promise<AnalysisGradeRe
       diffs.push({ owner_id: ownerId, status: "miss", master_pos: m.pos, student_pos: s.pos });
     }
   }
-  return { rate: total / masterIds.length, diffs, masterCount: masterIds.length, hasMaster: true };
+  return {
+    rate: total / masterIds.length,
+    diffs,
+    masterCount: masterIds.length,
+    hasMaster: true,
+    requiredOwnersFilled: missingRequiredOwnerIds.length === 0,
+    missingRequiredOwnerIds,
+  };
 };
