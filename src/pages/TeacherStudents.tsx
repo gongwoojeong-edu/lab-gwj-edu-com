@@ -472,6 +472,26 @@ const TeacherStudents = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          disabled={!profileUserIdByName[s.name]}
+                          onClick={() => {
+                            const uid = profileUserIdByName[s.name];
+                            if (!uid) {
+                              toast({ title: "연결된 학생 계정이 없습니다", variant: "destructive" });
+                              return;
+                            }
+                            setHistorySheet({
+                              userId: uid,
+                              name: s.name,
+                              no: profileNoByName[s.name] ?? null,
+                            });
+                          }}
+                          title="학습 이력 분석"
+                        >
+                          <BarChart3 className="size-3.5" /> 이력
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           onClick={() => setExpandedStudentId(isExpanded ? null : s.id)}
                         >
                           <ChevronDown className={`size-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
