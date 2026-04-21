@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,17 +11,16 @@ interface Props {
   testDate: string;
   current: HandoutResult | null;
   onSaved: (row: HandoutResult) => void;
+  /** true 면 클릭 불가(회색). 인쇄 전 등 잠금 상태에 사용. */
+  disabled?: boolean;
 }
 
 type Status = "idle" | "saving" | "saved" | "error";
 
-const SyntaxHoToggle = ({
-  userId,
-  teacherId,
-  testDate,
-  current,
-  onSaved,
-}: Props) => {
+const SyntaxHoToggle = forwardRef<HTMLButtonElement, Props>(function SyntaxHoToggle(
+  { userId, teacherId, testDate, current, onSaved, disabled },
+  ref,
+) {
   const [val, setVal] = useState<"PASS" | "FAIL" | null>(
     current?.syntax_ho_result ?? null,
   );
@@ -39,6 +38,7 @@ const SyntaxHoToggle = ({
   };
 
   const cycle = async () => {
+    if (disabled) return;
     // null → PASS → FAIL → null
     const next: "PASS" | "FAIL" | null =
       val === null ? "PASS" : val === "PASS" ? "FAIL" : null;
@@ -60,8 +60,9 @@ const SyntaxHoToggle = ({
   };
 
   const label = val === "PASS" ? "P" : val === "FAIL" ? "F" : "—";
-  const tone =
-    val === "PASS"
+  const tone = disabled
+    ? "bg-muted/50 text-muted-foreground cursor-not-allowed"
+    : val === "PASS"
       ? "bg-primary text-primary-foreground hover:bg-primary/90"
       : val === "FAIL"
         ? "bg-amber-500 text-white hover:bg-amber-500/90"
@@ -70,10 +71,13 @@ const SyntaxHoToggle = ({
   return (
     <div className="flex items-center gap-2">
       <Button
+        ref={ref}
         type="button"
         size="sm"
+        disabled={disabled}
         onClick={cycle}
         className={cn("h-9 w-12 font-bold text-base", tone)}
+        title={disabled ? "인쇄 후 입력 가능" : "P/F/— 순환"}
       >
         {label}
       </Button>
@@ -87,6 +91,6 @@ const SyntaxHoToggle = ({
       </div>
     </div>
   );
-};
+});
 
 export default SyntaxHoToggle;
