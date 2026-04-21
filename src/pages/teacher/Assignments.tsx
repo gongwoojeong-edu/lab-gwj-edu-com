@@ -62,12 +62,13 @@ interface AssignmentRow {
   sentence_id: string | null;
   due_at: string;
   created_at: string;
+  include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
 }
 
-type StepKey = "analysis" | "translation" | "wordtest";
+type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
 interface FormState {
   title: string;
@@ -76,6 +77,7 @@ interface FormState {
   selectedPassageCode: string;
   description: string;
   dueDate: Date | undefined;
+  includePre: boolean;
   includeAnalysis: boolean;
   includeTranslation: boolean;
   includeWordtest: boolean;
@@ -88,6 +90,7 @@ const emptyForm = (): FormState => ({
   selectedPassageCode: "",
   description: "",
   dueDate: undefined,
+  includePre: true,
   includeAnalysis: true,
   includeTranslation: true,
   includeWordtest: true,
@@ -188,7 +191,7 @@ const Assignments = () => {
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
-    if (!f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
+    if (!f.includePre && !f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
       return "학습 단계는 최소 1개 이상 체크하세요";
     return null;
   };
@@ -212,6 +215,7 @@ const Assignments = () => {
         description: form.description.trim() || null,
         sentence_id: form.selectedPassageCode || null,
         due_at: endOfDay.toISOString(),
+        include_pre: form.includePre,
         include_analysis: form.includeAnalysis,
         include_translation: form.includeTranslation,
         include_wordtest: form.includeWordtest,
@@ -282,6 +286,7 @@ const Assignments = () => {
       selectedPassageCode: row.sentence_id ?? "",
       description: row.description ?? "",
       dueDate: new Date(row.due_at),
+      includePre: row.include_pre,
       includeAnalysis: row.include_analysis,
       includeTranslation: row.include_translation,
       includeWordtest: row.include_wordtest,
@@ -314,6 +319,7 @@ const Assignments = () => {
           description: editForm.description.trim() || null,
           sentence_id: editForm.selectedPassageCode || null,
           due_at: endOfDay.toISOString(),
+          include_pre: editForm.includePre,
           include_analysis: editForm.includeAnalysis,
           include_translation: editForm.includeTranslation,
           include_wordtest: editForm.includeWordtest,
