@@ -50,6 +50,16 @@ const LearningResults = () => {
   // 학생별 sentence_id 목록 (그 날 활동 흔적이 있는 모든 sentence)
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [teacherId, setTeacherId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
+  }, []);
+
+  // HO 점수 입력 후 handoutMap 갱신
+  const handleHandoutSaved = (row: HandoutResult) => {
+    setHandoutMap((prev) => ({ ...prev, [row.user_id]: row }));
+  };
 
   const refresh = async () => {
     setLoading(true);
