@@ -1262,6 +1262,14 @@ const Index = ({
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
 
+    // === [비교 모드] — 클릭 시 onOwnerToggle 만 호출, 분석 동작 모두 차단 ===
+    if (compareMode) {
+      const tid = wordUnits[idx]?.tokenId;
+      const ownerId = tid ? `${tid}${OWNER_KEY_SEPARATOR}${idx}` : null;
+      if (ownerId && onOwnerToggle) onOwnerToggle(ownerId);
+      return;
+    }
+
     // === [수식 / 지시어 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
     if (pendingModifierSource || pendingReferentSource) {
       const tid = wordUnits[idx]?.tokenId;
