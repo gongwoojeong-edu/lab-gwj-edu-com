@@ -393,7 +393,7 @@ const SentenceLearn = () => {
             return (
               <button
                 key={k}
-                onClick={() => !s.locked && setStep(k)}
+                onClick={() => !s.locked && safeSetStep(k)}
                 disabled={s.locked}
                 className={cn(
                   "flex-1 px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all",
@@ -445,7 +445,7 @@ const SentenceLearn = () => {
                     variant: "destructive",
                   });
                 }
-                setStep("analysis");
+                safeSetStep("analysis");
               }}
             />
           )
@@ -456,7 +456,7 @@ const SentenceLearn = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2 px-1">
                 <div className="text-xs font-bold text-primary uppercase tracking-wider">
-                  ① 구문 분석
+                  구문 분석
                 </div>
                 {analysisDone && (
                   <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -474,39 +474,54 @@ const SentenceLearn = () => {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <div className="text-xs font-bold text-primary uppercase tracking-wider px-1">
-                ② 한글 해석
+            <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3">
+              <div className="text-sm text-foreground">
+                {analysisDone
+                  ? "분석을 완료했어요. 다음 단계에서 한글로 해석해 봅시다."
+                  : "분석을 마친 후 한글 해석으로 넘어가세요."}
               </div>
-              <TranslationStep
-                sentenceId={sentence.id}
-                englishSentence={sentence.english}
-                onSubmitted={async () => {
-                  try {
-                    await upsertSentenceProgress(sentence.id, { translation_done: true });
-                    setTranslationDone(true);
-                  } catch (e) {
-                    toast({
-                      title: "저장 실패",
-                      description: String(e),
-                      variant: "destructive",
-                    });
-                  }
-                }}
-              />
-            </div>
+              <Button
+                size="sm"
+                disabled={!analysisDone}
+                onClick={() => setStep("translation")}
+              >
+                분석 제출 → 한글 해석 →
+              </Button>
+            </Card>
+          </div>
+        )}
 
-            {analysisDone && translationDone && (
-              <Card className="p-4 border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-500/10 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                  <Check className="w-4 h-4" />
-                  분석 + 해석 완료
-                </div>
-                <Button size="sm" onClick={() => setStep("post")}>
-                  다음: 단어 테스트 →
-                </Button>
-              </Card>
-            )}
+        {step === "translation" && (
+          <div className="space-y-4">
+            <Card className="p-5 space-y-2 border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
+              <div className="text-xs font-bold text-primary uppercase tracking-wider">
+                원문
+              </div>
+              <div className="text-lg sm:text-xl font-semibold leading-relaxed text-foreground">
+                {sentence.english}
+              </div>
+              <div className="text-xs text-muted-foreground pt-1">
+                ⚠ 이 단계에서는 분석 화면으로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
+              </div>
+            </Card>
+
+            <TranslationStep
+              sentenceId={sentence.id}
+              englishSentence={sentence.english}
+              onSubmitted={async () => {
+                try {
+                  await upsertSentenceProgress(sentence.id, { translation_done: true });
+                  setTranslationDone(true);
+                  setStep("post");
+                } catch (e) {
+                  toast({
+                    title: "저장 실패",
+                    description: String(e),
+                    variant: "destructive",
+                  });
+                }
+              }}
+            />
           </div>
         )}
 
