@@ -303,6 +303,140 @@ const SentenceLearn = () => {
     setStep("analysis");
   };
 
+  /** 분석 → translation 전환 (다이얼로그 confirm 시) */
+  const proceedToTranslation = async () => {
+    if (!sentence) return;
+    try {
+      await upsertSentenceProgress(sentence.id, { analysis_done: true });
+    } catch (e) {
+      toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
+    }
+    setAnalysisDone(true);
+    safeSetStep("translation");
+  };
+
+  /** 자기 첨삭 요청 생성 */
+  const requestAnalysisReview = async () => {
+    if (!sentence || requesting) return;
+    setRequesting(true);
+    try {
+      const grade = await gradeAnalysis(sentence.id);
+      const track = decideTrack({
+        rate: grade.rate,
+        requiredFilled: grade.requiredOwnersFilled,
+        sentenceStatus: previousStatus,
+      });
+      if (!track) {
+        toast({
+          title: "요청을 보낼 수 없어요",
+          description: "분석률 80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const row = await createReviewRequest({
+        sentence_id: sentence.id,
+        attempt_no: currentAttemptNo,
+        analysis_rate: grade.rate,
+        required_filled: grade.requiredOwnersFilled,
+        track,
+      });
+      setOpenRequest(row);
+      toast({
+        title: "요청을 보냈어요",
+        description: `선생님 승인 대기 중 · ${track === "fail_assist" ? "미통 보조" : "정상"} 트랙`,
+      });
+    } catch (e) {
+      const msg = String(e);
+      toast({
+        title: "요청 실패",
+        description: msg.includes("uq_arr_open_per_attempt")
+          ? "이미 진행 중인 요청이 있어요."
+          : msg,
+        variant: "destructive",
+      });
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  /** 본인 요청 취소 */
+  const cancelMyRequest = async () => {
+    if (!openRequest) return;
+    try {
+      await cancelReviewRequest(openRequest.id);
+      setOpenRequest(null);
+      toast({ title: "요청을 취소했어요" });
+    } catch (e) {
+      toast({ title: "취소 실패", description: String(e), variant: "destructive" });
+    }
+  };
+
+  /** 5-state 요청 버튼 렌더 */
+  const renderReviewRequestButton = () => {
+    if (!sentence) return null;
+    if (openRequest?.status === "approved") {
+      return (
+        <Button
+          size="sm"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          onClick={() => navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}/review`)}
+        >
+          <Eye className="w-4 h-4 mr-1" /> 자기 첨삭 모드 켜기
+        </Button>
+      );
+    }
+    if (openRequest?.status === "pending") {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold">
+            <Hourglass className="w-3 h-3 animate-pulse" /> 승인 대기 중
+            {openRequest.track === "fail_assist" && " · 미통 보조"}
+          </span>
+          <Button size="sm" variant="ghost" className="text-xs" onClick={cancelMyRequest}>
+            취소
+          </Button>
+        </div>
+      );
+    }
+    const rate = analysisGrade?.rate ?? analysisRate;
+    const required = analysisGrade
+      ? !analysisGrade.diffs.some((d) => d.status === "missing")
+      : analysisRequiredFilled;
+    if (rate < 0.5) {
+      return (
+        <Button size="sm" disabled variant="outline" className="text-xs">
+          <Lock className="w-3 h-3 mr-1" /> 정답 대조 요청 (분석률 {Math.round(rate * 100)}%)
+        </Button>
+      );
+    }
+    if (rate >= 0.8 && required) {
+      return (
+        <Button size="sm" onClick={requestAnalysisReview} disabled={requesting}>
+          <ShieldCheck className="w-4 h-4 mr-1" /> 정답 대조 요청
+        </Button>
+      );
+    }
+    if (previousStatus === "fail" && rate >= 0.5) {
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-amber-500 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+          onClick={requestAnalysisReview}
+          disabled={requesting}
+        >
+          🆘 정답 대조 요청 (미통 보조)
+        </Button>
+      );
+    }
+    return (
+      <Button size="sm" disabled variant="outline" className="text-xs" title="80% 이상 또는 미통 후 요청 가능">
+        <HelpCircle className="w-3 h-3 mr-1" /> 정답 대조 요청 (80% 이상 또는 미통 후)
+      </Button>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
