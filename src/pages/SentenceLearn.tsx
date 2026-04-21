@@ -78,6 +78,9 @@ const SentenceLearn = () => {
   const [sessionStartedAt] = useState<string>(() => new Date().toISOString());
   const [translationText, setTranslationText] = useState<string>("");
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[] } | null>(null);
+  const [analysisRate, setAnalysisRate] = useState(0);
+  const ANALYSIS_GATE = 0.8;
+  const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
 
   useEffect(() => {
     let mounted = true;
@@ -470,6 +473,7 @@ const SentenceLearn = () => {
                   studentMode={!isStaff}
                   embedSentenceId={sentence.id}
                   onAnalysisDone={() => setAnalysisDone(true)}
+                  onAnalysisProgress={setAnalysisRate}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
               </div>
@@ -477,16 +481,28 @@ const SentenceLearn = () => {
 
             <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3">
               <div className="text-sm text-foreground">
-                {analysisDone
-                  ? "분석을 완료했어요. 다음 단계에서 한글로 해석해 봅시다."
-                  : "분석을 마친 후 한글 해석으로 넘어가세요."}
+                {canAdvanceToTranslation
+                  ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
+                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
               </div>
               <Button
                 size="sm"
-                disabled={!analysisDone}
-                onClick={() => setStep("translation")}
+                disabled={!canAdvanceToTranslation}
+                onClick={async () => {
+                  try {
+                    await upsertSentenceProgress(sentence.id, { analysis_done: true });
+                  } catch (e) {
+                    toast({
+                      title: "진행 저장 실패",
+                      description: String(e),
+                      variant: "destructive",
+                    });
+                  }
+                  setAnalysisDone(true);
+                  safeSetStep("translation");
+                }}
               >
-                분석 제출 → 한글 해석 →
+                한글 해석 →
               </Button>
             </Card>
           </div>
