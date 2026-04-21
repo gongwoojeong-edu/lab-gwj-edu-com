@@ -139,8 +139,11 @@ export interface OwnerProgressRow {
   completed: boolean;
 }
 
-export const fetchOwnerProgressForSentence = async (sentenceId: string): Promise<OwnerProgressRow[]> => {
-  const userId = await getUserId();
+export const fetchOwnerProgressForSentence = async (
+  sentenceId: string,
+  userIdOverride?: string,
+): Promise<OwnerProgressRow[]> => {
+  const userId = userIdOverride ?? (await getUserId());
   let q = supabase.from("owner_progress").select("*").eq("sentence_id", sentenceId);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
   const { data } = await q;
@@ -261,8 +264,11 @@ export const markLatestRemediationDone = async (sentenceId: string): Promise<voi
 };
 
 // ---------- badge_offsets ----------
-export const fetchBadgeOffsets = async (sentenceId: string): Promise<Record<string, number>> => {
-  const userId = await getUserId();
+export const fetchBadgeOffsets = async (
+  sentenceId: string,
+  userIdOverride?: string,
+): Promise<Record<string, number>> => {
+  const userId = userIdOverride ?? (await getUserId());
   let q = supabase.from("badge_offsets").select("owner_id, dx").eq("sentence_id", sentenceId);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
   const { data } = await q;
@@ -287,8 +293,11 @@ export interface RelationRow {
   target_owner_id: string;
 }
 
-export const fetchModifierRelations = async (sentenceId: string): Promise<RelationRow[]> => {
-  const userId = await getUserId();
+export const fetchModifierRelations = async (
+  sentenceId: string,
+  userIdOverride?: string,
+): Promise<RelationRow[]> => {
+  const userId = userIdOverride ?? (await getUserId());
   let q = supabase.from("modifier_relations").select("source_owner_id, target_owner_id").eq("sentence_id", sentenceId);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
   const { data } = await q;
@@ -311,8 +320,11 @@ export const deleteModifierRelation = async (sentenceId: string, source: string)
 };
 
 // ---------- referent_relations ----------
-export const fetchReferentRelations = async (sentenceId: string): Promise<RelationRow[]> => {
-  const userId = await getUserId();
+export const fetchReferentRelations = async (
+  sentenceId: string,
+  userIdOverride?: string,
+): Promise<RelationRow[]> => {
+  const userId = userIdOverride ?? (await getUserId());
   let q = supabase.from("referent_relations").select("source_owner_id, target_owner_id").eq("sentence_id", sentenceId);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
   const { data } = await q;
@@ -343,8 +355,8 @@ export interface IdiomRow {
   created_at?: string;
 }
 
-export const fetchIdiomsAll = async (): Promise<IdiomRow[]> => {
-  const userId = await getUserId();
+export const fetchIdiomsAll = async (userIdOverride?: string): Promise<IdiomRow[]> => {
+  const userId = userIdOverride ?? (await getUserId());
   let q = supabase.from("idioms").select("*");
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
   const { data } = await q.order("created_at", { ascending: true });
