@@ -91,6 +91,12 @@ const SentenceLearn = () => {
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[] } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
+  const [skipFlags, setSkipFlags] = useState<{ pre: boolean; analysis: boolean; translation: boolean; wordtest: boolean }>({
+    pre: true,
+    analysis: true,
+    translation: true,
+    wordtest: true,
+  });
   const ANALYSIS_GATE = 0.8;
   const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
 
