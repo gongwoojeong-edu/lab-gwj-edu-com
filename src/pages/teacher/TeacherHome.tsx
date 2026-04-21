@@ -44,6 +44,7 @@ interface UpcomingAssignment {
   due_at: string;
   sentence_id: string | null;
   student_id: string | null;
+  include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
