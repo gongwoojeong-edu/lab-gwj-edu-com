@@ -154,7 +154,7 @@ export const subscribeToReviewRequests = (
   onChange: (event: "INSERT" | "UPDATE" | "DELETE", row: AnalysisReviewRequest) => void,
 ) => {
   const channel = supabase
-    .channel("analysis_review_requests_dashboard")
+    .channel(`analysis_review_requests_dashboard_${Math.random().toString(36).slice(2)}`)
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "analysis_review_requests" },
