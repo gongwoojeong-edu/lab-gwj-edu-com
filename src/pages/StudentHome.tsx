@@ -43,6 +43,7 @@ interface AssignmentRow {
   description: string | null;
   sentence_id: string | null;
   due_at: string;
+  include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
