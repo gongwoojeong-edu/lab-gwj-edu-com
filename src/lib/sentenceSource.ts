@@ -104,7 +104,7 @@ export const saveSentenceTokens = async (
   tokens: SentenceToken[],
   markReady = false,
 ): Promise<void> => {
-  const patch: { tokens: SentenceToken[]; analysis_status?: string } = { tokens };
+  const patch: Record<string, unknown> = { tokens: tokens as unknown };
   if (markReady) patch.analysis_status = "ready";
   const { error } = await supabase
     .from("textbook_passages")
