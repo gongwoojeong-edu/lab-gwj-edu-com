@@ -1,51 +1,48 @@
 
 
-## 명사절(접SV) 분석 메뉴 리팩터링
+## 책장 정답지 입력기 = 정답 입력기(구) 통합
 
-### 변경 요약
+### 문제 진단
 
-명사 → 접SV 형태 선택 시 현재 5개 그룹(헤더+버튼) 구조를 **플랫 단일 버튼 18개**로 변경. 각 버튼 라벨이 그대로 부배지에 노출되도록 `that(주어)` 형식으로 통합 표기.
+- 책장 → 지문 편집(`PassageEditor`)의 **"분석 저장 (ready)"** 버튼은 `saveSentenceTokens`만 호출 → 이 함수는 sentence **tokens(단어 분할)** 만 DB에 쓰고, 실제 정답(품사·역할·요소)은 저장하지 않습니다.
+- 정답은 `Index` 내부의 **정답 입력 모드 토글 + [정답 저장]** 흐름 (`upsertCustomAnswer` → `owner_progress` 테이블, admin uid)으로만 저장되는데, 이 툴바는 `embedMode={true}` 라 PassageEditor에서 **숨겨져** 있습니다.
+- 결과: 사용자는 분석을 하지만 **저장 경로가 끊긴 상태** → 화면을 떠나면 사라지는 것처럼 보임.
+
+### 해결 방향 — 정답 입력기(구) 자리에 분석기 그대로
+
+`PassageEditor`를 단순 컨테이너로 만들고, **`Index` 컴포넌트의 admin 툴바를 임베드 모드에서도 노출** 하도록 변경. 별도의 "분석 저장" 버튼은 제거하고, **"교재 ready 표시"** 토글만 헤더에 남깁니다.
 
 ### 작업 내역
 
-**파일: `src/components/analyzer/AnalysisPanel.tsx`**
+#### 1. `src/pages/Index.tsx`
+- 새 prop `showStaffToolbar?: boolean` 추가 (기본 false). admin 권한 가진 사용자가 embedMode일 때 이 prop이 true면 하단 툴바를 노출.
+- 툴바 렌더 조건을 `(!embedMode && isAdmin) || (embedMode && isAdmin && showStaffToolbar)` 로 변경.
+- 툴바를 임베드용으로 노출할 때는 `fixed bottom-0 inset-x-0` → 컨테이너 내 `sticky bottom-0` 스타일 변형 (PassageEditor 카드 안에 안착하도록).
+- 지우개/관용구 도구바도 `embedMode + showStaffToolbar`일 때 함께 표시.
 
-`FORM_ONLY_ROLES["접SV"]` 정의를 다음과 같이 변경:
+#### 2. `src/pages/teacher/PassageEditor.tsx`
+- 우측 상단 **"분석 저장 (ready)"** 버튼 제거. 대신 작은 토글 버튼 **"학생 공개 (ready ↔ draft)"** 만 남김 → 이 버튼은 `saveSentenceTokens(code, currentTokens, true|false)` 로 `analysis_status` 만 토글.
+- `<Index embedMode embedSentenceId={passage.code} showStaffToolbar />` 로 호출.
+- 카드 `max-h-[calc(100vh-220px)] overflow-auto` 유지 — 내부 sticky 툴바가 카드 하단에 고정되도록 컨테이너 구조 정리.
+- 안내 문구 추가: "분석은 [정답 입력] 토글 켜고 단어 클릭 → [정답 저장] 으로 저장됩니다 (마스터키)."
 
-기존 (5 그룹 × 4 항목 = 20):
-```
-that / whether-if / 의SV / 관대what / 복합관대~ever  
-  → 각각 [주어, 목적어, 보어, 전목적어]
-```
-
-변경 후 (플랫 18개 단일 문자열):
-```
-"that(주어)", "that(목적어)", "that(보어)",
-"동격that(주어)", "동격that(목적어)", "동격that(보어)",
-"whether/if(주어)", "whether/if(목적어)", "whether/if(보어)",
-"의SV(주어)", "의SV(목적어)", "의SV(보어)",
-"관대what(주어)", "관대what(목적어)", "관대what(보어)",
-"복합관대~ever(주어)", "복합관대~ever(목적어)", "복합관대~ever(보어)"
-```
-
-- **모든 "전목적어" 제거**.
-- **"동격that" 3종 신규 추가**.
-- 헤더 그룹 구조 제거 → `RoleRow`는 단일 버튼만 렌더링 (기존 `typeof option === "string"` 분기 그대로 동작).
+#### 3. (선택) `src/lib/sentenceSource.ts`
+- `saveSentenceTokens` 의 두 번째 인자 `tokens` 가 사실상 안 쓰이는 호출이 생기므로, `setPassageReady(code, ready: boolean)` 헬퍼를 추가하여 깔끔히 분리.
 
 ### 기대 동작
 
-- `RoleRow` 컴포넌트가 18개 버튼을 한 줄(또는 자동 줄바꿈)로 평탄 렌더.
-- 사용자가 `that(주어)` 클릭 → `noun.role = "that(주어)"` 저장.
-- `labels.ts` `buildSubBadgeLabel`이 현행 로직 그대로 `role.replace(/\s+/g, "")` 반환 → 부배지에 `that(주어)` 노출.
-- SVOC 하단 배지: `labels.ts` 현행 분기상 접SV의 noun.element가 비어 있으면 SVOC 배지 미표시 — 부배지만 노출되어 사용자 의도와 일치.
+1. 책장 → 지문 → 편집 진입 → admin 툴바가 카드 하단에 표시됨.
+2. **[정답 입력]** 토글 ON → 단어 선택 → 분석 입력 → **[정답 저장]** 클릭 → `owner_progress` 에 admin 데이터로 저장 (= 마스터키).
+3. 모든 마스터 분석을 마치면 우측 상단 **[학생 공개]** 클릭 → `analysis_status='ready'` 로 변경 → 학생에게 노출.
+4. 정답 초기화 / 지우개 / 관용구 / AI 단어 추출 / 힌트 토글 모두 동일하게 동작.
 
 ### 영향도
 
-- DB 스키마/마이그레이션 변경 없음.
-- 기존 사용자가 저장한 데이터(`role: "주어"` 등 헤더 분리형) 호환성: 기존 답안은 그대로 유지되나 신규 답안부터 새 라벨 적용. 별도 마이그레이션 불필요.
-- `Index.tsx`, `labels.ts`, `analysisGrading.ts`는 수정 불필요 (role 문자열만 바뀜).
+- DB 스키마 변경 없음.
+- `Index`의 기존 (`/`, `/learn/sentence/...`) 경로 동작은 prop default가 false이므로 영향 없음.
+- 학생 화면(`SentenceLearn`)은 `embedMode` 만 쓰고 `showStaffToolbar` 미지정 → 영향 없음.
 
 ### 비고
 
-이번 턴은 메뉴 라벨 리팩터링만 수행. Phase 3(다중 절 깊이 시각화) 및 Phase 2(레벨 DB)는 다음 턴 진행.
+이번 턴은 "분석 저장 안 됨" 핵심 버그만 해결. Phase 2(레벨 DB) 및 Phase 3(다중 절 깊이 시각화)은 후속 턴.
 
