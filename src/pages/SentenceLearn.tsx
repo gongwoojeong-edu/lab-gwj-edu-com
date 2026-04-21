@@ -502,31 +502,46 @@ const SentenceLearn = () => {
               </div>
             </div>
 
-            <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3">
+            <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm text-foreground">
                 {canAdvanceToTranslation
                   ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
                   : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
               </div>
-              <Button
-                size="sm"
-                disabled={!canAdvanceToTranslation}
-                onClick={async () => {
-                  try {
-                    await upsertSentenceProgress(sentence.id, { analysis_done: true });
-                  } catch (e) {
-                    toast({
-                      title: "진행 저장 실패",
-                      description: String(e),
-                      variant: "destructive",
-                    });
-                  }
-                  setAnalysisDone(true);
-                  safeSetStep("translation");
-                }}
-              >
-                한글 해석 →
-              </Button>
+              <div className="flex items-center gap-2">
+                <TeacherAnalysisOverride
+                  label="선생님 확인 후 분석 스킵"
+                  description="견해차나 오류가 있을 때 선생님 PIN을 확인하면 분석 단계를 스킵하고 한글 해석으로 넘어갑니다."
+                  onApproved={async () => {
+                    try {
+                      await upsertSentenceProgress(sentence.id, { analysis_done: true });
+                    } catch (e) {
+                      toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
+                    }
+                    setAnalysisDone(true);
+                    safeSetStep("translation");
+                  }}
+                />
+                <Button
+                  size="sm"
+                  disabled={!canAdvanceToTranslation}
+                  onClick={async () => {
+                    try {
+                      await upsertSentenceProgress(sentence.id, { analysis_done: true });
+                    } catch (e) {
+                      toast({
+                        title: "진행 저장 실패",
+                        description: String(e),
+                        variant: "destructive",
+                      });
+                    }
+                    setAnalysisDone(true);
+                    safeSetStep("translation");
+                  }}
+                >
+                  한글 해석 →
+                </Button>
+              </div>
             </Card>
           </div>
         )}
