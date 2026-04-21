@@ -2657,6 +2657,12 @@ const Index = ({
                       idiomMark && "py-0.5",
                       hintWrongOwnerIds && ownerId && hintWrongOwnerIds.has(ownerId) &&
                         "ring-2 ring-amber-500/60 ring-offset-1 rounded-md bg-amber-500/5",
+                      // 비교 모드 — 자동/수동 diff: 빨강 음영
+                      compareMode && diffOwnerIds && ownerId && diffOwnerIds.has(ownerId) &&
+                        "ring-2 ring-destructive/70 rounded-md bg-destructive/15 [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
+                      // 비교 모드 — 학생 미입력 owner: 회색 점선
+                      compareMode && missingOwnerIds && ownerId && missingOwnerIds.has(ownerId) &&
+                        "ring-2 ring-dashed ring-muted-foreground/50 rounded-md bg-muted/40",
                     )}
                     style={
                       idiomMark
