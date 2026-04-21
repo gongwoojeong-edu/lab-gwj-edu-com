@@ -539,9 +539,17 @@ const Assignments = () => {
   return (
     <TeacherLayout>
       <div className="p-6 max-w-4xl mx-auto space-y-6 font-kr">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ClipboardList className="size-6 text-primary" /> 특별과제
-        </h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <ClipboardList className="size-6 text-primary" /> 특별과제
+          </h1>
+          <a
+            href="/teacher/assignments/past"
+            className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors"
+          >
+            과거 과제함 보기 →
+          </a>
+        </div>
 
         <Card className="p-5 space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-primary">새 과제 생성</h2>

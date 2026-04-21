@@ -334,6 +334,13 @@ const SentenceLearn = () => {
         });
       }
 
+      // 학습 진입 경로 자동 판별 (URL 쿼리 → attempt_source)
+      const sp = new URLSearchParams(window.location.search);
+      let attemptSource: "regular" | "review" | "assignment" | "test" = "regular";
+      if (sp.get("review") === "1" || previousStatus === "pass") attemptSource = "review";
+      else if (sp.get("assignment")) attemptSource = "assignment";
+      else if (sp.get("test") === "1") attemptSource = "test";
+
       const attemptCount = await fetchAttemptCount(sentence.id);
       const ownerDiffPayload = opts?.teacherOverride
         ? ([{ owner_id: "__teacher_override__", teacherOverride: true } as unknown as OwnerDiffEntry, ...grade.diffs])
@@ -349,13 +356,23 @@ const SentenceLearn = () => {
         translation_text: translationText || null,
         started_at: sessionStartedAt,
         completed_at: new Date().toISOString(),
+        attempt_source: attemptSource,
       });
 
-      await upsertSentenceProgress(sentence.id, {
-        word_test_done: wordTestPassed,
-        status: overallPass ? "pass" : "fail",
-        passed_at: overallPass ? new Date().toISOString() : null,
-      });
+      // 복습(이미 PASS한 sentence) 진입 시 status를 fail로 덮어쓰지 않음 — attempt만 누적
+      const isReviewOfPassed = previousStatus === "pass";
+      if (isReviewOfPassed && !overallPass) {
+        // 복습 실패: status 유지(PASS), word_test_done만 갱신
+        await upsertSentenceProgress(sentence.id, {
+          word_test_done: wordTestPassed,
+        });
+      } else {
+        await upsertSentenceProgress(sentence.id, {
+          word_test_done: wordTestPassed,
+          status: overallPass ? "pass" : "fail",
+          passed_at: overallPass ? new Date().toISOString() : null,
+        });
+      }
 
       if (opts?.teacherOverride) {
         setPreviousStatus("pass");

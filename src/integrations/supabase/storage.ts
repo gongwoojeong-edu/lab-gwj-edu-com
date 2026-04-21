@@ -55,6 +55,8 @@ export const upsertSentenceProgress = async (
 };
 
 // ---------- sentence_attempt_logs ----------
+export type AttemptSource = "regular" | "review" | "assignment" | "test";
+
 export interface AttemptLogInput {
   sentence_id: string;
   attempt_no: number;
@@ -66,6 +68,7 @@ export interface AttemptLogInput {
   translation_text?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+  attempt_source?: AttemptSource;
 }
 
 export interface AttemptLogRow {
@@ -99,6 +102,7 @@ export const insertAttemptLog = async (input: AttemptLogInput): Promise<void> =>
     translation_text: input.translation_text ?? null,
     started_at: input.started_at ?? null,
     completed_at: input.completed_at ?? new Date().toISOString(),
+    attempt_source: input.attempt_source ?? "regular",
   };
   await supabase.from("sentence_attempt_logs").insert(payload);
 };

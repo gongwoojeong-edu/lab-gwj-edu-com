@@ -26,6 +26,7 @@ import {
   LogOut,
   Sparkles,
   Inbox,
+  Archive,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -128,9 +129,17 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/assignments" className={({ isActive }) => linkCls(isActive)}>
+                  <NavLink to="/teacher/assignments" end className={({ isActive }) => linkCls(isActive)}>
                     <ClipboardList className="size-4" />
                     {!collapsed && <span>특별과제</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild size="sm">
+                  <NavLink to="/teacher/assignments/past" className={({ isActive }) => linkCls(isActive)}>
+                    <Archive className="size-4" />
+                    {!collapsed && <span className="text-xs">과거 과제함</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

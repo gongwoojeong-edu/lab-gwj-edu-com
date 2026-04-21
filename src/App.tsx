@@ -17,6 +17,7 @@ import BookshelfLevel from "./pages/teacher/BookshelfLevel.tsx";
 import BookshelfUnit from "./pages/teacher/BookshelfUnit.tsx";
 import PassageEditor from "./pages/teacher/PassageEditor.tsx";
 import Assignments from "./pages/teacher/Assignments.tsx";
+import AssignmentsPast from "./pages/teacher/AssignmentsPast.tsx";
 import PrintQueue from "./pages/teacher/PrintQueue.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
 import HandoutPage from "./pages/Handout.tsx";
@@ -145,6 +146,14 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <Assignments />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/assignments/past"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <AssignmentsPast />
                 </RequireAuth>
               }
             />

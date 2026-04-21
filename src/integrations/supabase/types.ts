@@ -373,6 +373,7 @@ export type Database = {
           analysis_match_rate: number
           analysis_passed: boolean
           attempt_no: number
+          attempt_source: string
           completed_at: string
           created_at: string
           id: string
@@ -388,6 +389,7 @@ export type Database = {
           analysis_match_rate?: number
           analysis_passed?: boolean
           attempt_no?: number
+          attempt_source?: string
           completed_at?: string
           created_at?: string
           id?: string
@@ -403,6 +405,7 @@ export type Database = {
           analysis_match_rate?: number
           analysis_passed?: boolean
           attempt_no?: number
+          attempt_source?: string
           completed_at?: string
           created_at?: string
           id?: string
@@ -527,6 +530,7 @@ export type Database = {
           updated_at: string
           user_id: string
           word_test_pass_threshold: number
+          word_test_time_limit_sec: number
         }
         Insert: {
           analysis_pass_threshold?: number
@@ -545,6 +549,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           word_test_pass_threshold?: number
+          word_test_time_limit_sec?: number
         }
         Update: {
           analysis_pass_threshold?: number
@@ -563,6 +568,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           word_test_pass_threshold?: number
+          word_test_time_limit_sec?: number
         }
         Relationships: []
       }

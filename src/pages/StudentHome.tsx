@@ -100,9 +100,29 @@ const StudentHome = () => {
             return s ? { sentence: s, status: row.status, updated_at: row.passed_at ?? row.updated_at } : null;
           })
           .filter(Boolean) as RecentItem[];
+
+        // 완료된 특별과제(해당 sentence가 PASS) 카드는 숨김
+        const allAssignments = (assignData ?? []) as AssignmentRow[];
+        const assignSentenceIds = allAssignments
+          .map((a) => a.sentence_id)
+          .filter(Boolean) as string[];
+        let passedSet = new Set<string>();
+        if (assignSentenceIds.length > 0) {
+          const { data: progRows } = await supabase
+            .from("sentence_progress")
+            .select("sentence_id, status")
+            .eq("user_id", user.id)
+            .in("sentence_id", assignSentenceIds)
+            .eq("status", "pass");
+          passedSet = new Set((progRows ?? []).map((r: { sentence_id: string }) => r.sentence_id));
+        }
+        const activeAssignments = allAssignments.filter(
+          (a) => !a.sentence_id || !passedSet.has(a.sentence_id),
+        );
+
         if (mounted) {
           setRecent(enriched);
-          setAssignments((assignData ?? []) as AssignmentRow[]);
+          setAssignments(activeAssignments);
         }
 
         // 본인의 pending 시험지 요청 + 각 sentence별 정답대조 요청 상태 로드

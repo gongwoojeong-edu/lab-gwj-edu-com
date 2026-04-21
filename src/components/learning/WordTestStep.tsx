@@ -48,6 +48,8 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
   const [threshold, setThreshold] = useState(0.8);
   const [attemptNo, setAttemptNo] = useState(1);
   const [passedModes, setPassedModes] = useState<Set<WordTestMode>>(new Set());
+  const [timeLimitSec, setTimeLimitSec] = useState(20);
+  const [timeLeft, setTimeLeft] = useState(20);
   // 현재 시도해야 할 모드 = 아직 통과 못 한 첫 모드 (모두 통과면 마지막 = mixed)
   const mode: WordTestMode = nextMissingMode(passedModes) ?? "mixed";
   const allModesPassed = MODE_SEQUENCE.every((m) => passedModes.has(m));
@@ -60,6 +62,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
   const [score, setScore] = useState(0);
   const [passed, setPassed] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const advanceRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let mounted = true;
@@ -67,9 +70,22 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
       const r = await fetchStudentRewards();
       const a = await fetchWordTestAttemptCount(sentenceId);
       const passed = await fetchPassedWordTestModes(sentenceId);
+      // 학생 시간제한 로드
+      const { data: u } = await import("@/integrations/supabase/client").then((m) => m.supabase.auth.getUser());
+      let limit = 20;
+      if (u.user) {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await supabase
+          .from("student_profiles")
+          .select("word_test_time_limit_sec")
+          .eq("user_id", u.user.id)
+          .maybeSingle();
+        limit = Number((data as { word_test_time_limit_sec?: number } | null)?.word_test_time_limit_sec ?? 20);
+      }
       if (!mounted) return;
       if (r) setThreshold(r.threshold);
       setAttemptNo(a + 1);
+      setTimeLimitSec(limit);
       setPassedModes(new Set(passed.filter((m): m is WordTestMode =>
         m === "spell" || m === "meaning" || m === "mixed"
       )));
@@ -88,6 +104,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
     setIdx(0);
     setAnswers({});
     setGraded({});
+    setTimeLeft(timeLimitSec);
     setPhase("quiz");
     setTimeout(() => inputRef.current?.focus(), 50);
   };
@@ -101,11 +118,24 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
     setGraded((g) => ({ ...g, [cur.ownerId]: correct }));
     if (idx + 1 < questions.length) {
       setIdx(idx + 1);
+      setTimeLeft(timeLimitSec);
       setTimeout(() => inputRef.current?.focus(), 30);
     } else {
       void finalize({ ...graded, [cur.ownerId]: correct });
     }
   };
+  advanceRef.current = advance;
+
+  // 카운트다운 타이머 — quiz 단계에서만, 시간제한 > 0 일 때만 동작
+  useEffect(() => {
+    if (phase !== "quiz" || timeLimitSec <= 0 || !cur) return;
+    if (timeLeft <= 0) {
+      advanceRef.current();
+      return;
+    }
+    const t = window.setTimeout(() => setTimeLeft((s) => s - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [phase, timeLeft, timeLimitSec, cur, idx]);
 
   const finalize = async (finalGraded: Record<string, boolean>) => {
     const items: WordTestItem[] = questions.map((q) => {
@@ -264,6 +294,30 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
               style={{ width: `${progress}%` }}
             />
           </div>
+          {timeLimitSec > 0 && (
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground">남은 시간</span>
+                <span
+                  className={cn(
+                    "font-bold tabular-nums",
+                    timeLeft <= 5 ? "text-destructive" : "text-foreground",
+                  )}
+                >
+                  {timeLeft}초
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-1000 ease-linear",
+                    timeLeft <= 5 ? "bg-destructive" : "bg-primary",
+                  )}
+                  style={{ width: `${Math.max(0, (timeLeft / timeLimitSec) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="text-center space-y-2 py-4">
