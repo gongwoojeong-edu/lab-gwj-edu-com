@@ -419,7 +419,15 @@ const TeacherHome = () => {
                             {s.student_no}
                           </td>
                           <td className="px-3 py-2 font-medium">
-                            {s.display_name ?? "-"}
+                            <span className="inline-flex items-center gap-1.5">
+                              {s.display_name ?? "-"}
+                              {printedTodayUserIds.has(s.user_id) && (
+                                <Printer
+                                  className="size-3.5 text-primary"
+                                  aria-label="오늘 인쇄 완료"
+                                />
+                              )}
+                            </span>
                           </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">
                             {LEVEL_LABEL[s.current_level]} · {s.current_no}번
