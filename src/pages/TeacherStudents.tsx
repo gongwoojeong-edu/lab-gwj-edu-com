@@ -335,7 +335,8 @@ const TeacherStudents = () => {
             <TableRow>
               <TableHead>이름</TableHead>
               <TableHead>레벨</TableHead>
-              <TableHead>통과기준</TableHead>
+              <TableHead>단어 통과%</TableHead>
+              <TableHead>분석 통과%</TableHead>
               <TableHead>등록일</TableHead>
               <TableHead>상태</TableHead>
               <TableHead className="text-right">작업</TableHead>
@@ -344,13 +345,14 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
             )}
             {sorted.map((s) => {
               const pct = Math.round((thresholdByName[s.name] ?? 0.8) * 100);
+              const aPct = Math.round((analysisByName[s.name] ?? 0.8) * 100);
               return (
                 <TableRow key={s.id}>
                   <TableCell className="font-semibold">{s.name}</TableCell>
@@ -374,7 +376,25 @@ const TeacherStudents = () => {
                           if (!Number.isNaN(v) && v !== pct) saveThreshold(s, v);
                         }}
                       />
-                      <span className="text-xs text-muted-foreground">점</span>
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        min={50}
+                        max={100}
+                        step={5}
+                        defaultValue={aPct}
+                        disabled={analysisSaving === s.name}
+                        className="h-8 w-20 text-center font-bold tabular-nums"
+                        onBlur={(e) => {
+                          const v = Number(e.target.value);
+                          if (!Number.isNaN(v) && v !== aPct) saveAnalysisThreshold(s, v);
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground tabular-nums">
