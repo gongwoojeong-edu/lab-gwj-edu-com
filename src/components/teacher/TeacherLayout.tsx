@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/hooks/useViewMode";
 import { LEVELS, LEVEL_LABEL } from "@/lib/levels";
 import { cn } from "@/lib/utils";
+import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 
 interface Props {
   children: ReactNode;
@@ -41,6 +42,7 @@ const TeacherSidebarInner = () => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
+  const pendingCount = usePendingReviewCount();
 
   const isActive = (to: string, exact = false) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -150,6 +152,14 @@ const TeacherSidebarInner = () => {
                   <NavLink to="/teacher/requests" className={({ isActive }) => linkCls(isActive)}>
                     <Inbox className="size-4" />
                     {!collapsed && <span>정답 대조 요청</span>}
+                    {pendingCount > 0 && (
+                      <span className={cn(
+                        "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center",
+                        collapsed && "absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 ml-0",
+                      )}>
+                        {pendingCount}
+                      </span>
+                    )}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
