@@ -183,11 +183,21 @@ const SentenceLearn = () => {
     if (!sentence) return;
     try {
       const grade = await gradeAnalysis(sentence.id);
-      const analysisPassed = grade.hasMaster
-        ? grade.rate >= (profile?.analysis_pass_threshold ?? 0.8)
-        : true; // 마스터 미등록 → 통과로 간주
+      const threshold = profile?.analysis_pass_threshold ?? 0.8;
+      const rateOk = grade.rate >= threshold;
+      const requiredOk = grade.requiredOwnersFilled;
+      const analysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
       const overallPass = analysisPassed && wordTest.passed;
       setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
+
+      // 필수 owner 누락 안내 (학생에게)
+      if (grade.hasMaster && !requiredOk) {
+        toast({
+          title: "주절 S/V·접속절 V 분석이 필요해요",
+          description: "분석률이 충분해도 주어/동사·접속절의 동사 분석은 모두 완료되어야 통과합니다.",
+          variant: "destructive",
+        });
+      }
 
       const attemptCount = await fetchAttemptCount(sentence.id);
       await insertAttemptLog({
