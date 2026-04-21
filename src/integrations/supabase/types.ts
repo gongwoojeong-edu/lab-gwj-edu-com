@@ -72,6 +72,7 @@ export type Database = {
           due_at: string
           id: string
           include_analysis: boolean
+          include_pre: boolean
           include_translation: boolean
           include_wordtest: boolean
           sentence_id: string | null
@@ -86,6 +87,7 @@ export type Database = {
           due_at: string
           id?: string
           include_analysis?: boolean
+          include_pre?: boolean
           include_translation?: boolean
           include_wordtest?: boolean
           sentence_id?: string | null
@@ -100,6 +102,7 @@ export type Database = {
           due_at?: string
           id?: string
           include_analysis?: boolean
+          include_pre?: boolean
           include_translation?: boolean
           include_wordtest?: boolean
           sentence_id?: string | null
