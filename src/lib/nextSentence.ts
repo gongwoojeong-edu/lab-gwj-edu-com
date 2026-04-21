@@ -2,6 +2,7 @@ import { SENTENCES, type Sentence } from "@/data/sentences";
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/studentProfile";
+import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 
 export interface NextSentenceResult {
   sentence: Sentence | null;
@@ -12,6 +13,8 @@ export interface NextSentenceResult {
 const compareLevel = (a: LevelCode, b: LevelCode) => a.localeCompare(b);
 
 export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
+  // DB 지문이 SENTENCES에 머지될 때까지 대기 (실패해도 정적 폴백)
+  await hydrateSentencesFromDb();
   const profile = await fetchMyProfile();
   if (!profile) return { sentence: null, profile: null, done: false };
 
