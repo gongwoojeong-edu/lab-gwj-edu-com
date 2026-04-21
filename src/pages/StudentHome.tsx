@@ -66,7 +66,7 @@ const StudentHome = () => {
     if (next) navigate(`/learn/sentence/${encodeURIComponent(next.id)}`);
   };
 
-  const startLabel = next ? `${next.id} 학습 시작` : "다음 문장 없음";
+  const startLabel = next ? `${next.id} 학습 시작` : "다음 지문 없음";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40">
@@ -140,7 +140,7 @@ const StudentHome = () => {
                     {next ? LEVEL_LABEL[next.level] ?? next.level : "—"}
                   </h1>
                   <div className="text-sm opacity-90">
-                    {next ? `${next.id} · 문장 ${next.no}` : "다음 문장이 없습니다"}
+                    {next ? `${next.id} · 지문 ${next.no}` : "다음 지문이 없습니다"}
                   </div>
                 </div>
                 {next && (
@@ -168,11 +168,11 @@ const StudentHome = () => {
             {/* Recent */}
             <section className="space-y-3">
               <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
-                최근 통과한 문장
+                최근 통과한 지문
               </h2>
               {recent.length === 0 ? (
                 <Card className="p-6 text-center text-sm text-muted-foreground">
-                  아직 통과한 문장이 없어요. 위 버튼을 눌러 시작하세요.
+                  아직 통과한 지문이 없어요. 위 버튼을 눌러 시작하세요.
                 </Card>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3">
