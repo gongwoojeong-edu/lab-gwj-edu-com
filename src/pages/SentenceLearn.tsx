@@ -842,7 +842,7 @@ const SentenceLearn = () => {
           </div>
         )}
 
-        {step === "post" && (
+        {step === "post" && skipFlags.wordtest && (
           <WordTestStep
             sentenceId={sentence.id}
             entries={entries}
@@ -852,6 +852,26 @@ const SentenceLearn = () => {
             }}
             onSkipToNext={handleSkipToNext}
           />
+        )}
+
+        {step === "post" && !skipFlags.wordtest && (
+          <Card className="p-6 space-y-4 border-primary/30 bg-primary/5 text-center">
+            <div className="text-sm font-bold text-primary">단어시험 단계가 비활성화된 과제예요</div>
+            <p className="text-xs text-muted-foreground">
+              선생님이 이 과제에서 단어시험 단계를 빼셨어요. 자동으로 통과 처리됩니다.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  await recordAttempt({ passed: true, score: 1 });
+                  navigate("/learn");
+                }}
+              >
+                통과 처리하고 학습 홈으로
+              </Button>
+            </div>
+          </Card>
         )}
 
         {/* 분석 게이트에 막혀 PASS 처리되지 않은 경우 — 자기 첨삭 요청 + 선생님 PIN 통과 */}
