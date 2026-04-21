@@ -326,15 +326,22 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
           {passed ? (
             <Button size="lg" onClick={onPassed}>
               <Check className="w-4 h-4 mr-1" /> 학습 홈으로
             </Button>
           ) : (
-            <Button size="lg" onClick={goRemediation}>
-              틀린 단어 복습 시작 →
-            </Button>
+            <>
+              {onSkipToNext && (
+                <Button size="lg" variant="outline" onClick={onSkipToNext}>
+                  다음 지문 →
+                </Button>
+              )}
+              <Button size="lg" onClick={goRemediation}>
+                틀린 단어 복습 시작 →
+              </Button>
+            </>
           )}
         </div>
       </Card>
