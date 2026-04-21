@@ -37,6 +37,14 @@ const TILES = [
   { to: "/teacher/retests", title: "재시험 관리", desc: "단어 테스트 재시도", icon: RefreshCcw },
 ];
 
+interface UpcomingAssignment {
+  id: string;
+  title: string;
+  due_at: string;
+  sentence_id: string | null;
+  student_id: string | null;
+}
+
 const TeacherHome = () => {
   const { user } = useAuth();
   const [students, setStudents] = useState<StudentProfile[]>([]);
