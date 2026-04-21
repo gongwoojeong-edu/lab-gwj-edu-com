@@ -294,14 +294,15 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
     "대부정사",
   ],
   "V-ing": ["부정형", "수동형", "완료형"],
-  // 명사절 — 5개 form × 4개 SVOC role(주어/목적어/보어/전치사목적어) = 20버튼
-  // 각 form을 그룹 헤더로, 항목은 SVOC role로 표시
+  // 명사절 — 6개 form × 3개 SVOC role(주어/목적어/보어) = 18 평탄 버튼
+  // 라벨 자체가 부배지로 그대로 노출됨
   "접SV": [
-    { header: "that", items: ["주어", "목적어", "보어", "전목적어"] },
-    { header: "whether/if", items: ["주어", "목적어", "보어", "전목적어"] },
-    { header: "의SV", items: ["주어", "목적어", "보어", "전목적어"] },
-    { header: "관대what", items: ["주어", "목적어", "보어", "전목적어"] },
-    { header: "복합관대~ever", items: ["주어", "목적어", "보어", "전목적어"] },
+    "that(주어)", "that(목적어)", "that(보어)",
+    "동격that(주어)", "동격that(목적어)", "동격that(보어)",
+    "whether/if(주어)", "whether/if(목적어)", "whether/if(보어)",
+    "의SV(주어)", "의SV(목적어)", "의SV(보어)",
+    "관대what(주어)", "관대what(목적어)", "관대what(보어)",
+    "복합관대~ever(주어)", "복합관대~ever(목적어)", "복합관대~ever(보어)",
   ],
 };
 
