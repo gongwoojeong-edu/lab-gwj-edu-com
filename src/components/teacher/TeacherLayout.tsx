@@ -25,6 +25,7 @@ import {
   Eye,
   LogOut,
   Sparkles,
+  Inbox,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,14 @@ const TeacherSidebarInner = () => {
                   <NavLink to="/teacher/retests" className={({ isActive }) => linkCls(isActive)}>
                     <RefreshCcw className="size-4" />
                     {!collapsed && <span>재시험 관리</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/requests" className={({ isActive }) => linkCls(isActive)}>
+                    <Inbox className="size-4" />
+                    {!collapsed && <span>정답 대조 요청</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
