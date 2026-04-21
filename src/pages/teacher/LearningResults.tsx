@@ -355,7 +355,7 @@ const LearningResults = () => {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Archive className="size-6 text-primary" />
-            학습결과함
+            학습결과
             <span className="text-sm font-normal text-muted-foreground">
               · 학생 {groupedEntries.length}명
             </span>
