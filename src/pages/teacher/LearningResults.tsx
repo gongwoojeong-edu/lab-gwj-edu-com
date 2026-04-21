@@ -271,35 +271,36 @@ const LearningResults = () => {
   const handlePrint = async (userId: string, sentenceId: string) => {
     const key = `print:${userId}:${sentenceId}`;
     setBusy((p) => ({ ...p, [key]: true }));
+    // 1) 즉시 새 탭 오픈 (autoprint=1) — 사용자 클릭 컨텍스트 보존
+    window.open(
+      `/teacher/handout/${encodeURIComponent(sentenceId)}?student=${userId}&autoprint=1`,
+      "_blank",
+    );
+    // 2) 낙관적 마킹 — HO 입력란 즉시 활성화
+    const nowIso = new Date().toISOString();
+    const stateKey = `${userId}::${sentenceId}`;
+    setPrintedSet((p) => ({ ...p, [stateKey]: nowIso }));
+    // 3) 백그라운드 처리: print_requests 로깅 + handout 행 보장
     try {
       const { data: u } = await supabase.auth.getUser();
-      // 인쇄 추적 로그: print_requests 에 status='printed' 직접 insert
-      // (학생이 요청 안 했어도 선생님이 임의 인쇄 가능)
-      // RLS: pr_insert_self 는 user_id=auth.uid() 만 허용 → 우리는 학생 본인이 아님.
-      // 따라서 selectable 테이블 권한 정책상 staff insert 가 따로 없으면 실패할 수 있음.
-      // 일단 시도하고, 실패해도 인쇄/결과함 진입은 진행.
       try {
         await supabase.from("print_requests").insert({
           user_id: userId,
           sentence_id: sentenceId,
           teacher_id: u.user?.id ?? null,
           status: "printed",
-          handled_at: new Date().toISOString(),
+          handled_at: nowIso,
           handled_by: u.user?.id ?? null,
           note: "teacher-print",
         });
       } catch (e) {
         console.warn("[LearningResults] print_requests insert skipped", e);
       }
-      await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
-      window.open(
-        `/teacher/handout/${encodeURIComponent(sentenceId)}?student=${userId}`,
-        "_blank",
-      );
-      toast({ title: "인쇄 처리됨 — 학습결과함에 합류" });
-      refresh();
+      const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
+      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+      toast({ title: "인쇄 처리됨 — HO 입력란 활성화" });
     } catch (e) {
-      toast({ title: "인쇄 실패", description: String(e), variant: "destructive" });
+      toast({ title: "인쇄 처리 일부 실패", description: String(e), variant: "destructive" });
     } finally {
       setBusy((p) => ({ ...p, [key]: false }));
     }
