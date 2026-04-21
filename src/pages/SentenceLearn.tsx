@@ -679,24 +679,31 @@ const SentenceLearn = () => {
           {(Object.keys(STEP_LABELS) as Step[]).map((k) => {
             const s = stepStates[k];
             const active = step === k;
+            const disabled = s.locked || s.skipped;
             return (
               <button
                 key={k}
-                onClick={() => !s.locked && safeSetStep(k)}
-                disabled={s.locked}
+                onClick={() => !disabled && safeSetStep(k)}
+                disabled={disabled}
                 className={cn(
                   "flex-1 px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all",
                   active
                     ? "border-primary bg-primary text-primary-foreground shadow"
-                    : s.done
-                      ? "border-primary/40 bg-primary/5 text-primary"
-                      : s.locked
-                        ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-70"
-                        : "border-border bg-card text-foreground hover:border-primary/40",
+                    : s.skipped
+                      ? "border-dashed border-border bg-muted/40 text-muted-foreground cursor-not-allowed opacity-60"
+                      : s.done
+                        ? "border-primary/40 bg-primary/5 text-primary"
+                        : s.locked
+                          ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-70"
+                          : "border-border bg-card text-foreground hover:border-primary/40",
                 )}
               >
                 <div className="flex items-center justify-center gap-1.5">
-                  {s.locked && <Lock className="w-3 h-3" />}
+                  {s.skipped ? (
+                    <span className="text-[10px] font-extrabold opacity-80">스킵</span>
+                  ) : s.locked ? (
+                    <Lock className="w-3 h-3" />
+                  ) : null}
                   {STEP_LABELS[k]}
                 </div>
               </button>
