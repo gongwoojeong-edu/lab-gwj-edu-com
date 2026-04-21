@@ -1,77 +1,108 @@
 
 
-## 특별과제 출제 UX 개선 + 학생 노출 버그 수정
+## 특별과제 — 학습 단계 선택 + 마감일 수정 + 학생 화면 단계 표시
 
-### A. 학생 화면에 과제가 안 보이는 원인 (확인됨)
+### 1) DB: assignments에 "포함 학습 단계" 컬럼 추가
 
-방금 출제하신 과제 DB 확인 결과:
-- `due_at = 2026-04-20 15:00:00+00` (UTC) = **KST 2026-04-21 00:00**
-- 서버 현재시각 = `2026-04-21 09:37 UTC` → 이미 **9시간 전 만료**
-- 학생 화면 쿼리는 `due_at >= now()` 필터라서 자동으로 숨겨진 상태
-
-**근본 원인:** `Calendar`에서 "오늘(4/21)"을 선택하면 JS `Date`가 **로컬 자정 00:00:00**으로 들어가서, 출제 직후 이미 만료된 시각이 됩니다. → 마감일을 **그날 23:59:59**로 보정하면 해결.
-
-### B. 교재 선택을 "검색 가능한 클릭 선택"으로 교체
-
-현재: 텍스트 입력으로 `sentence_id`(예: `s12`) 직접 타이핑 → 오타·식별 어려움
-변경: 교재(textbook) → 지문(passage) 2단계 클릭 + 실시간 검색
-
-### 수정 사항 (`src/pages/teacher/Assignments.tsx`)
-
-#### 1) 마감일 보정 (버그 수정)
-
-기존:
-```ts
-due_at: dueDate.toISOString()  // 자정 → 즉시 만료 위험
+```sql
+ALTER TABLE public.assignments
+  ADD COLUMN include_analysis  boolean NOT NULL DEFAULT true,
+  ADD COLUMN include_translation boolean NOT NULL DEFAULT true,
+  ADD COLUMN include_wordtest  boolean NOT NULL DEFAULT true;
 ```
-변경:
-```ts
-const endOfDay = new Date(dueDate);
-endOfDay.setHours(23, 59, 59, 999);  // 그날 끝까지 유효
-due_at: endOfDay.toISOString()
+- 기본값 = 셋 다 true (=기존 과제는 "전체" 의미로 호환)
+- RLS·트리거·FK 추가 변경 없음
+
+### 2) 출제 폼에 "학습 단계" 체크박스 그룹 추가 (`Assignments.tsx`)
+
+마감일 칸 아래 한 줄:
+
 ```
-
-#### 2) 교재 선택 UI — Popover + Command (cmdk 검색)
-
-기존 "연결 문장 ID (선택)" `Input` 한 줄을 **두 칸**으로 교체:
-
-**(a) 교재 선택**
-- `Popover + Command` (`@/components/ui/command` — 이미 프로젝트에 존재)
-- 표시 형식: `[L03] 천일문 기초 · Unit 3` (`textbooks.level` + `title` + `unit_no`)
-- 실시간 필터: 레벨 코드 / 제목 / unit 번호 어느 키워드로도 매칭
-- 화면 진입 시 `fetchAllTextbooks()`로 1회 로드
-
-**(b) 지문 선택 (선택, 교재 고른 뒤 활성화)**
-- 교재 선택 시 `fetchPassagesByTextbook(textbookId)` 호출
-- 표시: `#001 — Radio provided the driving force…` (passage_no + english 앞 50자)
-- 선택값을 `passage.code`(예: `s1`)로 저장 → 기존 `sentence_id` 컬럼에 그대로 들어감
-- "지문 미지정"(전체 교재 안내용 과제) 옵션도 허용 → `sentence_id = null`
-
-선택 결과 표시 영역 (`Popover Trigger` 라벨):
+학습 단계 *  [✓] 분석   [✓] 번역   [✓] 단어테스트
 ```
-[L03] 천일문 기초 · Unit 3 / #001 Radio provided…
+- 최소 1개는 체크해야 저장 가능 (toast로 안내)
+- "전체 학생" 처럼 빠른 프리셋 버튼: `[전체] [분석만] [단어만]`
+- INSERT 시 세 boolean 그대로 저장
+
+### 3) 과제 목록에서 인라인 수정 (제목/마감일/단계/설명)
+
+각 행에 ✏️ 아이콘 → 클릭 시 **수정 다이얼로그** 오픈:
+- 필드: 제목, 마감일(달력), 학습 단계 체크박스, 설명, (대상 학생·연결 교재/지문은 수정 가능하도록 동일 UI 재사용)
+- 저장: `update assignments set ... where id = ?`
+- 단, **마감일 빠른 연장**용으로 행 우측에 `+1주` 칩도 함께 — 다이얼로그 안 열고 한 클릭 연장
+- 휴지통은 그대로 유지
+
+### 4) 학생 화면 카드에 "포함 단계" 배지 (`StudentHome.tsx`)
+
+특별과제 카드에 단계 칩 표시:
 ```
-
-#### 3) 목록 렌더에 교재명 표시
-
-기존: `· 문장 s12`
-변경: 미리 만들어둔 `Map<code, "[L03] 천일문 기초 · #001">` 으로 사람이 읽는 라벨 출력
+[분석] [번역] [단어테스트]    1일 3시간 남음
+```
+- 체크된 것만 색 배지, 빠진 건 회색·취소선
+- "학습 시작" 버튼은 그대로 — 학습 페이지 자체 단계 분기는 후속 작업으로 분리(현재 학습 페이지는 항상 전체 단계 진행). 이번 단계에서는 **학생에게 "어떤 단계가 필수인지" 명확히 보이게**만 하고, 학습 페이지가 단계를 강제 스킵하도록 만드는 건 다음 라운드에서 진행 (요청 시 같이 처리).
 
 ### 변경 파일
 
-- `src/pages/teacher/Assignments.tsx` — 위 3가지 수정 (다른 파일 변경 없음)
+1. **마이그레이션 (신규)** — assignments 컬럼 3개 추가
+2. `src/pages/teacher/Assignments.tsx` — 체크박스 + 프리셋 + 수정 다이얼로그 + +1주 버튼
+3. `src/pages/StudentHome.tsx` — 단계 배지 표시
+4. `src/pages/teacher/TeacherHome.tsx` (마감 임박 위젯) — 단계 배지 동일 표시 (보조)
 
-### 추가 작업 — 기존에 잘못 만들어진 만료 과제 처리
+### 확인 1가지
 
-DB에 이미 들어간 `dc4e2e1c…` 행은 마감이 과거라 학생에게 안 보입니다. 옵션:
-1. **과제 페이지에서 휴지통 버튼으로 직접 삭제** (기능 이미 있음) — 권장
-2. 또는 마이그레이션으로 `due_at`를 미래로 일괄 보정
+학습 페이지(`SentenceLearn`)에서 **체크 안 된 단계를 자동 스킵**까지 이번에 구현할까요, 아니면 우선 "표시만" 하고 다음 라운드에 분리할까요?
 
-→ 1번 권장. 새 UI로 다시 출제하시면 정상 노출됩니다.
+<lov-plan>
 
-### 기술 메모
+## 특별과제 — 학습 단계 선택 + 마감일 수정 + 학생 화면 단계 표시
 
-- `cmdk` 기반 `Command` 컴포넌트는 이미 `src/components/ui/command.tsx`에 존재 → 의존성 추가 없음
-- `textbooks` / `textbook_passages` 모두 `select`는 `authenticated` 전체 허용이라 RLS 추가 변경 없음
-- DB 스키마·migration 변경 없음
+### 1) DB: assignments에 "포함 학습 단계" 컬럼 추가
+
+```sql
+ALTER TABLE public.assignments
+  ADD COLUMN include_analysis   boolean NOT NULL DEFAULT true,
+  ADD COLUMN include_translation boolean NOT NULL DEFAULT true,
+  ADD COLUMN include_wordtest   boolean NOT NULL DEFAULT true;
+```
+- 기본값 = 셋 다 true (기존 과제는 "전체"로 호환)
+- RLS/트리거/FK 추가 변경 없음
+
+### 2) 출제 폼에 "학습 단계" 체크박스 그룹 추가 (`Assignments.tsx`)
+
+마감일 칸 아래 한 줄:
+
+```
+학습 단계 *  [✓] 분석   [✓] 번역   [✓] 단어테스트
+```
+- Checkbox 3개, 최소 1개 체크 필수 (미충족 시 toast 안내)
+- INSERT 시 세 boolean 그대로 저장
+
+### 3) 과제 목록에서 전체 수정 다이얼로그
+
+각 행에 연필(Pencil) 아이콘 추가 → 클릭 시 **Dialog** 오픈:
+- 필드: 제목, 대상 학생, 마감일(달력), 학습 단계 체크박스, 연결 교재/지문, 설명
+- 저장: `supabase.from("assignments").update({...}).eq("id", row.id)`
+- 휴지통(삭제)은 그대로 유지
+
+### 4) 과제 목록 + 학생 화면에 "포함 단계" 배지 표시
+
+과제 카드에 단계 칩 표시:
+```
+[분석] [번역] [단어테스트]    1일 3시간 남음
+```
+- 포함된 단계만 색 배지로 표시
+- `StudentHome.tsx`와 `Assignments.tsx` 목록 양쪽에 동일 적용
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| 마이그레이션 (신규) | `include_analysis`, `include_translation`, `include_wordtest` 컬럼 추가 |
+| `src/pages/teacher/Assignments.tsx` | 체크박스 + 수정 다이얼로그 + 단계 배지 |
+| `src/pages/StudentHome.tsx` | 단계 배지 표시 |
+| `src/pages/teacher/TeacherHome.tsx` | 마감 임박 위젯에 단계 배지 (보조) |
+
+### 참고
+
+학습 페이지(`SentenceLearn`)에서 체크 안 된 단계를 **자동 스킵**하는 로직은 이번 범위에 포함하지 않습니다 (별도 요청 시 후속 구현). 이번에는 "어떤 단계가 포함인지 명확히 보여주기"까지만 진행합니다.
 
