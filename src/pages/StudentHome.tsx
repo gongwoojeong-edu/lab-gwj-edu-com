@@ -12,9 +12,10 @@ import { fetchStudentRewards, type StudentRewards } from "@/lib/rewards";
 import type { StudentProfile } from "@/lib/studentProfile";
 import { useViewMode } from "@/hooks/useViewMode";
 
-interface RecentPass {
-  sentence_id: string;
-  passed_at: string;
+interface RecentItem {
+  sentence: Sentence;
+  status: "pass" | "fail";
+  updated_at: string;
 }
 
 const StudentHome = () => {
@@ -26,7 +27,7 @@ const StudentHome = () => {
   const [rewards, setRewards] = useState<StudentRewards | null>(null);
   const [next, setNext] = useState<Sentence | null>(null);
   const [done, setDone] = useState(false);
-  const [recent, setRecent] = useState<{ sentence: Sentence; passed_at: string }[]>([]);
+  const [recent, setRecent] = useState<RecentItem[]>([]);
 
   useEffect(() => {
     let mounted = true;
