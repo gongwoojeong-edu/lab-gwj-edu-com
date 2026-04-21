@@ -1498,6 +1498,50 @@ const EtcPanel = ({
 // ============================================================
 // 공통 Row 컴포넌트
 // ============================================================
+// 절 깊이 토글 — 접SV form일 때만 노출. 깊이별 색상 자동 배정.
+// ============================================================
+const CLAUSE_DEPTH_CLASSES: Record<ClauseDepth, string> = {
+  1: "bg-element-s-bg text-element-s border-element-s/40",
+  2: "bg-element-o-bg text-element-o border-element-o/40",
+  3: "bg-element-c-bg text-element-c border-element-c/40",
+};
+
+const ClauseDepthRow = ({
+  value,
+  onChange,
+}: {
+  value: ClauseDepth;
+  onChange: (d: ClauseDepth) => void;
+}) => (
+  <div className="space-y-1">
+    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+      절 깊이 (중첩 단계)
+    </p>
+    <div className="flex gap-1">
+      {([1, 2, 3] as ClauseDepth[]).map((d) => {
+        const sel = value === d;
+        return (
+          <button
+            key={d}
+            type="button"
+            onClick={() => onChange(d)}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-[11px] font-bold font-kr border transition-all",
+              sel
+                ? CLAUSE_DEPTH_CLASSES[d]
+                : "bg-card text-muted-foreground border-border hover:border-primary/40",
+            )}
+            title={d === 1 ? "종속절" : d === 2 ? "절 안의 절" : "3중 중첩"}
+          >
+            깊이 {d}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+// ============================================================
 interface FormItem {
   key: string;
   circle?: string;
