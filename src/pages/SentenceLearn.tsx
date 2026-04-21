@@ -44,6 +44,7 @@ import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { resolveNextSentence } from "@/lib/nextSentence";
+import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
 
 import { toast } from "@/hooks/use-toast";
 
