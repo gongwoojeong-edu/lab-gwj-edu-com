@@ -35,6 +35,10 @@ import { toast } from "@/hooks/use-toast";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import ClassKpiCards from "@/components/stats/ClassKpiCards";
+import {
+  fetchAssignmentProgress,
+  type AssignmentProgressMap,
+} from "@/lib/assignmentProgress";
 
 const TILES = [
   { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
@@ -70,6 +74,7 @@ const TeacherHome = () => {
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [upcoming, setUpcoming] = useState<UpcomingAssignment[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -101,6 +106,33 @@ const TeacherHome = () => {
       mounted = false;
     };
   }, []);
+
+  // 마감 임박 과제별 진척 (hover용)
+  useEffect(() => {
+    if (upcoming.length === 0 || students.length === 0) return;
+    const allIds = students.map((s) => s.user_id);
+    let cancelled = false;
+    void (async () => {
+      const entries = await Promise.all(
+        upcoming
+          .filter((a) => a.sentence_id)
+          .map(async (a) => {
+            const targets = a.student_id ? [a.student_id] : allIds;
+            const m = await fetchAssignmentProgress(a.sentence_id!, targets);
+            return [a.id, m] as const;
+          }),
+      );
+      if (cancelled) return;
+      const next: Record<string, AssignmentProgressMap> = {};
+      entries.forEach(([id, m]) => {
+        next[id] = m;
+      });
+      setProgressByAsg(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [upcoming, students]);
 
   useEffect(() => {
     fetchHandoutResultsByDate(testDateIso)
@@ -242,6 +274,13 @@ const TeacherHome = () => {
                         includeTranslation={a.include_translation}
                         includeWordtest={a.include_wordtest}
                         size="xs"
+                        progress={progressByAsg[a.id]}
+                        studentNameMap={studentNameMap}
+                        targetUserIds={
+                          a.student_id
+                            ? [a.student_id]
+                            : students.map((s) => s.user_id)
+                        }
                       />
                     </div>
                     <span

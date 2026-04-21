@@ -9,6 +9,10 @@ import { format } from "date-fns";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  fetchAssignmentProgress,
+  type AssignmentProgressMap,
+} from "@/lib/assignmentProgress";
 
 interface AssignmentRow {
   id: string;
@@ -36,7 +40,16 @@ const AssignmentsPast = () => {
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [progressBySentence, setProgressBySentence] = useState<Record<string, AttemptRow[]>>({});
+  const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const studentNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    students.forEach((s) =>
+      m.set(s.user_id, s.display_name ?? s.student_no ?? s.user_id.slice(0, 6)),
+    );
+    return m;
+  }, [students]);
 
   useEffect(() => {
     void (async () => {
@@ -69,6 +82,33 @@ const AssignmentsPast = () => {
       }
     })();
   }, []);
+
+  // 과제별 진척 데이터 로드 (hover용)
+  useEffect(() => {
+    if (rows.length === 0 || students.length === 0) return;
+    const allIds = students.map((s) => s.user_id);
+    let cancelled = false;
+    void (async () => {
+      const entries = await Promise.all(
+        rows
+          .filter((r) => r.sentence_id)
+          .map(async (r) => {
+            const targets = r.student_id ? [r.student_id] : allIds;
+            const m = await fetchAssignmentProgress(r.sentence_id!, targets);
+            return [r.id, m] as const;
+          }),
+      );
+      if (cancelled) return;
+      const next: Record<string, AssignmentProgressMap> = {};
+      entries.forEach(([id, m]) => {
+        next[id] = m;
+      });
+      setProgressByAsg(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, students]);
 
   const studentName = (id: string | null | undefined) => {
     if (!id) return "—";
@@ -160,6 +200,9 @@ const AssignmentsPast = () => {
                           includeAnalysis={r.include_analysis}
                           includeTranslation={r.include_translation}
                           includeWordtest={r.include_wordtest}
+                          progress={progressByAsg[r.id]}
+                          studentNameMap={studentNameMap}
+                          targetUserIds={targetIds}
                         />
                       </div>
                       <ChevronDown
