@@ -215,6 +215,7 @@ const Assignments = () => {
         description: form.description.trim() || null,
         sentence_id: form.selectedPassageCode || null,
         due_at: endOfDay.toISOString(),
+        include_pre: form.includePre,
         include_analysis: form.includeAnalysis,
         include_translation: form.includeTranslation,
         include_wordtest: form.includeWordtest,
