@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +95,7 @@ const TeacherStudents = () => {
   const [analysisByName, setAnalysisByName] = useState<Record<string, number>>({});
   const [analysisSaving, setAnalysisSaving] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
 
   const openPin = (s: Student) => {
     setPinTarget(s);
@@ -199,17 +200,20 @@ const TeacherStudents = () => {
     (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("display_name, word_test_pass_threshold, analysis_pass_threshold");
+        .select("user_id, display_name, word_test_pass_threshold, analysis_pass_threshold");
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
-      (data ?? []).forEach((row: { display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null }) => {
+      const userMap: Record<string, string> = {};
+      (data ?? []).forEach((row: { user_id: string; display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null }) => {
         if (row.display_name) {
           wtMap[row.display_name] = Number(row.word_test_pass_threshold ?? 0.8);
           anMap[row.display_name] = Number(row.analysis_pass_threshold ?? 0.8);
+          userMap[row.display_name] = row.user_id;
         }
       });
       setThresholdByName(wtMap);
       setAnalysisByName(anMap);
+      setProfileUserIdByName(userMap);
     })();
   }, [students.length]);
 
@@ -357,7 +361,7 @@ const TeacherStudents = () => {
               const aPct = Math.round((analysisByName[s.name] ?? 0.8) * 100);
               const isExpanded = expandedStudentId === s.id;
               return (
-                <>
+                <Fragment key={s.id}>
                   <TableRow key={s.id}>
                     <TableCell className="font-semibold">{s.name}</TableCell>
                     <TableCell>
@@ -439,11 +443,17 @@ const TeacherStudents = () => {
                   {isExpanded && (
                     <TableRow>
                       <TableCell colSpan={7} className="bg-muted/20 py-5">
-                        <DailyTestSummary userId={s.id} days={14} />
+                        {profileUserIdByName[s.name] ? (
+                          <DailyTestSummary userId={profileUserIdByName[s.name]} days={14} />
+                        ) : (
+                          <div className="text-sm text-muted-foreground text-center py-4">
+                            연결된 학생 계정이 없어 종합점수를 표시할 수 없습니다.
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </TableBody>
