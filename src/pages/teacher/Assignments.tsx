@@ -191,6 +191,7 @@ const Assignments = () => {
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
+    if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
     if (!f.includePre && !f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
       return "학습 단계는 최소 1개 이상 체크하세요";
     return null;
@@ -421,7 +422,7 @@ const Assignments = () => {
     return (
       <>
         <div className="space-y-1.5">
-          <Label>연결 교재 (선택)</Label>
+          <Label>연결 교재 <span className="text-destructive">*</span></Label>
           <Popover open={openTb} onOpenChange={setOpenTb}>
             <PopoverTrigger asChild>
               <Button
@@ -472,7 +473,7 @@ const Assignments = () => {
           </Popover>
         </div>
         <div className="space-y-1.5">
-          <Label>연결 지문 (선택)</Label>
+          <Label>연결 지문 <span className="text-destructive">*</span></Label>
           <Popover open={openPg} onOpenChange={(o) => f.selectedTbId && setOpenPg(o)}>
             <PopoverTrigger asChild>
               <Button
@@ -607,10 +608,18 @@ const Assignments = () => {
               {rows.map((r) => {
                 const rem = remaining(r.due_at);
                 const passageLabel = r.sentence_id ? codeLabelMap.get(r.sentence_id) ?? r.sentence_id : null;
+                const missingSentence = !r.sentence_id;
                 return (
-                  <div key={r.id} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
+                  <div key={r.id} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", missingSentence ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5" : rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
                     <div className="space-y-1.5 min-w-0 flex-1">
-                      <div className="font-bold text-foreground">{r.title}</div>
+                      <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
+                        {r.title}
+                        {missingSentence && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-extrabold">
+                            ⚠ 지문 미연결 — 편집해서 연결하세요
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
                         <span>대상: {studentName(r.student_id)}</span>
                         <span>· 마감: {format(new Date(r.due_at), "yyyy-MM-dd HH:mm")}</span>

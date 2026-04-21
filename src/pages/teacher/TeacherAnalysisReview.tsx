@@ -277,6 +277,14 @@ const TeacherAnalysisReview = () => {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
+              variant="outline"
+              onClick={() => window.open(`/teacher/compare/${req.sentence_id}/${req.user_id}`, "_blank")}
+              title="시각 비교 (마스터 vs 학생, 새 탭)"
+            >
+              🖼 시각 비교
+            </Button>
+            <Button
+              size="sm"
               variant="ghost"
               className="text-destructive hover:text-destructive"
               onClick={handleReject}

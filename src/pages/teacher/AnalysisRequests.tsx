@@ -240,6 +240,14 @@ const AnalysisRequests = () => {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`/teacher/compare/${r.sentence_id}/${r.user_id}`, "_blank")}
+                      title="시각 비교 (마스터 vs 학생, 새 탭)"
+                    >
+                      🖼 시각 비교
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                       onClick={() => handleReject(r.id)}
