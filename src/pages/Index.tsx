@@ -747,6 +747,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   // 새로고침 후에도 SVOC 배지·부배지·대괄호가 그대로 보이도록.
   // 현재 sentence 범위의 owner들만 hydrate.
   useEffect(() => {
+    // 학생 모드: 정답 라벨/배지가 자동 복원되어 노출되는 것을 차단
+    if (studentMode) return;
     if (!customAnswers || Object.keys(customAnswers).length === 0) return;
 
     const hydratedProgress: Record<string, WordProgress> = {};
