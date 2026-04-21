@@ -48,6 +48,8 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
   const [threshold, setThreshold] = useState(0.8);
   const [attemptNo, setAttemptNo] = useState(1);
   const [passedModes, setPassedModes] = useState<Set<WordTestMode>>(new Set());
+  const [timeLimitSec, setTimeLimitSec] = useState(20);
+  const [timeLeft, setTimeLeft] = useState(20);
   // 현재 시도해야 할 모드 = 아직 통과 못 한 첫 모드 (모두 통과면 마지막 = mixed)
   const mode: WordTestMode = nextMissingMode(passedModes) ?? "mixed";
   const allModesPassed = MODE_SEQUENCE.every((m) => passedModes.has(m));
@@ -60,6 +62,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
   const [score, setScore] = useState(0);
   const [passed, setPassed] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const advanceRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let mounted = true;
@@ -67,9 +70,22 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
       const r = await fetchStudentRewards();
       const a = await fetchWordTestAttemptCount(sentenceId);
       const passed = await fetchPassedWordTestModes(sentenceId);
+      // 학생 시간제한 로드
+      const { data: u } = await import("@/integrations/supabase/client").then((m) => m.supabase.auth.getUser());
+      let limit = 20;
+      if (u.user) {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await supabase
+          .from("student_profiles")
+          .select("word_test_time_limit_sec")
+          .eq("user_id", u.user.id)
+          .maybeSingle();
+        limit = Number((data as { word_test_time_limit_sec?: number } | null)?.word_test_time_limit_sec ?? 20);
+      }
       if (!mounted) return;
       if (r) setThreshold(r.threshold);
       setAttemptNo(a + 1);
+      setTimeLimitSec(limit);
       setPassedModes(new Set(passed.filter((m): m is WordTestMode =>
         m === "spell" || m === "meaning" || m === "mixed"
       )));
@@ -88,6 +104,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
     setIdx(0);
     setAnswers({});
     setGraded({});
+    setTimeLeft(timeLimitSec);
     setPhase("quiz");
     setTimeout(() => inputRef.current?.focus(), 50);
   };
