@@ -2399,14 +2399,7 @@ const Index = ({
         </div>
         )}
 
-        {answerInputMode && (
-          <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 flex items-center gap-2">
-            <Pencil className="size-4 text-primary shrink-0" />
-            <p className="text-[12px] font-semibold text-primary font-kr">
-              정답 입력 모드 — 선택한 항목이 즉시 정답으로 저장됩니다 (채점 없음)
-            </p>
-          </div>
-        )}
+        {/* 정답 입력 모드 안내 배너 — 제거됨 (하단 토글 버튼이 ON 상태로 충분히 표시) */}
 
         {eraserMode && (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
