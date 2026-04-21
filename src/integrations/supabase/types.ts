@@ -128,6 +128,45 @@ export type Database = {
         }
         Relationships: []
       }
+      handout_results: {
+        Row: {
+          created_at: string
+          id: string
+          is_integrated: boolean
+          session_no: number
+          syntax_ho_result: string | null
+          teacher_id: string | null
+          test_date: string
+          updated_at: string
+          user_id: string
+          word_ho_score: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_integrated?: boolean
+          session_no?: number
+          syntax_ho_result?: string | null
+          teacher_id?: string | null
+          test_date?: string
+          updated_at?: string
+          user_id: string
+          word_ho_score?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_integrated?: boolean
+          session_no?: number
+          syntax_ho_result?: string | null
+          teacher_id?: string | null
+          test_date?: string
+          updated_at?: string
+          user_id?: string
+          word_ho_score?: number | null
+        }
+        Relationships: []
+      }
       idioms: {
         Row: {
           created_at: string
@@ -687,6 +726,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      next_session_no: {
+        Args: { p_test_date: string; p_user_id: string }
+        Returns: number
       }
     }
     Enums: {
