@@ -1099,6 +1099,33 @@ const Index = ({
     });
     toast({ title: "분석 완료 저장됨", description: "이 단어의 정답이 저장되었습니다." });
   };
+  // commitAllPatches: pendingPatchMap의 모든 owner를 일괄 commit
+  const commitAllPatches = () => {
+    const entries = Object.entries(pendingPatchMap);
+    if (entries.length === 0) {
+      toast({ title: "저장할 변경사항이 없습니다" });
+      return;
+    }
+    let merged = customAnswers;
+    entries.forEach(([ownerId, patch]) => {
+      if (Object.keys(patch).length > 0) {
+        merged = upsertCustomAnswer(ownerId, patch, sentence.id);
+      }
+    });
+    setCustomAnswers(merged);
+    setPendingPatchMap({});
+    setSavedOwnerSet((prev) => {
+      const n = new Set(prev);
+      entries.forEach(([ownerId]) => n.add(ownerId));
+      saveSavedOwners(Array.from(n));
+      return n;
+    });
+    toast({
+      title: `정답 ${entries.length}개 저장됨`,
+      description: "모든 미저장 변경사항이 저장되었습니다.",
+    });
+  };
+
   // discardPatch: 누적된 patch만 버림 (savedOwnerSet은 그대로)
   const discardPatch = (ownerId: string) => {
     setPendingPatchMap((prev) => {
