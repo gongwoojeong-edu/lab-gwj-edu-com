@@ -35,11 +35,16 @@ interface Props {
 
 type Phase = "intro" | "quiz" | "result" | "remediation" | "remediation_done";
 
+// 시도 회차에 따라 자동으로 적용되는 시험모드 순서 (학생이 선택할 수 없음)
+const MODE_SEQUENCE: WordTestMode[] = ["spell", "meaning", "mixed"];
+const modeForAttempt = (attemptNo: number): WordTestMode =>
+  MODE_SEQUENCE[(Math.max(1, attemptNo) - 1) % MODE_SEQUENCE.length];
+
 export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, onSkipToNext }: Props) => {
   const [phase, setPhase] = useState<Phase>("intro");
-  const [mode, setMode] = useState<WordTestMode>("mixed");
   const [threshold, setThreshold] = useState(0.8);
   const [attemptNo, setAttemptNo] = useState(1);
+  const mode: WordTestMode = modeForAttempt(attemptNo);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
