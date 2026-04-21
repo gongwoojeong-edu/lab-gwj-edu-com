@@ -94,8 +94,33 @@ const TeacherStudents = () => {
   const [thresholdSaving, setThresholdSaving] = useState<string | null>(null);
   const [analysisByName, setAnalysisByName] = useState<Record<string, number>>({});
   const [analysisSaving, setAnalysisSaving] = useState<string | null>(null);
+  const [timeLimitByName, setTimeLimitByName] = useState<Record<string, number>>({});
+  const [timeLimitSaving, setTimeLimitSaving] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
+
+  const saveTimeLimit = async (s: Student, seconds: number) => {
+    const clamped = Math.max(0, Math.min(120, Math.round(seconds)));
+    setTimeLimitByName((p) => ({ ...p, [s.name]: clamped }));
+    setTimeLimitSaving(s.name);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .update({ word_test_time_limit_sec: clamped })
+        .eq("display_name", s.name)
+        .select("user_id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 이름 계정이 없습니다.`, variant: "destructive" });
+      } else {
+        toast({ title: `⏱ ${s.name} 단어시험 제한 ${clamped === 0 ? "OFF" : `${clamped}초`} 저장` });
+      }
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setTimeLimitSaving(null);
+    }
+  };
 
   const openPin = (s: Student) => {
     setPinTarget(s);
@@ -200,19 +225,22 @@ const TeacherStudents = () => {
     (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("user_id, display_name, word_test_pass_threshold, analysis_pass_threshold");
+        .select("user_id, display_name, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
+      const tlMap: Record<string, number> = {};
       const userMap: Record<string, string> = {};
-      (data ?? []).forEach((row: { user_id: string; display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null }) => {
+      (data ?? []).forEach((row: { user_id: string; display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
         if (row.display_name) {
           wtMap[row.display_name] = Number(row.word_test_pass_threshold ?? 0.8);
           anMap[row.display_name] = Number(row.analysis_pass_threshold ?? 0.8);
+          tlMap[row.display_name] = Number(row.word_test_time_limit_sec ?? 20);
           userMap[row.display_name] = row.user_id;
         }
       });
       setThresholdByName(wtMap);
       setAnalysisByName(anMap);
+      setTimeLimitByName(tlMap);
       setProfileUserIdByName(userMap);
     })();
   }, [students.length]);
@@ -343,6 +371,7 @@ const TeacherStudents = () => {
               <TableHead>레벨</TableHead>
               <TableHead>단어 통과%</TableHead>
               <TableHead>분석 통과%</TableHead>
+              <TableHead>단어시험 제한(초)</TableHead>
               <TableHead>등록일</TableHead>
               <TableHead>상태</TableHead>
               <TableHead className="text-right">작업</TableHead>
