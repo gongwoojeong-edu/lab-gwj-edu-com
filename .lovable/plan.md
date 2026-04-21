@@ -1,39 +1,84 @@
 
 
-## 정답입력기(구) 메뉴 — 왜 남아있나 + 정리 방안
+## 플랜 보강 (3차) — 사이드바·인쇄 워크플로 정리
 
-### 현재 상태
+### 1. 사이드바 메뉴 정리
 
-- 사이드바 **설정 → "정답입력기 (구)"** 항목이 살아있음 (`TeacherLayout.tsx` line 222–227).
-- 라우트 `/teacher/answers` 는 단순히 `<Index />` (임베드 X, 풀화면) 를 렌더 — 즉, 책장과 무관한 별도의 문장(기본 sentence) 위에서 admin 툴바를 띄워 정답을 입력하던 **이전 워크플로 진입점**.
-- `PassageEditor` 통합 직전까지는 이 화면이 유일한 마스터키 입력 경로였기 때문에, 통합 시점에 **백업/롤백용**으로 일부러 제거하지 않고 남겨둔 상태.
+**파일**: `src/components/teacher/TeacherLayout.tsx`
 
-### 왜 그대로 두었나 (의도)
+#### 1-1. "책장", "학습관리" 그룹 라벨 도드라지게
+현재 그룹 라벨이 작은 회색 텍스트(`text-xs muted`)라 영역 구분이 약함. 변경:
+- 폰트 크기 `text-sm font-bold text-foreground` 로 격상.
+- 아이콘 크기도 `size-4` 로 키움.
+- 활성(그룹 내 라우트가 현재 경로) 시 추가로 `bg-primary/10 text-primary rounded-md px-2` 적용 → 어느 영역에 있는지 한눈에.
 
-1. **회귀 안전망** — 책장 임베드(`showStaffToolbar`) 흐름에 문제가 생겼을 때 즉시 풀화면 입력기로 복귀할 수 있도록.
-2. **책장에 없는 데모 문장** — `SENTENCES` 시드 중 책장(textbook/passage)에 등록되지 않은 ID를 편집/검수할 때 사용 가능.
-3. 사용자에게 "이제 책장에서 다 됩니다" 확인을 받기 전 자동 삭제하지 않는 보수적 정리 정책.
+#### 1-2. "과거 과제함" 글씨 정상화
+현재 `size="sm"` + `text-xs` 로 다른 메뉴보다 작게 표시됨. 변경:
+- `SidebarMenuButton` 의 `size="sm"` 제거.
+- `text-xs` 제거 → 다른 항목과 동일한 폰트 크기.
 
-### 제안 — 둘 중 선택
+### 2. "재시험 관리" 메뉴 제거 + 학습결과함으로 통합
 
-**A안. 즉시 제거 (권장)**
-- `TeacherLayout.tsx`의 "설정" SidebarGroup에서 해당 `SidebarMenuItem` 삭제.
-- 그룹 내 항목이 0개가 되므로 **"설정" 그룹 자체도 제거** (필요해질 때 다시 만듭니다).
-- `App.tsx`의 `/teacher/answers` Route 제거.
-- 효과: 메뉴 단일화 → 사용자는 항상 "책장 → 지문 → 편집"만 거침. UI 혼선 제거.
+#### 2-1. 사이드바에서 "재시험 관리" 항목 삭제
+**파일**: `src/components/teacher/TeacherLayout.tsx`
+- `RefreshCcw` 아이콘과 `/teacher/retests` 링크 `SidebarMenuItem` 제거.
+- import 정리.
 
-**B안. 라벨/위치만 정리하고 유지**
-- "정답입력기 (구)" → **"임시 입력기 (책장 외 문장용)"** 로 이름 변경, 설정 → "고급" 같은 하위로 이동.
-- 책장에 없는 ID 편집이 가끔 필요하면 유지.
+#### 2-2. 라우트 정리
+**파일**: `src/App.tsx`
+- `/teacher/retests` Route 유지(직접 URL 접근은 가능). 단 사이드바 진입점만 제거.
 
-### 권장
+#### 2-3. 학습결과함에 [재시험] 버튼 삽입
+**파일**: `src/pages/teacher/LearningResults.tsx`
+- 각 sentence row 액션 영역에 **[재시험]** 버튼 추가 (`RefreshCcw` 아이콘).
+- 클릭 시: 해당 학생·문장에 대해 재시험을 부여하는 동작.
+  - 구현: `word_test_results` 의 최신 결과를 `passed=false` 로 표기(단순 마킹) 또는 `assignments` 에 retest 플래그로 신규 row 추가 — 가장 가벼운 1안 채택: 학생 다음 학습 사이클에서 해당 문장이 재출제 되도록 `sentence_progress.status='retest'` 로 업데이트.
+- 버튼 옆 토스트: "재시험 등록됨 — 학생이 다음 접속 시 해당 문장 다시 출제".
 
-A안으로 즉시 제거. 책장 통합으로 모든 마스터키 입력이 `/teacher/bookshelf/.../edit` 한 곳으로 수렴했고, 풀화면 진입점이 남아있으면 "어디서 저장해야 하지?" 혼란만 유발합니다. 책장 외 문장이 필요해지는 일은 시드 데이터 점검 시뿐인데, 그때는 임시로 라우트를 다시 살리면 됩니다.
+### 3. 학습결과함 — 모든 학습 활동 반영 (이전 플랜 재확인)
 
-### 변경 파일 (A안 채택 시)
+**파일**: `src/pages/teacher/LearningResults.tsx`
 
-- `src/components/teacher/TeacherLayout.tsx` — "설정" SidebarGroup 전체 제거 (line 214–231), 미사용 import (`ShieldCheck`, `Sparkles`) 정리.
-- `src/App.tsx` — `/teacher/answers` Route 블록 제거 (line 219–226).
+이전 플랜 그대로 진행:
+- 데이터 소스 확장: `print_requests(printed)` ∪ `sentence_attempt_logs` ∪ `handout_results` ∪ `sentence_translations` ∪ `word_test_results` ∪ `word_pre_results`.
+- HO 점수 학생 헤더 인라인 배치.
+- 각 sentence row 우측 액션:
+  - **[PDF]** — 새 탭으로 핸드아웃 미리보기 (`handleOpenPdf`).
+  - **[인쇄]** — `print_requests` 행 신규 insert(`status='printed'`) + `ensureHandoutRow` + 새 탭 `/teacher/handout/...` 자동 인쇄 트리거.
+  - **[재시험]** — 위 2-3 동작.
+- 학생 카드 상단 일괄 버튼은 유지하되 라벨도 **[전체 인쇄]** 로 단축.
 
-DB·다른 페이지 영향 없음. `Index` 컴포넌트 자체는 책장 임베드용으로 계속 사용되므로 삭제하지 않습니다.
+### 4. 인쇄대기열 — 워크플로 변경 (사용자 의도 반영)
 
+**파일**: `src/pages/teacher/PrintQueue.tsx`
+
+**변경된 흐름**:
+- 각 행에 단일 버튼 **[PDF]** (`Printer` 아이콘) — 라벨 단축.
+- 클릭 → `handleOpenHandout` 가 PDF만 새 탭 오픈. **이 시점에는 처리 완료로 마킹하지 않음**.
+- 새 탭 PDF 화면에서 사용자가 브라우저 인쇄(또는 핸드아웃 페이지의 [인쇄] 버튼)를 누른 시점에 백그라운드에서 처리됨 표기.
+  - 구현: `Handout.tsx` 에 `window.onbeforeprint` 리스너 추가 → `?fromQueue=1&reqId=...` 쿼리가 있으면 `markPrintRequestHandled(reqId)` + `ensureHandoutRow` 호출.
+  - `PrintQueue` 의 `handleOpenHandout` 가 새 탭 URL에 `?fromQueue=1&reqId={req.id}&studentId={user_id}` 포함.
+- [처리 완료] 별도 버튼 제거 (이전 플랜과 동일).
+- 인쇄 처리되면 실시간 구독에 의해 해당 행이 목록에서 사라지고, 학습결과함에 자동 합류.
+
+#### 라벨 통일
+- `PrintQueue` 의 `[핸드아웃 PDF]` → **[PDF]**
+- `LearningResults` 의 `[핸드아웃 인쇄]` → **[인쇄]**
+- `[전체 핸드아웃 인쇄]` → **[전체 인쇄]**
+
+### 5. 함께 처리 (이전 플랜 누적 유지)
+
+- `setPassageReady` 헬퍼로 책장 [학생 공개/비공개] 토글 정상화.
+- `Index.tsx`: 단일 [정답 저장 (전체)] 버튼, 보라 배너 제거, N중 부배지 cascade.
+- `AdminHintToggle`/`HintSettingsContext`: 수식선/지시어 토글 제거 — 항상 표시.
+- 사이드바 `대시보드` 그룹 라벨도 활성 시 동일 음영(2번에 포함).
+
+### 변경 파일 요약
+
+- `src/components/teacher/TeacherLayout.tsx` — 그룹 라벨 강조, 과거과제함 폰트 정상화, 재시험관리 항목 제거.
+- `src/pages/teacher/PrintQueue.tsx` — 단일 [PDF] 버튼, 처리완료 자동화 쿼리.
+- `src/pages/teacher/LearningResults.tsx` — 데이터 소스 확장, [PDF]/[인쇄]/[재시험] 액션, HO 인라인.
+- `src/pages/Handout.tsx` — `?fromQueue=1&reqId=...` 처리(`onbeforeprint`).
+- `src/lib/sentenceSource.ts` — `setPassageReady` 헬퍼.
+- `src/pages/teacher/PassageEditor.tsx` — `togglePublish` 수정.
+- `src/pages/Index.tsx` — 단일 [정답 저장(전체)], 배너 제거, N중
