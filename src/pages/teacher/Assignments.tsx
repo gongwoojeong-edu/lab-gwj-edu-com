@@ -201,6 +201,33 @@ const Assignments = () => {
     })();
   }, [rows, codeLabelMap, textbooks, passagesByTb]);
 
+  // 과제별 진척 데이터 로드 (hover용)
+  useEffect(() => {
+    if (rows.length === 0 || students.length === 0) return;
+    const allIds = students.map((s) => s.user_id);
+    let cancelled = false;
+    void (async () => {
+      const entries = await Promise.all(
+        rows
+          .filter((r) => r.sentence_id)
+          .map(async (r) => {
+            const targets = r.student_id ? [r.student_id] : allIds;
+            const m = await fetchAssignmentProgress(r.sentence_id!, targets);
+            return [r.id, m] as const;
+          }),
+      );
+      if (cancelled) return;
+      const next: Record<string, AssignmentProgressMap> = {};
+      entries.forEach(([id, m]) => {
+        next[id] = m;
+      });
+      setProgressByAsg(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, students]);
+
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
@@ -644,6 +671,13 @@ const Assignments = () => {
                         includeAnalysis={r.include_analysis}
                         includeTranslation={r.include_translation}
                         includeWordtest={r.include_wordtest}
+                        progress={progressByAsg[r.id]}
+                        studentNameMap={studentNameMap}
+                        targetUserIds={
+                          r.student_id
+                            ? [r.student_id]
+                            : students.map((s) => s.user_id)
+                        }
                       />
                       {r.description && <p className="text-xs text-foreground/80 mt-1">{r.description}</p>}
                     </div>
