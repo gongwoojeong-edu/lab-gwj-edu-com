@@ -377,9 +377,16 @@ interface IndexProps {
   onAnalysisDone?: () => void;
   /** 힌트 모드: 직전 시도에서 마스터키와 불일치였던 owner_id 집합 — 살짝 강조 */
   hintWrongOwnerIds?: Set<string>;
+  /**
+   * 학생 모드: 정답 라벨 노출 차단.
+   * - localStorage/cloud customAnswers hydrate 차단
+   * - 정답 입력 모드, 선생님 모드 배지, AdminHintToggle 등 admin UI 숨김
+   * - 학생이 클릭한 owner만 progress가 채워짐 → 클릭 전엔 어떤 라벨/배지도 안 보임
+   */
+  studentMode?: boolean;
 }
 
-const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds }: IndexProps = {}) => {
+const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
