@@ -278,7 +278,7 @@ const TeacherStudents = () => {
           </Link>
           <h1 className="text-2xl font-extrabold tracking-tight mt-1">학생 관리</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            학생을 등록하고 레벨을 지정하세요. (로컬 저장 — 백엔드 연결 예정)
+            학생을 등록하고 레벨·통과기준을 지정하세요. (분석 통과율은 저학년일수록 높게 설정 권장)
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
