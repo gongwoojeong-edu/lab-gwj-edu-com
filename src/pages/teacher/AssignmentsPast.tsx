@@ -83,7 +83,32 @@ const AssignmentsPast = () => {
     })();
   }, []);
 
-  const studentName = (id: string | null | undefined) => {
+  // 과제별 진척 데이터 로드 (hover용)
+  useEffect(() => {
+    if (rows.length === 0 || students.length === 0) return;
+    const allIds = students.map((s) => s.user_id);
+    let cancelled = false;
+    void (async () => {
+      const entries = await Promise.all(
+        rows
+          .filter((r) => r.sentence_id)
+          .map(async (r) => {
+            const targets = r.student_id ? [r.student_id] : allIds;
+            const m = await fetchAssignmentProgress(r.sentence_id!, targets);
+            return [r.id, m] as const;
+          }),
+      );
+      if (cancelled) return;
+      const next: Record<string, AssignmentProgressMap> = {};
+      entries.forEach(([id, m]) => {
+        next[id] = m;
+      });
+      setProgressByAsg(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, students]);
     if (!id) return "—";
     const s = students.find((x) => x.user_id === id);
     return s?.display_name ?? s?.student_no ?? id.slice(0, 6);
