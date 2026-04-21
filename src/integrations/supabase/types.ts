@@ -134,6 +134,33 @@ export type Database = {
         }
         Relationships: []
       }
+      points_log: {
+        Row: {
+          created_at: string
+          delta: number
+          id: string
+          reason: string
+          sentence_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delta: number
+          id?: string
+          reason: string
+          sentence_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delta?: number
+          id?: string
+          reason?: string
+          sentence_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       referent_relations: {
         Row: {
           created_at: string
@@ -256,40 +283,52 @@ export type Database = {
       }
       student_profiles: {
         Row: {
+          best_streak: number
           created_at: string
           current_level: string
           current_no: number
+          current_streak: number
           display_name: string | null
+          points: number
           start_level: string
           student_no: string
           teacher_id: string | null
           teacher_pin: string | null
           updated_at: string
           user_id: string
+          word_test_pass_threshold: number
         }
         Insert: {
+          best_streak?: number
           created_at?: string
           current_level?: string
           current_no?: number
+          current_streak?: number
           display_name?: string | null
+          points?: number
           start_level?: string
           student_no: string
           teacher_id?: string | null
           teacher_pin?: string | null
           updated_at?: string
           user_id: string
+          word_test_pass_threshold?: number
         }
         Update: {
+          best_streak?: number
           created_at?: string
           current_level?: string
           current_no?: number
+          current_streak?: number
           display_name?: string | null
+          points?: number
           start_level?: string
           student_no?: string
           teacher_id?: string | null
           teacher_pin?: string | null
           updated_at?: string
           user_id?: string
+          word_test_pass_threshold?: number
         }
         Relationships: []
       }
@@ -376,31 +415,43 @@ export type Database = {
       }
       word_test_results: {
         Row: {
+          attempt_no: number
           id: string
           items: Json
+          mode: string
           passed: boolean
+          remediation_done: boolean
           score: number
           sentence_id: string
           taken_at: string
           user_id: string | null
+          wrong_words: Json
         }
         Insert: {
+          attempt_no?: number
           id?: string
           items: Json
+          mode?: string
           passed: boolean
+          remediation_done?: boolean
           score: number
           sentence_id: string
           taken_at?: string
           user_id?: string | null
+          wrong_words?: Json
         }
         Update: {
+          attempt_no?: number
           id?: string
           items?: Json
+          mode?: string
           passed?: boolean
+          remediation_done?: boolean
           score?: number
           sentence_id?: string
           taken_at?: string
           user_id?: string | null
+          wrong_words?: Json
         }
         Relationships: []
       }
