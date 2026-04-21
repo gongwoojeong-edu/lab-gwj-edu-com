@@ -1,13 +1,14 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 /**
  * 학생별 힌트(한국어 번역) + Admin 표시 옵션 컨텍스트.
- * 추후 Lovable Cloud의 student.settings 와 연동될 예정.
+ * isAdmin은 실제 user_roles 기반으로 판정한다 (admin || teacher).
  */
 interface HintSettings {
   hintEnabled: boolean;
   setHintEnabled: (v: boolean) => void;
-  /** 디렉터(원장) 전용 토글이 노출되는지 여부 — 데모용 항상 true */
+  /** 디렉터(원장)/선생님 전용 토글이 노출되는지 여부 */
   isAdmin: boolean;
   /** 수식 화살표 overlay 표시 여부 (Admin 토글) */
   showModifierArrows: boolean;
@@ -23,12 +24,14 @@ export const HintSettingsProvider = ({ children }: { children: ReactNode }) => {
   const [hintEnabled, setHintEnabled] = useState(true);
   const [showModifierArrows, setShowModifierArrows] = useState(true);
   const [showReferentArrows, setShowReferentArrows] = useState(true);
+  const { roles } = useAuth();
+  const isAdmin = roles.includes("admin") || roles.includes("teacher");
   return (
     <HintSettingsContext.Provider
       value={{
         hintEnabled,
         setHintEnabled,
-        isAdmin: true,
+        isAdmin,
         showModifierArrows,
         setShowModifierArrows,
         showReferentArrows,
