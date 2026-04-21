@@ -33,6 +33,8 @@ const STEP_LABELS: Record<Step, string> = {
 const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const isStaff = roles.includes("teacher") || roles.includes("admin");
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
@@ -45,6 +47,8 @@ const SentenceLearn = () => {
     let mounted = true;
     (async () => {
       setLoading(true);
+      // DB 지문 머지 대기 — 새로 추가된 교재의 sentenceId도 정상 로드됨
+      await hydrateSentencesFromDb();
       const found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
       if (!mounted) return;
       setSentence(found);
