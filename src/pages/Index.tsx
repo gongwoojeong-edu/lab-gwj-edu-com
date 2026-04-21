@@ -2177,23 +2177,17 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
           className={cn(
             "hidden lg:flex flex-col fixed top-[64px] right-4 z-30",
             "w-[min(30vw,420px)]",
-            isAdmin ? "bottom-20" : "bottom-4",
-            "overflow-y-auto overscroll-contain rounded-2xl",
-            "border border-border/60 bg-background/85 backdrop-blur-sm shadow-lg",
+            // 내용 높이만큼만 차지하고, 길어지면 스크롤. 빈 패널이 지문을 가리지 않도록 bottom 고정 제거.
+            isAdmin ? "max-h-[calc(100vh-64px-5rem)]" : "max-h-[calc(100vh-64px-1rem)]",
+            selectedId
+              ? "overflow-y-auto overscroll-contain rounded-2xl border border-border/60 bg-background/85 backdrop-blur-sm shadow-lg"
+              : "pointer-events-none",
           )}
         >
-          <AnswerInputModeProvider value={answerInputMode}>
-            <AnalysisPanel {...panelProps} />
-          </AnswerInputModeProvider>
-          {!selectedId && (
-            <div className="px-4 py-6 text-center space-y-2 border-t border-border/40 mt-2">
-              <p className="text-[12px] font-kr text-muted-foreground">
-                단어를 선택하면 여기에서 분석할 수 있어요
-              </p>
-              <p className="text-[10px] text-muted-foreground/70 font-kr">
-                <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">?</kbd> 키로 패널 토글
-              </p>
-            </div>
+          {selectedId && (
+            <AnswerInputModeProvider value={answerInputMode}>
+              <AnalysisPanel {...panelProps} />
+            </AnswerInputModeProvider>
           )}
         </div>
       )}
