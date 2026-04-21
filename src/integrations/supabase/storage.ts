@@ -233,6 +233,19 @@ export const fetchWordTestAttemptCount = async (sentenceId: string): Promise<num
   return count ?? 0;
 };
 
+/** Returns the set of word-test modes that have at least one PASS for this sentence/user. */
+export const fetchPassedWordTestModes = async (sentenceId: string): Promise<string[]> => {
+  const userId = await getUserId();
+  let q = supabase
+    .from("word_test_results")
+    .select("mode,passed")
+    .eq("sentence_id", sentenceId)
+    .eq("passed", true);
+  q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
+  const { data } = await q;
+  return Array.from(new Set((data ?? []).map((r) => r.mode as string)));
+};
+
 export const markLatestRemediationDone = async (sentenceId: string): Promise<void> => {
   const userId = await getUserId();
   let q = supabase.from("word_test_results").select("id").eq("sentence_id", sentenceId);

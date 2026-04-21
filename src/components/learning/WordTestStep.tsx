@@ -7,6 +7,7 @@ import {
   insertWordTestResult,
   markLatestRemediationDone,
   fetchWordTestAttemptCount,
+  fetchPassedWordTestModes,
   type WordTestItem,
   type WrongWord,
 } from "@/integrations/supabase/storage";
@@ -35,16 +36,21 @@ interface Props {
 
 type Phase = "intro" | "quiz" | "result" | "remediation" | "remediation_done";
 
-// 시도 회차에 따라 자동으로 적용되는 시험모드 순서 (학생이 선택할 수 없음)
+// 학생이 통과해야 하는 3종 시험모드 (학생이 선택할 수 없음 — 자동 진행)
 const MODE_SEQUENCE: WordTestMode[] = ["spell", "meaning", "mixed"];
-const modeForAttempt = (attemptNo: number): WordTestMode =>
-  MODE_SEQUENCE[(Math.max(1, attemptNo) - 1) % MODE_SEQUENCE.length];
+const nextMissingMode = (passed: Set<WordTestMode>): WordTestMode | null => {
+  for (const m of MODE_SEQUENCE) if (!passed.has(m)) return m;
+  return null;
+};
 
 export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, onSkipToNext }: Props) => {
   const [phase, setPhase] = useState<Phase>("intro");
   const [threshold, setThreshold] = useState(0.8);
   const [attemptNo, setAttemptNo] = useState(1);
-  const mode: WordTestMode = modeForAttempt(attemptNo);
+  const [passedModes, setPassedModes] = useState<Set<WordTestMode>>(new Set());
+  // 현재 시도해야 할 모드 = 아직 통과 못 한 첫 모드 (모두 통과면 마지막 = mixed)
+  const mode: WordTestMode = nextMissingMode(passedModes) ?? "mixed";
+  const allModesPassed = MODE_SEQUENCE.every((m) => passedModes.has(m));
   const [questions, setQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -60,9 +66,13 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
     (async () => {
       const r = await fetchStudentRewards();
       const a = await fetchWordTestAttemptCount(sentenceId);
+      const passed = await fetchPassedWordTestModes(sentenceId);
       if (!mounted) return;
       if (r) setThreshold(r.threshold);
       setAttemptNo(a + 1);
+      setPassedModes(new Set(passed.filter((m): m is WordTestMode =>
+        m === "spell" || m === "meaning" || m === "mixed"
+      )));
     })();
     return () => {
       mounted = false;
@@ -122,6 +132,11 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
         remediation_done: false,
       });
       if (isPass) {
+        setPassedModes((prev) => {
+          const next = new Set(prev);
+          next.add(mode);
+          return next;
+        });
         const r = await grantPassReward(sentenceId, sc, attemptNo);
         if (r) {
           toast({
@@ -192,29 +207,34 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
         </div>
         <div className="space-y-2">
           <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            이번 시도 모드 (자동)
+            이번 모드 (자동) · {passedModes.size} / {MODE_SEQUENCE.length} 통과
           </div>
           <div className="grid grid-cols-3 gap-2">
             {MODE_SEQUENCE.map((m, i) => {
               const isCurrent = m === mode;
+              const isPassed = passedModes.has(m);
               return (
                 <div
                   key={m}
                   className={cn(
-                    "px-3 py-3 rounded-xl border-2 text-xs font-bold text-center transition-all",
-                    isCurrent
+                    "px-3 py-3 rounded-xl border-2 text-xs font-bold text-center transition-all relative",
+                    isPassed
+                      ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : isCurrent
                       ? "border-primary bg-primary text-primary-foreground shadow"
                       : "border-border bg-muted/40 text-muted-foreground",
                   )}
                 >
-                  <div className="text-[10px] opacity-80 mb-0.5">{i + 1}회차</div>
+                  <div className="text-[10px] opacity-80 mb-0.5">
+                    {i + 1}단계 {isPassed && "✓"}
+                  </div>
                   {MODE_LABEL[m]}
                 </div>
               );
             })}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            시험모드는 시도 회차에 따라 <b>스펠링 → 뜻 → 혼합</b> 순서로 자동 적용됩니다.
+            <b>스펠링 → 뜻 → 혼합</b> 3종을 모두 통과해야 단어 테스트가 완료됩니다.
           </div>
         </div>
         <div className="flex justify-end">
@@ -356,9 +376,21 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
 
         <div className="flex justify-end gap-2 flex-wrap">
           {passed ? (
-            <Button size="lg" onClick={onPassed}>
-              <Check className="w-4 h-4 mr-1" /> 학습 홈으로
-            </Button>
+            allModesPassed ? (
+              <Button size="lg" onClick={onPassed}>
+                <Check className="w-4 h-4 mr-1" /> 3종 모두 통과! 학습 홈으로
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={() => {
+                  setAttemptNo((n) => n + 1);
+                  setPhase("intro");
+                }}
+              >
+                다음 시험으로 → ({passedModes.size}/{MODE_SEQUENCE.length} 통과)
+              </Button>
+            )
           ) : (
             <>
               {onSkipToNext && (
