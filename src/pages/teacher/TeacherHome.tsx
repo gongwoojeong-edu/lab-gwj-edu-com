@@ -73,7 +73,7 @@ const TeacherHome = () => {
     const inSevenDays = new Date(Date.now() + 7 * 24 * 3_600_000).toISOString();
     supabase
       .from("assignments")
-      .select("id, title, due_at, sentence_id, student_id, include_analysis, include_translation, include_wordtest")
+      .select("id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest")
       .gte("due_at", new Date().toISOString())
       .lte("due_at", inSevenDays)
       .order("due_at", { ascending: true })
