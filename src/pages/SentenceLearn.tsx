@@ -592,6 +592,28 @@ const SentenceLearn = () => {
           />
         )}
 
+        {/* 분석 게이트에 막혀 PASS 처리되지 않은 경우 — 선생님 PIN 통과 안내 */}
+        {step === "post" && analysisGrade && !analysisGrade.passed && (
+          <Card className="p-4 border-2 border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm text-foreground">
+              <div className="font-bold">분석 결과에 견해차가 있다면 선생님께 확인을 요청하세요.</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                분석 일치율 {Math.round(analysisGrade.rate * 100)}% · 선생님이 PIN을 입력하면 즉시 PASS 처리됩니다.
+              </div>
+            </div>
+            <TeacherAnalysisOverride
+              label="선생님 확인 후 통과"
+              description="분석 결과에 견해차가 있을 때 선생님 PIN을 확인하면 이 지문이 PASS 처리됩니다."
+              variant="outline"
+              className="text-xs"
+              onApproved={async () => {
+                await recordAttempt({ passed: false, score: 0 }, { teacherOverride: true });
+                navigate("/learn");
+              }}
+            />
+          </Card>
+        )}
+
         {/* 분석 채점 결과 (선생님/관리자에게만 보임) */}
         {analysisGrade && isStaff && (
           <Card className="p-3 border-dashed border-muted-foreground/30 bg-muted/20 text-xs text-muted-foreground">
