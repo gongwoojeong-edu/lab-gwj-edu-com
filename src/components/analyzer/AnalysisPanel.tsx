@@ -36,6 +36,11 @@ import type {
 export type StepStatus = "idle" | "correct" | "wrong";
 
 // ============================================================
+// 절 깊이 (1=주절 종속절, 2=절 안의 절, 3=3중 중첩) — 접SV form일 때만 의미 있음
+// ============================================================
+export type ClauseDepth = 1 | 2 | 3;
+
+// ============================================================
 // 명사 진행 상태
 // ============================================================
 export interface NounProgress {
@@ -45,6 +50,7 @@ export interface NounProgress {
   formStatus: StepStatus;
   elementStatus: StepStatus;
   roleStatus: StepStatus;
+  clauseDepth?: ClauseDepth | null; // form === '접SV' 일 때만 의미 있음
 }
 
 // ============================================================
@@ -57,6 +63,7 @@ export interface AdjProgress {
   formStatus: StepStatus;
   elementStatus: StepStatus;
   roleStatus: StepStatus;
+  clauseDepth?: ClauseDepth | null;
 }
 
 // ============================================================
@@ -69,6 +76,7 @@ export interface AdvProgress {
   formStatus: StepStatus;
   subtypeStatus: StepStatus;
   roleStatus: StepStatus;
+  clauseDepth?: ClauseDepth | null;
 }
 
 // ============================================================
