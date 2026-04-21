@@ -5,7 +5,7 @@
 // 학생이 인쇄 요청을 안 했어도, 그날 학습한 모든 내용을 표시.
 // 액션: [PDF] (미리보기) / [인쇄] (즉시 인쇄 처리 + 학습결과함 합류) / [재시험]
 // ============================================================
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
