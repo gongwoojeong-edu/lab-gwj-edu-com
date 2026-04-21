@@ -7,6 +7,7 @@ import {
   insertWordTestResult,
   markLatestRemediationDone,
   fetchWordTestAttemptCount,
+  fetchPassedWordTestModes,
   type WordTestItem,
   type WrongWord,
 } from "@/integrations/supabase/storage";
