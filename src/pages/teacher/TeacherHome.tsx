@@ -8,6 +8,7 @@ import {
   Printer,
   RefreshCcw,
   ClipboardList,
+  ClipboardCheck,
 } from "lucide-react";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
@@ -19,8 +20,10 @@ import {
   toIsoDate,
   type HandoutResult,
 } from "@/lib/handoutResults";
+import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 
 const TILES = [
+  { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
   { to: "/teacher/bookshelf", title: "책장", desc: "레벨별 교재 관리", icon: BookOpen },
   { to: "/teacher/students", title: "학생 목록", desc: "학생 진행/권한 관리", icon: Users },
   { to: "/teacher/assignments", title: "교재 부여", desc: "학생에게 교재 배정", icon: ClipboardList },
@@ -32,6 +35,7 @@ const TeacherHome = () => {
   const { user } = useAuth();
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const pendingCount = usePendingReviewCount();
 
   const [testDate, setTestDate] = useState<Date>(new Date());
   const testDateIso = useMemo(() => toIsoDate(testDate), [testDate]);
@@ -98,15 +102,21 @@ const TeacherHome = () => {
         </div>
 
         {/* Quick tiles */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {TILES.map((t) => {
             const Icon = t.icon;
+            const showBadge = t.badgeKey === "pending" && pendingCount > 0;
             return (
               <Link key={t.to} to={t.to}>
-                <Card className="p-3 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full">
+                <Card className="relative p-3 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full">
                   <Icon className="size-5 text-primary mb-2" />
                   <div className="text-sm font-bold">{t.title}</div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">{t.desc}</div>
+                  {showBadge && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center shadow">
+                      {pendingCount}
+                    </span>
+                  )}
                 </Card>
               </Link>
             );
