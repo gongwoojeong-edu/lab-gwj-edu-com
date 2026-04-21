@@ -532,10 +532,11 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const [referentMap, setReferentMap] = useState<ReferentTargetMap>({});
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
   const { showModifierArrows, showReferentArrows, isAdmin: ctxIsAdmin } = useHintSettings();
-  // 학생 모드에서는 admin UI 전부 숨김 — role이 admin이어도 노출 차단
+  // 학생 모드에서는 admin 전용 UI(정답 입력 토글/AdminHintToggle 등)만 숨김. role이 admin이어도 노출 차단.
   const isAdmin = !studentMode && ctxIsAdmin;
-  // 학생 모드에서 정답성 시각요소(보라 음영/배지/대괄호/언더라인/화살표/패널 정답) 일괄 숨김 플래그
-  const showTeacherAnnotations = !studentMode;
+  // 본인 입력한 분석 결과는 학생 모드에서도 항상 표시되어야 한다.
+  // (마스터키/타인 정답은 RLS로 자동 격리됨 → user_id=auth.uid() 본인 행만 hydrate)
+  const showTeacherAnnotations = true;
   // 마스터키 owner_id 집합 — 학생 화면 분석률의 분모 계산에만 사용 (정답 본문은 사용 안 함)
   const [masterOwnerIds, setMasterOwnerIds] = useState<Set<string>>(new Set());
 
@@ -1815,7 +1816,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       activeSelectionIndices.length > 0
         ? activeSelectionIndices.map((index) => wordUnits[index]?.word).filter(Boolean).join(" ")
         : selectedToken?.text ?? null,
-    answer: studentMode ? null : selectedAnswer,
+    answer: selectedAnswer,
     pos: progress.pos,
     posStatus: progress.posStatus,
     onPosChange: handlePos,
