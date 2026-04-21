@@ -309,7 +309,7 @@ export const SENTENCES: Sentence[] = [
   // ----------------------------------------------------------
   {
     id: "s2",
-    no: 2,
+    no: 1,
     level: "L10",
     english:
       "Who knew that sportscaster Bill Stern questioned and introduced in 1939 would enhance the growth and development of sports marketing practices for decades?",
