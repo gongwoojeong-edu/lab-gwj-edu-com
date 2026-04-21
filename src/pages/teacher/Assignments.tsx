@@ -105,6 +105,15 @@ const Assignments = () => {
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
   const [passagesByTb, setPassagesByTb] = useState<Record<string, Passage[]>>({});
+  const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
+
+  const studentNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    students.forEach((s) =>
+      m.set(s.user_id, s.display_name ?? s.student_no ?? s.user_id.slice(0, 6)),
+    );
+    return m;
+  }, [students]);
 
   // Create form
   const [form, setForm] = useState<FormState>(emptyForm());
