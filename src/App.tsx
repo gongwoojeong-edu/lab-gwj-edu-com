@@ -40,7 +40,7 @@ const App = () => (
               path="/"
               element={
                 <RequireAuth redirectStudentTo="/learn" redirectStaffTo="/teacher">
-                  <Index />
+                  <Index studentMode />
                 </RequireAuth>
               }
             />

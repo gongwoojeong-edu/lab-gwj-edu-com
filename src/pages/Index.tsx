@@ -70,6 +70,7 @@ import {
   upsertCustomAnswer,
   removeCustomAnswer,
   clearCustomAnswers,
+  saveCustomAnswers,
   mergeAnswer,
   loadSavedOwners,
   saveSavedOwners,
@@ -377,9 +378,16 @@ interface IndexProps {
   onAnalysisDone?: () => void;
   /** 힌트 모드: 직전 시도에서 마스터키와 불일치였던 owner_id 집합 — 살짝 강조 */
   hintWrongOwnerIds?: Set<string>;
+  /**
+   * 학생 모드: 정답 라벨 노출 차단.
+   * - localStorage/cloud customAnswers hydrate 차단
+   * - 정답 입력 모드, 선생님 모드 배지, AdminHintToggle 등 admin UI 숨김
+   * - 학생이 클릭한 owner만 progress가 채워짐 → 클릭 전엔 어떤 라벨/배지도 안 보임
+   */
+  studentMode?: boolean;
 }
 
-const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds }: IndexProps = {}) => {
+const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
@@ -521,7 +529,9 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   // ===== 지시어 화살표 (Referent Target, 대명사 전용) =====
   const [referentMap, setReferentMap] = useState<ReferentTargetMap>({});
   const [pendingReferentSource, setPendingReferentSource] = useState<string | null>(null);
-  const { showModifierArrows, showReferentArrows, isAdmin } = useHintSettings();
+  const { showModifierArrows, showReferentArrows, isAdmin: ctxIsAdmin } = useHintSettings();
+  // 학생 모드에서는 admin UI 전부 숨김 — role이 admin이어도 노출 차단
+  const isAdmin = !studentMode && ctxIsAdmin;
 
   // ===== 학습 흐름 (Cloud) =====
   const [learningStep, setLearningStep] = useState<LearningStep>("pre");
@@ -619,23 +629,43 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   }, [selectedId]);
 
   useEffect(() => {
+    // 학생 모드: localStorage 정답 캐시 로드 차단 — 어떤 라벨도 새지 않도록.
+    if (studentMode) {
+      setCustomAnswers({});
+      setIdiomMap(loadIdioms());
+      setModifierMap(loadModifierTargets());
+      setReferentMap(loadReferentTargets());
+      setSavedOwnerSet(new Set());
+      return;
+    }
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
     setReferentMap(loadReferentTargets());
     setSavedOwnerSet(new Set(loadSavedOwners()));
-  }, []);
+  }, [studentMode]);
 
   // ===== sentence 변경 시 클라우드 hydration =====
   useEffect(() => {
     let cancelled = false;
     const sid = sentence.id;
+    // 학생 모드: 본인 owner_progress조차 hydrate하지 않는다.
+    // (자기첨삭 모드(reviewMode)에서만 별도 fetch로 비교)
+    const customsP = studentMode
+      ? Promise.resolve({} as CustomAnswerMap)
+      : hydrateCustomAnswersFromCloud(sid);
+    const modsP = studentMode
+      ? Promise.resolve({} as ModifierTargetMap)
+      : hydrateModifierTargetsFromCloud(sid);
+    const refsP = studentMode
+      ? Promise.resolve({} as ReferentTargetMap)
+      : hydrateReferentTargetsFromCloud(sid);
     Promise.all([
       fetchSentenceProgress(sid),
       fetchBadgeOffsets(sid),
-      hydrateCustomAnswersFromCloud(sid),
-      hydrateModifierTargetsFromCloud(sid),
-      hydrateReferentTargetsFromCloud(sid),
+      customsP,
+      modsP,
+      refsP,
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       const pre = prog?.pre_done ?? false;
@@ -649,14 +679,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       setModifierMap(mods);
       setReferentMap(refs);
     });
-    // 관용구는 전체 sentence 공유 — 한 번만 hydrate
+    // 관용구는 전체 sentence 공유 — 한 번만 hydrate (학생 모드에서도 OK: 관용구는 정답 단서 아님)
     void hydrateIdiomsFromCloud().then((m) => {
       if (!cancelled) setIdiomMap(m);
     });
     return () => {
       cancelled = true;
     };
-  }, [sentence.id]);
+  }, [sentence.id, studentMode]);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 
@@ -718,6 +748,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   // 새로고침 후에도 SVOC 배지·부배지·대괄호가 그대로 보이도록.
   // 현재 sentence 범위의 owner들만 hydrate.
   useEffect(() => {
+    // 학생 모드: 정답 라벨/배지가 자동 복원되어 노출되는 것을 차단
+    if (studentMode) return;
     if (!customAnswers || Object.keys(customAnswers).length === 0) return;
 
     const hydratedProgress: Record<string, WordProgress> = {};
@@ -1118,11 +1150,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       if (!(ownerId in prev)) return prev;
       const nextCustom = { ...prev };
       delete nextCustom[ownerId];
-      try {
-        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
-      } catch {
-        /* ignore */
-      }
+      saveCustomAnswers(nextCustom);
       return nextCustom;
     });
     // pending patch / saved owner 표시도 정리
@@ -1323,11 +1351,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     });
     if (touched) {
       setCustomAnswers(nextCustom);
-      try {
-        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
-      } catch {
-        /* ignore */
-      }
+      saveCustomAnswers(nextCustom);
     }
     // pending/saved도 같이 정리
     setPendingPatchMap((prev) => {
@@ -2252,11 +2276,13 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
             </div>
             <KoreanHintButton korean={sentence.korean} />
           </div>
-          <div className="flex items-center gap-1.5 ml-2">
-            <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-2 py-1 rounded-md bg-secondary">
-              자동 순차 학습
-            </span>
-          </div>
+          {!studentMode && (
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="text-[11px] font-bold tabular-nums text-muted-foreground px-2 py-1 rounded-md bg-secondary">
+                자동 순차 학습
+              </span>
+            </div>
+          )}
         </div>
 
         {answerInputMode && (
