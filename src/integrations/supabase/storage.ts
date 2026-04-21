@@ -107,11 +107,23 @@ export interface WordTestItem {
   correct: boolean;
 }
 
+export interface WrongWord {
+  word: string;
+  expected: string;
+  given: string;
+}
+
 export const insertWordTestResult = async (
   sentenceId: string,
   items: WordTestItem[],
   score: number,
   passed: boolean,
+  extras?: {
+    mode?: "spell" | "meaning" | "mixed";
+    attempt_no?: number;
+    wrong_words?: WrongWord[];
+    remediation_done?: boolean;
+  },
 ): Promise<void> => {
   const userId = await getUserId();
   const payload = {
@@ -120,6 +132,10 @@ export const insertWordTestResult = async (
     items: items as unknown as object,
     score,
     passed,
+    mode: extras?.mode ?? "mixed",
+    attempt_no: extras?.attempt_no ?? 1,
+    wrong_words: (extras?.wrong_words ?? []) as unknown as object,
+    remediation_done: extras?.remediation_done ?? false,
   } as never;
   await supabase.from("word_test_results").insert(payload);
 };
@@ -130,6 +146,27 @@ export const fetchLatestWordTest = async (sentenceId: string) => {
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
   const { data } = await q.order("taken_at", { ascending: false }).limit(1).maybeSingle();
   return data;
+};
+
+export const fetchWordTestAttemptCount = async (sentenceId: string): Promise<number> => {
+  const userId = await getUserId();
+  let q = supabase
+    .from("word_test_results")
+    .select("id", { count: "exact", head: true })
+    .eq("sentence_id", sentenceId);
+  q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
+  const { count } = await q;
+  return count ?? 0;
+};
+
+export const markLatestRemediationDone = async (sentenceId: string): Promise<void> => {
+  const userId = await getUserId();
+  let q = supabase.from("word_test_results").select("id").eq("sentence_id", sentenceId);
+  q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
+  const { data } = await q.order("taken_at", { ascending: false }).limit(1).maybeSingle();
+  if (data?.id) {
+    await supabase.from("word_test_results").update({ remediation_done: true }).eq("id", data.id);
+  }
 };
 
 // ---------- badge_offsets ----------
