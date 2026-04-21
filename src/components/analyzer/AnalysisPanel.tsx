@@ -501,6 +501,7 @@ export const AnalysisPanel = ({
           onNounElementChange={onNounElementChange}
           onNounRoleChange={onNounRoleChange}
           onNounElementRole={onNounElementRole}
+          onClauseDepthChange={onNounClauseDepthChange}
           referent={referentSectionProps}
         />
       );
@@ -525,6 +526,7 @@ export const AnalysisPanel = ({
           onAdjElementChange={onAdjElementChange}
           onAdjRoleChange={onAdjRoleChange}
           onAdjElementRole={onAdjElementRole}
+          onClauseDepthChange={onAdjClauseDepthChange}
           modifier={modifierSectionProps}
         />
       );
@@ -536,6 +538,7 @@ export const AnalysisPanel = ({
           onAdvFormChange={onAdvFormChange}
           onAdvSubtypeChange={onAdvSubtypeChange}
           onAdvRoleChange={onAdvRoleChange}
+          onClauseDepthChange={onAdvClauseDepthChange}
         />
       );
     if (isEtc)
