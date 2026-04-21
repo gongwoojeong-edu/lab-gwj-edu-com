@@ -101,6 +101,40 @@ export async function upsertHandoutResult(params: {
   return data as HandoutResult;
 }
 
+/** Ensure a handout_results row exists for (user, date). No-op if exists. */
+export async function ensureHandoutRow(
+  userId: string,
+  teacherId: string | null,
+  testDate: string,
+): Promise<HandoutResult> {
+  const { data: existing } = await supabase
+    .from("handout_results")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("test_date", testDate)
+    .maybeSingle();
+  if (existing) return existing as HandoutResult;
+
+  const sessionNo = await computeSessionNo(userId, testDate);
+  const { data, error } = await supabase
+    .from("handout_results")
+    .upsert(
+      {
+        user_id: userId,
+        teacher_id: teacherId,
+        test_date: testDate,
+        session_no: sessionNo,
+        word_ho_score: null,
+        syntax_ho_result: null,
+      },
+      { onConflict: "user_id,test_date" },
+    )
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as HandoutResult;
+}
+
 export async function setIsIntegrated(rowId: string, isIntegrated: boolean): Promise<void> {
   const { error } = await supabase
     .from("handout_results")
