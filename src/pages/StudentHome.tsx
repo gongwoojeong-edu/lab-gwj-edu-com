@@ -337,6 +337,71 @@ const StudentHome = () => {
               </Card>
             )}
 
+            {/* 특별과제 */}
+            {assignments.length > 0 && (
+              <Card className="p-5 sm:p-6 space-y-4 border-amber-500/40 bg-gradient-to-br from-amber-500/5 to-transparent">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4 text-amber-600" />
+                    <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
+                      특별과제
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold">
+                      {assignments.length}
+                    </span>
+                  </div>
+                </div>
+                <ul className="space-y-3">
+                  {assignments.map((a) => {
+                    const dueMs = new Date(a.due_at).getTime() - Date.now();
+                    const totalH = Math.max(0, Math.floor(dueMs / 3_600_000));
+                    const days = Math.floor(totalH / 24);
+                    const hours = totalH % 24;
+                    const urgent = dueMs < 24 * 3_600_000;
+                    const remainText = days > 0 ? `${days}일 ${hours}시간 남음` : `${hours}시간 남음`;
+                    return (
+                      <li
+                        key={a.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border border-border bg-card"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold truncate">{a.title}</span>
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded",
+                                urgent
+                                  ? "bg-destructive/15 text-destructive"
+                                  : "bg-muted text-muted-foreground",
+                              )}
+                            >
+                              <Clock className="w-3 h-3" />
+                              {remainText}
+                            </span>
+                          </div>
+                          {a.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {a.description}
+                            </p>
+                          )}
+                        </div>
+                        {a.sentence_id && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/learn/sentence/${a.sentence_id}`)}
+                            className="shrink-0"
+                          >
+                            <Play className="w-3 h-3 mr-1" /> 학습 시작
+                          </Button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            )}
+
             {/* Hero start card */}
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
