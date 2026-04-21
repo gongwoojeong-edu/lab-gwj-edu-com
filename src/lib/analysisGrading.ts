@@ -30,6 +30,10 @@ export interface AnalysisGradeResult {
   diffs: OwnerDiffEntry[];
   masterCount: number;
   hasMaster: boolean;
+  /** 마스터키 기준 "필수 owner"(주절 S/V, 접속절 V)가 모두 학생 progress에 채워졌는지 */
+  requiredOwnersFilled: boolean;
+  /** 미충족된 필수 owner ID 목록 (학생에게 안내용) */
+  missingRequiredOwnerIds: string[];
 }
 
 const norm = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
