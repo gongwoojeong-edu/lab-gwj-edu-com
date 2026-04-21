@@ -10,6 +10,8 @@ import { Loader2, Printer, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
+import { markPrintRequestHandled } from "@/lib/printRequests";
+import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
 import { buildClozeSegments, buildStructureHint } from "@/lib/handoutCloze";
 
 interface StudentInfo {
@@ -21,6 +23,8 @@ const HandoutPage = () => {
   const { passageCode } = useParams<{ passageCode: string }>();
   const [params] = useSearchParams();
   const studentId = params.get("student");
+  const fromQueue = params.get("fromQueue") === "1";
+  const reqId = params.get("reqId");
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
