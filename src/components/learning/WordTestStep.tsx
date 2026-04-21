@@ -35,7 +35,7 @@ interface Props {
 
 type Phase = "intro" | "quiz" | "result" | "remediation" | "remediation_done";
 
-export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
+export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, onSkipToNext }: Props) => {
   const [phase, setPhase] = useState<Phase>("intro");
   const [mode, setMode] = useState<WordTestMode>("mixed");
   const [threshold, setThreshold] = useState(0.8);
