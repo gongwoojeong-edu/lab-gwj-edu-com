@@ -1,48 +1,39 @@
 
 
-## 책장 정답지 입력기 = 정답 입력기(구) 통합
+## 정답입력기(구) 메뉴 — 왜 남아있나 + 정리 방안
 
-### 문제 진단
+### 현재 상태
 
-- 책장 → 지문 편집(`PassageEditor`)의 **"분석 저장 (ready)"** 버튼은 `saveSentenceTokens`만 호출 → 이 함수는 sentence **tokens(단어 분할)** 만 DB에 쓰고, 실제 정답(품사·역할·요소)은 저장하지 않습니다.
-- 정답은 `Index` 내부의 **정답 입력 모드 토글 + [정답 저장]** 흐름 (`upsertCustomAnswer` → `owner_progress` 테이블, admin uid)으로만 저장되는데, 이 툴바는 `embedMode={true}` 라 PassageEditor에서 **숨겨져** 있습니다.
-- 결과: 사용자는 분석을 하지만 **저장 경로가 끊긴 상태** → 화면을 떠나면 사라지는 것처럼 보임.
+- 사이드바 **설정 → "정답입력기 (구)"** 항목이 살아있음 (`TeacherLayout.tsx` line 222–227).
+- 라우트 `/teacher/answers` 는 단순히 `<Index />` (임베드 X, 풀화면) 를 렌더 — 즉, 책장과 무관한 별도의 문장(기본 sentence) 위에서 admin 툴바를 띄워 정답을 입력하던 **이전 워크플로 진입점**.
+- `PassageEditor` 통합 직전까지는 이 화면이 유일한 마스터키 입력 경로였기 때문에, 통합 시점에 **백업/롤백용**으로 일부러 제거하지 않고 남겨둔 상태.
 
-### 해결 방향 — 정답 입력기(구) 자리에 분석기 그대로
+### 왜 그대로 두었나 (의도)
 
-`PassageEditor`를 단순 컨테이너로 만들고, **`Index` 컴포넌트의 admin 툴바를 임베드 모드에서도 노출** 하도록 변경. 별도의 "분석 저장" 버튼은 제거하고, **"교재 ready 표시"** 토글만 헤더에 남깁니다.
+1. **회귀 안전망** — 책장 임베드(`showStaffToolbar`) 흐름에 문제가 생겼을 때 즉시 풀화면 입력기로 복귀할 수 있도록.
+2. **책장에 없는 데모 문장** — `SENTENCES` 시드 중 책장(textbook/passage)에 등록되지 않은 ID를 편집/검수할 때 사용 가능.
+3. 사용자에게 "이제 책장에서 다 됩니다" 확인을 받기 전 자동 삭제하지 않는 보수적 정리 정책.
 
-### 작업 내역
+### 제안 — 둘 중 선택
 
-#### 1. `src/pages/Index.tsx`
-- 새 prop `showStaffToolbar?: boolean` 추가 (기본 false). admin 권한 가진 사용자가 embedMode일 때 이 prop이 true면 하단 툴바를 노출.
-- 툴바 렌더 조건을 `(!embedMode && isAdmin) || (embedMode && isAdmin && showStaffToolbar)` 로 변경.
-- 툴바를 임베드용으로 노출할 때는 `fixed bottom-0 inset-x-0` → 컨테이너 내 `sticky bottom-0` 스타일 변형 (PassageEditor 카드 안에 안착하도록).
-- 지우개/관용구 도구바도 `embedMode + showStaffToolbar`일 때 함께 표시.
+**A안. 즉시 제거 (권장)**
+- `TeacherLayout.tsx`의 "설정" SidebarGroup에서 해당 `SidebarMenuItem` 삭제.
+- 그룹 내 항목이 0개가 되므로 **"설정" 그룹 자체도 제거** (필요해질 때 다시 만듭니다).
+- `App.tsx`의 `/teacher/answers` Route 제거.
+- 효과: 메뉴 단일화 → 사용자는 항상 "책장 → 지문 → 편집"만 거침. UI 혼선 제거.
 
-#### 2. `src/pages/teacher/PassageEditor.tsx`
-- 우측 상단 **"분석 저장 (ready)"** 버튼 제거. 대신 작은 토글 버튼 **"학생 공개 (ready ↔ draft)"** 만 남김 → 이 버튼은 `saveSentenceTokens(code, currentTokens, true|false)` 로 `analysis_status` 만 토글.
-- `<Index embedMode embedSentenceId={passage.code} showStaffToolbar />` 로 호출.
-- 카드 `max-h-[calc(100vh-220px)] overflow-auto` 유지 — 내부 sticky 툴바가 카드 하단에 고정되도록 컨테이너 구조 정리.
-- 안내 문구 추가: "분석은 [정답 입력] 토글 켜고 단어 클릭 → [정답 저장] 으로 저장됩니다 (마스터키)."
+**B안. 라벨/위치만 정리하고 유지**
+- "정답입력기 (구)" → **"임시 입력기 (책장 외 문장용)"** 로 이름 변경, 설정 → "고급" 같은 하위로 이동.
+- 책장에 없는 ID 편집이 가끔 필요하면 유지.
 
-#### 3. (선택) `src/lib/sentenceSource.ts`
-- `saveSentenceTokens` 의 두 번째 인자 `tokens` 가 사실상 안 쓰이는 호출이 생기므로, `setPassageReady(code, ready: boolean)` 헬퍼를 추가하여 깔끔히 분리.
+### 권장
 
-### 기대 동작
+A안으로 즉시 제거. 책장 통합으로 모든 마스터키 입력이 `/teacher/bookshelf/.../edit` 한 곳으로 수렴했고, 풀화면 진입점이 남아있으면 "어디서 저장해야 하지?" 혼란만 유발합니다. 책장 외 문장이 필요해지는 일은 시드 데이터 점검 시뿐인데, 그때는 임시로 라우트를 다시 살리면 됩니다.
 
-1. 책장 → 지문 → 편집 진입 → admin 툴바가 카드 하단에 표시됨.
-2. **[정답 입력]** 토글 ON → 단어 선택 → 분석 입력 → **[정답 저장]** 클릭 → `owner_progress` 에 admin 데이터로 저장 (= 마스터키).
-3. 모든 마스터 분석을 마치면 우측 상단 **[학생 공개]** 클릭 → `analysis_status='ready'` 로 변경 → 학생에게 노출.
-4. 정답 초기화 / 지우개 / 관용구 / AI 단어 추출 / 힌트 토글 모두 동일하게 동작.
+### 변경 파일 (A안 채택 시)
 
-### 영향도
+- `src/components/teacher/TeacherLayout.tsx` — "설정" SidebarGroup 전체 제거 (line 214–231), 미사용 import (`ShieldCheck`, `Sparkles`) 정리.
+- `src/App.tsx` — `/teacher/answers` Route 블록 제거 (line 219–226).
 
-- DB 스키마 변경 없음.
-- `Index`의 기존 (`/`, `/learn/sentence/...`) 경로 동작은 prop default가 false이므로 영향 없음.
-- 학생 화면(`SentenceLearn`)은 `embedMode` 만 쓰고 `showStaffToolbar` 미지정 → 영향 없음.
-
-### 비고
-
-이번 턴은 "분석 저장 안 됨" 핵심 버그만 해결. Phase 2(레벨 DB) 및 Phase 3(다중 절 깊이 시각화)은 후속 턴.
+DB·다른 페이지 영향 없음. `Index` 컴포넌트 자체는 책장 임베드용으로 계속 사용되므로 삭제하지 않습니다.
 
