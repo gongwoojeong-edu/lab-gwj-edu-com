@@ -169,6 +169,11 @@ const StudentHome = () => {
           </Card>
         ) : (
           <>
+            {user && (
+              <div id="retest-banner">
+                <RetestBanner userId={user.id} />
+              </div>
+            )}
             {/* Hero start card */}
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
