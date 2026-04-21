@@ -1150,11 +1150,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       if (!(ownerId in prev)) return prev;
       const nextCustom = { ...prev };
       delete nextCustom[ownerId];
-      try {
-        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
-      } catch {
-        /* ignore */
-      }
+      saveCustomAnswers(nextCustom);
       return nextCustom;
     });
     // pending patch / saved owner 표시도 정리
@@ -1355,11 +1351,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     });
     if (touched) {
       setCustomAnswers(nextCustom);
-      try {
-        window.localStorage.setItem("gwj.customAnswers.v1", JSON.stringify(nextCustom));
-      } catch {
-        /* ignore */
-      }
+      saveCustomAnswers(nextCustom);
     }
     // pending/saved도 같이 정리
     setPendingPatchMap((prev) => {
