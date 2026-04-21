@@ -5,6 +5,7 @@ export interface WordTestEntry {
   ownerId: string;
   word: string;       // English surface
   expected: string;   // Korean meaning (정답)
+  pos?: string;       // 품사 (명사/동사/형용사/부사) — optional, used for display
 }
 
 interface MinimalProgress {
@@ -38,7 +39,7 @@ export const buildWordTest = (
     }
     if (!meaning.trim()) continue;
     seen.add(key);
-    out.push({ ownerId, word: surface, expected: meaning.trim() });
+    out.push({ ownerId, word: surface, expected: meaning.trim(), pos: p.pos });
   }
   return out;
 };
