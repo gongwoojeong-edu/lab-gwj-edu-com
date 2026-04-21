@@ -960,6 +960,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     if (embedMode && onAnalysisDone) onAnalysisDone();
   }, [analysisDone, sentence.id, embedMode, onAnalysisDone]);
 
+  // 분석 진행률(0~1) 외부 통지 — 게이트 표시용
+  useEffect(() => {
+    if (!onAnalysisProgress) return;
+    const total = analyzableIds.length;
+    const rate = total > 0 ? completedCount / total : 0;
+    onAnalysisProgress(rate);
+  }, [completedCount, analyzableIds.length, onAnalysisProgress]);
+
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
   // 정답 입력 모드에서 저장된 정답을 머지한 토큰
