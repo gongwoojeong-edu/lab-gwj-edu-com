@@ -118,11 +118,24 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
     setGraded((g) => ({ ...g, [cur.ownerId]: correct }));
     if (idx + 1 < questions.length) {
       setIdx(idx + 1);
+      setTimeLeft(timeLimitSec);
       setTimeout(() => inputRef.current?.focus(), 30);
     } else {
       void finalize({ ...graded, [cur.ownerId]: correct });
     }
   };
+  advanceRef.current = advance;
+
+  // 카운트다운 타이머 — quiz 단계에서만, 시간제한 > 0 일 때만 동작
+  useEffect(() => {
+    if (phase !== "quiz" || timeLimitSec <= 0 || !cur) return;
+    if (timeLeft <= 0) {
+      advanceRef.current();
+      return;
+    }
+    const t = window.setTimeout(() => setTimeLeft((s) => s - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [phase, timeLeft, timeLimitSec, cur, idx]);
 
   const finalize = async (finalGraded: Record<string, boolean>) => {
     const items: WordTestItem[] = questions.map((q) => {
