@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil } from "lucide-react";
+import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchTextbook,
@@ -89,7 +89,7 @@ const BookshelfUnit = () => {
                   <th className="py-2 px-3 w-32">코드</th>
                   <th className="py-2 px-3">본문 (미리보기)</th>
                   <th className="py-2 px-3 w-24">상태</th>
-                  <th className="py-2 px-3 w-32 text-right">액션</th>
+                  <th className="py-2 px-3 w-44 text-right">액션</th>
                 </tr>
               </thead>
               <tbody>
@@ -130,7 +130,20 @@ const BookshelfUnit = () => {
                             )}
                           </span>
                         </td>
-                        <td className="py-2 px-3 text-right">
+                        <td className="py-2 px-3 text-right whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Hand-out 인쇄"
+                            onClick={() =>
+                              window.open(
+                                `/teacher/handout/${encodeURIComponent(p.code)}`,
+                                "_blank",
+                              )
+                            }
+                          >
+                            <Printer className="size-3.5" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"

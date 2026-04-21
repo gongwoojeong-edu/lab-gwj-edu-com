@@ -19,6 +19,7 @@ import PassageEditor from "./pages/teacher/PassageEditor.tsx";
 import Assignments from "./pages/teacher/Assignments.tsx";
 import PrintQueue from "./pages/teacher/PrintQueue.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
+import HandoutPage from "./pages/Handout.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
@@ -125,6 +126,22 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <PrintQueue />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/handout/:passageCode"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <HandoutPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn/handout/:passageCode"
+              element={
+                <RequireAuth>
+                  <HandoutPage />
                 </RequireAuth>
               }
             />
