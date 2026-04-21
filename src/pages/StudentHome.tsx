@@ -385,7 +385,7 @@ const StudentHome = () => {
                         <p className="text-xs text-foreground/80 line-clamp-2 min-h-[2.5em]">
                           {sentence.english}
                         </p>
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col gap-2">
                           <div className="text-[10px] text-muted-foreground">
                             {new Date(updated_at).toLocaleString("ko-KR", {
                               month: "2-digit",
@@ -394,22 +394,98 @@ const StudentHome = () => {
                               minute: "2-digit",
                             })}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs px-2"
-                              title="학습지 인쇄"
-                              onClick={() =>
-                                window.open(
-                                  `/learn/handout/${encodeURIComponent(sentence.id)}`,
-                                  "_blank",
-                                )
-                              }
-                            >
-                              🖨️
-                            </Button>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {/* 시험지 요청 */}
+                            {printReqs[sentence.id] ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                                onClick={() => handleCancelPrint(sentence.id)}
+                                disabled={!!busy[`print:${sentence.id}`]}
+                                title="요청 취소"
+                              >
+                                <Hourglass className="w-3 h-3 mr-1 animate-pulse" />
+                                시험지 요청됨
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() => handleRequestPrint(sentence.id)}
+                                disabled={!!busy[`print:${sentence.id}`]}
+                                title="선생님께 시험지 인쇄 요청"
+                              >
+                                <Printer className="w-3 h-3 mr-1" />
+                                시험지 요청
+                              </Button>
+                            )}
+
+                            {/* 정답보기 요청 */}
+                            {reviewReqs[sentence.id]?.status === "approved" ? (
+                              <Button
+                                size="sm"
+                                className="h-7 text-[11px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                onClick={() =>
+                                  navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}/review`)
+                                }
+                              >
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                정답보기
+                              </Button>
+                            ) : reviewReqs[sentence.id]?.status === "pending" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                                onClick={() => handleCancelReview(sentence.id)}
+                                disabled={!!busy[`review:${sentence.id}`]}
+                                title="요청 취소"
+                              >
+                                <Hourglass className="w-3 h-3 mr-1 animate-pulse" />
+                                정답보기 대기중
+                              </Button>
+                            ) : reviewReqs[sentence.id]?.status === "rejected" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() => handleRequestReview(sentence.id)}
+                                disabled={!!busy[`review:${sentence.id}`]}
+                                title="다시 요청"
+                              >
+                                <XCircle className="w-3 h-3 mr-1 text-destructive" />
+                                재요청
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() => handleRequestReview(sentence.id)}
+                                disabled={!!busy[`review:${sentence.id}`]}
+                                title="선생님 정답과 대조 요청"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                정답보기 요청
+                              </Button>
+                            )}
+
                             {isFail && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() =>
+                                  navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}`)
+                                }
+                              >
+                                다시 도전
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                               <Button
                                 size="sm"
                                 variant="outline"
