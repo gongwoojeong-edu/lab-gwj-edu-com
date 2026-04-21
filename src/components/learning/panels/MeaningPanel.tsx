@@ -163,6 +163,24 @@ export const MeaningPanel = ({ word, expected, onFinish }: Props) => {
         </div>
       </div>
 
+      {listening && (
+        <div className="flex flex-col items-center gap-2 py-3 rounded-2xl border-2 border-primary/40 bg-primary/5 animate-in fade-in zoom-in-95 duration-300">
+          <div className="relative w-14 h-14 flex items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
+            <span className="absolute inset-1 rounded-full bg-primary/20 animate-pulse" />
+            <Mic className="relative w-7 h-7 text-primary" />
+          </div>
+          <div className="text-sm font-bold text-primary">듣고 있어요…</div>
+          <div className="flex items-end gap-1 h-4">
+            <span className="w-1 bg-primary rounded-full animate-pulse" style={{ height: "50%", animationDelay: "0ms" }} />
+            <span className="w-1 bg-primary rounded-full animate-pulse" style={{ height: "90%", animationDelay: "120ms" }} />
+            <span className="w-1 bg-primary rounded-full animate-pulse" style={{ height: "40%", animationDelay: "240ms" }} />
+            <span className="w-1 bg-primary rounded-full animate-pulse" style={{ height: "100%", animationDelay: "360ms" }} />
+            <span className="w-1 bg-primary rounded-full animate-pulse" style={{ height: "60%", animationDelay: "480ms" }} />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col items-center gap-3">
         <Button
           size="lg"

@@ -46,6 +46,7 @@ export const extractedToEntries = (words: ExtractedWord[]): WordTestEntry[] =>
       ownerId: `extract:${i}`,
       word: w.word.trim(),
       expected: w.meaning.trim(),
+      pos: w.pos?.trim() || undefined,
     }));
 
 /** Teacher/admin only — invokes the edge function and refreshes the cache. */

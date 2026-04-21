@@ -73,8 +73,16 @@ Deno.serve(async (req) => {
               "EXCLUDE: articles (a, an, the), pronouns (he, she, it, they...), be-verbs (is, are, was...), " +
               "auxiliaries (do, have when not lexical), basic prepositions/conjunctions. " +
               "Keep the surface form as it appears (or base form if clearly inflected). " +
-              "Provide a SHORT Korean meaning (1-3 words, no sentence). " +
-              "Use POS tags strictly from {명사, 동사, 형용사, 부사}.",
+              "POS REQUIRED — strictly from {명사, 동사, 형용사, 부사}. " +
+              "MEANING RULES (very important for accuracy): " +
+              "1) Provide the CONTEXT-FIT meaning FIRST (what the word actually means in THIS sentence). " +
+              "2) If the word is polysemous (다의어) and another common meaning differs, append it after a comma. " +
+              "3) Format: '문맥뜻, 추가뜻' — keep each meaning to 1-3 Korean words, no full sentences. " +
+              "4) Always include POS naturally — example for verb '동력, 추진력 제공하다' is wrong; instead 'meaning' stays Korean meaning only and 'pos' carries the POS tag. " +
+              "Examples: " +
+              "- 'driving force' (명사) → meaning: '추진력, 원동력' " +
+              "- 'solidify' (동사) → meaning: '굳히다, 공고히 하다' " +
+              "- 'medium' (명사 in this context) → meaning: '매체, 수단' (NOT '중간의')",
           },
           { role: "user", content: `Sentence: ${english}` },
         ],
@@ -95,7 +103,11 @@ Deno.serve(async (req) => {
                       type: "object",
                       properties: {
                         word: { type: "string" },
-                        meaning: { type: "string" },
+                        meaning: {
+                          type: "string",
+                          description:
+                            "Context-fit Korean meaning first, optional comma-separated alternate meaning. 1-3 words each.",
+                        },
                         pos: { type: "string", enum: ["명사", "동사", "형용사", "부사"] },
                       },
                       required: ["word", "meaning", "pos"],

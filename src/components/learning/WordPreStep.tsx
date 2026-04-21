@@ -298,8 +298,13 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
   return (
     <>
       <Card className="p-6 sm:p-8 space-y-6 border-primary/20 mb-32">
-        <div className="text-center">
-          <div className="text-xs text-muted-foreground mb-1">뜻</div>
+        <div className="text-center space-y-1">
+          {current.pos && (
+            <span className="inline-block text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
+              {current.pos}
+            </span>
+          )}
+          <div className="text-xs text-muted-foreground">뜻</div>
           <div className="text-lg font-bold text-foreground">{current.expected}</div>
         </div>
 
