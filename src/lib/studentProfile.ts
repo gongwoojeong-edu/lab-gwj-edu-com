@@ -11,7 +11,18 @@ export interface StudentProfile {
   teacher_id: string | null;
   analysis_pass_threshold: number;
   hint_mode_enabled: boolean;
+  word_test_time_limit_sec: number;
 }
+
+export const updateStudentWordTestTimeLimit = async (
+  userId: string,
+  seconds: number,
+): Promise<void> => {
+  await supabase
+    .from("student_profiles")
+    .update({ word_test_time_limit_sec: Math.max(0, Math.min(120, Math.round(seconds))) })
+    .eq("user_id", userId);
+};
 
 export const updateStudentHintMode = async (
   userId: string,
