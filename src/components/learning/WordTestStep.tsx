@@ -127,6 +127,11 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
       } else {
         await resetStreakOnFail();
       }
+      try {
+        onTestCompleted?.({ passed: isPass, score: sc, wrong, mode });
+      } catch (cbErr) {
+        console.warn("onTestCompleted callback failed", cbErr);
+      }
       setPhase("result");
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
