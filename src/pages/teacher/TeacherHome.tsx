@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import {
   BookOpen,
+  ChevronDown,
   Users,
   Printer,
   RefreshCcw,
@@ -22,6 +23,8 @@ import {
   type HandoutResult,
 } from "@/lib/handoutResults";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
+import { Button } from "@/components/ui/button";
+import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 
 const TILES = [
   { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
@@ -42,6 +45,7 @@ const TeacherHome = () => {
   const testDateIso = useMemo(() => toIsoDate(testDate), [testDate]);
   const [handoutMap, setHandoutMap] = useState<Record<string, HandoutResult>>({});
   const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -161,38 +165,62 @@ const TeacherHome = () => {
                       <th className="py-2 pr-3">
                         구문HO <span className="text-[10px] text-muted-foreground/70">(P/F)</span>
                       </th>
+                      <th className="py-2 pr-3 text-right">종합점수</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((s) => (
-                      <tr key={s.user_id} className="border-b border-border/50">
-                        <td className="py-2 pr-3 font-mono">{s.student_no}</td>
-                        <td className="py-2 pr-3">{s.display_name ?? "-"}</td>
-                        <td className="py-2 pr-3 text-muted-foreground">
-                          {LEVEL_LABEL[s.current_level]} · {s.current_no}번
-                        </td>
-                        <td className="py-2 pr-3">
-                          <WordHoInput
-                            userId={s.user_id}
-                            teacherId={user?.id ?? null}
-                            testDate={testDateIso}
-                            current={handoutMap[s.user_id] ?? null}
-                            onSaved={handleHandoutSaved}
-                            onEnterNext={() => focusNext(s.user_id)}
-                            registerInput={registerInput}
-                          />
-                        </td>
-                        <td className="py-2 pr-3">
-                          <SyntaxHoToggle
-                            userId={s.user_id}
-                            teacherId={user?.id ?? null}
-                            testDate={testDateIso}
-                            current={handoutMap[s.user_id] ?? null}
-                            onSaved={handleHandoutSaved}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {students.map((s) => {
+                      const isExpanded = expandedStudentId === s.user_id;
+                      return (
+                        <>
+                          <tr key={s.user_id} className="border-b border-border/50">
+                            <td className="py-2 pr-3 font-mono">{s.student_no}</td>
+                            <td className="py-2 pr-3">{s.display_name ?? "-"}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">
+                              {LEVEL_LABEL[s.current_level]} · {s.current_no}번
+                            </td>
+                            <td className="py-2 pr-3">
+                              <WordHoInput
+                                userId={s.user_id}
+                                teacherId={user?.id ?? null}
+                                testDate={testDateIso}
+                                current={handoutMap[s.user_id] ?? null}
+                                onSaved={handleHandoutSaved}
+                                onEnterNext={() => focusNext(s.user_id)}
+                                registerInput={registerInput}
+                              />
+                            </td>
+                            <td className="py-2 pr-3">
+                              <SyntaxHoToggle
+                                userId={s.user_id}
+                                teacherId={user?.id ?? null}
+                                testDate={testDateIso}
+                                current={handoutMap[s.user_id] ?? null}
+                                onSaved={handleHandoutSaved}
+                              />
+                            </td>
+                            <td className="py-2 pr-3 text-right">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setExpandedStudentId(isExpanded ? null : s.user_id)}
+                              >
+                                <ChevronDown className={`size-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                보기
+                              </Button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="border-b border-border/50 bg-muted/20">
+                              <td colSpan={6} className="py-4 pr-3">
+                                <DailyTestSummary userId={s.user_id} days={14} />
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
