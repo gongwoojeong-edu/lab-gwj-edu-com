@@ -13,6 +13,8 @@ interface WordChipProps {
   state: ChipState;
   /** 드래그로 선택된 청크의 일부 — 연한 보라 배경 */
   inDragRange?: boolean;
+  /** 분석 불가 토큰(구두점 등) — 모든 인터랙션 무시 */
+  disabled?: boolean;
   onMouseDown?: (e: React.MouseEvent) => void;
   onMouseEnter?: (e: React.MouseEvent) => void;
   onMouseUp?: (e: React.MouseEvent) => void;
@@ -33,6 +35,7 @@ export const WordChip = ({
   element,
   state,
   inDragRange,
+  disabled,
   onMouseDown,
   onMouseEnter,
   onMouseUp,
@@ -44,20 +47,28 @@ export const WordChip = ({
 
   return (
     <span
-      role="button"
-      tabIndex={0}
-      onMouseDown={onMouseDown}
-      onMouseEnter={onMouseEnter}
-      onMouseUp={onMouseUp}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-      className="group relative inline-flex flex-col items-center cursor-pointer focus:outline-none leading-none select-none"
-      aria-pressed={selected}
+      role={disabled ? undefined : "button"}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled || undefined}
+      onMouseDown={disabled ? undefined : onMouseDown}
+      onMouseEnter={disabled ? undefined : onMouseEnter}
+      onMouseUp={disabled ? undefined : onMouseUp}
+      onClick={disabled ? undefined : onClick}
+      onKeyDown={
+        disabled
+          ? undefined
+          : (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+      }
+      className={cn(
+        "group relative inline-flex flex-col items-center focus:outline-none leading-none select-none",
+        disabled ? "cursor-default" : "cursor-pointer",
+      )}
+      aria-pressed={disabled ? undefined : selected}
     >
       {completed && koreanLabel && (
         <span className="absolute -top-3.5 text-[9px] font-semibold font-kr text-primary whitespace-nowrap tracking-tight leading-none pointer-events-none">
@@ -70,7 +81,7 @@ export const WordChip = ({
           "px-1 py-0.5 rounded-sm text-[16px] font-medium tracking-tight transition-colors duration-150 leading-tight text-foreground",
           // 항상 진하게 보이는 본문 텍스트 — opacity 100 유지
           highlighted && "bg-primary/15",
-          completed && !highlighted && "bg-primary/[0.06]",
+          completed && !highlighted && "bg-primary/15 border-b border-primary/30",
         )}
       >
         {word}

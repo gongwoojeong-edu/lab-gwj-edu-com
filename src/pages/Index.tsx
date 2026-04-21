@@ -2677,8 +2677,8 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                     <span
                       className={cn(
                         "px-1 py-0.5 text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
-                        // 안쪽 완료 (수식어/부속/일반 동일) — 연한 보라 + 얇은 하단 보더
-                        innerCompleteBg && "bg-primary/[0.07] border-b border-primary/20",
+                        // 안쪽 완료 (수식어/부속/일반 동일) — 진한 보라 음영 + 얇은 하단 보더
+                        innerCompleteBg && "bg-primary/15 border-b border-primary/30",
                         // clause(절)면 텍스트만 살짝 dim
                         isCompleted && !isSelected && isClauseSelection &&
                           "text-foreground/80",
