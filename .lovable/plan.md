@@ -1,62 +1,46 @@
 
 
-## 핸드아웃 출력물 디자인 개편 + 성적 입력 UI 복구
+## 핸드아웃 입력 행 자동 생성 + 학습완료 목록 인쇄여부 표시
 
-오해가 있었습니다. "핸드아웃 UI 개편"은 **선생님 입력 화면**이 아니라 **인쇄되는 출력물(B5 학생본 핸드아웃)** 디자인이었습니다. 입력 UI는 이전 상태로 되돌리고, 출력물에 Dark Violet 디자인을 적용합니다.
+### 현재 동작
 
-### 1. 성적 입력 UI 복구
+- `/teacher` 대시보드 "오늘의 핸드아웃 성적 입력" 표는 **모든 학생을 항상 빈 행으로 노출** → 인쇄도 안 한 학생까지 입력 대상으로 보여 산만함.
+- 인쇄(`/teacher/print-queue`에서 PDF 열기)와 성적 입력 사이에 연결이 없음.
 
-| 파일 | 복구 내용 |
-|---|---|
-| `src/components/teacher/WordHoInput.tsx` | 인라인 underline 스타일 → 기존 박스형 `Input` 으로 복구 |
-| `src/components/teacher/SyntaxHoToggle.tsx` | segmented control → 기존 단일 토글 형태로 복구 |
-| `src/pages/teacher/TeacherHome.tsx` | 카드 그리드 → 기존 `<table>` 표 형태로 복구 (BookOpen/PenLine 아이콘 제거) |
+### 제안 동작
 
-### 2. 핸드아웃 출력물 디자인 개편 (Dark Violet)
+**(1) 인쇄 실행 = 핸드아웃 입력 행 자동 생성**
+- `PrintQueue.tsx` "PDF 열기" 버튼을 누르면 → 해당 학생·당일 날짜의 `handout_results` 행을 **빈 점수로 upsert** (없을 때만 생성, 이미 있으면 그대로 둠).
+- 동시에 `print_requests`를 `printed`로 마킹(기존 "처리 완료" 흐름 유지). 즉 "PDF 열기"가 곧 "인쇄 완료 처리 + 입력 행 생성" 한 번에.
+- TeacherHome 입력 표는 **오늘 행이 존재하는 학생만** 표시. 행이 없으면 "오늘 인쇄된 핸드아웃 없음" 안내.
 
-**대상**: `src/pages/teacher/AnalysisHandout.tsx` (학생본 단독 인쇄), `src/pages/Handout.tsx` (마스터+학생 통합 인쇄).
+**(2) 학습완료 목록 — "인쇄됨" 배지**
+- 기존 `DailyTestSummary`(학생 행 펼침에서 보이는 14일 일별 표)에 **인쇄 여부 컬럼/배지** 추가.
+- 판단 기준: 해당 날짜에 그 학생의 `print_requests.status = 'printed'` 이력이 1건 이상이면 🖨 배지 표시.
+- 인쇄 0건이면 회색 dash.
 
-**디자인 방향** — 사용자가 모은 Pinterest 워크북 레퍼런스에 부합:
-- **컬러**: 흑백 본문 + Dark Violet 포인트 (헤더 라인, 학생명 강조, 섹션 제목)
-- **타이포**: 헤더는 굵은 sans-serif, 본문은 깔끔한 줄간격
-- **레이아웃**: B5 세로(`@page { size: B5 portrait; margin: 8mm }`)
-- **카드/섹션**: `shadow-sm rounded-md border` 학습지 느낌
+**(3) 수동 추가 옵션 (탈출구)**
+- 인쇄 안 했어도 즉석 채점이 필요한 경우를 위해 입력 표 상단에 *"+ 학생 추가"* 드롭다운 → 선택 시 그 학생의 빈 행 즉시 생성(handout_results upsert).
 
-**구체 변경**:
-
-(A) **`AnalysisHandout.tsx`** — 학생본 단독 인쇄
-- 상단 헤더 바: 좌측 "공우정바른학원" 로고 텍스트 + 우측 sentenceId/날짜, **Dark Violet 하단 굵은 라인 (border-b-2 border-primary)**
-- 학생 정보 행: 학번·이름 strong 강조 + 보라 액센트
-- 본문 분석 영역: `border rounded-md p-3 bg-card` 카드 + `leading-[2.5]` 유지 (메모용 줄간격)
-- 채점본 모드: 빨강 음영 자동 + 안내문 *"※ 위 분석에서 표시(빨강 음영)된 부분에 유의하여 다시 분석해 보세요."* 보라 굵게
-- 하단 재분석 영역: 1/3 비율의 줄노트(`repeating-linear-gradient`로 9mm 간격 가로줄) + "재분석 영역" 라벨
-- 푸터: 작은 회색 안내 *"도저히 막힐 때만 선생님께 [정답 보기 요청]을 보내세요."*
-
-(B) **`Handout.tsx`** — 통합/일반 핸드아웃
-- 헤더 동일 톤(Dark Violet 라인 + 로고)
-- 본문 분석 영역에 `leading-[2.5]` 적용 (이미 적용됨, 유지)
-- 단어/구문 등 섹션 제목(있는 경우) 보라색 강조 라인
-
-(C) **인쇄 색상 보장** (이미 있는 규칙 유지/보강)
-```css
-@media print {
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-}
-```
-
-### 변경 파일
+### 구체 변경
 
 | 파일 | 변경 |
 |---|---|
-| `src/components/teacher/WordHoInput.tsx` | 이전 박스형 입력으로 복구 |
-| `src/components/teacher/SyntaxHoToggle.tsx` | 이전 단일 토글로 복구 |
-| `src/pages/teacher/TeacherHome.tsx` | 카드 그리드 → 표 형태 복구 |
-| `src/pages/teacher/AnalysisHandout.tsx` | Dark Violet 헤더/액센트 + 줄노트 재분석 영역 강화 |
-| `src/pages/Handout.tsx` | Dark Violet 헤더/액센트 적용 |
+| `src/lib/handoutResults.ts` | `ensureHandoutRow(userId, teacherId, testDate)` — 행 없으면 빈 score로 upsert, 있으면 no-op. 반환 `HandoutResult`. |
+| `src/lib/printRequests.ts` | `markPrintRequestHandled` 호출 시점에 `ensureHandoutRow` 같이 호출하거나, PrintQueue에서 두 함수 순차 실행. |
+| `src/pages/teacher/PrintQueue.tsx` | "PDF 열기" 클릭 시 (a) PDF 새 탭 열기 (b) `markPrintRequestHandled` (c) `ensureHandoutRow` 순으로 실행. 별도 "처리 완료" 버튼은 백업용으로 유지. |
+| `src/pages/teacher/TeacherHome.tsx` | 학생 표 데이터를 `students` 전원 → **오늘 `handout_results` 가 존재하는 학생만** 필터. 빈 상태일 때 안내 카드. 상단에 "+ 학생 추가" Combobox(없는 학생 선택 시 `ensureHandoutRow` 후 새로고침). |
+| `src/components/teacher/DailyTestSummary.tsx` | 14일치 데이터에 그 날짜 `print_requests` 인쇄건수 매핑 → 컬럼 "인쇄"에 🖨 + 건수, 없으면 `—`. |
+| `src/lib/dailyTest.ts` | `DailyTestRecord`에 `printed_count: number` 필드 추가, `buildDailyTestRecord`에서 같이 채움. |
+
+### 데이터 모델
+
+- 신규 테이블 없음. `handout_results`(이미 빈 점수 허용 — `word_ho_score`/`syntax_ho_result` 둘 다 nullable) 그대로 활용.
+- `print_requests.status='printed'` 와 `handled_at` 이미 존재 → 인쇄 이력 조회용.
 
 ### 비고
 
-- 음절 발음 개선(`syllables.ts`)과 관용구 단일 단어 허용(`Index.tsx`, `AnalysisPanel.tsx`)은 **그대로 유지** — 이 작업과 무관한 별도 개선이고 정상 작동 중.
-- 본문 줄간격 `leading-[2.5]`는 출력물의 핵심 요구이므로 유지.
-- DB 변경 없음.
+- 마이그레이션 없음. RLS 변경 없음.
+- 인쇄 안 한 학생을 표에서 숨기는 게 핵심 UX 변화 — "+ 학생 추가" 탈출구로 보완.
+- `DailyTestSummary` 인쇄 배지는 그날 학생이 인쇄해 가져갔는지(=실제 오프라인 학습 여부) 빠르게 확인 가능.
 
