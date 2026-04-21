@@ -403,6 +403,11 @@ interface IndexProps {
   missingOwnerIds?: Set<string>;
   /** compareMode에서 owner 클릭 시 호출 — 수동 마킹 토글 */
   onOwnerToggle?: (ownerId: string) => void;
+  /**
+   * embedMode일 때도 admin 정답 입력 툴바(정답 입력/저장/초기화/AI추출/힌트 등)와
+   * 지우개 도구바를 노출. 책장(PassageEditor) 같은 마스터키 편집 컨테이너에서 사용.
+   */
+  showStaffToolbar?: boolean;
 }
 
 const Index = ({
@@ -417,6 +422,7 @@ const Index = ({
   diffOwnerIds,
   missingOwnerIds,
   onOwnerToggle,
+  showStaffToolbar = false,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
@@ -2046,7 +2052,7 @@ const Index = ({
     <div
       className={cn(
         embedMode ? "bg-transparent" : "min-h-screen bg-background",
-        !embedMode && isAdmin && "pb-20",
+        ((!embedMode && isAdmin) || (embedMode && isAdmin && showStaffToolbar)) && "pb-20",
       )}
     >
       {/* Header — embedMode일 때 숨김 */}
@@ -2095,14 +2101,16 @@ const Index = ({
       </nav>
       )}
 
-      {/* 하단 고정 staff 툴바 (선생님/관리자 전용) — embedMode일 때 숨김 */}
-      {!embedMode && isAdmin && (() => {
+      {/* 하단 staff 툴바 (선생님/관리자 전용). embedMode에선 showStaffToolbar=true일 때만 노출 */}
+      {((!embedMode && isAdmin) || (embedMode && isAdmin && showStaffToolbar)) && (() => {
         const status = getOwnerStatus(selectedId);
         const canSave = answerInputMode && status === "dirty";
         return (
           <div
             className={cn(
-              "fixed bottom-0 inset-x-0 z-40",
+              embedMode
+                ? "sticky bottom-0 z-40"
+                : "fixed bottom-0 inset-x-0 z-40",
               "border-t border-border/60 bg-background/85 backdrop-blur-sm",
               "shadow-[0_-4px_12px_rgba(0,0,0,0.05)]",
               "px-4 py-2",
@@ -2880,8 +2888,8 @@ const Index = ({
             })}
           </div>
 
-          {/* 선택 도구바: 지우개 + 관용구 — embedMode에서는 숨김 (인쇄 깔끔) */}
-          {!embedMode && (
+          {/* 선택 도구바: 지우개 + 관용구 — embedMode에서는 숨김 (showStaffToolbar=true면 노출) */}
+          {(!embedMode || (embedMode && showStaffToolbar && isAdmin)) && (
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
               {selectedWordIndices.length > 0
