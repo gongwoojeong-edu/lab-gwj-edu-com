@@ -173,7 +173,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
           <div className="text-xs text-muted-foreground uppercase tracking-wider">3. 단어 테스트</div>
           <div className="text-lg font-extrabold text-foreground">시험 모드 선택</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {entries.length}문제 · 통과 기준 {Math.round(threshold * 100)}점 · 시도 {attemptNo}회
+            {entries.length}문제 · 시도 {attemptNo}회
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -358,7 +358,7 @@ export const WordTestStep = ({ sentenceId, entries, onPassed }: Props) => {
         <div>
           <div className="text-lg font-extrabold text-primary">복습 완료!</div>
           <div className="text-xs text-muted-foreground">
-            이제 재시험을 볼 수 있어요. 통과 기준 {Math.round(threshold * 100)}점.
+            이제 재시험을 볼 수 있어요.
           </div>
         </div>
       </div>
