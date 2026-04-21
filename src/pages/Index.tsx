@@ -352,9 +352,9 @@ const UserMenu = () => {
       {isTeacher && (
         <Link
           to="/teacher"
-          className="text-[10px] font-bold text-accent underline underline-offset-2"
+          className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
         >
-          선생님
+          선생님 화면으로 이동
         </Link>
       )}
       <button
