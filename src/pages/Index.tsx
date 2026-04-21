@@ -1410,16 +1410,16 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       }));
       return;
     }
-    const correct = answerInputMode || selectedToken?.answer.pos === p;
+    // 학생 모드에서는 정답 비교를 하지 않고 항상 수용 (정답 노출 차단)
     updateProgress(selectedId, (prev) => ({
       ...prev,
       pos: p,
-      posStatus: correct ? "correct" : "wrong",
-      noun: correct ? prev.noun : emptyNoun(),
-      adj: correct ? prev.adj : emptyAdj(),
-      adv: correct ? prev.adv : emptyAdv(),
-      etc: correct ? prev.etc : emptyEtc(),
-      verb: correct ? prev.verb : emptyVerb(),
+      posStatus: "correct",
+      noun: prev.noun,
+      adj: prev.adj,
+      adv: prev.adv,
+      etc: prev.etc,
+      verb: prev.verb,
       completed: false,
     }));
   };
@@ -1428,18 +1428,16 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleNounForm = (f: NounForm) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
-    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
         form: f,
-        formStatus: correct ? "correct" : "wrong",
-        element: correct ? prev.noun.element : null,
-        elementStatus: "idle",
-        role: correct ? prev.noun.role : null,
-        roleStatus: "idle",
+        formStatus: "correct",
+        element: prev.noun.element,
+        elementStatus: prev.noun.elementStatus,
+        role: prev.noun.role,
+        roleStatus: prev.noun.roleStatus,
       },
       completed: false,
     }));
@@ -1448,16 +1446,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleNounElement = (e: SentenceElement) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { element: e });
-    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
         element: e,
-        elementStatus: correct ? "correct" : "wrong",
-        role: correct ? prev.noun.role : null,
-        roleStatus: "idle",
+        elementStatus: "correct",
+        role: prev.noun.role,
+        roleStatus: prev.noun.roleStatus,
       },
       completed: false,
     }));
@@ -1466,12 +1462,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleNounRole = (r: string) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
-    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
-      noun: { ...prev.noun, role: r, roleStatus: correct ? "correct" : "wrong" },
-      completed: correct,
+      noun: { ...prev.noun, role: r, roleStatus: "correct" },
+      completed: true,
     }));
   };
 
@@ -1493,34 +1487,31 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       }));
       return;
     }
-    const ans = (selectedToken?.answer ?? null) as NounAnswer | null;
-    const elementOk = ans?.element === e;
+    // 학생 모드: 정답 비교 없이 학생 선택 그대로 완료 처리
     if (e === "M") {
-      // M: role 없이 element만 맞으면 완료
       updateProgress(selectedId, (prev) => ({
         ...prev,
         noun: {
           ...prev.noun,
           element: e,
-          elementStatus: elementOk ? "correct" : "wrong",
-          role: elementOk ? (ans?.role ?? "수식어") : null,
-          roleStatus: elementOk ? "correct" : "idle",
+          elementStatus: "correct",
+          role: r ?? "수식어",
+          roleStatus: "correct",
         },
-        completed: elementOk,
+        completed: true,
       }));
       return;
     }
-    const roleOk = elementOk && r !== null && ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       noun: {
         ...prev.noun,
         element: e,
-        elementStatus: elementOk ? "correct" : "wrong",
+        elementStatus: "correct",
         role: r,
-        roleStatus: !elementOk ? "idle" : roleOk ? "correct" : "wrong",
+        roleStatus: r !== null ? "correct" : "idle",
       },
-      completed: roleOk,
+      completed: r !== null,
     }));
   };
 
@@ -1528,18 +1519,16 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleAdjForm = (f: AdjForm) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
-    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
         form: f,
-        formStatus: correct ? "correct" : "wrong",
-        element: correct ? prev.adj.element : null,
-        elementStatus: "idle",
-        role: correct ? prev.adj.role : null,
-        roleStatus: "idle",
+        formStatus: "correct",
+        element: prev.adj.element,
+        elementStatus: prev.adj.elementStatus,
+        role: prev.adj.role,
+        roleStatus: prev.adj.roleStatus,
       },
       completed: false,
     }));
@@ -1548,16 +1537,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleAdjElement = (e: "C" | "M") => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { element: e });
-    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const correct = answerInputMode || ans?.element === e;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
         element: e,
-        elementStatus: correct ? "correct" : "wrong",
-        role: correct ? prev.adj.role : null,
-        roleStatus: "idle",
+        elementStatus: "correct",
+        role: prev.adj.role,
+        roleStatus: prev.adj.roleStatus,
       },
       completed: false,
     }));
@@ -1566,12 +1553,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleAdjRole = (r: string) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
-    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
-      adj: { ...prev.adj, role: r, roleStatus: correct ? "correct" : "wrong" },
-      completed: correct,
+      adj: { ...prev.adj, role: r, roleStatus: "correct" },
+      completed: true,
     }));
   };
 
@@ -1592,33 +1577,31 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       }));
       return;
     }
-    const ans = (selectedToken?.answer ?? null) as AdjAnswer | null;
-    const elementOk = ans?.element === e;
+    // 학생 모드: 정답 비교 없이 학생 선택 그대로 완료 처리
     if (e === "M") {
       updateProgress(selectedId, (prev) => ({
         ...prev,
         adj: {
           ...prev.adj,
           element: e,
-          elementStatus: elementOk ? "correct" : "wrong",
-          role: elementOk ? (ans?.role ?? "수식어") : null,
-          roleStatus: elementOk ? "correct" : "idle",
+          elementStatus: "correct",
+          role: r ?? "수식어",
+          roleStatus: "correct",
         },
-        completed: elementOk,
+        completed: true,
       }));
       return;
     }
-    const roleOk = elementOk && r !== null && ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adj: {
         ...prev.adj,
         element: e,
-        elementStatus: elementOk ? "correct" : "wrong",
+        elementStatus: "correct",
         role: r,
-        roleStatus: !elementOk ? "idle" : roleOk ? "correct" : "wrong",
+        roleStatus: r !== null ? "correct" : "idle",
       },
-      completed: roleOk,
+      completed: r !== null,
     }));
   };
 
@@ -1626,18 +1609,16 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleAdvForm = (f: AdvForm) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { form: f });
-    const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
-    const correct = answerInputMode || ans?.form === f;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
         form: f,
-        formStatus: correct ? "correct" : "wrong",
-        subtype: correct ? prev.adv.subtype : null,
-        subtypeStatus: "idle",
-        role: correct ? prev.adv.role : null,
-        roleStatus: "idle",
+        formStatus: "correct",
+        subtype: prev.adv.subtype,
+        subtypeStatus: prev.adv.subtypeStatus,
+        role: prev.adv.role,
+        roleStatus: prev.adv.roleStatus,
       },
       completed: false,
     }));
@@ -1646,16 +1627,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleAdvSubtype = (s: AdvSubtype) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { subtype: s });
-    const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
-    const correct = answerInputMode || ans?.subtype === s;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       adv: {
         ...prev.adv,
         subtype: s,
-        subtypeStatus: correct ? "correct" : "wrong",
-        role: correct ? prev.adv.role : null,
-        roleStatus: "idle",
+        subtypeStatus: "correct",
+        role: prev.adv.role,
+        roleStatus: prev.adv.roleStatus,
       },
       completed: false,
     }));
@@ -1664,12 +1643,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleAdvRole = (r: string) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
-    const ans = (selectedToken?.answer ?? null) as AdvAnswer | null;
-    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
-      adv: { ...prev.adv, role: r, roleStatus: correct ? "correct" : "wrong" },
-      completed: correct,
+      adv: { ...prev.adv, role: r, roleStatus: "correct" },
+      completed: true,
     }));
   };
 
@@ -1677,16 +1654,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleEtcKind = (k: EtcKind) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { kind: k });
-    const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
-    const correct = answerInputMode || ans?.kind === k;
     updateProgress(selectedId, (prev) => ({
       ...prev,
       etc: {
         ...prev.etc,
         kind: k,
-        kindStatus: correct ? "correct" : "wrong",
-        role: correct ? prev.etc.role : null,
-        roleStatus: "idle",
+        kindStatus: "correct",
+        role: prev.etc.role,
+        roleStatus: prev.etc.roleStatus,
       },
       completed: false,
     }));
@@ -1695,12 +1670,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleEtcRole = (r: string) => {
     if (!selectedId) return;
     if (answerInputMode && selectedId) stagePatch(selectedId, { role: r });
-    const ans = (selectedToken?.answer ?? null) as EtcAnswer | null;
-    const correct = answerInputMode || ans?.role === r;
     updateProgress(selectedId, (prev) => ({
       ...prev,
-      etc: { ...prev.etc, role: r, roleStatus: correct ? "correct" : "wrong" },
-      completed: correct,
+      etc: { ...prev.etc, role: r, roleStatus: "correct" },
+      completed: true,
     }));
   };
 
@@ -1745,18 +1718,11 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       }));
       return;
     }
-    const ans = (selectedToken?.answer ?? null) as VerbAnswer | null;
-    const correct = !!ans &&
-      (ans.number ?? null) === v.number &&
-      (ans.tense ?? null) === v.tense &&
-      arraysEqualSet(ans.aspect ?? [], v.aspect) &&
-      (ans.voice === "수동") === v.voice &&
-      (ans.proVerb ?? false) === v.proVerb;
-
+    // 학생 모드: 정답 비교 없이 학생 선택 그대로 완료 처리
     updateProgress(selectedId, (prev) => ({
       ...prev,
-      verb: { ...prev.verb, confirmStatus: correct ? "correct" : "wrong" },
-      completed: correct,
+      verb: { ...prev.verb, confirmStatus: "correct" },
+      completed: true,
     }));
   };
 
