@@ -46,7 +46,7 @@ const TILES = [
   { to: "/teacher/students", title: "학생 목록", desc: "학생 진행/권한 관리", icon: Users },
   { to: "/teacher/assignments", title: "특별과제", desc: "학생에게 특별과제 부여", icon: ClipboardList },
   { to: "/teacher/print-queue", title: "인쇄 대기열", desc: "시험지 승인·출력", icon: Printer },
-  { to: "/teacher/retests", title: "재시험 관리", desc: "단어 테스트 재시도", icon: RefreshCcw },
+  { to: "/teacher/results", title: "학습결과", desc: "오늘 학습 결과·HO 입력", icon: RefreshCcw },
 ];
 
 interface UpcomingAssignment {
