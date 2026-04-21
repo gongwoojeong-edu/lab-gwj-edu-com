@@ -25,6 +25,7 @@ const HandoutPage = () => {
   const studentId = params.get("student");
   const fromQueue = params.get("fromQueue") === "1";
   const reqId = params.get("reqId");
+  const autoprint = params.get("autoprint") === "1";
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
