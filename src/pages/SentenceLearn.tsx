@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, LogOut, Lock, Sparkles, Check } from "lucide-react";
 import Index from "@/pages/Index";
 import { SENTENCES, type Sentence } from "@/data/sentences";
-import { signOut } from "@/hooks/useAuth";
+import { signOut, useAuth } from "@/hooks/useAuth";
 import { LEVEL_LABEL } from "@/lib/levels";
 import {
   fetchOwnerProgressForSentence,
@@ -17,6 +17,7 @@ import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
+import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 
 import { toast } from "@/hooks/use-toast";
