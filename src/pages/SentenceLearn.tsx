@@ -2,7 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, LogOut, Lock, Sparkles, Check } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeft,
+  Loader2,
+  LogOut,
+  Lock,
+  Sparkles,
+  Check,
+  AlertTriangle,
+  History,
+  RotateCcw,
+} from "lucide-react";
 import Index from "@/pages/Index";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut, useAuth } from "@/hooks/useAuth";
@@ -11,6 +28,10 @@ import {
   fetchOwnerProgressForSentence,
   fetchSentenceProgress,
   upsertSentenceProgress,
+  insertAttemptLog,
+  fetchAttemptLogs,
+  fetchAttemptCount,
+  type AttemptLogRow,
 } from "@/integrations/supabase/storage";
 import { buildWordTest, type WordTestEntry } from "@/lib/wordTestBuilder";
 import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
@@ -20,6 +41,9 @@ import { WordTestStep } from "@/components/learning/WordTestStep";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
+import { gradeAnalysis, type OwnerDiffEntry } from "@/lib/analysisGrading";
+import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
+import { resolveNextSentence } from "@/lib/nextSentence";
 
 import { toast } from "@/hooks/use-toast";
 
@@ -44,12 +68,20 @@ const SentenceLearn = () => {
   const [analysisDone, setAnalysisDone] = useState(false);
   const [translationDone, setTranslationDone] = useState(false);
   const [step, setStep] = useState<Step>("pre");
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [previousStatus, setPreviousStatus] = useState<"pending" | "pass" | "fail">("pending");
+  const [showFailIntro, setShowFailIntro] = useState(false);
+  const [attemptLogs, setAttemptLogs] = useState<AttemptLogRow[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [hintWrongOwnerIds, setHintWrongOwnerIds] = useState<Set<string>>(new Set());
+  const [sessionStartedAt] = useState<string>(() => new Date().toISOString());
+  const [translationText, setTranslationText] = useState<string>("");
+  const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[] } | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
-      // DB 지문 머지 대기 — 새로 추가된 교재의 sentenceId도 정상 로드됨
       await hydrateSentencesFromDb();
       const found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
       if (!mounted) return;
@@ -60,19 +92,34 @@ const SentenceLearn = () => {
         return;
       }
 
-      // 진행 상태 + entries 빌드
-      // 1순위: sentence_word_extractions 캐시 (선생님이 AI로 추출 → 모든 학생 공유)
-      // 2순위: owner_progress (스태프 또는 본인) — 안전망
-      const [prog, extraction, owners] = await Promise.all([
+      const [prog, extraction, owners, prof, logs] = await Promise.all([
         fetchSentenceProgress(found.id),
         fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
+        fetchMyProfile(),
+        fetchAttemptLogs(found.id),
       ]);
       if (!mounted) return;
 
       setPreDone(!!prog?.pre_done);
       setAnalysisDone(!!prog?.analysis_done);
       setTranslationDone(!!prog?.translation_done);
+      setProfile(prof);
+      setAttemptLogs(logs);
+      const status = (prog?.status ?? "pending") as "pending" | "pass" | "fail";
+      setPreviousStatus(status);
+
+      // 미통 + 힌트 모드 ON → 직전 시도의 wrong owner_id 추출
+      if (status === "fail" && prof?.hint_mode_enabled && logs.length > 0) {
+        const latest = logs[0];
+        const diffs = (latest.owner_diff as OwnerDiffEntry[]) ?? [];
+        setHintWrongOwnerIds(new Set(diffs.map((d) => d.owner_id)));
+      }
+
+      // 미통 진입 시 인트로 노출
+      if (status === "fail") {
+        setShowFailIntro(true);
+      }
 
       let built: WordTestEntry[] = [];
       if (extraction && extraction.words.length > 0) {
@@ -96,7 +143,6 @@ const SentenceLearn = () => {
       }
       setEntries(built);
 
-      // 마지막 멈춘 단계로 점프
       if (!prog?.pre_done) setStep("pre");
       else if (!prog?.analysis_done || !prog?.translation_done) setStep("analysis");
       else setStep("post");
@@ -116,6 +162,56 @@ const SentenceLearn = () => {
     }),
     [preDone, analysisDone, translationDone],
   );
+
+  /** Word test 종료(PASS/FAIL 무관) → 분석 채점 + attempt log 기록 + status 업데이트 */
+  const recordAttempt = async (wordTest: { passed: boolean; score: number }) => {
+    if (!sentence) return;
+    try {
+      const grade = await gradeAnalysis(sentence.id);
+      const analysisPassed = grade.hasMaster
+        ? grade.rate >= (profile?.analysis_pass_threshold ?? 0.8)
+        : true; // 마스터 미등록 → 통과로 간주
+      const overallPass = analysisPassed && wordTest.passed;
+      setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
+
+      const attemptCount = await fetchAttemptCount(sentence.id);
+      await insertAttemptLog({
+        sentence_id: sentence.id,
+        attempt_no: attemptCount + 1,
+        analysis_match_rate: grade.rate,
+        analysis_passed: analysisPassed,
+        word_test_score: wordTest.score,
+        word_test_passed: wordTest.passed,
+        owner_diff: grade.diffs,
+        translation_text: translationText || null,
+        started_at: sessionStartedAt,
+        completed_at: new Date().toISOString(),
+      });
+
+      await upsertSentenceProgress(sentence.id, {
+        word_test_done: wordTest.passed,
+        status: overallPass ? "pass" : "fail",
+        passed_at: overallPass ? new Date().toISOString() : null,
+      });
+    } catch (e) {
+      console.error("attempt log failed", e);
+      toast({ title: "기록 저장 실패", description: String(e), variant: "destructive" });
+    }
+  };
+
+  const handleSkipToNext = async () => {
+    const r = await resolveNextSentence();
+    if (r.sentence) {
+      navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
+    } else {
+      navigate("/learn");
+    }
+  };
+
+  const startRetryNow = () => {
+    setShowFailIntro(false);
+    setStep("analysis");
+  };
 
   if (loading) {
     return (
@@ -145,8 +241,18 @@ const SentenceLearn = () => {
               <span className="hidden sm:inline">홈</span>
             </Button>
             <div className="min-w-0">
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                 {LEVEL_LABEL[sentence.level]} · {sentence.id}
+                {previousStatus === "fail" && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
+                    미통
+                  </span>
+                )}
+                {previousStatus === "pass" && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                    PASS
+                  </span>
+                )}
               </div>
               <div className="text-sm font-bold text-foreground truncate max-w-[60vw]">
                 {sentence.english}
@@ -175,6 +281,98 @@ const SentenceLearn = () => {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+        {/* 미통 재진입 인트로 */}
+        {showFailIntro && (
+          <Card className="p-5 space-y-4 border-2 border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <div className="text-base font-extrabold text-foreground">
+                  이 지문은 아직 통과하지 못했어요
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  지난 시도 {attemptLogs.length}회의 기록이 누적되어 있어요. 다시 도전하거나 이전 기록을 살펴보세요.
+                  {profile?.hint_mode_enabled && (
+                    <span className="block mt-1 text-amber-700 dark:text-amber-300 font-semibold">
+                      💡 힌트 모드 ON: 지난번 틀린 부분을 살짝 강조해 드릴게요.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <History className="w-4 h-4 mr-1" /> 이전 기록 보기
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>학습 기록 ({attemptLogs.length}회)</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                    {attemptLogs.length === 0 ? (
+                      <div className="text-sm text-muted-foreground py-6 text-center">
+                        아직 기록이 없어요.
+                      </div>
+                    ) : (
+                      attemptLogs.map((log, i) => {
+                        const overallPass = log.analysis_passed && log.word_test_passed;
+                        const diffCount = (log.owner_diff as OwnerDiffEntry[])?.length ?? 0;
+                        return (
+                          <div
+                            key={log.id}
+                            className={cn(
+                              "p-3 rounded-lg border-2 space-y-1",
+                              overallPass
+                                ? "border-emerald-500/40 bg-emerald-50/30 dark:bg-emerald-500/5"
+                                : "border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/5",
+                            )}
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold">{attemptLogs.length - i}차 시도</span>
+                              <span className="text-muted-foreground">
+                                {new Date(log.completed_at).toLocaleString("ko-KR", {
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span
+                                className={cn(
+                                  "px-2 py-0.5 rounded-full font-extrabold",
+                                  overallPass
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-amber-500 text-white",
+                                )}
+                              >
+                                {overallPass ? "PASS" : "TRY AGAIN"}
+                              </span>
+                              <span className="text-muted-foreground">
+                                분석 {Math.round(Number(log.analysis_match_rate) * 100)}%
+                                {" · "}
+                                단어 {Math.round(Number(log.word_test_score) * 100)}%
+                                {diffCount > 0 && ` · 틀린 owner ${diffCount}개`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button size="sm" onClick={startRetryNow}>
+                <RotateCcw className="w-4 h-4 mr-1" /> 다시 도전하기
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Step tabs */}
         <div className="flex gap-2">
           {(Object.keys(STEP_LABELS) as Step[]).map((k) => {
@@ -243,7 +441,6 @@ const SentenceLearn = () => {
 
         {step === "analysis" && (
           <div className="space-y-4">
-            {/* ① 구문 분석 — Index 분석기 임베드 */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2 px-1">
                 <div className="text-xs font-bold text-primary uppercase tracking-wider">
@@ -260,11 +457,11 @@ const SentenceLearn = () => {
                   embedMode
                   embedSentenceId={sentence.id}
                   onAnalysisDone={() => setAnalysisDone(true)}
+                  hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
               </div>
             </div>
 
-            {/* ② 한글 해석 입력 */}
             <div className="space-y-1.5">
               <div className="text-xs font-bold text-primary uppercase tracking-wider px-1">
                 ② 한글 해석
@@ -287,7 +484,6 @@ const SentenceLearn = () => {
               />
             </div>
 
-            {/* 다음 단계로 */}
             {analysisDone && translationDone && (
               <Card className="p-4 border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-500/10 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
@@ -307,7 +503,23 @@ const SentenceLearn = () => {
             sentenceId={sentence.id}
             entries={entries}
             onPassed={() => navigate("/learn")}
+            onTestCompleted={(r) => {
+              void recordAttempt({ passed: r.passed, score: r.score });
+            }}
+            onSkipToNext={handleSkipToNext}
           />
+        )}
+
+        {/* 분석 채점 결과 (선생님/관리자에게만 보임) */}
+        {analysisGrade && isStaff && (
+          <Card className="p-3 border-dashed border-muted-foreground/30 bg-muted/20 text-xs text-muted-foreground">
+            <span className="font-bold text-foreground">[스태프 전용]</span> 분석 일치율{" "}
+            <span className="font-mono font-bold">{Math.round(analysisGrade.rate * 100)}%</span>
+            {" · "}
+            {analysisGrade.passed ? "분석 PASS" : "분석 TRY AGAIN"}
+            {" · "}
+            틀린 owner {analysisGrade.diffs.length}개
+          </Card>
         )}
       </main>
     </div>
