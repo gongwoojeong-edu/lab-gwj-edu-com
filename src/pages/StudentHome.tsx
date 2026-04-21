@@ -172,36 +172,63 @@ const StudentHome = () => {
             {/* Recent */}
             <section className="space-y-3">
               <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
-                최근 통과한 Passage
+                최근 학습 Passage
               </h2>
               {recent.length === 0 ? (
                 <Card className="p-6 text-center text-sm text-muted-foreground">
-                  아직 통과한 Passage가 없어요. 위 버튼을 눌러 시작하세요.
+                  아직 학습한 Passage가 없어요. 위 버튼을 눌러 시작하세요.
                 </Card>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3">
-                  {recent.map(({ sentence, passed_at }) => (
-                    <Card
-                      key={sentence.id}
-                      className="p-4 space-y-2 border-primary/20 hover:border-primary/40 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-primary">{sentence.id}</span>
-                        <Trophy className="w-3.5 h-3.5 text-accent" />
-                      </div>
-                      <p className="text-xs text-foreground/80 line-clamp-2 min-h-[2.5em]">
-                        {sentence.english}
-                      </p>
-                      <div className="text-[10px] text-muted-foreground">
-                        {new Date(passed_at).toLocaleString("ko-KR", {
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
-                    </Card>
-                  ))}
+                  {recent.map(({ sentence, status, updated_at }) => {
+                    const isFail = status === "fail";
+                    return (
+                      <Card
+                        key={sentence.id}
+                        className={cn(
+                          "p-4 space-y-2 transition-colors",
+                          isFail
+                            ? "border-amber-500/40 hover:border-amber-500/60"
+                            : "border-primary/20 hover:border-primary/40",
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-primary">{sentence.id}</span>
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-extrabold",
+                              isFail ? "bg-amber-500 text-white" : "bg-emerald-500 text-white",
+                            )}
+                          >
+                            {isFail ? "미통" : "PASS"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground/80 line-clamp-2 min-h-[2.5em]">
+                          {sentence.english}
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-[10px] text-muted-foreground">
+                            {new Date(updated_at).toLocaleString("ko-KR", {
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                          {isFail && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}`)}
+                            >
+                              다시 도전
+                            </Button>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </section>
