@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
+import WordHoInput from "@/components/teacher/WordHoInput";
+import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
