@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle } from "lucide-react";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
+import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -312,6 +313,24 @@ const StudentHome = () => {
                 <RetestBanner userId={user.id} />
               </div>
             )}
+
+            {user && (
+              <Card className="p-5 sm:p-6 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
+                      종합점수
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      최근 온라인·오프라인 합산 기록입니다.
+                    </p>
+                  </div>
+                  <ClipboardList className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <DailyTestSummary userId={user.id} days={7} />
+              </Card>
+            )}
+
             {/* Hero start card */}
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
