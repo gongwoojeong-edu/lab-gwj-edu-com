@@ -273,12 +273,12 @@ const SentenceLearn = () => {
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/30">
       <header className="sticky top-0 z-30 backdrop-blur-md bg-background/70 border-b border-border">
         <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/learn")}>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/learn")} className="shrink-0">
               <ArrowLeft className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">홈</span>
             </Button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                 {LEVEL_LABEL[sentence.level]} · {sentence.id}
                 {previousStatus === "fail" && (
@@ -292,12 +292,12 @@ const SentenceLearn = () => {
                   </span>
                 )}
               </div>
-              <div className="text-sm font-bold text-foreground truncate max-w-[60vw]">
+              <div className="text-sm font-bold text-foreground truncate max-w-[38vw] sm:max-w-[42vw]">
                 {sentence.english}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isStaff && (
               <button
                 type="button"
@@ -305,9 +305,9 @@ const SentenceLearn = () => {
                   setMode("teacher");
                   navigate("/teacher");
                 }}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline whitespace-nowrap"
               >
-                선생님 화면으로 이동
+                선생님 화면
               </button>
             )}
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
