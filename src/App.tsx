@@ -217,14 +217,6 @@ const App = () => (
               }
             />
             <Route
-              path="/teacher/answers"
-              element={
-                <RequireAuth requireRole="teacher">
-                  <Index />
-                </RequireAuth>
-              }
-            />
-            <Route
               path="/teacher/dashboard"
               element={
                 <RequireAuth requireRole="teacher">

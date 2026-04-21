@@ -20,11 +20,9 @@ import {
   ClipboardList,
   Printer,
   RefreshCcw,
-  ShieldCheck,
   LayoutDashboard,
   Eye,
   LogOut,
-  Sparkles,
   Inbox,
   Archive,
   FolderArchive,
@@ -204,25 +202,6 @@ const TeacherSidebarInner = () => {
                         {pendingCount}
                       </span>
                     )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-1">
-            <ShieldCheck className="size-3.5" />
-            {!collapsed && <span>설정</span>}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/answers" className={({ isActive }) => linkCls(isActive)}>
-                    <Sparkles className="size-4" />
-                    {!collapsed && <span>정답입력기 (구)</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
