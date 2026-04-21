@@ -52,6 +52,10 @@ import {
   type Passage,
 } from "@/lib/textbooks";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
+import {
+  fetchAssignmentProgress,
+  type AssignmentProgressMap,
+} from "@/lib/assignmentProgress";
 
 interface AssignmentRow {
   id: string;
