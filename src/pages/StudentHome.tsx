@@ -43,19 +43,18 @@ const StudentHome = () => {
       if (user) {
         const { data } = await supabase
           .from("sentence_progress")
-          .select("sentence_id, passed_at")
+          .select("sentence_id, status, updated_at, passed_at")
           .eq("user_id", user.id)
-          .eq("status", "pass")
-          .not("passed_at", "is", null)
-          .order("passed_at", { ascending: false })
-          .limit(3);
-        const rows = (data ?? []) as RecentPass[];
-        const enriched = rows
+          .in("status", ["pass", "fail"])
+          .order("updated_at", { ascending: false })
+          .limit(5);
+        const rows = (data ?? []) as { sentence_id: string; status: "pass" | "fail"; updated_at: string; passed_at: string | null }[];
+        const enriched: RecentItem[] = rows
           .map((row) => {
             const s = SENTENCES.find((x) => x.id === row.sentence_id);
-            return s ? { sentence: s, passed_at: row.passed_at } : null;
+            return s ? { sentence: s, status: row.status, updated_at: row.passed_at ?? row.updated_at } : null;
           })
-          .filter(Boolean) as { sentence: Sentence; passed_at: string }[];
+          .filter(Boolean) as RecentItem[];
         if (mounted) setRecent(enriched);
       }
       setLoading(false);
