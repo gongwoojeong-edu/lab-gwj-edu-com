@@ -207,29 +207,34 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
         </div>
         <div className="space-y-2">
           <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            이번 시도 모드 (자동)
+            이번 모드 (자동) · {passedModes.size} / {MODE_SEQUENCE.length} 통과
           </div>
           <div className="grid grid-cols-3 gap-2">
             {MODE_SEQUENCE.map((m, i) => {
               const isCurrent = m === mode;
+              const isPassed = passedModes.has(m);
               return (
                 <div
                   key={m}
                   className={cn(
-                    "px-3 py-3 rounded-xl border-2 text-xs font-bold text-center transition-all",
-                    isCurrent
+                    "px-3 py-3 rounded-xl border-2 text-xs font-bold text-center transition-all relative",
+                    isPassed
+                      ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : isCurrent
                       ? "border-primary bg-primary text-primary-foreground shadow"
                       : "border-border bg-muted/40 text-muted-foreground",
                   )}
                 >
-                  <div className="text-[10px] opacity-80 mb-0.5">{i + 1}회차</div>
+                  <div className="text-[10px] opacity-80 mb-0.5">
+                    {i + 1}단계 {isPassed && "✓"}
+                  </div>
                   {MODE_LABEL[m]}
                 </div>
               );
             })}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            시험모드는 시도 회차에 따라 <b>스펠링 → 뜻 → 혼합</b> 순서로 자동 적용됩니다.
+            <b>스펠링 → 뜻 → 혼합</b> 3종을 모두 통과해야 단어 테스트가 완료됩니다.
           </div>
         </div>
         <div className="flex justify-end">
