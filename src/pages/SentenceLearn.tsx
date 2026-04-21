@@ -185,6 +185,33 @@ const SentenceLearn = () => {
     };
   }, [sentenceId]);
 
+  // 학생: 본인 요청의 상태 변화(승인/거절/취소) 실시간 수신
+  useEffect(() => {
+    if (!sentence) return;
+    const unsub = subscribeMyRequest(sentence.id, currentAttemptNo, (row) => {
+      // 본인 요청만 반영
+      setOpenRequest((prev) => {
+        if (row.status === "approved" || row.status === "pending") return row;
+        if (prev && prev.id === row.id) return null; // rejected/cancelled
+        return prev;
+      });
+      if (row.status === "approved") {
+        toast({
+          title: "🎉 정답 대조가 승인됐어요",
+          description: "정답 비교 화면을 열어 확인하세요.",
+        });
+      }
+      if (row.status === "rejected") {
+        toast({
+          title: "정답 대조 요청이 반려됐어요",
+          description: row.response_note ?? "선생님 메시지를 확인하세요.",
+          variant: "destructive",
+        });
+      }
+    });
+    return unsub;
+  }, [sentence, currentAttemptNo]);
+
   const stepStates = useMemo(
     () => ({
       pre: { done: preDone, locked: false },
