@@ -635,15 +635,7 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   }, [selectedId]);
 
   useEffect(() => {
-    // 학생 모드: localStorage 정답 캐시 로드 차단 — 어떤 라벨도 새지 않도록.
-    if (studentMode) {
-      setCustomAnswers({});
-      setIdiomMap(loadIdioms());
-      setModifierMap(loadModifierTargets());
-      setReferentMap(loadReferentTargets());
-      setSavedOwnerSet(new Set());
-      return;
-    }
+    // localStorage는 이미 user_id 스코프(v2). 본인 데이터만 로드되므로 항상 안전.
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
@@ -652,26 +644,17 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   }, [studentMode]);
 
   // ===== sentence 변경 시 클라우드 hydration =====
+  // owner_progress / modifier_relations / referent_relations 는 RLS로 user_id=auth.uid() 본인 행만 반환.
+  // 따라서 학생은 본인 입력만, 관리자는 본인 입력(=마스터키)만 hydrate된다 → 데이터 누수 없음.
   useEffect(() => {
     let cancelled = false;
     const sid = sentence.id;
-    // 학생 모드: 본인 owner_progress조차 hydrate하지 않는다.
-    // (자기첨삭 모드(reviewMode)에서만 별도 fetch로 비교)
-    const customsP = studentMode
-      ? Promise.resolve({} as CustomAnswerMap)
-      : hydrateCustomAnswersFromCloud(sid);
-    const modsP = studentMode
-      ? Promise.resolve({} as ModifierTargetMap)
-      : hydrateModifierTargetsFromCloud(sid);
-    const refsP = studentMode
-      ? Promise.resolve({} as ReferentTargetMap)
-      : hydrateReferentTargetsFromCloud(sid);
     Promise.all([
       fetchSentenceProgress(sid),
       fetchBadgeOffsets(sid),
-      customsP,
-      modsP,
-      refsP,
+      hydrateCustomAnswersFromCloud(sid),
+      hydrateModifierTargetsFromCloud(sid),
+      hydrateReferentTargetsFromCloud(sid),
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       const pre = prog?.pre_done ?? false;
@@ -685,14 +668,13 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       setModifierMap(mods);
       setReferentMap(refs);
     });
-    // 관용구는 전체 sentence 공유 — 한 번만 hydrate (학생 모드에서도 OK: 관용구는 정답 단서 아님)
     void hydrateIdiomsFromCloud().then((m) => {
       if (!cancelled) setIdiomMap(m);
     });
     return () => {
       cancelled = true;
     };
-  }, [sentence.id, studentMode]);
+  }, [sentence.id]);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 
