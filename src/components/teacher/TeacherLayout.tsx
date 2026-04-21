@@ -33,6 +33,7 @@ import { useViewMode } from "@/hooks/useViewMode";
 import { LEVELS, LEVEL_LABEL } from "@/lib/levels";
 import { cn } from "@/lib/utils";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
+import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
 
 interface Props {
   children: ReactNode;
@@ -43,6 +44,7 @@ const TeacherSidebarInner = () => {
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
   const pendingCount = usePendingReviewCount();
+  const printCount = usePendingPrintCount();
 
   const isActive = (to: string, exact = false) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -135,7 +137,15 @@ const TeacherSidebarInner = () => {
                 <SidebarMenuButton asChild>
                   <NavLink to="/teacher/print-queue" className={({ isActive }) => linkCls(isActive)}>
                     <Printer className="size-4" />
-                    {!collapsed && <span>인쇄 대기열</span>}
+                    {!collapsed && <span>시험지 요청</span>}
+                    {printCount > 0 && (
+                      <span className={cn(
+                        "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center",
+                        collapsed && "absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 ml-0",
+                      )}>
+                        {printCount}
+                      </span>
+                    )}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

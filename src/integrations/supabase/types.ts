@@ -287,6 +287,48 @@ export type Database = {
         }
         Relationships: []
       }
+      print_requests: {
+        Row: {
+          created_at: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          note: string | null
+          requested_at: string
+          sentence_id: string
+          status: Database["public"]["Enums"]["print_request_status"]
+          teacher_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          note?: string | null
+          requested_at?: string
+          sentence_id: string
+          status?: Database["public"]["Enums"]["print_request_status"]
+          teacher_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          note?: string | null
+          requested_at?: string
+          sentence_id?: string
+          status?: Database["public"]["Enums"]["print_request_status"]
+          teacher_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       referent_relations: {
         Row: {
           created_at: string
@@ -735,6 +777,7 @@ export type Database = {
     Enums: {
       analysis_review_status: "pending" | "approved" | "rejected" | "cancelled"
       app_role: "student" | "teacher" | "admin"
+      print_request_status: "pending" | "printed" | "canceled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -864,6 +907,7 @@ export const Constants = {
     Enums: {
       analysis_review_status: ["pending", "approved", "rejected", "cancelled"],
       app_role: ["student", "teacher", "admin"],
+      print_request_status: ["pending", "printed", "canceled"],
     },
   },
 } as const
