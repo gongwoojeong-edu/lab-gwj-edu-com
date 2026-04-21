@@ -320,7 +320,8 @@ const SentenceLearn = () => {
       const requiredOk = grade.requiredOwnersFilled;
       const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
       const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
-      const wordTestPassed = opts?.teacherOverride ? true : wordTest.passed;
+      // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
+      const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
       const overallPass = analysisPassed && wordTestPassed;
       setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
 
