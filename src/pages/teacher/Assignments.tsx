@@ -62,12 +62,13 @@ interface AssignmentRow {
   sentence_id: string | null;
   due_at: string;
   created_at: string;
+  include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
 }
 
-type StepKey = "analysis" | "translation" | "wordtest";
+type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
 interface FormState {
   title: string;
@@ -76,6 +77,7 @@ interface FormState {
   selectedPassageCode: string;
   description: string;
   dueDate: Date | undefined;
+  includePre: boolean;
   includeAnalysis: boolean;
   includeTranslation: boolean;
   includeWordtest: boolean;
@@ -88,6 +90,7 @@ const emptyForm = (): FormState => ({
   selectedPassageCode: "",
   description: "",
   dueDate: undefined,
+  includePre: true,
   includeAnalysis: true,
   includeTranslation: true,
   includeWordtest: true,
