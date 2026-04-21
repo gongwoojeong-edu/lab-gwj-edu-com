@@ -930,6 +930,9 @@ const NounPanel = ({
         locked={false}
         onSelect={(k) => onNounFormChange(k as NounForm)}
       />
+      {noun.form === "접SV" && onClauseDepthChange && (
+        <ClauseDepthRow value={noun.clauseDepth ?? 1} onChange={onClauseDepthChange} />
+      )}
       {formOnlyMode ? (
         <RoleRow
           unlocked
