@@ -1,62 +1,77 @@
 
 
-## 특별과제 노출 현황 점검 + 추가 노출안
+## 특별과제 출제 UX 개선 + 학생 노출 버그 수정
 
-### 현재 상태 (점검 결과)
+### A. 학생 화면에 과제가 안 보이는 원인 (확인됨)
 
-| 위치 | 출제(생성) | 학생 노출 | 선생님 노출 |
-|------|-----------|-----------|-----------|
-| **선생님 — `/teacher/assignments` 페이지** | ✅ 가능 (제목/대상/마감일/문장ID/설명) | — | ✅ 본인이 만든 과제 목록 |
-| **선생님 사이드바 "교재 부여" 메뉴** | — | — | ✅ 진입 링크 있음 |
-| **선생님 대시보드 (`TeacherHome`)** | — | — | ⚠️ 타일 1개("교재 부여" → 페이지 이동)만 있고 **마감 임박 과제 위젯 없음** |
-| **학생 화면 (`StudentHome`)** | — | ❌ **`assignments` 데이터를 Supabase에서 fetch는 하는데 화면에 안 그림** | — |
+방금 출제하신 과제 DB 확인 결과:
+- `due_at = 2026-04-20 15:00:00+00` (UTC) = **KST 2026-04-21 00:00**
+- 서버 현재시각 = `2026-04-21 09:37 UTC` → 이미 **9시간 전 만료**
+- 학생 화면 쿼리는 `due_at >= now()` 필터라서 자동으로 숨겨진 상태
 
-→ DB·생성·라우트·사이드바는 다 살아있는데, **학생 카드 + 선생님 대시보드 위젯이 빠져 있어** 출제해도 학생이 못 보고 선생님도 한눈에 못 봅니다.
+**근본 원인:** `Calendar`에서 "오늘(4/21)"을 선택하면 JS `Date`가 **로컬 자정 00:00:00**으로 들어가서, 출제 직후 이미 만료된 시각이 됩니다. → 마감일을 **그날 23:59:59**로 보정하면 해결.
 
----
+### B. 교재 선택을 "검색 가능한 클릭 선택"으로 교체
 
-### 수정안
+현재: 텍스트 입력으로 `sentence_id`(예: `s12`) 직접 타이핑 → 오타·식별 어려움
+변경: 교재(textbook) → 지문(passage) 2단계 클릭 + 실시간 검색
 
-#### 1) 학생 화면 — "특별과제" 카드 추가 (`StudentHome.tsx`)
+### 수정 사항 (`src/pages/teacher/Assignments.tsx`)
 
-위치: "종합점수" 카드 아래, "오늘의 학습" Hero 위 (마감 임박 = 우선순위 높음).
+#### 1) 마감일 보정 (버그 수정)
 
-표시 내용:
-- 카드 헤더: `특별과제` + `ClipboardList` 아이콘 + 건수 배지
-- 각 항목: 제목 / 마감까지 남은 시간(`Xd Yh 남음`, 24h 미만은 빨강) / 설명 (있으면) / 연결 문장이 있으면 "학습 시작" 버튼 → `/learn/sentence/:sentence_id`
-- 비어 있으면 카드 자체를 숨김 (요청 시 "현재 부여된 과제 없음" 문구로 변경 가능)
-- 데이터는 이미 `assignments` state에 로드되어 있어 추가 fetch 불필요
+기존:
+```ts
+due_at: dueDate.toISOString()  // 자정 → 즉시 만료 위험
+```
+변경:
+```ts
+const endOfDay = new Date(dueDate);
+endOfDay.setHours(23, 59, 59, 999);  // 그날 끝까지 유효
+due_at: endOfDay.toISOString()
+```
 
-#### 2) 선생님 대시보드 — "마감 임박 과제" 위젯 추가 (`TeacherHome.tsx`)
+#### 2) 교재 선택 UI — Popover + Command (cmdk 검색)
 
-위치: 종합점수/Daily 입력 표 위.
+기존 "연결 문장 ID (선택)" `Input` 한 줄을 **두 칸**으로 교체:
 
-표시 내용:
-- 카드 헤더: `마감 임박 특별과제` + 우측 "전체 보기 →" 링크 (`/teacher/assignments`)
-- 향후 7일 이내 마감 과제 최대 5건 (마감일 오름차순)
-- 각 행: 제목 / 대상(학생명 or "전체") / 남은 시간 / 연결 문장ID
-- 비어 있으면 "예정된 과제 없음 — 새 과제는 '교재 부여'에서" 안내
+**(a) 교재 선택**
+- `Popover + Command` (`@/components/ui/command` — 이미 프로젝트에 존재)
+- 표시 형식: `[L03] 천일문 기초 · Unit 3` (`textbooks.level` + `title` + `unit_no`)
+- 실시간 필터: 레벨 코드 / 제목 / unit 번호 어느 키워드로도 매칭
+- 화면 진입 시 `fetchAllTextbooks()`로 1회 로드
 
-#### 3) 사이드바 메뉴명 정합성
+**(b) 지문 선택 (선택, 교재 고른 뒤 활성화)**
+- 교재 선택 시 `fetchPassagesByTextbook(textbookId)` 호출
+- 표시: `#001 — Radio provided the driving force…` (passage_no + english 앞 50자)
+- 선택값을 `passage.code`(예: `s1`)로 저장 → 기존 `sentence_id` 컬럼에 그대로 들어감
+- "지문 미지정"(전체 교재 안내용 과제) 옵션도 허용 → `sentence_id = null`
 
-현재 사이드바·대시보드 타일은 **"교재 부여"**, 페이지 헤더는 **"특별과제"**, DB는 `assignments` — 호칭이 섞여 있어 학생은 "특별과제"라는 단어를 못 봅니다. 통일안:
-- 선생님 사이드바·타일 라벨: `교재 부여` → **`특별과제`**
-- 학생 카드 라벨: `특별과제`
+선택 결과 표시 영역 (`Popover Trigger` 라벨):
+```
+[L03] 천일문 기초 · Unit 3 / #001 Radio provided…
+```
 
-(라벨은 한 단어만 바꾸므로 비파괴적)
+#### 3) 목록 렌더에 교재명 표시
 
----
+기존: `· 문장 s12`
+변경: 미리 만들어둔 `Map<code, "[L03] 천일문 기초 · #001">` 으로 사람이 읽는 라벨 출력
 
 ### 변경 파일
 
-1. `src/pages/StudentHome.tsx` — 특별과제 카드 렌더링 블록 추가 (이미 로드된 `assignments` 사용)
-2. `src/pages/teacher/TeacherHome.tsx` — 마감 임박 과제 위젯 추가 + 타일 라벨 변경
-3. `src/components/teacher/TeacherLayout.tsx` — 사이드바 항목 라벨 변경
+- `src/pages/teacher/Assignments.tsx` — 위 3가지 수정 (다른 파일 변경 없음)
+
+### 추가 작업 — 기존에 잘못 만들어진 만료 과제 처리
+
+DB에 이미 들어간 `dc4e2e1c…` 행은 마감이 과거라 학생에게 안 보입니다. 옵션:
+1. **과제 페이지에서 휴지통 버튼으로 직접 삭제** (기능 이미 있음) — 권장
+2. 또는 마이그레이션으로 `due_at`를 미래로 일괄 보정
+
+→ 1번 권장. 새 UI로 다시 출제하시면 정상 노출됩니다.
 
 ### 기술 메모
 
-- 추가 DB·migration·RLS 변경 **없음** (RLS는 이미 학생 select / 선생님 ALL 허용)
-- `StudentHome.tsx`의 `assignments` query는 `student_id.eq.<me>` OR `student_id IS NULL`(전체 학생) 조합으로 이미 올바름
-- 선생님 위젯은 본인이 만든 과제 + 모든 학생 대상 과제만 노출 (RLS의 `assignments_staff_all`이 모든 staff에게 ALL 허용하므로 단순 `select * order by due_at limit 5` + `gte("due_at", now)` 한 번이면 충분)
-- 학생명 매핑은 선생님 위젯에서 `fetchAllStudents()` 결과를 `Map<user_id, display_name>`으로 변환해 표시
+- `cmdk` 기반 `Command` 컴포넌트는 이미 `src/components/ui/command.tsx`에 존재 → 의존성 추가 없음
+- `textbooks` / `textbook_passages` 모두 `select`는 `authenticated` 전체 허용이라 RLS 추가 변경 없음
+- DB 스키마·migration 변경 없음
 
