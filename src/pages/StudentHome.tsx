@@ -111,6 +111,18 @@ const StudentHome = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {user && retestCount > 0 && (
+              <a
+                href="#retest-banner"
+                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-muted transition-colors"
+                aria-label={`재시 알림 ${retestCount}건`}
+              >
+                <Bell className="w-4 h-4 text-amber-600" />
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {retestCount}
+                </span>
+              </a>
+            )}
             {rewards && (
               <>
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-streak/15 text-streak text-xs font-bold">
