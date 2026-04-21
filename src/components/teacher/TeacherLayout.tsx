@@ -27,6 +27,7 @@ import {
   Sparkles,
   Inbox,
   Archive,
+  FolderArchive,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -171,6 +172,14 @@ const TeacherSidebarInner = () => {
                         {printCount}
                       </span>
                     )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/results" className={({ isActive }) => linkCls(isActive)}>
+                    <FolderArchive className="size-4" />
+                    {!collapsed && <span>학습결과함</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
