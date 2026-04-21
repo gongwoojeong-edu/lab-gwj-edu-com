@@ -74,6 +74,7 @@ const TeacherHome = () => {
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [upcoming, setUpcoming] = useState<UpcomingAssignment[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
