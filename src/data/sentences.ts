@@ -310,7 +310,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s2",
     no: 1,
-    level: "L10",
+    level: "L08",
     english:
       "Who knew that sportscaster Bill Stern questioned and introduced in 1939 would enhance the growth and development of sports marketing practices for decades?",
     korean:
@@ -388,7 +388,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s3",
     no: 3,
-    level: "L10",
+    level: "L08",
     english:
       "The display platform, the television, though airing two average baseball teams battling for fourth place, providing an incredibly formidable and profitable union between sports and the American public.",
     korean:
@@ -481,7 +481,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s4",
     no: 4,
-    level: "L10",
+    level: "L08",
     english:
       "The television provided a means for sports organizations to expand their market presence and a unique opportunity for marketers to engage their publics.",
     korean:
@@ -578,7 +578,7 @@ export const SENTENCES: Sentence[] = [
   {
     id: "s5",
     no: 5,
-    level: "L10",
+    level: "L08",
     english:
       'The notion of a "picture being worth a thousand words" became a reality with the invention and its intervention and presentation of sports.',
     korean:
