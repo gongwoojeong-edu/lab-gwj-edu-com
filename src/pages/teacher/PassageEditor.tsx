@@ -5,9 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
 import Index from "@/pages/Index";
-import { hydrateSentencesFromDb, saveSentenceTokens } from "@/lib/sentenceSource";
+import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
 import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
-import { SENTENCES } from "@/data/sentences";
 import { toast } from "@/hooks/use-toast";
 
 const PassageEditor = () => {
@@ -33,14 +32,15 @@ const PassageEditor = () => {
 
   const togglePublish = async () => {
     if (!passageCode || !passage) return;
-    const cur = SENTENCES.find((s) => s.id === passageCode);
-    const tokens = cur?.tokens ?? [];
     const nextReady = passage.analysis_status !== "ready";
     setToggling(true);
     try {
-      await saveSentenceTokens(passageCode, tokens, nextReady);
+      await setPassageReady(passageCode, nextReady);
       toast({
         title: nextReady ? "학생에게 공개되었습니다 (ready)" : "비공개로 전환했습니다 (draft)",
+        description: nextReady
+          ? "학생 화면에서 이 지문이 노출됩니다."
+          : "다시 [학생 공개] 버튼으로 언제든 공개할 수 있습니다.",
       });
       const refreshed = await fetchPassageByCode(passageCode);
       setPassage(refreshed);

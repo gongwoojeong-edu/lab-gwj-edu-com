@@ -19,7 +19,6 @@ import {
   Users,
   ClipboardList,
   Printer,
-  RefreshCcw,
   LayoutDashboard,
   Eye,
   LogOut,
@@ -56,11 +55,30 @@ const TeacherSidebarInner = () => {
       active ? "bg-muted text-primary font-semibold" : "hover:bg-muted/50",
     );
 
+  // 그룹 라벨 활성화 여부 — 그룹 내 어떤 라우트가 활성이면 라벨도 강조
+  const dashboardActive = pathname === "/teacher";
+  const bookshelfActive = pathname.startsWith("/teacher/bookshelf");
+  const learnMgmtActive =
+    pathname.startsWith("/teacher/students") ||
+    pathname.startsWith("/teacher/assignments") ||
+    pathname.startsWith("/teacher/print-queue") ||
+    pathname.startsWith("/teacher/results") ||
+    pathname.startsWith("/teacher/requests");
+
+  const groupLabelCls = (active: boolean) =>
+    cn(
+      "flex items-center gap-1.5 text-sm font-bold transition-colors rounded-md px-2",
+      active ? "bg-primary/10 text-primary" : "text-foreground",
+    );
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>대시보드</SidebarGroupLabel>
+          <SidebarGroupLabel className={groupLabelCls(dashboardActive)}>
+            <LayoutDashboard className="size-4" />
+            {!collapsed && <span>대시보드</span>}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -76,8 +94,8 @@ const TeacherSidebarInner = () => {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-1">
-            <BookOpen className="size-3.5" />
+          <SidebarGroupLabel className={groupLabelCls(bookshelfActive)}>
+            <BookOpen className="size-4" />
             {!collapsed && <span>책장</span>}
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -127,8 +145,8 @@ const TeacherSidebarInner = () => {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-1">
-            <GraduationCap className="size-3.5" />
+          <SidebarGroupLabel className={groupLabelCls(learnMgmtActive)}>
+            <GraduationCap className="size-4" />
             {!collapsed && <span>학습관리</span>}
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -150,10 +168,10 @@ const TeacherSidebarInner = () => {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild size="sm">
+                <SidebarMenuButton asChild>
                   <NavLink to="/teacher/assignments/past" className={({ isActive }) => linkCls(isActive)}>
                     <Archive className="size-4" />
-                    {!collapsed && <span className="text-xs">과거 과제함</span>}
+                    {!collapsed && <span>과거 과제함</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -178,14 +196,6 @@ const TeacherSidebarInner = () => {
                   <NavLink to="/teacher/results" className={({ isActive }) => linkCls(isActive)}>
                     <FolderArchive className="size-4" />
                     {!collapsed && <span>학습결과함</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/retests" className={({ isActive }) => linkCls(isActive)}>
-                    <RefreshCcw className="size-4" />
-                    {!collapsed && <span>재시험 관리</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
