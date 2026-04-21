@@ -104,10 +104,12 @@ export const saveSentenceTokens = async (
   tokens: SentenceToken[],
   markReady = false,
 ): Promise<void> => {
-  const patch: Record<string, unknown> = { tokens: tokens as unknown };
+  const patch: { tokens: unknown; analysis_status?: string } = {
+    tokens: tokens as unknown,
+  };
   if (markReady) patch.analysis_status = "ready";
-  const { error } = await supabase
-    .from("textbook_passages")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from("textbook_passages") as any)
     .update(patch)
     .eq("code", code);
   if (error) throw error;
