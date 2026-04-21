@@ -47,12 +47,13 @@ import { resolveNextSentence } from "@/lib/nextSentence";
 
 import { toast } from "@/hooks/use-toast";
 
-type Step = "pre" | "analysis" | "post";
+type Step = "pre" | "analysis" | "translation" | "post";
 
 const STEP_LABELS: Record<Step, string> = {
   pre: "1. 단어 학습",
-  analysis: "2. 구문 분석 + 해석",
-  post: "3. 단어 테스트",
+  analysis: "2. 구문 분석",
+  translation: "3. 한글 해석",
+  post: "4. 단어 테스트",
 };
 
 const SentenceLearn = () => {
