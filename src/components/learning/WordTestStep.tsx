@@ -132,6 +132,11 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
         remediation_done: false,
       });
       if (isPass) {
+        setPassedModes((prev) => {
+          const next = new Set(prev);
+          next.add(mode);
+          return next;
+        });
         const r = await grantPassReward(sentenceId, sc, attemptNo);
         if (r) {
           toast({
