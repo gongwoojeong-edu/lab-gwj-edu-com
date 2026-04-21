@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
+import WordHoInput from "@/components/teacher/WordHoInput";
+import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
@@ -48,6 +50,16 @@ const LearningResults = () => {
   // 학생별 sentence_id 목록 (그 날 활동 흔적이 있는 모든 sentence)
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [teacherId, setTeacherId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
+  }, []);
+
+  // HO 점수 입력 후 handoutMap 갱신
+  const handleHandoutSaved = (row: HandoutResult) => {
+    setHandoutMap((prev) => ({ ...prev, [row.user_id]: row }));
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -357,7 +369,7 @@ const LearningResults = () => {
               const handout = handoutMap[userId];
               return (
                 <Card key={userId} className="p-4 space-y-3">
-                  {/* 학생 헤더 — HO 점수 인라인 */}
+                  {/* 학생 헤더 — HO 점수 인라인 입력 */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-foreground">
                       {s?.display_name ?? "학생"}
@@ -365,22 +377,33 @@ const LearningResults = () => {
                     <span className="text-xs font-mono text-muted-foreground">
                       ({s?.student_no ?? "—"})
                     </span>
-                    {handout?.word_ho_score != null && (
-                      <Badge variant="outline" className="font-mono text-xs">
-                        단어HO {handout.word_ho_score}
-                      </Badge>
-                    )}
-                    {handout?.syntax_ho_result && (
-                      <Badge
-                        variant={handout.syntax_ho_result === "PASS" ? "default" : "destructive"}
-                        className="text-xs"
-                      >
-                        구문 {handout.syntax_ho_result}
-                      </Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
+
+                    <div className="flex items-center gap-3 ml-2 pl-3 border-l border-border">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-muted-foreground">단어HO</span>
+                        <WordHoInput
+                          userId={userId}
+                          teacherId={teacherId}
+                          testDate={date}
+                          current={handout ?? null}
+                          onSaved={handleHandoutSaved}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-muted-foreground">구문HO</span>
+                        <SyntaxHoToggle
+                          userId={userId}
+                          teacherId={teacherId}
+                          testDate={date}
+                          current={handout ?? null}
+                          onSaved={handleHandoutSaved}
+                        />
+                      </div>
+                    </div>
+
                     <Button
                       size="sm"
                       variant="outline"

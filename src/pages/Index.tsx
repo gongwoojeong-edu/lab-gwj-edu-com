@@ -2699,11 +2699,13 @@ const Index = ({
                     }
                   >
                     {(koreanLabel || outerKoreanLabel) && (() => {
-                      // 부배지 수직 stagger — 동일 단어에 2개 anchor면 outer를 inner보다 위로,
-                      // 동일 anchor 단어가 인접 단어와 같은 layer 깊이일 때도 layer 번호로 vertical offset
-                      // 인접 anchor 충돌 회피를 위해 inner는 -18px (기본), outer는 -34px (한 칸 위)
-                      const innerTop = -18;
-                      const outerTop = koreanLabel ? -34 : -18;
+                      // 부배지 수직 cascade — 같은 단어 위 N개 layer가 있으면
+                      // 안쪽(layer 1)이 가장 아래, 바깥(layer N)이 가장 위로 쌓이도록
+                      // layerNum 기반 동적 top 계산. 한 칸 = 16px.
+                      const STEP = 16;
+                      const BASE = -18;
+                      const innerTop = BASE - (innerLayerNum - 1) * STEP;
+                      const outerTop = BASE - (outerLayerNum - 1) * STEP;
                       return (
                       <>
                         {koreanLabel && (
