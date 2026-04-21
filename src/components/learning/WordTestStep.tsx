@@ -316,10 +316,22 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
               {wrongWords.map((w) => (
                 <div
                   key={w.word}
-                  className="flex items-center justify-between gap-2 p-2 rounded-md border border-amber-500/40 bg-card"
+                  className="flex flex-col gap-1 p-2 rounded-md border border-amber-500/40 bg-card"
                 >
-                  <span className="font-bold">{w.word}</span>
-                  <span className="text-xs text-muted-foreground truncate">{w.expected}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold">{w.word}</span>
+                    <span className="text-xs text-muted-foreground truncate">{w.expected}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span className="text-muted-foreground shrink-0">내 답:</span>
+                    {w.given?.trim() ? (
+                      <span className="font-semibold text-destructive line-through truncate">
+                        {w.given}
+                      </span>
+                    ) : (
+                      <span className="italic text-muted-foreground">(빈 답)</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
