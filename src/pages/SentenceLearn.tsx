@@ -151,10 +151,24 @@ const SentenceLearn = () => {
               </div>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => signOut()}>
-            <LogOut className="w-4 h-4 mr-1" />
-            <span className="hidden sm:inline">로그아웃</span>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {isStaff && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  localStorage.setItem("view_mode", "teacher");
+                  navigate("/teacher");
+                }}
+              >
+                🛠 <span className="hidden sm:inline ml-1">선생님 화면</span>
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => signOut()}>
+              <LogOut className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">로그아웃</span>
+            </Button>
+          </div>
         </div>
       </header>
 
