@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
 interface AssignmentStepBadgesProps {
+  includePre?: boolean;
   includeAnalysis: boolean;
   includeTranslation: boolean;
   includeWordtest: boolean;
@@ -8,13 +9,15 @@ interface AssignmentStepBadgesProps {
   size?: "sm" | "xs";
 }
 
-const STEPS: Array<{ key: "analysis" | "translation" | "wordtest"; label: string }> = [
-  { key: "translation", label: "단어학습" },
+const STEPS: Array<{ key: "pre" | "analysis" | "translation" | "wordtest"; label: string }> = [
+  { key: "pre", label: "단어학습" },
   { key: "analysis", label: "구문분석" },
+  { key: "translation", label: "한글해석" },
   { key: "wordtest", label: "단어시험" },
 ];
 
 export const AssignmentStepBadges = ({
+  includePre = true,
   includeAnalysis,
   includeTranslation,
   includeWordtest,
@@ -22,6 +25,7 @@ export const AssignmentStepBadges = ({
   size = "sm",
 }: AssignmentStepBadgesProps) => {
   const map = {
+    pre: includePre,
     analysis: includeAnalysis,
     translation: includeTranslation,
     wordtest: includeWordtest,
