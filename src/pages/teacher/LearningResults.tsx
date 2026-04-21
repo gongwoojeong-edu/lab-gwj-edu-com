@@ -240,8 +240,8 @@ const LearningResults = () => {
                                   <span
                                     className={
                                       a?.word_passed
-                                        ? "text-emerald-600 font-semibold"
-                                        : "text-amber-600 font-semibold"
+                                        ? "text-primary font-semibold"
+                                        : "text-destructive font-semibold"
                                     }
                                   >
                                     {wScore}
@@ -255,8 +255,8 @@ const LearningResults = () => {
                                   <span
                                     className={
                                       a?.analysis_passed
-                                        ? "text-emerald-600 font-semibold"
-                                        : "text-amber-600 font-semibold"
+                                        ? "text-primary font-semibold"
+                                        : "text-destructive font-semibold"
                                     }
                                   >
                                     {aScore}
@@ -269,9 +269,7 @@ const LearningResults = () => {
                                     미응시
                                   </Badge>
                                 ) : allPassed ? (
-                                  <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
-                                    완료
-                                  </Badge>
+                                  <Badge className="text-[10px]">완료</Badge>
                                 ) : (
                                   <Badge variant="secondary" className="text-[10px]">
                                     부분
