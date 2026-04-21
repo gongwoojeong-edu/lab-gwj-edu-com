@@ -191,7 +191,7 @@ const Assignments = () => {
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
-    if (!f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
+    if (!f.includePre && !f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
       return "학습 단계는 최소 1개 이상 체크하세요";
     return null;
   };
