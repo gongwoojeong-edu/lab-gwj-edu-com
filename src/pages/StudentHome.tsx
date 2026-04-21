@@ -19,6 +19,14 @@ interface RecentItem {
   updated_at: string;
 }
 
+interface AssignmentRow {
+  id: string;
+  title: string;
+  description: string | null;
+  sentence_id: string | null;
+  due_at: string;
+}
+
 const StudentHome = () => {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
@@ -29,6 +37,7 @@ const StudentHome = () => {
   const [next, setNext] = useState<Sentence | null>(null);
   const [done, setDone] = useState(false);
   const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -42,21 +51,33 @@ const StudentHome = () => {
       setRewards(rw);
 
       if (user) {
-        const { data } = await supabase
-          .from("sentence_progress")
-          .select("sentence_id, status, updated_at, passed_at")
-          .eq("user_id", user.id)
-          .in("status", ["pass", "fail"])
-          .order("updated_at", { ascending: false })
-          .limit(5);
-        const rows = (data ?? []) as { sentence_id: string; status: "pass" | "fail"; updated_at: string; passed_at: string | null }[];
+        const [{ data: progressData }, { data: assignData }] = await Promise.all([
+          supabase
+            .from("sentence_progress")
+            .select("sentence_id, status, updated_at, passed_at")
+            .eq("user_id", user.id)
+            .in("status", ["pass", "fail"])
+            .order("updated_at", { ascending: false })
+            .limit(5),
+          supabase
+            .from("assignments")
+            .select("id, title, description, sentence_id, due_at")
+            .or(`student_id.eq.${user.id},student_id.is.null`)
+            .gte("due_at", new Date().toISOString())
+            .order("due_at", { ascending: true })
+            .limit(5),
+        ]);
+        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail"; updated_at: string; passed_at: string | null }[];
         const enriched: RecentItem[] = rows
           .map((row) => {
             const s = SENTENCES.find((x) => x.id === row.sentence_id);
             return s ? { sentence: s, status: row.status, updated_at: row.passed_at ?? row.updated_at } : null;
           })
           .filter(Boolean) as RecentItem[];
-        if (mounted) setRecent(enriched);
+        if (mounted) {
+          setRecent(enriched);
+          setAssignments((assignData ?? []) as AssignmentRow[]);
+        }
       }
       setLoading(false);
     })();
