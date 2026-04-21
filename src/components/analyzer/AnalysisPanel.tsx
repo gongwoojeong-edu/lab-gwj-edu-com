@@ -1030,6 +1030,9 @@ const AdjPanel = ({
         locked={false}
         onSelect={(k) => onAdjFormChange(k as AdjForm)}
       />
+      {adj.form === "접SV" && onClauseDepthChange && (
+        <ClauseDepthRow value={adj.clauseDepth ?? 1} onChange={onClauseDepthChange} />
+      )}
       {skipsElement ? (
         <RoleRow
           unlocked={!!adj.form}
