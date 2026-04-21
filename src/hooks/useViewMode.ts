@@ -15,10 +15,24 @@ export const useViewMode = () => {
   const [mode, setMode] = useState<ViewMode>(read);
 
   useEffect(() => {
+    // Re-sync on mount in case localStorage changed before this instance subscribed.
+    setMode(read());
+
     const fn = (m: ViewMode) => setMode(m);
     listeners.add(fn);
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY) setMode(read());
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", onStorage);
+    }
+
     return () => {
       listeners.delete(fn);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", onStorage);
+      }
     };
   }, []);
 

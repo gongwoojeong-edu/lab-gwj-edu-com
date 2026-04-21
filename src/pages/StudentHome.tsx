@@ -10,6 +10,7 @@ import { SENTENCES, type Sentence } from "@/data/sentences";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { fetchStudentRewards, type StudentRewards } from "@/lib/rewards";
 import type { StudentProfile } from "@/lib/studentProfile";
+import { useViewMode } from "@/hooks/useViewMode";
 
 interface RecentPass {
   sentence_id: string;
@@ -19,6 +20,7 @@ interface RecentPass {
 const StudentHome = () => {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
+  const { setMode } = useViewMode();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [rewards, setRewards] = useState<StudentRewards | null>(null);
@@ -102,7 +104,7 @@ const StudentHome = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  localStorage.setItem("view_mode", "teacher");
+                  setMode("teacher");
                   navigate("/teacher");
                 }}
               >
