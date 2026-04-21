@@ -30,6 +30,21 @@ export interface DailyTestRecord {
   scores: DailyScores;
   is_integrated: boolean;
   generated_at: string;
+  printed_count: number;
+}
+
+/** Count of printed print_requests for a student on a given date. */
+export async function fetchPrintedCount(userId: string, testDate: string): Promise<number> {
+  const dayStart = `${testDate}T00:00:00`;
+  const dayEnd = `${testDate}T23:59:59.999`;
+  const { count } = await supabase
+    .from("print_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "printed")
+    .gte("handled_at", dayStart)
+    .lte("handled_at", dayEnd);
+  return count ?? 0;
 }
 
 /** Fetch daily averages for online metrics for a student on a given date. */
@@ -87,7 +102,10 @@ export async function buildDailyTestRecord(
   userId: string,
   handout: HandoutResult,
 ): Promise<DailyTestRecord> {
-  const { analysis, wordTest } = await fetchOnlineDailyAverages(userId, handout.test_date);
+  const [{ analysis, wordTest }, printedCount] = await Promise.all([
+    fetchOnlineDailyAverages(userId, handout.test_date),
+    fetchPrintedCount(userId, handout.test_date),
+  ]);
   const partial: Omit<DailyScores, "integrated_total"> = {
     online_analysis: analysis,
     online_word_test: wordTest,
@@ -103,5 +121,6 @@ export async function buildDailyTestRecord(
     scores: { ...partial, integrated_total: integrated },
     is_integrated: handout.is_integrated,
     generated_at: new Date().toISOString(),
+    printed_count: printedCount,
   };
 }
