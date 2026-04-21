@@ -90,8 +90,17 @@ const SentenceLearn = () => {
   const [translationText, setTranslationText] = useState<string>("");
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[] } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
+  const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
   const ANALYSIS_GATE = 0.8;
   const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
+
+  // 분석 제출 확인 다이얼로그
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+
+  // 자기 첨삭 요청 상태
+  const [openRequest, setOpenRequest] = useState<AnalysisReviewRequest | null>(null);
+  const [requesting, setRequesting] = useState(false);
+  const [currentAttemptNo, setCurrentAttemptNo] = useState(1);
 
   useEffect(() => {
     let mounted = true;
