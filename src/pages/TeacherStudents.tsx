@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ChevronDown, ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
+import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
 
@@ -98,6 +99,8 @@ const TeacherStudents = () => {
   const [timeLimitSaving, setTimeLimitSaving] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
+  const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
+  const [historySheet, setHistorySheet] = useState<{ userId: string; name: string; no: string | null } | null>(null);
 
   const saveTimeLimit = async (s: Student, seconds: number) => {
     const clamped = Math.max(0, Math.min(120, Math.round(seconds)));
@@ -225,23 +228,26 @@ const TeacherStudents = () => {
     (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("user_id, display_name, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+        .select("user_id, student_no, display_name, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
       const tlMap: Record<string, number> = {};
       const userMap: Record<string, string> = {};
-      (data ?? []).forEach((row: { user_id: string; display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
+      const noMap: Record<string, string> = {};
+      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
         if (row.display_name) {
           wtMap[row.display_name] = Number(row.word_test_pass_threshold ?? 0.8);
           anMap[row.display_name] = Number(row.analysis_pass_threshold ?? 0.8);
           tlMap[row.display_name] = Number(row.word_test_time_limit_sec ?? 20);
           userMap[row.display_name] = row.user_id;
+          if (row.student_no) noMap[row.display_name] = row.student_no;
         }
       });
       setThresholdByName(wtMap);
       setAnalysisByName(anMap);
       setTimeLimitByName(tlMap);
       setProfileUserIdByName(userMap);
+      setProfileNoByName(noMap);
     })();
   }, [students.length]);
 
@@ -466,6 +472,26 @@ const TeacherStudents = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          disabled={!profileUserIdByName[s.name]}
+                          onClick={() => {
+                            const uid = profileUserIdByName[s.name];
+                            if (!uid) {
+                              toast({ title: "연결된 학생 계정이 없습니다", variant: "destructive" });
+                              return;
+                            }
+                            setHistorySheet({
+                              userId: uid,
+                              name: s.name,
+                              no: profileNoByName[s.name] ?? null,
+                            });
+                          }}
+                          title="학습 이력 분석"
+                        >
+                          <BarChart3 className="size-3.5" /> 이력
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           onClick={() => setExpandedStudentId(isExpanded ? null : s.id)}
                         >
                           <ChevronDown className={`size-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
@@ -538,6 +564,14 @@ const TeacherStudents = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StudentHistorySheet
+        open={historySheet !== null}
+        onOpenChange={(o) => !o && setHistorySheet(null)}
+        userId={historySheet?.userId ?? null}
+        studentName={historySheet?.name ?? null}
+        studentNo={historySheet?.no ?? null}
+      />
     </main>
   );
 };
