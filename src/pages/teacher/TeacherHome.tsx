@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import {
   BookOpen,
   ChevronDown,
+  ChevronRight,
   Users,
   Printer,
   RefreshCcw,
   ClipboardList,
   ClipboardCheck,
   Clock,
-  PenLine,
 } from "lucide-react";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
@@ -259,100 +259,86 @@ const TeacherHome = () => {
               등록된 학생이 없습니다.
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {students.map((s) => {
-                const isExpanded = expandedStudentId === s.user_id;
-                const row = handoutMap[s.user_id] ?? null;
-                const filled =
-                  row?.word_ho_score != null || row?.syntax_ho_result != null;
-                return (
-                  <Card
-                    key={s.user_id}
-                    className={`p-4 shadow-sm rounded-xl border transition-colors bg-card ${
-                      filled ? "border-primary/30" : "border-border"
-                    }`}
-                  >
-                    {/* Header: 학번 · 이름 · 진행 */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">
+            <Card className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium w-10"></th>
+                    <th className="text-left px-3 py-2 font-medium">학번</th>
+                    <th className="text-left px-3 py-2 font-medium">이름</th>
+                    <th className="text-left px-3 py-2 font-medium">진행</th>
+                    <th className="text-left px-3 py-2 font-medium">단어 HO (≥80)</th>
+                    <th className="text-left px-3 py-2 font-medium">구문 HO (P/F)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {students.map((s) => {
+                    const isExpanded = expandedStudentId === s.user_id;
+                    const row = handoutMap[s.user_id] ?? null;
+                    return (
+                      <React.Fragment key={s.user_id}>
+                        <tr className="hover:bg-muted/20">
+                          <td className="px-2 py-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() =>
+                                setExpandedStudentId(isExpanded ? null : s.user_id)
+                              }
+                              aria-label="이력 펼치기"
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="size-4" />
+                              ) : (
+                                <ChevronRight className="size-4" />
+                              )}
+                            </Button>
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                             {s.student_no}
-                          </span>
-                          <span className="font-bold text-sm truncate">
+                          </td>
+                          <td className="px-3 py-2 font-medium">
                             {s.display_name ?? "-"}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {LEVEL_LABEL[s.current_level]} · {s.current_no}번
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-[11px] text-muted-foreground hover:text-primary"
-                        onClick={() =>
-                          setExpandedStudentId(isExpanded ? null : s.user_id)
-                        }
-                      >
-                        <ChevronDown
-                          className={`size-3.5 transition-transform mr-1 ${
-                            isExpanded ? "rotate-180" : ""
-                          }`}
-                        />
-                        이력
-                      </Button>
-                    </div>
-
-                    {/* 입력: 단어 HO / 구문 HO */}
-                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/60">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
-                          <BookOpen className="size-3.5 text-primary" />
-                          단어 HO
-                          <span className="text-[9px] font-normal text-muted-foreground/70 normal-case tracking-normal">
-                            ≥80
-                          </span>
-                        </div>
-                        <WordHoInput
-                          userId={s.user_id}
-                          teacherId={user?.id ?? null}
-                          testDate={testDateIso}
-                          current={row}
-                          onSaved={handleHandoutSaved}
-                          onEnterNext={() => focusNext(s.user_id)}
-                          registerInput={registerInput}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
-                          <PenLine className="size-3.5 text-primary" />
-                          구문 HO
-                          <span className="text-[9px] font-normal text-muted-foreground/70 normal-case tracking-normal">
-                            P/F
-                          </span>
-                        </div>
-                        <SyntaxHoToggle
-                          userId={s.user_id}
-                          teacherId={user?.id ?? null}
-                          testDate={testDateIso}
-                          current={row}
-                          onSaved={handleHandoutSaved}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 펼친 이력 */}
-                    {isExpanded && (
-                      <div className="mt-3 pt-3 border-t border-border/60">
-                        <DailyTestSummary userId={s.user_id} days={14} />
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            {LEVEL_LABEL[s.current_level]} · {s.current_no}번
+                          </td>
+                          <td className="px-3 py-2">
+                            <WordHoInput
+                              userId={s.user_id}
+                              teacherId={user?.id ?? null}
+                              testDate={testDateIso}
+                              current={row}
+                              onSaved={handleHandoutSaved}
+                              onEnterNext={() => focusNext(s.user_id)}
+                              registerInput={registerInput}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <SyntaxHoToggle
+                              userId={s.user_id}
+                              teacherId={user?.id ?? null}
+                              testDate={testDateIso}
+                              current={row}
+                              onSaved={handleHandoutSaved}
+                            />
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-muted/10">
+                            <td colSpan={6} className="px-3 py-3">
+                              <DailyTestSummary userId={s.user_id} days={14} />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
           )}
         </div>
       </div>

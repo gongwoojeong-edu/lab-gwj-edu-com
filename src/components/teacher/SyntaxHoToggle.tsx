@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { upsertHandoutResult, type HandoutResult } from "@/lib/handoutResults";
 import { toast } from "sonner";
@@ -37,16 +38,18 @@ const SyntaxHoToggle = ({
     savedTimer.current = setTimeout(() => setStatus("idle"), 1200);
   };
 
-  const save = async (next: "PASS" | "FAIL") => {
-    const newVal = val === next ? null : next; // toggle off
-    setVal(newVal);
+  const cycle = async () => {
+    // null → PASS → FAIL → null
+    const next: "PASS" | "FAIL" | null =
+      val === null ? "PASS" : val === "PASS" ? "FAIL" : null;
+    setVal(next);
     setStatus("saving");
     try {
       const row = await upsertHandoutResult({
         userId,
         teacherId,
         testDate,
-        syntaxHoResult: newVal,
+        syntaxHoResult: next,
       });
       onSaved(row);
       flashSaved();
@@ -56,38 +59,24 @@ const SyntaxHoToggle = ({
     }
   };
 
-  // Segmented control 스타일
-  const segBtn = (active: boolean, tone: "pass" | "fail") =>
-    cn(
-      "h-8 w-10 text-xs font-bold rounded-md transition-colors",
-      "flex items-center justify-center",
-      active
-        ? tone === "pass"
-          ? "bg-primary text-primary-foreground shadow-sm"
-          : "bg-amber-500 text-white shadow-sm"
-        : "text-muted-foreground hover:bg-primary/5",
-    );
+  const label = val === "PASS" ? "P" : val === "FAIL" ? "F" : "—";
+  const tone =
+    val === "PASS"
+      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+      : val === "FAIL"
+        ? "bg-amber-500 text-white hover:bg-amber-500/90"
+        : "bg-muted text-muted-foreground hover:bg-muted/80";
 
   return (
     <div className="flex items-center gap-2">
-      <div className="inline-flex items-center gap-0.5 rounded-lg border border-input bg-muted/30 p-0.5">
-        <button
-          type="button"
-          className={segBtn(val === "PASS", "pass")}
-          onClick={() => save("PASS")}
-          aria-pressed={val === "PASS"}
-        >
-          P
-        </button>
-        <button
-          type="button"
-          className={segBtn(val === "FAIL", "fail")}
-          onClick={() => save("FAIL")}
-          aria-pressed={val === "FAIL"}
-        >
-          F
-        </button>
-      </div>
+      <Button
+        type="button"
+        size="sm"
+        onClick={cycle}
+        className={cn("h-9 w-12 font-bold text-base", tone)}
+      >
+        {label}
+      </Button>
       <div className="w-4 flex items-center justify-center">
         {status === "saving" && (
           <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />

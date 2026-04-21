@@ -122,6 +122,9 @@ const HandoutPage = () => {
           font-size: 9pt; font-weight: 700;
           margin-bottom: 2mm; letter-spacing: 0.02em;
           display: flex; align-items: center; gap: 4mm;
+          color: hsl(var(--primary));
+          border-left: 2pt solid hsl(var(--primary));
+          padding-left: 2mm;
         }
         .handout-section-title .hint {
           font-weight: 400; font-size: 8.5pt; color: #444;
@@ -177,9 +180,14 @@ const HandoutPage = () => {
         .header-row {
           display: flex; justify-content: space-between; align-items: flex-start;
           gap: 4mm; padding: 3mm 4mm;
-          border-bottom: 1pt solid #000;
+          border-bottom: 2.5pt solid hsl(var(--primary));
         }
         .header-info { flex: 1; font-size: 9pt; line-height: 1.5; }
+        .header-eyebrow {
+          font-size: 7.5pt; font-weight: 700; letter-spacing: 0.18em;
+          color: hsl(var(--primary)); text-transform: uppercase;
+          margin-bottom: 0.5mm;
+        }
         .header-title { font-size: 13pt; font-weight: 800; margin-bottom: 1mm; }
         .header-meta { color: #333; }
         .qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 1mm; }
@@ -204,6 +212,7 @@ const HandoutPage = () => {
         @media print {
           body { background: white !important; }
           .no-print { display: none !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .handout-root { background: white !important; padding: 0 !important; min-height: 0 !important; }
           .handout-page {
             margin: 0 !important;
@@ -211,10 +220,6 @@ const HandoutPage = () => {
             width: 100%;
             min-height: 0;
             page-break-after: always;
-          }
-          .handout-page * {
-            color: black !important;
-            border-color: black !important;
           }
           .editable:focus { background: white !important; }
         }
@@ -238,7 +243,8 @@ const HandoutPage = () => {
         {/* Header */}
         <div className="header-row">
           <div className="header-info">
-            <div className="header-title">공우정 영어 · Hand-out</div>
+            <div className="header-eyebrow">Gongwoojeong · Hand-out</div>
+            <div className="header-title">공우정바른학원 · 영어 학습지</div>
             <div className="header-meta">
               {passage.code}
               {structureHint && <> · 핵심 흐름: {structureHint}</>}

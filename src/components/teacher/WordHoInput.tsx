@@ -98,11 +98,7 @@ const WordHoInput = ({
           }
         }}
         className={cn(
-          // 인라인 underline 스타일 — 포커스 시 보라색 밑줄
-          "h-9 w-20 px-1 text-center text-lg font-semibold tabular-nums",
-          "rounded-none bg-transparent border-0 border-b-2 border-input",
-          "shadow-none ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0",
-          "focus-visible:border-primary focus-visible:outline-none transition-colors",
+          "h-9 w-20 text-center text-base font-semibold tabular-nums",
           status === "error" && "border-destructive",
           isLow && status !== "error" && "border-amber-500 text-amber-700",
         )}

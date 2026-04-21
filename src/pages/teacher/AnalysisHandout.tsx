@@ -57,13 +57,14 @@ const AnalysisHandout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/30">
       <style>{`
         @page { size: B5 portrait; margin: 8mm; }
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .handout-sheet { box-shadow: none !important; margin: 0 !important; }
         }
         .handout-rule {
           background-image: repeating-linear-gradient(
@@ -73,6 +74,14 @@ const AnalysisHandout = () => {
             hsl(var(--border)) 9mm,
             hsl(var(--border)) calc(9mm + 1px)
           );
+        }
+        .handout-sheet {
+          width: 162mm;
+          min-height: 237mm;
+          background: white;
+          margin: 16px auto;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+          font-family: 'Noto Sans KR', 'Plus Jakarta Sans', system-ui, sans-serif;
         }
       `}</style>
 
@@ -88,49 +97,84 @@ const AnalysisHandout = () => {
       {loading ? (
         <div className="p-12 text-center text-sm text-muted-foreground">불러오는 중...</div>
       ) : (
-        <main className="max-w-[210mm] mx-auto p-6 print:p-0">
-          {/* 헤더: 보라 액센트 */}
-          <header className="border-b-2 border-primary pb-2 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="text-base font-bold tracking-tight">공우정바른학원</div>
-              <div className="text-[10px] font-mono text-muted-foreground">{sentenceId}</div>
-            </div>
-            <div className="flex items-center justify-between mt-1 text-xs">
+        <main className="handout-sheet p-6 print:p-0">
+          {/* 헤더: Dark Violet 액센트 */}
+          <header className="border-b-[3px] border-primary pb-2 mb-4 px-1">
+            <div className="flex items-end justify-between">
               <div>
-                학생 <span className="font-bold">{student?.display_name ?? "____________"}</span>
-                <span className="ml-3">번호 <span className="font-bold">{student?.student_no ?? "____"}</span></span>
+                <div className="text-[9px] font-bold tracking-[0.2em] text-primary uppercase">
+                  Gongwoojeong · Sentence Analysis
+                </div>
+                <div className="text-lg font-extrabold tracking-tight">
+                  공우정바른학원 · 구문 분석 학습지
+                </div>
               </div>
-              <div className="text-muted-foreground">{today}</div>
+              <div className="text-right text-[10px] font-mono text-muted-foreground leading-tight">
+                <div>{sentenceId}</div>
+                <div>{today}</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs">
+              <div className="flex items-center gap-4">
+                <div>
+                  학생{" "}
+                  <span className="font-bold text-primary border-b border-primary pb-0.5 px-2">
+                    {student?.display_name ?? "____________"}
+                  </span>
+                </div>
+                <div>
+                  번호{" "}
+                  <span className="font-bold text-primary border-b border-primary pb-0.5 px-2">
+                    {student?.student_no ?? "____"}
+                  </span>
+                </div>
+              </div>
+              <div className="text-[10px] font-bold text-primary tracking-wide">
+                {mode === "marked" ? "채점본" : "재분석본"}
+              </div>
             </div>
           </header>
 
           {/* 본문: 학생 분석 그래픽 — 메모용 줄간격 2.5x */}
-          <section className="border border-border rounded-md p-3 mb-3 bg-card leading-[2.5]">
-            <Index
-              embedMode
-              studentMode={false}
-              embedSentenceId={sentenceId}
-              hydrateUserId={studentId}
-              compareMode
-              diffOwnerIds={mode === "marked" ? diff?.diffOwnerIds : undefined}
-              missingOwnerIds={mode === "marked" ? diff?.missingOwnerIds : undefined}
-            />
+          <section className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="inline-block w-1 h-3.5 bg-primary rounded-sm" />
+              <span className="text-[11px] font-bold tracking-wide text-primary">
+                ① 분석 본문
+              </span>
+            </div>
+            <div className="border border-border rounded-md p-3 bg-card leading-[2.5] shadow-sm">
+              <Index
+                embedMode
+                studentMode={false}
+                embedSentenceId={sentenceId}
+                hydrateUserId={studentId}
+                compareMode
+                diffOwnerIds={mode === "marked" ? diff?.diffOwnerIds : undefined}
+                missingOwnerIds={mode === "marked" ? diff?.missingOwnerIds : undefined}
+              />
+            </div>
           </section>
 
           {mode === "marked" && (
-            <p className="text-xs font-bold text-center mb-3">
-              ※ 위 분석에서 표시(빨강 음영/회색 점선)된 부분에 유의하여 다시 분석해 보세요.
+            <p className="text-xs font-bold text-center mb-3 text-primary">
+              ※ 위 분석에서 표시(빨강 음영 / 회색 점선)된 부분에 유의하여 다시 분석해 보세요.
             </p>
           )}
 
-          {/* 재분석 필기 영역 — 하단 1/3 */}
+          {/* 재분석 필기 영역 */}
           <section>
-            <div className="text-[10px] text-muted-foreground mb-1 font-bold">재분석 영역</div>
-            <div className="handout-rule border border-border rounded-md min-h-[80mm]" />
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="inline-block w-1 h-3.5 bg-primary rounded-sm" />
+              <span className="text-[11px] font-bold tracking-wide text-primary">
+                ② 재분석 영역
+              </span>
+            </div>
+            <div className="handout-rule border border-border rounded-md min-h-[80mm] shadow-sm" />
           </section>
 
-          <footer className="mt-3 text-[9px] text-muted-foreground text-center">
-            도저히 막힐 때만 선생님께 [정답 보기 요청]을 보내세요.
+          <footer className="mt-3 pt-2 border-t border-border text-[9px] text-muted-foreground text-center">
+            도저히 막힐 때만 선생님께 [정답 보기 요청]을 보내세요. · 공우정바른학원
           </footer>
         </main>
       )}
