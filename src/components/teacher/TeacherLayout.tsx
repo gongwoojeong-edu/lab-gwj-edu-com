@@ -95,20 +95,35 @@ const TeacherSidebarInner = () => {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {LEVELS.map((l) => {
-                const to = `/teacher/bookshelf/${l.code}`;
-                return (
-                  <SidebarMenuItem key={l.code}>
-                    <SidebarMenuButton asChild size="sm">
-                      <NavLink to={to} className={({ isActive }) => linkCls(isActive)}>
-                        <span className="text-[10px] font-mono w-7">{l.code}</span>
-                        {!collapsed && <span className="text-xs">{l.label}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
             </SidebarMenu>
+            {!collapsed && (
+              <div className="px-2 pt-1 pb-1.5">
+                <div
+                  className="flex gap-1 overflow-x-auto scrollbar-thin pb-1"
+                  style={{ scrollbarWidth: "thin" }}
+                >
+                  {LEVELS.map((l) => {
+                    const to = `/teacher/bookshelf/${l.code}`;
+                    const active = isActive(to);
+                    return (
+                      <NavLink
+                        key={l.code}
+                        to={to}
+                        className={cn(
+                          "shrink-0 px-2 py-1 rounded-md text-[11px] font-mono whitespace-nowrap transition-colors",
+                          active
+                            ? "bg-primary text-primary-foreground font-bold"
+                            : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground",
+                        )}
+                        title={l.label}
+                      >
+                        {l.code}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -171,7 +186,7 @@ const TeacherSidebarInner = () => {
                 <SidebarMenuButton asChild>
                   <NavLink to="/teacher/requests" className={({ isActive }) => linkCls(isActive)}>
                     <Inbox className="size-4" />
-                    {!collapsed && <span>정답 대조 요청</span>}
+                    {!collapsed && <span>선생님분석본보기요청</span>}
                     {pendingCount > 0 && (
                       <span className={cn(
                         "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center",

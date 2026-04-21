@@ -140,22 +140,22 @@ export const AnalysisSubmitConfirmDialog = ({
               <div className="text-xs font-bold text-foreground">자기 첨삭 요청 가능 여부</div>
               {track === "normal" && (
                 <div className="text-xs text-emerald-700 dark:text-emerald-400">
-                  🟢 정상 트랙 — 지금 제출 후 결과 화면에서 정답 대조 요청이 가능합니다.
+                  🟢 정상 트랙 — 지금 제출 후 결과 화면에서 선생님분석본보기 요청이 가능합니다.
                 </div>
               )}
               {track === "fail_assist" && (
                 <div className="text-xs text-amber-700 dark:text-amber-400">
-                  🟡 미통 보조 트랙 — 미통 상태이므로 결과 화면에서 정답 대조 요청이 가능합니다.
+                  🟡 미통 보조 트랙 — 미통 상태이므로 결과 화면에서 선생님분석본보기 요청이 가능합니다.
                 </div>
               )}
               {track === null && grade.rate < 0.5 && (
                 <div className="text-xs text-muted-foreground">
-                  🔒 분석률이 50% 미만이라 정답 대조 요청을 받을 수 없어요. 더 분석한 뒤 제출하세요.
+                  🔒 분석률이 50% 미만이라 선생님분석본보기 요청을 받을 수 없어요. 더 분석한 뒤 제출하세요.
                 </div>
               )}
               {track === null && grade.rate >= 0.5 && (
                 <div className="text-xs text-muted-foreground">
-                  🟡 미통이 되면 미통 보조 트랙으로 정답 대조 요청이 가능해집니다. (현재{" "}
+                  🟡 미통이 되면 미통 보조 트랙으로 선생님분석본보기 요청이 가능해집니다. (현재{" "}
                   {currentStatus === "pending" ? "첫 시도" : currentStatus.toUpperCase()})
                 </div>
               )}

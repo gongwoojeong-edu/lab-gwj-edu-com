@@ -41,7 +41,7 @@ import {
 } from "@/lib/assignmentProgress";
 
 const TILES = [
-  { to: "/teacher/requests", title: "정답 대조 요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
+  { to: "/teacher/requests", title: "선생님분석본보기요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
   { to: "/teacher/bookshelf", title: "책장", desc: "레벨별 교재 관리", icon: BookOpen },
   { to: "/teacher/students", title: "학생 목록", desc: "학생 진행/권한 관리", icon: Users },
   { to: "/teacher/assignments", title: "특별과제", desc: "학생에게 특별과제 부여", icon: ClipboardList },
@@ -134,10 +134,24 @@ const TeacherHome = () => {
     };
   }, [upcoming, students]);
 
+  const [printedTodayUserIds, setPrintedTodayUserIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     fetchHandoutResultsByDate(testDateIso)
       .then(setHandoutMap)
       .catch(() => setHandoutMap({}));
+    // 오늘 인쇄 완료된 학생 user_id 집계
+    const startIso = `${testDateIso}T00:00:00`;
+    const endIso = `${testDateIso}T23:59:59`;
+    supabase
+      .from("print_requests")
+      .select("user_id")
+      .eq("status", "printed")
+      .gte("handled_at", startIso)
+      .lte("handled_at", endIso)
+      .then(({ data }) => {
+        setPrintedTodayUserIds(new Set((data ?? []).map((r) => r.user_id as string)));
+      });
   }, [testDateIso]);
 
   const filledCount = useMemo(

@@ -68,8 +68,9 @@ const PrintQueue = () => {
         markPrintRequestHandled(req.id),
         ensureHandoutRow(req.user_id, req.teacher_id, toIsoDate(new Date())),
       ]);
-      toast({ title: "인쇄 완료 · 성적 입력 행 생성됨" });
+      toast({ title: "인쇄 완료 · 학습결과함으로 이동합니다" });
       setRows((prev) => prev.filter((r) => r.id !== req.id));
+      navigate("/teacher");
     } catch (e) {
       toast({ title: "처리 실패", description: String(e), variant: "destructive" });
     } finally {
@@ -85,8 +86,9 @@ const PrintQueue = () => {
       if (req) {
         await ensureHandoutRow(req.user_id, req.teacher_id, toIsoDate(new Date()));
       }
-      toast({ title: "처리 완료" });
+      toast({ title: "처리 완료 · 학습결과함으로 이동합니다" });
       setRows((prev) => prev.filter((r) => r.id !== id));
+      navigate("/teacher");
     } catch (e) {
       toast({ title: "처리 실패", description: String(e), variant: "destructive" });
     } finally {

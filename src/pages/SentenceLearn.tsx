@@ -254,13 +254,13 @@ const SentenceLearn = () => {
       });
       if (row.status === "approved") {
         toast({
-          title: "🎉 정답 대조가 승인됐어요",
-          description: "정답 비교 화면을 열어 확인하세요.",
+          title: "🎉 선생님분석본보기 요청이 승인됐어요",
+          description: "선생님 분석본을 열어 확인하세요.",
         });
       }
       if (row.status === "rejected") {
         toast({
-          title: "정답 대조 요청이 반려됐어요",
+          title: "선생님분석본보기 요청이 반려됐어요",
           description: row.response_note ?? "선생님 메시지를 확인하세요.",
           variant: "destructive",
         });
@@ -500,14 +500,14 @@ const SentenceLearn = () => {
     if (rate < 0.5) {
       return (
         <Button size="sm" disabled variant="outline" className="text-xs">
-          <Lock className="w-3 h-3 mr-1" /> 정답 대조 요청 (분석률 {Math.round(rate * 100)}%)
+          <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (분석률 {Math.round(rate * 100)}%)
         </Button>
       );
     }
     if (rate >= 0.8 && required) {
       return (
         <Button size="sm" onClick={requestAnalysisReview} disabled={requesting}>
-          <ShieldCheck className="w-4 h-4 mr-1" /> 정답 대조 요청
+          <ShieldCheck className="w-4 h-4 mr-1" /> 선생님분석본보기요청
         </Button>
       );
     }
@@ -520,13 +520,13 @@ const SentenceLearn = () => {
           onClick={requestAnalysisReview}
           disabled={requesting}
         >
-          🆘 정답 대조 요청 (미통 보조)
+          🆘 선생님분석본보기요청 (미통 보조)
         </Button>
       );
     }
     return (
       <Button size="sm" disabled variant="outline" className="text-xs" title="80% 이상 또는 미통 후 요청 가능">
-        <HelpCircle className="w-3 h-3 mr-1" /> 정답 대조 요청 (80% 이상 또는 미통 후)
+        <HelpCircle className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (80% 이상 또는 미통 후)
       </Button>
     );
   };
@@ -897,7 +897,7 @@ const SentenceLearn = () => {
             <div className="text-sm text-foreground">
               <div className="font-bold">분석 결과에 견해차가 있나요?</div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                분석 일치율 {Math.round(analysisGrade.rate * 100)}% · 정답 대조 요청을 보내거나 선생님 PIN으로 즉시 통과할 수 있어요.
+                분석 일치율 {Math.round(analysisGrade.rate * 100)}% · 선생님분석본보기 요청을 보내거나 선생님 PIN으로 즉시 통과할 수 있어요.
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 flex-wrap">
