@@ -14,13 +14,15 @@ const getUserId = async (): Promise<string | null> => {
 };
 
 // ---------- sentence_progress ----------
+export type SentenceProgressStatus = "pending" | "pass" | "fail";
+
 export interface SentenceProgressRow {
   sentence_id: string;
   pre_done: boolean;
   analysis_done: boolean;
   translation_done: boolean;
   word_test_done: boolean;
-  status: "in_progress" | "pass";
+  status: SentenceProgressStatus;
   passed_at: string | null;
 }
 
