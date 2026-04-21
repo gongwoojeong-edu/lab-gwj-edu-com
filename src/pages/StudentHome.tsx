@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell } from "lucide-react";
+import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,7 @@ const StudentHome = () => {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
   const { setMode } = useViewMode();
+  const retestCount = useRetestAlertsCount(user?.id);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [rewards, setRewards] = useState<StudentRewards | null>(null);
@@ -109,6 +111,18 @@ const StudentHome = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {user && retestCount > 0 && (
+              <a
+                href="#retest-banner"
+                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-muted transition-colors"
+                aria-label={`재시 알림 ${retestCount}건`}
+              >
+                <Bell className="w-4 h-4 text-amber-600" />
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {retestCount}
+                </span>
+              </a>
+            )}
             {rewards && (
               <>
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-streak/15 text-streak text-xs font-bold">
@@ -155,6 +169,11 @@ const StudentHome = () => {
           </Card>
         ) : (
           <>
+            {user && (
+              <div id="retest-banner">
+                <RetestBanner userId={user.id} />
+              </div>
+            )}
             {/* Hero start card */}
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,14 @@ import {
 import { useAuth, signOut, type AppRole } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { LogOut, ChevronLeft, Shield, ShieldCheck, GraduationCap } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { addUserRole, fetchAllUserRoles, removeUserRole } from "@/lib/userRoles";
+import SessionDateBar from "@/components/teacher/SessionDateBar";
+import HandoutInputRow from "@/components/teacher/HandoutInputRow";
+import {
+  fetchHandoutResultsByDate,
+  toIsoDate,
+  type HandoutResult,
+} from "@/lib/handoutResults";
 
 const ROLE_OPTIONS: { value: AppRole; label: string; icon: typeof Shield }[] = [
   { value: "student", label: "학생", icon: GraduationCap },
@@ -39,6 +45,12 @@ const TeacherDashboard = () => {
   const [failCounts, setFailCounts] = useState<Record<string, number>>({});
   const [rolesMap, setRolesMap] = useState<Record<string, AppRole[]>>({});
   const [loading, setLoading] = useState(true);
+
+  // Handout date + rows
+  const [testDate, setTestDate] = useState<Date>(new Date());
+  const testDateIso = useMemo(() => toIsoDate(testDate), [testDate]);
+  const [handoutMap, setHandoutMap] = useState<Record<string, HandoutResult>>({});
+  const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const refreshRoles = () => {
     if (!isAdmin) return;
@@ -66,6 +78,41 @@ const TeacherDashboard = () => {
     refreshRoles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
+
+  // Refresh handout rows whenever date changes
+  useEffect(() => {
+    fetchHandoutResultsByDate(testDateIso).then(setHandoutMap).catch(() => setHandoutMap({}));
+  }, [testDateIso]);
+
+  const filledCount = useMemo(
+    () =>
+      Object.values(handoutMap).filter(
+        (r) => r.word_ho_score != null || r.syntax_ho_result != null,
+      ).length,
+    [handoutMap],
+  );
+
+  const handleHandoutSaved = (row: HandoutResult) => {
+    setHandoutMap((prev) => ({ ...prev, [row.user_id]: row }));
+  };
+
+  const registerInput = (userId: string, el: HTMLInputElement | null) => {
+    if (el) inputRefs.current.set(userId, el);
+    else inputRefs.current.delete(userId);
+  };
+
+  const focusNext = (currentUserId: string) => {
+    const ids = students.map((s) => s.user_id);
+    const idx = ids.indexOf(currentUserId);
+    for (let i = idx + 1; i < ids.length; i++) {
+      const el = inputRefs.current.get(ids[i]);
+      if (el) {
+        el.focus();
+        el.select();
+        return;
+      }
+    }
+  };
 
   const handleToggleRole = async (userId: string, role: AppRole, has: boolean) => {
     try {
@@ -121,7 +168,7 @@ const TeacherDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               to="/"
@@ -140,12 +187,19 @@ const TeacherDashboard = () => {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto p-4 space-y-4">
+      <main className="max-w-6xl mx-auto p-4 space-y-4">
+        <SessionDateBar
+          date={testDate}
+          onDateChange={setTestDate}
+          studentCount={students.length}
+          filledCount={filledCount}
+        />
+
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold">학생 목록 ({students.length}명)</h2>
             <p className="text-xs text-muted-foreground">
-              학생이 회원가입하면 여기에 자동으로 표시됩니다.
+              핸드아웃 점수는 자동 저장됩니다. Enter 키로 다음 학생으로 이동하세요.
             </p>
           </div>
           {loading ? (
@@ -164,8 +218,7 @@ const TeacherDashboard = () => {
                     <th className="py-2 pr-3">시작 레벨</th>
                     <th className="py-2 pr-3">현재 진행</th>
                     <th className="py-2 pr-3 text-right">Pass</th>
-                    <th className="py-2 pr-3 text-right">미통</th>
-                    <th className="py-2 pr-3">힌트모드</th>
+                    <th className="py-2 pr-3">단어HO / 구문HO</th>
                     <th className="py-2 pr-3">마지막 활동</th>
                     {isAdmin && <th className="py-2 pr-3">권한</th>}
                   </tr>
@@ -173,7 +226,6 @@ const TeacherDashboard = () => {
                 <tbody>
                   {students.map((s) => {
                     const st = stats[s.user_id];
-                    const failN = failCounts[s.user_id] ?? 0;
                     return (
                       <tr key={s.user_id} className="border-b border-border/50">
                         <td className="py-2 pr-3 font-mono">{s.student_no}</td>
@@ -200,6 +252,17 @@ const TeacherDashboard = () => {
                         </td>
                         <td className="py-2 pr-3 text-right font-mono font-bold tabular-nums">
                           {st?.pass_count ?? 0}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <HandoutInputRow
+                            userId={s.user_id}
+                            teacherId={user?.id ?? null}
+                            testDate={testDateIso}
+                            current={handoutMap[s.user_id] ?? null}
+                            onSaved={handleHandoutSaved}
+                            onEnterNext={() => focusNext(s.user_id)}
+                            registerInput={registerInput}
+                          />
                         </td>
                         <td className="py-2 pr-3 text-muted-foreground text-xs">
                           {formatLastActivity(st?.last_activity_at ?? null)}
