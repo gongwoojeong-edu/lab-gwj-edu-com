@@ -1,96 +1,65 @@
 
 
-## 학습이력 통합 + 과거과제함 + 단어테스트 시간제한
+## 학습이력 관리 — 선생님 대시보드 우선 구현
 
-### 1. 학생화면 — 완료된 특별과제 카드 자동 숨김
+학생 화면은 추후 작업하고, 이번에는 선생님이 학생을 한눈에 분석할 수 있는 대시보드 위젯만 구축합니다.
 
-**문제**: 과제 학습 끝나도 카드 그대로 — 학생이 "다 했는지" 확인 불가.
+### 구현 범위 (선생님 화면 only)
 
-**구현 (`src/pages/StudentHome.tsx`)**:
-- `assignments` 로드 후 각 과제의 `sentence_id` 에 대해 `sentence_progress` 조회
-- `status === "pass"` 인 과제는 카드에서 **즉시 제외**
-- 학습 페이지에서 PASS 후 홈으로 돌아오면 자동으로 사라짐
+#### A. 반(전체) 통계 카드 — `TeacherHome` 상단 추가
+4개 KPI 카드 가로 배치:
+1. **오늘 학습 활동 학생** (n / 전체)
+2. **오늘 누적 PASS 문장 수**
+3. **오늘 평균 통합점수** (handout_results.integrated_total 평균)
+4. **이번 주 활성 학생 수** (최근 7일 내 attempt 1회 이상)
 
-```text
-[활성 과제] 진행중 카드만 표시
-[완료된 과제] → "과거 과제함"으로 이동 (선생님 메뉴)
-```
+#### B. 학생별 학습 이력 시트 — `TeacherStudents` 행에 "📊 이력" 버튼
+버튼 클릭 시 우측에서 슬라이드 인 `Sheet`(반응형: 모바일 풀스크린):
 
-### 2. 선생님 대시보드 → 과거 과제함 메뉴 추가
+1. **헤더**: 학생명 / 번호 / 현재 레벨·번호 / 시작 레벨
+2. **성취 분포 도넛** — `sentence_progress.status` 집계 (PASS/FAIL/진행중)
+3. **학습 로드맵 스텝퍼** — L01→L10 가로 10단계, 시작레벨~현재레벨 칠해짐, 현재 위치 핀
+4. **레벨별 통합점수 추이 라인차트** — 최근 30일, 레벨별 색상 시리즈 (recharts)
+5. **소스별 학습량 스택바** — regular/review/assignment/test 4색, 기간 토글(7/14/30일)
+6. **최근 시도 로그 테이블** — `sentence_attempt_logs` 최근 20건 (날짜/문장ID/레벨/소스/PASS여부/매치율)
 
-**추가 파일**: `src/pages/teacher/AssignmentsPast.tsx`
+### 데이터 소스 (마이그레이션 0)
 
-- 사이드바에 메뉴 항목 추가: `📚 과거 과제함` (`TeacherLayout.tsx`)
-- 라우트 추가: `/teacher/assignments/past` (`App.tsx`)
-- 페이지 내용:
-  - 마감된(`due_at < now()`) 또는 모든 학생이 PASS한 과제 표시
-  - 각 행: 제목 / 마감일 / 대상 학생 / 학생별 통과율 (예: `3 / 5명 통과`)
-  - 행 클릭 시 학생별 학습 이력 (sentence_attempt_logs) 펼침
-
-또한 현재 `/teacher/assignments` 페이지(활성 과제 관리)의 상단에 "과거 과제함 보기 →" 링크 추가.
-
-### 3. 학습 이력 통합 — 모든 학습 기록 (정규/복습/과제/시험 구분 X)
-
-**현재 상태**: `sentence_attempt_logs` 테이블에 이미 모든 학습 시도가 기록됨.
-
-**추가 사항**:
-- 컬럼 신설: `attempt_source text` (`"regular" | "review" | "assignment" | "test"`)
-  - 단순 표시용 메타 — 필터링/통계용. 모든 시도는 동일하게 누적 저장.
-- `recordAttempt` 호출 시 진입 경로(URL의 `?assignment=`, `?review=` 등)에서 자동 판별
-- DailyTestSummary / 학생 상세에 통합 이력 표시 (구분 라벨만 다른 색)
-
-### 4. 복습(Re-attempt) 도구 동일화
-
-복습으로 진입한 sentence(`sentence_progress.status === "fail"` 또는 PASS 후 재학습)에서도:
-- ✅ HAND OUT 시험지 출력 요청 (현재 가능)
-- ✅ 재시험 (현재 가능)
-- ✅ HO 점수 입력 → handout_results upsert (선생님 측)
-- 추가: 복습으로 학습 시 `sentence_progress` 의 기존 PASS 상태를 **덮어쓰지 않음** — 새 attempt만 누적
-
-→ `recordAttempt` 의 `upsertSentenceProgress` 호출에 `if (previousStatus === "pass" && !newPass) skip status update` 가드 추가
-
-### 5. 단어테스트 시간제한 — 20초/문제 (설정 가능)
-
-**구현 (`src/components/learning/WordTestStep.tsx`)**:
-
-설정 위치:
-- DB: `student_profiles` 테이블에 `word_test_time_limit_sec int default 20` 컬럼 추가
-- 선생님 학생 목록(`TeacherStudents.tsx`)에서 학생별 설정 (0 = 시간제한 OFF, 5~60초)
-
-학생 화면(`WordTestStep`):
-- 각 문제마다 카운트다운 표시 (인풋 위 진행바 + "남은 시간: 12초")
-- 0초 도달 시:
-  - 입력값 그대로 자동 제출 (빈 답이면 오답 처리)
-  - 자동으로 다음 문제 → 마지막 문제는 자동 finalize
-- 시간제한 = 0 이면 타이머 숨김
-
-```text
-┌──────────────────────────┐
-│ 5/10  ████░░░░░░ 8초     │
-│  apple                    │
-│  [_______________]        │
-└──────────────────────────┘
-```
-
-### 변경 파일
-
-| 파일 | 변경 |
+| 위젯 | 쿼리 |
 |---|---|
-| 마이그레이션 (신규) | `attempt_source` (sentence_attempt_logs), `word_test_time_limit_sec` (student_profiles) |
-| `src/pages/StudentHome.tsx` | 완료된 과제 필터링 |
-| `src/pages/teacher/AssignmentsPast.tsx` (신규) | 과거 과제함 페이지 |
-| `src/components/teacher/TeacherLayout.tsx` | 사이드바 메뉴 추가 |
-| `src/App.tsx` | 라우트 추가 |
-| `src/pages/teacher/Assignments.tsx` | "과거 과제함" 링크 |
-| `src/pages/SentenceLearn.tsx` | `attempt_source` 자동 판별 + PASS 덮어쓰기 가드 |
-| `src/components/learning/WordTestStep.tsx` | 카운트다운 타이머 + 자동 제출 |
-| `src/pages/TeacherStudents.tsx` | 학생별 시간제한 설정 입력 |
-| `src/lib/studentProfile.ts` | 시간제한 필드 |
-| `src/integrations/supabase/storage.ts` | `attempt_source` 전파 |
+| 반 KPI | `sentence_attempt_logs`, `sentence_progress`, `handout_results` 오늘·주간 집계 |
+| 성취 도넛 | `sentence_progress where user_id = X` 그룹바이 status |
+| 로드맵 | `student_profiles.start_level/current_level/current_no` + `LEVELS` 상수 |
+| 추이 라인 | `handout_results where user_id = X order by test_date desc limit 30` |
+| 소스 스택바 | `sentence_attempt_logs` 날짜·attempt_source 그룹 집계 |
+| 최근 로그 | `sentence_attempt_logs order by created_at desc limit 20` |
+
+### 신규 / 수정 파일
+
+**신규**
+- `src/lib/learningStats.ts` — 집계 헬퍼 (`fetchClassKpis`, `fetchAchievementDistribution`, `fetchLevelTrend`, `fetchSourceBreakdown`, `fetchRecentAttempts`)
+- `src/components/stats/AchievementDonut.tsx`
+- `src/components/stats/RoadmapStepper.tsx`
+- `src/components/stats/LevelTrendChart.tsx`
+- `src/components/stats/SourceBreakdownBar.tsx`
+- `src/components/stats/ClassKpiCards.tsx`
+- `src/components/teacher/StudentHistorySheet.tsx`
+
+**수정**
+- `src/pages/teacher/TeacherHome.tsx` — 상단에 `<ClassKpiCards />` 추가
+- `src/pages/TeacherStudents.tsx` — 각 학생 행에 "📊 이력" 버튼 + `StudentHistorySheet` 연결
+
+### 기술 메모
+
+- 차트: 이미 설치된 `recharts` + `src/components/ui/chart.tsx` 래퍼 활용
+- 신규 라이브러리·DB 마이그레이션 없음
+- 학생당 조회량: 최근 90일치 (수백 행) → 클라이언트 집계로 충분
+- 학생 화면(`StudentHistory`)은 이번 단계에서 제외 — 추후 동일 위젯 재사용 예정
+- 기존 `DailyTestSummary` 위젯은 유지 (단기 일별 표 vs 신규 위젯 = 장기 추세 분석)
 
 ### 비고
 
-- 단어테스트 3종(스펠/뜻/혼합) 시퀀스는 그대로 유지 — 시간제한은 각 시퀀스 모드에 동일 적용
-- 기본값 20초는 합리적 시작점이나, 학생 수준에 따라 선생님이 조절 가능
-- 과거 과제함은 학생 화면에는 노출하지 않음 (학생은 "최근 학습 Passage" 섹션에서 본인 이력만 확인)
+- 모바일 뷰: KPI 카드 2x2 그리드, 시트 위젯 세로 스택
+- 데스크톱: KPI 4열, 시트 내부 차트 2열 그리드
+- 권한: 선생님/관리자만 접근 (기존 RLS로 자동 보호)
 
