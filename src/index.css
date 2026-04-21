@@ -57,10 +57,10 @@
     --element-m: 260 8% 55%;        /* Modifier — neutral grey (unused as tag) */
     --element-m-bg: 260 10% 95%;
 
-    /* Idiom / Phrase layer — light sepia, SVOC와 시각적으로 충돌하지 않도록 채도 낮춤 */
-    --idiom-bg: 30 35% 90%;
-    --idiom-border: 28 40% 70%;
-    --idiom-fg: 25 35% 30%;
+    /* Idiom / Phrase layer — soft green, SVOC와 시각적으로 충돌하지 않도록 채도 낮춤 */
+    --idiom-bg: 145 50% 90%;
+    --idiom-border: 145 55% 55%;
+    --idiom-fg: 145 60% 25%;
 
     /* Reward tokens — streak (warm) & points (brand) */
     --streak: 32 95% 50%;
