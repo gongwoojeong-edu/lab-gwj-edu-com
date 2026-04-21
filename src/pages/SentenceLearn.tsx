@@ -116,14 +116,20 @@ const SentenceLearn = () => {
         return;
       }
 
-      const [prog, extraction, owners, prof, logs] = await Promise.all([
+      const [prog, extraction, owners, prof, logs, attemptCnt] = await Promise.all([
         fetchSentenceProgress(found.id),
         fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
         fetchMyProfile(),
         fetchAttemptLogs(found.id),
+        fetchAttemptCount(found.id),
       ]);
       if (!mounted) return;
+      const nextAttemptNo = attemptCnt + 1;
+      setCurrentAttemptNo(nextAttemptNo);
+      // 현재 attempt에 대한 미해결 요청(있으면 표시)
+      const openReq = await fetchOpenRequest(found.id, nextAttemptNo);
+      if (mounted) setOpenRequest(openReq);
 
       setPreDone(!!prog?.pre_done);
       setAnalysisDone(!!prog?.analysis_done);
