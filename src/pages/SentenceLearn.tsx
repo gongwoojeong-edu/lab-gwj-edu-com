@@ -467,6 +467,7 @@ const SentenceLearn = () => {
               <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
                 <Index
                   embedMode
+                  studentMode={!isStaff}
                   embedSentenceId={sentence.id}
                   onAnalysisDone={() => setAnalysisDone(true)}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
