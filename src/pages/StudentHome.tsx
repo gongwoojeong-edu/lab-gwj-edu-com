@@ -87,7 +87,7 @@ const StudentHome = () => {
           <div className="flex items-center gap-1.5 sm:gap-2">
             {rewards && (
               <>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-xs font-bold">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-streak/15 text-streak text-xs font-bold">
                   <Flame className="w-3.5 h-3.5" />
                   {rewards.current_streak}
                 </span>
