@@ -27,6 +27,10 @@ interface Props {
   sentenceId: string;
   entries: WordTestEntry[];
   onPassed: () => void;
+  /** Fired whenever the test finishes (PASS or TRY AGAIN). Used to record attempt log. */
+  onTestCompleted?: (result: { passed: boolean; score: number; wrong: WrongWord[]; mode: WordTestMode }) => void;
+  /** Fired when user clicks "다음 지문 →" after a TRY AGAIN result. */
+  onSkipToNext?: () => void;
 }
 
 type Phase = "intro" | "quiz" | "result" | "remediation" | "remediation_done";
