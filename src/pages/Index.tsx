@@ -387,9 +387,37 @@ interface IndexProps {
   studentMode?: boolean;
   /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용 */
   onAnalysisProgress?: (rate: number) => void;
+  /**
+   * Hydrate 대상 user_id를 명시. 미지정 시 현재 로그인 사용자(기존 동작).
+   * 비교/첨삭 화면에서 학생 또는 admin(마스터키) 데이터를 표시할 때 사용.
+   */
+  hydrateUserId?: string;
+  /**
+   * 비교 모드: 모든 편집/클릭/드래그/툴바/AnalysisPanel 비활성화.
+   * 마우스 클릭 시 onOwnerToggle 콜백만 호출 (수동 마킹 토글용).
+   */
+  compareMode?: boolean;
+  /** 빨강 음영 처리할 owner_id 집합 (마스터키와 불일치) */
+  diffOwnerIds?: Set<string>;
+  /** 회색 점선 처리할 owner_id 집합 (학생 미입력) */
+  missingOwnerIds?: Set<string>;
+  /** compareMode에서 owner 클릭 시 호출 — 수동 마킹 토글 */
+  onOwnerToggle?: (ownerId: string) => void;
 }
 
-const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOwnerIds, studentMode = false, onAnalysisProgress }: IndexProps = {}) => {
+const Index = ({
+  embedMode = false,
+  embedSentenceId,
+  onAnalysisDone,
+  hintWrongOwnerIds,
+  studentMode = false,
+  onAnalysisProgress,
+  hydrateUserId,
+  compareMode = false,
+  diffOwnerIds,
+  missingOwnerIds,
+  onOwnerToggle,
+}: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
@@ -559,6 +587,11 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     e: React.PointerEvent<HTMLSpanElement>,
     ownerId: string,
   ) => {
+    if (compareMode) {
+      e.stopPropagation();
+      if (onOwnerToggle) onOwnerToggle(ownerId);
+      return;
+    }
     if (eraserMode) return;
     e.stopPropagation();
     e.preventDefault();
@@ -652,10 +685,10 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
     const sid = sentence.id;
     Promise.all([
       fetchSentenceProgress(sid),
-      fetchBadgeOffsets(sid),
-      hydrateCustomAnswersFromCloud(sid),
-      hydrateModifierTargetsFromCloud(sid),
-      hydrateReferentTargetsFromCloud(sid),
+      fetchBadgeOffsets(sid, hydrateUserId),
+      hydrateCustomAnswersFromCloud(sid, hydrateUserId),
+      hydrateModifierTargetsFromCloud(sid, hydrateUserId),
+      hydrateReferentTargetsFromCloud(sid, hydrateUserId),
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       const pre = prog?.pre_done ?? false;
@@ -669,13 +702,13 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
       setModifierMap(mods);
       setReferentMap(refs);
     });
-    void hydrateIdiomsFromCloud().then((m) => {
+    void hydrateIdiomsFromCloud(hydrateUserId).then((m) => {
       if (!cancelled) setIdiomMap(m);
     });
     return () => {
       cancelled = true;
     };
-  }, [sentence.id]);
+  }, [sentence.id, hydrateUserId]);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 
@@ -1233,6 +1266,14 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
   const handleWordMouseDown = (idx: number, e: React.MouseEvent) => {
     if (isPunct(wordUnits[idx].word)) return;
     e.stopPropagation();
+
+    // === [비교 모드] — 클릭 시 onOwnerToggle 만 호출, 분석 동작 모두 차단 ===
+    if (compareMode) {
+      const tid = wordUnits[idx]?.tokenId;
+      const ownerId = tid ? `${tid}${OWNER_KEY_SEPARATOR}${idx}` : null;
+      if (ownerId && onOwnerToggle) onOwnerToggle(ownerId);
+      return;
+    }
 
     // === [수식 / 지시어 대상 지정] 모드 — 다음 클릭은 target 캡처 ===
     if (pendingModifierSource || pendingReferentSource) {
@@ -2616,6 +2657,12 @@ const Index = ({ embedMode = false, embedSentenceId, onAnalysisDone, hintWrongOw
                       idiomMark && "py-0.5",
                       hintWrongOwnerIds && ownerId && hintWrongOwnerIds.has(ownerId) &&
                         "ring-2 ring-amber-500/60 ring-offset-1 rounded-md bg-amber-500/5",
+                      // 비교 모드 — 자동/수동 diff: 빨강 음영
+                      compareMode && diffOwnerIds && ownerId && diffOwnerIds.has(ownerId) &&
+                        "ring-2 ring-destructive/70 rounded-md bg-destructive/15 [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
+                      // 비교 모드 — 학생 미입력 owner: 회색 점선
+                      compareMode && missingOwnerIds && ownerId && missingOwnerIds.has(ownerId) &&
+                        "ring-2 ring-dashed ring-muted-foreground/50 rounded-md bg-muted/40",
                     )}
                     style={
                       idiomMark

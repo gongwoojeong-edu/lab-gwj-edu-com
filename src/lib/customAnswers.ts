@@ -140,10 +140,11 @@ export const removeCustomAnswer = (tokenId: string, sentenceId?: string): Custom
  */
 export const hydrateCustomAnswersFromCloud = async (
   sentenceId: string,
+  userIdOverride?: string,
 ): Promise<CustomAnswerMap> => {
   try {
-    const rows = await fetchOwnerProgressForSentence(sentenceId);
-    const cur = loadCustomAnswers();
+    const rows = await fetchOwnerProgressForSentence(sentenceId, userIdOverride);
+    const cur = userIdOverride ? {} : loadCustomAnswers();
     const next: CustomAnswerMap = { ...cur };
     rows.forEach((r) => {
       const patch = (r.custom_answer ?? r.progress) as CustomAnswerPatch | null;
@@ -151,10 +152,11 @@ export const hydrateCustomAnswersFromCloud = async (
         next[r.owner_id] = patch;
       }
     });
-    saveCustomAnswers(next);
+    // 다른 사용자 데이터를 hydrate할 때는 localStorage에 저장하지 않음(본인 데이터 오염 방지)
+    if (!userIdOverride) saveCustomAnswers(next);
     return next;
   } catch {
-    return loadCustomAnswers();
+    return userIdOverride ? {} : loadCustomAnswers();
   }
 };
 

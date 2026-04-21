@@ -122,9 +122,9 @@ export const getAllIdiomsFlat = (map?: IdiomMap): IdiomMark[] => {
 };
 
 /** 클라우드에서 모든 idiom을 가져와 localStorage와 머지 후 반환 */
-export const hydrateIdiomsFromCloud = async (): Promise<IdiomMap> => {
+export const hydrateIdiomsFromCloud = async (userIdOverride?: string): Promise<IdiomMap> => {
   try {
-    const rows = await fetchIdiomsAll();
+    const rows = await fetchIdiomsAll(userIdOverride);
     const map: IdiomMap = {};
     rows.forEach((r) => {
       const sorted = [...r.indices].sort((a, b) => a - b);
@@ -140,9 +140,9 @@ export const hydrateIdiomsFromCloud = async (): Promise<IdiomMap> => {
       });
       map[r.sentence_id] = arr;
     });
-    saveIdioms(map);
+    if (!userIdOverride) saveIdioms(map);
     return map;
   } catch {
-    return loadIdioms();
+    return userIdOverride ? {} : loadIdioms();
   }
 };

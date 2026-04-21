@@ -25,7 +25,8 @@ import AchievementDonut from "@/components/stats/AchievementDonut";
 import RoadmapStepper from "@/components/stats/RoadmapStepper";
 import LevelTrendChart from "@/components/stats/LevelTrendChart";
 import SourceBreakdownBar from "@/components/stats/SourceBreakdownBar";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Eye } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface Props {
   open: boolean;
@@ -214,6 +215,7 @@ const StudentHistorySheet = ({ open, onOpenChange, userId, studentName, studentN
                           <th className="py-1.5 pr-2">시도</th>
                           <th className="py-1.5 pr-2 text-right">분석</th>
                           <th className="py-1.5 pr-2 text-right">단어</th>
+                          <th className="py-1.5 pr-2 text-right">비교</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -258,6 +260,15 @@ const StudentHistorySheet = ({ open, onOpenChange, userId, studentName, studentN
                                   {Math.round(r.word_test_score * 100)}%
                                 </span>
                               </span>
+                            </td>
+                            <td className="py-1.5 pr-2 text-right">
+                              {userId && (
+                                <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[10px]">
+                                  <Link to={`/teacher/compare/${r.sentence_id}/${userId}`} target="_blank">
+                                    <Eye className="size-3" /> 비교
+                                  </Link>
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         ))}

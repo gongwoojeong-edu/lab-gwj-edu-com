@@ -80,17 +80,18 @@ export const getTargetsForSentence = (
 /** 클라우드에서 sentence별 modifier 관계를 가져와 머지 */
 export const hydrateModifierTargetsFromCloud = async (
   sentenceId: string,
+  userIdOverride?: string,
 ): Promise<ModifierTargetMap> => {
   try {
-    const rows = await fetchModifierRelations(sentenceId);
-    const cur = loadModifierTargets();
+    const rows = await fetchModifierRelations(sentenceId, userIdOverride);
+    const cur = userIdOverride ? {} : loadModifierTargets();
     const next: ModifierTargetMap = {
       ...cur,
       [sentenceId]: rows.map((r) => ({ source: r.source_owner_id, target: r.target_owner_id })),
     };
-    saveModifierTargets(next);
+    if (!userIdOverride) saveModifierTargets(next);
     return next;
   } catch {
-    return loadModifierTargets();
+    return userIdOverride ? {} : loadModifierTargets();
   }
 };
