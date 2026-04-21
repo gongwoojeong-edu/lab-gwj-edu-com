@@ -14,7 +14,8 @@ import { LEVEL_LABEL } from "@/lib/levels";
 import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
 import { useAuth } from "@/hooks/useAuth";
 import SessionDateBar from "@/components/teacher/SessionDateBar";
-import HandoutInputRow from "@/components/teacher/HandoutInputRow";
+import WordHoInput from "@/components/teacher/WordHoInput";
+import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import {
   fetchHandoutResultsByDate,
   toIsoDate,
@@ -154,7 +155,12 @@ const TeacherHome = () => {
                       <th className="py-2 pr-3">학번</th>
                       <th className="py-2 pr-3">이름</th>
                       <th className="py-2 pr-3">현재 진행</th>
-                      <th className="py-2 pr-3">단어HO / 구문HO</th>
+                      <th className="py-2 pr-3">
+                        단어HO <span className="text-[10px] text-muted-foreground/70">(≥80)</span>
+                      </th>
+                      <th className="py-2 pr-3">
+                        구문HO <span className="text-[10px] text-muted-foreground/70">(P/F)</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -166,7 +172,7 @@ const TeacherHome = () => {
                           {LEVEL_LABEL[s.current_level]} · {s.current_no}번
                         </td>
                         <td className="py-2 pr-3">
-                          <HandoutInputRow
+                          <WordHoInput
                             userId={s.user_id}
                             teacherId={user?.id ?? null}
                             testDate={testDateIso}
@@ -174,6 +180,15 @@ const TeacherHome = () => {
                             onSaved={handleHandoutSaved}
                             onEnterNext={() => focusNext(s.user_id)}
                             registerInput={registerInput}
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <SyntaxHoToggle
+                            userId={s.user_id}
+                            teacherId={user?.id ?? null}
+                            testDate={testDateIso}
+                            current={handoutMap[s.user_id] ?? null}
+                            onSaved={handleHandoutSaved}
                           />
                         </td>
                       </tr>
