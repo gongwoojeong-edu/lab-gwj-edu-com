@@ -142,4 +142,8 @@ export const speakChunk = (
 
 /** 단어 전체를 한 번에 자연스럽게 발음 */
 export const speakWord = (word: string, onEnd?: () => void) =>
-  speakChunk(word, { rate: 0.95 }, onEnd);
+  speakChunk(word, { rate: 0.7 }, onEnd);
+
+/** 단일 음절 청크 발음 — 알파벳 이름으로 들리지 않게 약간 더 천천히 */
+export const speakSyllable = (chunk: string, onEnd?: () => void) =>
+  speakChunk(chunk, { rate: 0.65 }, onEnd);
