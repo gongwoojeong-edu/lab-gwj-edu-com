@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle } from "lucide-react";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { signOut, useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,20 @@ import { fetchStudentRewards, type StudentRewards } from "@/lib/rewards";
 import type { StudentProfile } from "@/lib/studentProfile";
 import { useViewMode } from "@/hooks/useViewMode";
 import { cn } from "@/lib/utils";
+import {
+  cancelMyPrintRequest,
+  createPrintRequest,
+  fetchMyPendingPrintRequests,
+  type PrintRequest,
+} from "@/lib/printRequests";
+import {
+  cancelReviewRequest,
+  createReviewRequest,
+  fetchOpenRequest,
+  type AnalysisReviewRequest,
+} from "@/lib/analysisReview";
+import { gradeAnalysis } from "@/lib/analysisGrading";
+import { toast } from "@/hooks/use-toast";
 
 interface RecentItem {
   sentence: Sentence;
