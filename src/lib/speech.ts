@@ -52,21 +52,49 @@ export const levenshtein = (a: string, b: string): number => {
   return dp[m][n];
 };
 
+/** 유사도 0~1 (1 = 완전 일치) */
+const similarity = (a: string, b: string): number => {
+  if (!a && !b) return 1;
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(a, b) / maxLen;
+};
+
+/**
+ * 영어 발음 매칭 — 어린 학습자에게 관대하게.
+ * 완전 일치/포함은 즉시 통과. 길이별 허용 편집 거리도 +1씩 늘림.
+ * 추가로 유사도 ≥ 0.6 이면 통과 (예: "patronage" vs "patronich" 같은 근접 발음 인정).
+ */
 export const englishMatch = (heard: string, expected: string): boolean => {
   const h = normalizeEn(heard);
   const e = normalizeEn(expected);
   if (!h || !e) return false;
   if (h === e) return true;
-  // tolerate ≤ 1 edit for short words; 2 for longer
-  const tol = e.length >= 7 ? 2 : 1;
-  return levenshtein(h, e) <= tol;
+  // 한쪽이 다른쪽을 포함하면 (예: 단어 + 군더더기) 통과
+  if (e.length >= 4 && (h.includes(e) || e.includes(h))) return true;
+  // 길이별 편집 거리 허용 — 이전보다 1단계씩 관대
+  const tol = e.length >= 8 ? 3 : e.length >= 5 ? 2 : 1;
+  if (levenshtein(h, e) <= tol) return true;
+  // 마지막으로 유사도 비율로 판정
+  return similarity(h, e) >= 0.6;
 };
 
+/**
+ * 한국어 의미 매칭 — 다양한 동의어/포함관계를 관대하게 인정.
+ * 후보 의미 중 어느 하나에라도 가깝게 일치하면 통과.
+ * 유사도 ≥ 0.55 또는 한 글자 차이까지 허용.
+ */
 export const koreanMeaningMatch = (heard: string, expected: string): boolean => {
   const h = normalizeKo(heard);
   if (!h) return false;
   const candidates = expected.split(/[,/;]/).map(normalizeKo).filter(Boolean);
-  return candidates.some(
-    (c) => c === h || c.includes(h) || h.includes(c) || levenshtein(h, c) <= 1,
-  );
+  return candidates.some((c) => {
+    if (!c) return false;
+    if (c === h) return true;
+    if (c.includes(h) || h.includes(c)) return true;
+    // 짧은 한국어 단어는 1글자, 긴 단어는 2글자까지 편집 허용
+    const tol = c.length >= 4 ? 2 : 1;
+    if (levenshtein(h, c) <= tol) return true;
+    return similarity(h, c) >= 0.55;
+  });
 };
