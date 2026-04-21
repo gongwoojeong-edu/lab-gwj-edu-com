@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
 
@@ -93,6 +94,7 @@ const TeacherStudents = () => {
   const [thresholdSaving, setThresholdSaving] = useState<string | null>(null);
   const [analysisByName, setAnalysisByName] = useState<Record<string, number>>({});
   const [analysisSaving, setAnalysisSaving] = useState<string | null>(null);
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
 
   const openPin = (s: Student) => {
     setPinTarget(s);
@@ -353,77 +355,95 @@ const TeacherStudents = () => {
             {sorted.map((s) => {
               const pct = Math.round((thresholdByName[s.name] ?? 0.8) * 100);
               const aPct = Math.round((analysisByName[s.name] ?? 0.8) * 100);
+              const isExpanded = expandedStudentId === s.id;
               return (
-                <TableRow key={s.id}>
-                  <TableCell className="font-semibold">{s.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="font-bold">
-                      {s.level} · {LEVEL_LABEL[s.level]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        min={50}
-                        max={100}
-                        step={5}
-                        defaultValue={pct}
-                        disabled={thresholdSaving === s.name}
-                        className="h-8 w-20 text-center font-bold tabular-nums"
-                        onBlur={(e) => {
-                          const v = Number(e.target.value);
-                          if (!Number.isNaN(v) && v !== pct) saveThreshold(s, v);
-                        }}
-                      />
-                      <span className="text-xs text-muted-foreground">%</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        min={50}
-                        max={100}
-                        step={5}
-                        defaultValue={aPct}
-                        disabled={analysisSaving === s.name}
-                        className="h-8 w-20 text-center font-bold tabular-nums"
-                        onBlur={(e) => {
-                          const v = Number(e.target.value);
-                          if (!Number.isNaN(v) && v !== aPct) saveAnalysisThreshold(s, v);
-                        }}
-                      />
-                      <span className="text-xs text-muted-foreground">%</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground tabular-nums">
-                    {formatDate(s.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1 text-xs text-element-v font-bold">
-                      <span className="size-1.5 rounded-full bg-element-v" /> 활성
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openPin(s)}>
-                        <KeyRound className="size-3.5" /> PIN
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
-                        <Pencil className="size-3.5" /> 수정
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => remove(s.id)}
-                      >
-                        <Trash2 className="size-3.5" /> 삭제
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <>
+                  <TableRow key={s.id}>
+                    <TableCell className="font-semibold">{s.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="font-bold">
+                        {s.level} · {LEVEL_LABEL[s.level]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={50}
+                          max={100}
+                          step={5}
+                          defaultValue={pct}
+                          disabled={thresholdSaving === s.name}
+                          className="h-8 w-20 text-center font-bold tabular-nums"
+                          onBlur={(e) => {
+                            const v = Number(e.target.value);
+                            if (!Number.isNaN(v) && v !== pct) saveThreshold(s, v);
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={50}
+                          max={100}
+                          step={5}
+                          defaultValue={aPct}
+                          disabled={analysisSaving === s.name}
+                          className="h-8 w-20 text-center font-bold tabular-nums"
+                          onBlur={(e) => {
+                            const v = Number(e.target.value);
+                            if (!Number.isNaN(v) && v !== aPct) saveAnalysisThreshold(s, v);
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground tabular-nums">
+                      {formatDate(s.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1 text-xs text-element-v font-bold">
+                        <span className="size-1.5 rounded-full bg-element-v" /> 활성
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setExpandedStudentId(isExpanded ? null : s.id)}
+                        >
+                          <ChevronDown className={`size-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          종합점수
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openPin(s)}>
+                          <KeyRound className="size-3.5" /> PIN
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
+                          <Pencil className="size-3.5" /> 수정
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => remove(s.id)}
+                        >
+                          <Trash2 className="size-3.5" /> 삭제
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="bg-muted/20 py-5">
+                        <DailyTestSummary userId={s.id} days={14} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               );
             })}
           </TableBody>
