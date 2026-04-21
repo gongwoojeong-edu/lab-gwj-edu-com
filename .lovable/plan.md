@@ -1,73 +1,139 @@
 
 
-## 단계 우선 진행으로 변경 (Stage-major → Word-major 대신)
+# 단어 테스트기 1단계: 테스트 + 통과 포인트
 
-기존: 단어1[①②③④] → 단어2[①②③④] → … (Word-major)
-변경: **모든 단어 ①음절각인 → 모든 단어 ②발화 → … ④의미인출** (Stage-major)
+## 범위 (이번 라운드)
+- 오늘학습용 단어 테스트 본체 (스펠링 / 뜻쓰기 초성힌트 / 혼합)
+- 학생별 통과 커트라인 개별 설정
+- 재시험 강제: 통과 못하면 틀린 단어만 WordPreStep 4단계 재사용 → 끝나야 재시험 버튼 활성화
+- 통과 포인트 자동 지급 + 학생 홈에 연속 통과(불꽃 🔥) 표시
+- (다음 라운드로 미룸: 누적 시험지, B5 출력, 인쇄 대기열, QR, 출력 로그)
 
-### 흐름
+---
 
-1. ① 음절각인 라운드: 단어 1~N 순서대로 음절각인 통과
-2. ② 발화 라운드: 단어 1~N 순서대로 발화 통과
-3. ③ 스펠링 라운드: 단어 1~N 순서대로 스펠링 통과
-4. ④ 의미인출 라운드: 단어 1~N 순서대로 의미 통과
-5. 모두 끝나면 PASS 도장 → 결과 저장
+## 1. DB 스키마 변경
 
-### 패스 판정
+```text
+student_profiles  
+  + word_test_pass_threshold  numeric  default 0.8     // 학생별 커트라인
+  + points                    integer  default 0       // 누적 포인트
+  + current_streak            integer  default 0       // 연속 통과
+  + best_streak               integer  default 0
 
-- 각 단계 라운드 안에서 단어별 통과 조건은 동일: `score ≥ 90 OR stuck OR teacherSkipped`.
-- 통과 안 하면 같은 단어를 같은 단계에서 재시도 (기존 동작 유지).
-- 모든 단어가 ① 라운드를 통과해야 ② 라운드 시작.
+word_test_results (기존 — 컬럼 추가)
+  + mode             text   default 'mixed'   // 'spell' | 'meaning' | 'mixed'
+  + attempt_no       integer default 1        // 1=첫 시험, 2+ = 재시험
+  + wrong_words      jsonb  default '[]'      // [{word, expected, given}]
+  + remediation_done boolean default false    // 틀린단어 복습 완료 여부
 
-### 진행 바 표시 변경 (`WordStageProgressBar`)
-
-각 단계 바의 % 의미를 **"이 단계에서 통과한 단어 수 / 전체"** 로 변경:
-- `① 음절각인 ▓▓▓▓░ 6/10` 형태.
-- 현재 진행 중인 단계는 `bg-primary` + 펄스, 끝난 단계는 `bg-emerald-500` + 100%.
-- 헤더 라인: `2단계 발화 · 단어 3 / 10  ·  Computer` 처럼 "현재 라운드 + 진척".
-- 4개 바 세로 정렬 유지.
-- 전체 진척 = (완료 단계 × N + 현재 단계 통과 단어 수) / (4 × N).
-
-### 자료구조 변경 (`WordPreStep`)
-
-```ts
-type StageKey = "syllable" | "speak" | "spell" | "meaning";
-const STAGE_ORDER = ["syllable", "speak", "spell", "meaning"];
-
-state:
-  stageIdx: 0..3            // 현재 단계
-  wordIdx:  0..N-1          // 현재 라운드 내 단어 인덱스
-  passedPerStage: Record<StageKey, number>  // 단계별 통과 단어 수
-  perWordScores: Record<word, StageScores>  // 단어별 4개 점수 누적
-  perWordFlags : Record<word, Partial<Record<StageKey, "stuck"|"teacher_skip">>>
-  assistEntries: AssistEntry[]
+points_log (신규)
+  id uuid pk, user_id uuid, sentence_id text,
+  delta integer, reason text,                 // 'word_test_pass' | 'streak_bonus'
+  created_at timestamptz default now()
+  RLS: 본인 SELECT, 본인 INSERT, teacher/admin SELECT
 ```
 
-`handleStageFinish(score, meta)`:
-- 통과 안 하면 같은 단어/단계 재시도.
-- 통과 시:
-  - `perWordScores[word][stageIdx] = score`, 플래그 누적.
-  - `wordIdx + 1 < N` → `wordIdx++` (같은 단계 다음 단어).
-  - 마지막 단어면 → `passedPerStage[stage] = N`, `stageIdx + 1 < 4` → 다음 단계 시작 (`wordIdx = 0`).
-  - 마지막 단어 + 마지막 단계 → PASS 도장 → 저장.
+`sentence_progress.word_test_done` 는 이미 존재 — 통과 시 `true` + `status='pass'` + `passed_at` 저장.
 
-저장 로직(`saveResults`)은 단어별 누적 점수 기준으로 동일하게 known/unknown/assist_log 산출.
+---
 
-### 단계 라운드 전환 UX
+## 2. 새 파일 / 수정 파일
 
-각 단계 시작 직전 1.2초 풀스크린 카드:
-- "② 발화 라운드 시작 · 10개 단어"
-- 학습자가 흐름을 인지하도록 step transition.
+```text
+NEW  src/lib/wordTest.ts
+       - WordTestMode = 'spell' | 'meaning' | 'mixed'
+       - buildQuestions(entries, mode) → Question[]
+       - normalize / 채점 헬퍼 (한/영 분리)
+       - 초성힌트 생성: ㄱㄴㄷ... 자모 첫 분해
 
-### 변경 파일
+REWRITE src/components/learning/WordTestStep.tsx
+       - 모드 선택 UI (학생 본인 + 시작 버튼)
+       - 한 단어씩 큰 카드, 입력 → 즉시 채점 → 다음 단어
+       - 결과 카드: 점수 / cutoff 비교 / PASS·FAIL
+       - PASS  → insertWordTestResult + grantPassReward + onPassed
+       - FAIL  → 틀린단어 표시 + '틀린단어 복습 시작' 버튼
+       - 복습 단계: <WordPreStep entries={wrongOnly} ... /> 임베드,
+                    completed 콜백 → remediation_done=true 저장 → '재시험' 활성화
+       - 재시험은 attempt_no+1 로 새 시도
 
-| 파일 | 변경 |
-|------|------|
-| `src/components/learning/WordPreStep.tsx` | 상태 머신 stage-major 로 재작성, 단어/단계 인덱스 분리, 라운드 전환 카드, 저장 로직 단어별 점수 기반 재계산 |
-| `src/components/learning/WordStageProgressBar.tsx` | 각 바 % = 단계별 통과 단어 수 / 전체. 헤더에 라운드명·단어 인덱스 표시. props 시그니처 변경 |
+NEW  src/lib/rewards.ts
+       - grantPassReward(sentenceId, score)
+         → student_profiles points += basePoints
+         → current_streak += 1, best_streak = max
+         → points_log insert
+         → sentence_progress { word_test_done:true, status:'pass', passed_at:now }
+       - resetStreakOnFail() : current_streak = 0
 
-### 호환성
+UPDATE src/integrations/supabase/storage.ts
+       - insertWordTestResult: mode, attempt_no, wrong_words, remediation_done
+       - fetchAttemptCount(sentenceId)
+       - fetchStudentRewards(): { points, current_streak, best_streak, threshold }
 
-- 결과 DB 스키마는 그대로 (`known_words`, `unknown_words`, `assist_log`).
-- 한 단어를 여러 단계에서 만나도 단어별 점수는 단계 라운드 종료 시점에 합산 저장.
+UPDATE src/pages/SentenceLearn.tsx
+       - 'post' 단계 placeholder 교체 → <WordTestStep ... onPassed={() => navigate('/learn')} />
+
+UPDATE src/pages/StudentHome.tsx
+       - 헤더 우측에 🔥 streak 칩 + 💎 points 칩
+       - 통과 직후 진입 시 toast '🎉 +N 포인트 / 🔥 연속 N회'
+
+UPDATE src/pages/TeacherStudents.tsx
+       - 학생별 [통과 커트라인] 입력 (50~100%, 기본 80%)
+       - 저장 → student_profiles.word_test_pass_threshold
+```
+
+---
+
+## 3. 학생 단어 테스트 흐름
+
+```text
+[Step 3 진입]
+   │
+   ▼
+시작 화면 ─ 모드 선택 (스펠링 / 뜻쓰기 / 혼합) + cutoff 표시
+   │
+   ▼
+문제 카드 × N      ← 단어별 입력, Enter로 다음
+   │
+   ▼
+결과 (score / cutoff)
+   ├─ PASS → 포인트 +N, 🔥 streak +1, sentence pass 저장 → 학습홈
+   └─ FAIL → 틀린단어 N개 표시
+              │
+              ▼ (필수)
+          틀린단어 복습 (WordPreStep 임베드 — 4단계)
+              │ remediation_done=true
+              ▼
+          [재시험] 버튼 활성화 → attempt_no+1 로 위 흐름 반복
+```
+
+---
+
+## 4. UX / 디자인 (Dark Violet 포인트만 살짝)
+- 모드 선택 칩: outline 기본, 선택 시 `bg-primary text-primary-foreground`
+- 진행도 바: primary 그라데이션 (얇게)
+- PASS 도장: 기존 WordPreStep과 동일 스타일 재사용
+- 🔥 streak 아이콘: amber, 포인트는 primary tint
+- cutoff/현재 점수 비교: PASS는 emerald, FAIL은 destructive
+
+---
+
+## 5. 채점 규칙
+- **스펠링**: 대소문자/공백 무시. 정확히 일치해야 정답.
+- **뜻쓰기 초성힌트**: 정답 한글의 초성만 노출 (예: "사과" → "ㅅㄱ"). 입력은 기존 `isAnswerCorrect`(쉼표/슬래시 분리, 부분일치) 재사용.
+- **혼합**: 단어마다 랜덤으로 스펠링 또는 뜻 출제.
+
+---
+
+## 6. 포인트 규칙 (1단계 기본값)
+- 첫 시도 통과: **+10**
+- 재시험 통과: **+5**
+- 100점 보너스: **+5**
+- 연속 5회 통과 보너스: **+20**
+
+(추후 선생님이 조정 가능하도록 상수화)
+
+---
+
+## 7. 다음 라운드(이번 작업에서 제외)
+누적 시험지 빌더, B5 print 레이아웃, QR(원어민 발음 + 정답지), 인쇄 대기열(선생님 승인), 출력 로그, 사운드 알림 — 별도 라운드로 분리.
 
