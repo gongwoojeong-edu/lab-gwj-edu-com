@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 import { fetchHandoutResultsForUser, type HandoutResult } from "@/lib/handoutResults";
 import { buildDailyTestRecord, INTEGRATED_PASS_THRESHOLD, type DailyTestRecord } from "@/lib/dailyTest";
 import { cn } from "@/lib/utils";
@@ -70,6 +69,7 @@ const DailyTestSummary = ({ userId, days = 14 }: Props) => {
               <th className="py-1.5 pr-2">구문HO</th>
               <th className="py-1.5 pr-2 text-right">종합</th>
               <th className="py-1.5 pr-2">상태</th>
+              <th className="py-1.5 pr-2 text-center">인쇄</th>
             </tr>
           </thead>
           <tbody>
@@ -108,6 +108,16 @@ const DailyTestSummary = ({ userId, days = 14 }: Props) => {
                       <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-bold">PASS</span>
                     ) : (
                       <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-bold">FAIL</span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-2 text-center">
+                    {r.printed_count > 0 ? (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold">
+                        <Printer className="w-3 h-3" />
+                        {r.printed_count}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
                 </tr>

@@ -13,6 +13,7 @@ import {
   subscribeToPrintRequests,
   type PrintRequest,
 } from "@/lib/printRequests";
+import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -54,17 +55,36 @@ const PrintQueue = () => {
     return unsub;
   }, []);
 
-  const handleOpenHandout = (req: PrintRequest) => {
+  const handleOpenHandout = async (req: PrintRequest) => {
+    // 1) Open PDF tab immediately
     window.open(
       `/teacher/handout/${encodeURIComponent(req.sentence_id)}?student=${req.user_id}`,
       "_blank",
     );
+    // 2) Mark as printed + ensure handout_results row for today
+    setBusy((p) => ({ ...p, [req.id]: true }));
+    try {
+      await Promise.all([
+        markPrintRequestHandled(req.id),
+        ensureHandoutRow(req.user_id, req.teacher_id, toIsoDate(new Date())),
+      ]);
+      toast({ title: "인쇄 완료 · 성적 입력 행 생성됨" });
+      setRows((prev) => prev.filter((r) => r.id !== req.id));
+    } catch (e) {
+      toast({ title: "처리 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBusy((p) => ({ ...p, [req.id]: false }));
+    }
   };
 
   const handleMark = async (id: string) => {
     setBusy((p) => ({ ...p, [id]: true }));
     try {
+      const req = rows.find((r) => r.id === id);
       await markPrintRequestHandled(id);
+      if (req) {
+        await ensureHandoutRow(req.user_id, req.teacher_id, toIsoDate(new Date()));
+      }
       toast({ title: "처리 완료" });
       setRows((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
