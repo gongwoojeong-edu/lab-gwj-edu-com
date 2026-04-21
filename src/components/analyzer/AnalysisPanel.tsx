@@ -282,8 +282,14 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
     "대부정사",
   ],
   "V-ing": ["부정형", "수동형", "완료형"],
+  // 명사절 — 5개 form × 4개 SVOC role(주어/목적어/보어/전치사목적어) = 20버튼
+  // 각 form을 그룹 헤더로, 항목은 SVOC role로 표시
   "접SV": [
-    { header: "명사절", items: ["that", "whether/if", "의SV", "관대what", "복합관대~ever"] },
+    { header: "that", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "whether/if", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "의SV", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "관대what", items: ["주어", "목적어", "보어", "전목적어"] },
+    { header: "복합관대~ever", items: ["주어", "목적어", "보어", "전목적어"] },
   ],
 };
 
