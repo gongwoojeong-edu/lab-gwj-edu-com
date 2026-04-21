@@ -45,6 +45,16 @@ import { gradeAnalysis, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
+import { AnalysisSubmitConfirmDialog } from "@/components/learning/AnalysisSubmitConfirmDialog";
+import {
+  decideTrack,
+  fetchOpenRequest,
+  createReviewRequest,
+  cancelReviewRequest,
+  subscribeMyRequest,
+  type AnalysisReviewRequest,
+} from "@/lib/analysisReview";
+import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
 import { toast } from "@/hooks/use-toast";
 
