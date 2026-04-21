@@ -547,19 +547,10 @@ const SentenceLearn = () => {
         )}
 
         {step === "translation" && (
-          <div className="space-y-4">
-            <Card className="p-5 space-y-2 border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
-              <div className="text-xs font-bold text-primary uppercase tracking-wider">
-                원문
-              </div>
-              <div className="text-lg sm:text-xl font-semibold leading-relaxed text-foreground">
-                {sentence.english}
-              </div>
-              <div className="text-xs text-muted-foreground pt-1">
-                ⚠ 이 단계에서는 분석 화면으로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
-              </div>
-            </Card>
-
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground px-1">
+              ⚠ 이 단계에서는 분석 화면으로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
+            </div>
             <TranslationStep
               sentenceId={sentence.id}
               englishSentence={sentence.english}
