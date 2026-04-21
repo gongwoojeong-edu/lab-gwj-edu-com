@@ -711,25 +711,26 @@ const SentenceLearn = () => {
                 <Button
                   size="sm"
                   disabled={!canAdvanceToTranslation}
-                  onClick={async () => {
-                    try {
-                      await upsertSentenceProgress(sentence.id, { analysis_done: true });
-                    } catch (e) {
-                      toast({
-                        title: "진행 저장 실패",
-                        description: String(e),
-                        variant: "destructive",
-                      });
-                    }
-                    setAnalysisDone(true);
-                    safeSetStep("translation");
-                  }}
+                  onClick={() => setSubmitDialogOpen(true)}
                 >
                   한글 해석 →
                 </Button>
               </div>
             </Card>
           </div>
+        )}
+
+        <AnalysisSubmitConfirmDialog
+          open={submitDialogOpen}
+          onOpenChange={setSubmitDialogOpen}
+          sentenceId={sentence.id}
+          currentStatus={previousStatus}
+          onConfirmSubmit={proceedToTranslation}
+        />
+
+        {/* unused-old-marker */}
+        {false && (
+          <div>{null}</div>
         )}
 
         {step === "translation" && (
