@@ -11,6 +11,14 @@ import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import StudentHome from "./pages/StudentHome.tsx";
 import SentenceLearn from "./pages/SentenceLearn.tsx";
+import TeacherHome from "./pages/teacher/TeacherHome.tsx";
+import Bookshelf from "./pages/teacher/Bookshelf.tsx";
+import BookshelfLevel from "./pages/teacher/BookshelfLevel.tsx";
+import BookshelfUnit from "./pages/teacher/BookshelfUnit.tsx";
+import PassageEditor from "./pages/teacher/PassageEditor.tsx";
+import Assignments from "./pages/teacher/Assignments.tsx";
+import PrintQueue from "./pages/teacher/PrintQueue.tsx";
+import Retests from "./pages/teacher/Retests.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
@@ -27,11 +35,11 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
 
-            {/* 선생님 전용 정답입력기 — 학생은 /learn 으로 강제 이동 */}
+            {/* 루트: 선생님은 /teacher, 학생은 /learn */}
             <Route
               path="/"
               element={
-                <RequireAuth redirectStudentTo="/learn">
+                <RequireAuth redirectStudentTo="/learn" redirectStaffTo="/teacher">
                   <Index />
                 </RequireAuth>
               }
@@ -55,11 +63,44 @@ const App = () => (
               }
             />
 
+            {/* 선생님 대시보드 */}
             <Route
               path="/teacher"
               element={
                 <RequireAuth requireRole="teacher">
-                  <TeacherDashboard />
+                  <TeacherHome />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/bookshelf"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <Bookshelf />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/bookshelf/:level"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <BookshelfLevel />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/bookshelf/:level/:unitNo"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <BookshelfUnit />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/bookshelf/:level/:unitNo/:passageCode/edit"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <PassageEditor />
                 </RequireAuth>
               }
             />
@@ -68,6 +109,46 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <TeacherStudents />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/assignments"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <Assignments />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/print-queue"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <PrintQueue />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/retests"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <Retests />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/answers"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <Index />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/dashboard"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <TeacherDashboard />
                 </RequireAuth>
               }
             />

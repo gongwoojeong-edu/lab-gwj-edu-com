@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { useViewMode } from "@/hooks/useViewMode";
 
 interface Props {
   children: React.ReactNode;
@@ -8,16 +9,26 @@ interface Props {
   requireRole?: AppRole;
   /**
    * 학생만 있고 staff 권한(teacher/admin)이 없는 경우 강제 리다이렉트할 경로.
-   * 선생님 전용 화면(/)에 학생이 들어오는 것을 차단할 때 사용.
    */
   redirectStudentTo?: string;
+  /**
+   * staff 권한이 있는 사용자를 (선생님 모드일 때) 자동으로 보낼 경로.
+   * 학생화면 모드에서는 무시.
+   */
+  redirectStaffTo?: string;
 }
 
 const isStaff = (roles: AppRole[]) => roles.includes("teacher") || roles.includes("admin");
 
-export const RequireAuth = ({ children, requireRole, redirectStudentTo }: Props) => {
+export const RequireAuth = ({
+  children,
+  requireRole,
+  redirectStudentTo,
+  redirectStaffTo,
+}: Props) => {
   const { session, roles, loading } = useAuth();
   const location = useLocation();
+  const { mode } = useViewMode();
 
   if (loading) {
     return (
@@ -38,6 +49,17 @@ export const RequireAuth = ({ children, requireRole, redirectStudentTo }: Props)
         </div>
       </div>
     );
+  }
+  // staff가 학생 모드면 학생 라우트로 보내기 (선생님 라우트 진입 시)
+  if (
+    isStaff(roles) &&
+    mode === "student" &&
+    location.pathname.startsWith("/teacher")
+  ) {
+    return <Navigate to="/learn" replace />;
+  }
+  if (redirectStaffTo && isStaff(roles) && mode === "teacher") {
+    return <Navigate to={redirectStaffTo} replace />;
   }
   if (redirectStudentTo && !isStaff(roles)) {
     return <Navigate to={redirectStudentTo} replace />;
