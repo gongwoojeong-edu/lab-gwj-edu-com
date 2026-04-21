@@ -98,14 +98,16 @@ const StudentHome = () => {
               </>
             )}
             {(roles.includes("teacher") || roles.includes("admin")) && (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-                  정답입력기
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/teacher")}>
-                  선생님
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  localStorage.setItem("view_mode", "teacher");
+                  navigate("/teacher");
+                }}
+              >
+                🛠 선생님 화면
+              </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-1" /> 로그아웃
