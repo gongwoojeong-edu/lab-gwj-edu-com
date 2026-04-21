@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -8,6 +9,16 @@ import {
   RefreshCcw,
   ClipboardList,
 } from "lucide-react";
+import { LEVEL_LABEL } from "@/lib/levels";
+import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
+import { useAuth } from "@/hooks/useAuth";
+import SessionDateBar from "@/components/teacher/SessionDateBar";
+import HandoutInputRow from "@/components/teacher/HandoutInputRow";
+import {
+  fetchHandoutResultsByDate,
+  toIsoDate,
+  type HandoutResult,
+} from "@/lib/handoutResults";
 
 const TILES = [
   { to: "/teacher/bookshelf", title: "책장", desc: "레벨별 교재 관리", icon: BookOpen },
@@ -17,31 +28,155 @@ const TILES = [
   { to: "/teacher/retests", title: "재시험 관리", desc: "단어 테스트 재시도", icon: RefreshCcw },
 ];
 
-const TeacherHome = () => (
-  <TeacherLayout>
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">대시보드</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          왼쪽 사이드바에서 책장(교재 만들기)과 학습관리 메뉴를 선택하세요.
-        </p>
+const TeacherHome = () => {
+  const { user } = useAuth();
+  const [students, setStudents] = useState<StudentProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [testDate, setTestDate] = useState<Date>(new Date());
+  const testDateIso = useMemo(() => toIsoDate(testDate), [testDate]);
+  const [handoutMap, setHandoutMap] = useState<Record<string, HandoutResult>>({});
+  const inputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
+
+  useEffect(() => {
+    let mounted = true;
+    fetchAllStudents().then((s) => {
+      if (mounted) {
+        setStudents(s);
+        setLoading(false);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    fetchHandoutResultsByDate(testDateIso)
+      .then(setHandoutMap)
+      .catch(() => setHandoutMap({}));
+  }, [testDateIso]);
+
+  const filledCount = useMemo(
+    () =>
+      Object.values(handoutMap).filter(
+        (r) => r.word_ho_score != null || r.syntax_ho_result != null,
+      ).length,
+    [handoutMap],
+  );
+
+  const handleHandoutSaved = (row: HandoutResult) => {
+    setHandoutMap((prev) => ({ ...prev, [row.user_id]: row }));
+  };
+
+  const registerInput = (userId: string, el: HTMLInputElement | null) => {
+    if (el) inputRefs.current.set(userId, el);
+    else inputRefs.current.delete(userId);
+  };
+
+  const focusNext = (currentUserId: string) => {
+    const ids = students.map((s) => s.user_id);
+    const idx = ids.indexOf(currentUserId);
+    for (let i = idx + 1; i < ids.length; i++) {
+      const el = inputRefs.current.get(ids[i]);
+      if (el) {
+        el.focus();
+        el.select();
+        return;
+      }
+    }
+  };
+
+  return (
+    <TeacherLayout>
+      <div className="p-6 max-w-6xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">대시보드</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            오늘의 핸드아웃 점수를 입력하거나 좌측 메뉴에서 교재·학습관리를 선택하세요.
+          </p>
+        </div>
+
+        {/* Quick tiles */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {TILES.map((t) => {
+            const Icon = t.icon;
+            return (
+              <Link key={t.to} to={t.to}>
+                <Card className="p-3 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full">
+                  <Icon className="size-5 text-primary mb-2" />
+                  <div className="text-sm font-bold">{t.title}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{t.desc}</div>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Handout input */}
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-bold">오늘의 핸드아웃 성적 입력</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              단어HO 점수와 구문HO P/F를 입력하면 자동 저장됩니다. Enter 키로 다음 학생 칸으로 이동합니다.
+            </p>
+          </div>
+
+          <SessionDateBar
+            date={testDate}
+            onDateChange={setTestDate}
+            studentCount={students.length}
+            filledCount={filledCount}
+          />
+
+          <Card className="p-4">
+            {loading ? (
+              <div className="text-sm text-muted-foreground py-8 text-center">불러오는 중…</div>
+            ) : students.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-8 text-center">
+                등록된 학생이 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                      <th className="py-2 pr-3">학번</th>
+                      <th className="py-2 pr-3">이름</th>
+                      <th className="py-2 pr-3">현재 진행</th>
+                      <th className="py-2 pr-3">단어HO / 구문HO</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((s) => (
+                      <tr key={s.user_id} className="border-b border-border/50">
+                        <td className="py-2 pr-3 font-mono">{s.student_no}</td>
+                        <td className="py-2 pr-3">{s.display_name ?? "-"}</td>
+                        <td className="py-2 pr-3 text-muted-foreground">
+                          {LEVEL_LABEL[s.current_level]} · {s.current_no}번
+                        </td>
+                        <td className="py-2 pr-3">
+                          <HandoutInputRow
+                            userId={s.user_id}
+                            teacherId={user?.id ?? null}
+                            testDate={testDateIso}
+                            current={handoutMap[s.user_id] ?? null}
+                            onSaved={handleHandoutSaved}
+                            onEnterNext={() => focusNext(s.user_id)}
+                            registerInput={registerInput}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {TILES.map((t) => {
-          const Icon = t.icon;
-          return (
-            <Link key={t.to} to={t.to}>
-              <Card className="p-5 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer h-full">
-                <Icon className="size-6 text-primary mb-3" />
-                <div className="text-base font-bold">{t.title}</div>
-                <div className="text-xs text-muted-foreground mt-1">{t.desc}</div>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  </TeacherLayout>
-);
+    </TeacherLayout>
+  );
+};
 
 export default TeacherHome;
