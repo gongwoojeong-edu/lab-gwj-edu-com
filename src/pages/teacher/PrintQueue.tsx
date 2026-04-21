@@ -1,21 +1,22 @@
 // ============================================================
 // PrintQueue — 선생님: 학생 시험지(핸드아웃) 인쇄 요청 대기열
+// 워크플로:
+//  - [PDF] 클릭 → 새 탭으로 핸드아웃 열기 (이 시점엔 처리 마킹 X)
+//  - 새 탭 핸드아웃 페이지에서 실제 인쇄(window.print) 실행 시
+//    onbeforeprint 가 ?fromQueue=1&reqId=... 를 감지하고 처리완료 마킹.
+//  - 처리되면 실시간 구독으로 행이 사라짐.
 // ============================================================
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Printer, FileText, CheckCircle2, Loader2 } from "lucide-react";
+import { Printer, FileText, Loader2 } from "lucide-react";
 import {
   fetchPendingPrintRequests,
-  markPrintRequestHandled,
   subscribeToPrintRequests,
   type PrintRequest,
 } from "@/lib/printRequests";
-import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
   user_id: string;
@@ -24,11 +25,9 @@ interface StudentInfo {
 }
 
 const PrintQueue = () => {
-  const navigate = useNavigate();
   const [rows, setRows] = useState<PrintRequest[]>([]);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
 
   const refresh = async () => {
     setLoading(true);
@@ -55,45 +54,11 @@ const PrintQueue = () => {
     return unsub;
   }, []);
 
-  const handleOpenHandout = async (req: PrintRequest) => {
-    // 1) Open PDF tab immediately
-    window.open(
-      `/teacher/handout/${encodeURIComponent(req.sentence_id)}?student=${req.user_id}`,
-      "_blank",
-    );
-    // 2) Mark as printed + ensure handout_results row for today
-    setBusy((p) => ({ ...p, [req.id]: true }));
-    try {
-      await Promise.all([
-        markPrintRequestHandled(req.id),
-        ensureHandoutRow(req.user_id, req.teacher_id, toIsoDate(new Date())),
-      ]);
-      toast({ title: "인쇄 완료 · 학습결과함으로 이동합니다" });
-      setRows((prev) => prev.filter((r) => r.id !== req.id));
-      navigate("/teacher/results");
-    } catch (e) {
-      toast({ title: "처리 실패", description: String(e), variant: "destructive" });
-    } finally {
-      setBusy((p) => ({ ...p, [req.id]: false }));
-    }
-  };
-
-  const handleMark = async (id: string) => {
-    setBusy((p) => ({ ...p, [id]: true }));
-    try {
-      const req = rows.find((r) => r.id === id);
-      await markPrintRequestHandled(id);
-      if (req) {
-        await ensureHandoutRow(req.user_id, req.teacher_id, toIsoDate(new Date()));
-      }
-      toast({ title: "처리 완료 · 학습결과함으로 이동합니다" });
-      setRows((prev) => prev.filter((r) => r.id !== id));
-      navigate("/teacher/results");
-    } catch (e) {
-      toast({ title: "처리 실패", description: String(e), variant: "destructive" });
-    } finally {
-      setBusy((p) => ({ ...p, [id]: false }));
-    }
+  const handleOpenPdf = (req: PrintRequest) => {
+    const url =
+      `/teacher/handout/${encodeURIComponent(req.sentence_id)}` +
+      `?student=${req.user_id}&fromQueue=1&reqId=${req.id}`;
+    window.open(url, "_blank");
   };
 
   return (
@@ -107,6 +72,11 @@ const PrintQueue = () => {
             </span>
           </h1>
         </div>
+
+        <Card className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 font-kr">
+          [PDF] 버튼 클릭 시 새 탭에서 핸드아웃이 열립니다. 그 화면에서{" "}
+          <b>인쇄</b> 버튼을 누르면 자동으로 처리완료 처리되고 학습결과함으로 합류합니다.
+        </Card>
 
         {loading ? (
           <Card className="p-10 flex items-center justify-center">
@@ -143,15 +113,8 @@ const PrintQueue = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Button size="sm" variant="outline" onClick={() => handleOpenHandout(req)}>
-                      <FileText className="size-4 mr-1" /> 핸드아웃 PDF
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleMark(req.id)}
-                      disabled={!!busy[req.id]}
-                    >
-                      <CheckCircle2 className="size-4 mr-1" /> 처리 완료
+                    <Button size="sm" onClick={() => handleOpenPdf(req)}>
+                      <FileText className="size-4 mr-1" /> PDF
                     </Button>
                   </div>
                 </Card>

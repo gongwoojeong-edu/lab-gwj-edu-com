@@ -10,6 +10,8 @@ import { Loader2, Printer, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
+import { markPrintRequestHandled } from "@/lib/printRequests";
+import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
 import { buildClozeSegments, buildStructureHint } from "@/lib/handoutCloze";
 
 interface StudentInfo {
@@ -21,6 +23,8 @@ const HandoutPage = () => {
   const { passageCode } = useParams<{ passageCode: string }>();
   const [params] = useSearchParams();
   const studentId = params.get("student");
+  const fromQueue = params.get("fromQueue") === "1";
+  const reqId = params.get("reqId");
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
@@ -60,6 +64,23 @@ const HandoutPage = () => {
       alive = false;
     };
   }, [passageCode, studentId]);
+
+  // ===== 인쇄대기열에서 진입 시: 실제 인쇄 직전에 처리완료 자동 마킹 =====
+  useEffect(() => {
+    if (!fromQueue || !reqId || !studentId) return;
+    let handled = false;
+    const onBeforePrint = () => {
+      if (handled) return;
+      handled = true;
+      // fire-and-forget: 인쇄 흐름을 막지 않음
+      Promise.all([
+        markPrintRequestHandled(reqId),
+        ensureHandoutRow(studentId, null, toIsoDate(new Date())),
+      ]).catch((e) => console.error("[Handout] auto-mark failed", e));
+    };
+    window.addEventListener("beforeprint", onBeforePrint);
+    return () => window.removeEventListener("beforeprint", onBeforePrint);
+  }, [fromQueue, reqId, studentId]);
 
   const segments = useMemo(
     () => (passage ? buildClozeSegments(passage.tokens) : null),

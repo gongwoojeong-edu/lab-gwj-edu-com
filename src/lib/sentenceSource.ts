@@ -120,4 +120,16 @@ export const saveSentenceTokens = async (
   }
 };
 
+/** 책장 편집기: 학생 공개/비공개 토글 — tokens 의존성 없이 status만 갱신 */
+export const setPassageReady = async (
+  code: string,
+  ready: boolean,
+): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from("textbook_passages") as any)
+    .update({ analysis_status: ready ? "ready" : "draft" })
+    .eq("code", code);
+  if (error) throw error;
+};
+
 export const isHydrated = () => hydrated;

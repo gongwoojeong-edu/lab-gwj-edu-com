@@ -1099,6 +1099,33 @@ const Index = ({
     });
     toast({ title: "분석 완료 저장됨", description: "이 단어의 정답이 저장되었습니다." });
   };
+  // commitAllPatches: pendingPatchMap의 모든 owner를 일괄 commit
+  const commitAllPatches = () => {
+    const entries = Object.entries(pendingPatchMap);
+    if (entries.length === 0) {
+      toast({ title: "저장할 변경사항이 없습니다" });
+      return;
+    }
+    let merged = customAnswers;
+    entries.forEach(([ownerId, patch]) => {
+      if (Object.keys(patch).length > 0) {
+        merged = upsertCustomAnswer(ownerId, patch, sentence.id);
+      }
+    });
+    setCustomAnswers(merged);
+    setPendingPatchMap({});
+    setSavedOwnerSet((prev) => {
+      const n = new Set(prev);
+      entries.forEach(([ownerId]) => n.add(ownerId));
+      saveSavedOwners(Array.from(n));
+      return n;
+    });
+    toast({
+      title: `정답 ${entries.length}개 저장됨`,
+      description: "모든 미저장 변경사항이 저장되었습니다.",
+    });
+  };
+
   // discardPatch: 누적된 patch만 버림 (savedOwnerSet은 그대로)
   const discardPatch = (ownerId: string) => {
     setPendingPatchMap((prev) => {
@@ -2146,28 +2173,18 @@ const Index = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (selectedId) commitPatch(selectedId);
-                    }}
-                    disabled={!canSave}
+                    onClick={commitAllPatches}
+                    disabled={Object.keys(pendingPatchMap).length === 0}
                     className={cn(
                       "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors shrink-0",
-                      canSave
+                      Object.keys(pendingPatchMap).length > 0
                         ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                         : "bg-muted text-muted-foreground/60 cursor-not-allowed",
                     )}
-                    title={
-                      !selectedId
-                        ? "단어를 먼저 선택하세요"
-                        : canSave
-                        ? "현재 단어의 분석을 정답으로 저장"
-                        : status === "saved"
-                        ? "이미 저장된 정답입니다"
-                        : "변경사항이 없습니다"
-                    }
+                    title="미저장 변경사항을 모두 저장합니다"
                   >
                     <Pencil className="size-3" />
-                    {status === "saved" ? "재저장" : "정답 저장"}
+                    정답 저장 (전체 {Object.keys(pendingPatchMap).length})
                   </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -2372,14 +2389,7 @@ const Index = ({
         </div>
         )}
 
-        {answerInputMode && (
-          <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 flex items-center gap-2">
-            <Pencil className="size-4 text-primary shrink-0" />
-            <p className="text-[12px] font-semibold text-primary font-kr">
-              정답 입력 모드 — 선택한 항목이 즉시 정답으로 저장됩니다 (채점 없음)
-            </p>
-          </div>
-        )}
+        {/* 정답 입력 모드 안내 배너 — 제거됨 (하단 토글 버튼이 ON 상태로 충분히 표시) */}
 
         {eraserMode && (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
