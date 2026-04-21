@@ -188,6 +188,54 @@ export type Database = {
         }
         Relationships: []
       }
+      sentence_attempt_logs: {
+        Row: {
+          analysis_match_rate: number
+          analysis_passed: boolean
+          attempt_no: number
+          completed_at: string
+          created_at: string
+          id: string
+          owner_diff: Json
+          sentence_id: string
+          started_at: string | null
+          translation_text: string | null
+          user_id: string
+          word_test_passed: boolean
+          word_test_score: number
+        }
+        Insert: {
+          analysis_match_rate?: number
+          analysis_passed?: boolean
+          attempt_no?: number
+          completed_at?: string
+          created_at?: string
+          id?: string
+          owner_diff?: Json
+          sentence_id: string
+          started_at?: string | null
+          translation_text?: string | null
+          user_id: string
+          word_test_passed?: boolean
+          word_test_score?: number
+        }
+        Update: {
+          analysis_match_rate?: number
+          analysis_passed?: boolean
+          attempt_no?: number
+          completed_at?: string
+          created_at?: string
+          id?: string
+          owner_diff?: Json
+          sentence_id?: string
+          started_at?: string | null
+          translation_text?: string | null
+          user_id?: string
+          word_test_passed?: boolean
+          word_test_score?: number
+        }
+        Relationships: []
+      }
       sentence_progress: {
         Row: {
           analysis_done: boolean
@@ -283,12 +331,14 @@ export type Database = {
       }
       student_profiles: {
         Row: {
+          analysis_pass_threshold: number
           best_streak: number
           created_at: string
           current_level: string
           current_no: number
           current_streak: number
           display_name: string | null
+          hint_mode_enabled: boolean
           points: number
           start_level: string
           student_no: string
@@ -299,12 +349,14 @@ export type Database = {
           word_test_pass_threshold: number
         }
         Insert: {
+          analysis_pass_threshold?: number
           best_streak?: number
           created_at?: string
           current_level?: string
           current_no?: number
           current_streak?: number
           display_name?: string | null
+          hint_mode_enabled?: boolean
           points?: number
           start_level?: string
           student_no: string
@@ -315,12 +367,14 @@ export type Database = {
           word_test_pass_threshold?: number
         }
         Update: {
+          analysis_pass_threshold?: number
           best_streak?: number
           created_at?: string
           current_level?: string
           current_no?: number
           current_streak?: number
           display_name?: string | null
+          hint_mode_enabled?: boolean
           points?: number
           start_level?: string
           student_no?: string
