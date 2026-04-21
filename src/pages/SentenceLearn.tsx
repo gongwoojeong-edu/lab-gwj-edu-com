@@ -180,19 +180,24 @@ const SentenceLearn = () => {
   };
 
   /** Word test 종료(PASS/FAIL 무관) → 분석 채점 + attempt log 기록 + status 업데이트 */
-  const recordAttempt = async (wordTest: { passed: boolean; score: number }) => {
+  const recordAttempt = async (
+    wordTest: { passed: boolean; score: number },
+    opts?: { teacherOverride?: boolean },
+  ) => {
     if (!sentence) return;
     try {
       const grade = await gradeAnalysis(sentence.id);
       const threshold = profile?.analysis_pass_threshold ?? 0.8;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
-      const analysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
-      const overallPass = analysisPassed && wordTest.passed;
+      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
+      const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
+      const wordTestPassed = opts?.teacherOverride ? true : wordTest.passed;
+      const overallPass = analysisPassed && wordTestPassed;
       setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
 
-      // 필수 owner 누락 안내 (학생에게)
-      if (grade.hasMaster && !requiredOk) {
+      // 필수 owner 누락 안내 (학생에게) — override 시에는 생략
+      if (!opts?.teacherOverride && grade.hasMaster && !requiredOk) {
         toast({
           title: "주절 S/V·접속절 V 분석이 필요해요",
           description: "분석률이 충분해도 주어/동사·접속절의 동사 분석은 모두 완료되어야 통과합니다.",
@@ -201,24 +206,31 @@ const SentenceLearn = () => {
       }
 
       const attemptCount = await fetchAttemptCount(sentence.id);
+      const ownerDiffPayload = opts?.teacherOverride
+        ? ([{ owner_id: "__teacher_override__", teacherOverride: true } as unknown as OwnerDiffEntry, ...grade.diffs])
+        : grade.diffs;
       await insertAttemptLog({
         sentence_id: sentence.id,
         attempt_no: attemptCount + 1,
         analysis_match_rate: grade.rate,
         analysis_passed: analysisPassed,
         word_test_score: wordTest.score,
-        word_test_passed: wordTest.passed,
-        owner_diff: grade.diffs,
+        word_test_passed: wordTestPassed,
+        owner_diff: ownerDiffPayload,
         translation_text: translationText || null,
         started_at: sessionStartedAt,
         completed_at: new Date().toISOString(),
       });
 
       await upsertSentenceProgress(sentence.id, {
-        word_test_done: wordTest.passed,
+        word_test_done: wordTestPassed,
         status: overallPass ? "pass" : "fail",
         passed_at: overallPass ? new Date().toISOString() : null,
       });
+
+      if (opts?.teacherOverride) {
+        setPreviousStatus("pass");
+      }
     } catch (e) {
       console.error("attempt log failed", e);
       toast({ title: "기록 저장 실패", description: String(e), variant: "destructive" });
