@@ -29,6 +29,7 @@ import {
 import { gradeAnalysis } from "@/lib/analysisGrading";
 import { toast } from "@/hooks/use-toast";
 import gwjEduLogo from "@/assets/gwj-edu-logo.png";
+import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 
 interface RecentItem {
   sentence: Sentence;
@@ -42,6 +43,9 @@ interface AssignmentRow {
   description: string | null;
   sentence_id: string | null;
   due_at: string;
+  include_analysis: boolean;
+  include_translation: boolean;
+  include_wordtest: boolean;
 }
 
 const StudentHome = () => {
@@ -82,7 +86,7 @@ const StudentHome = () => {
             .limit(5),
           supabase
             .from("assignments")
-            .select("id, title, description, sentence_id, due_at")
+            .select("id, title, description, sentence_id, due_at, include_analysis, include_translation, include_wordtest")
             .or(`student_id.eq.${user.id},student_id.is.null`)
             .gte("due_at", new Date().toISOString())
             .order("due_at", { ascending: true })
@@ -379,6 +383,11 @@ const StudentHome = () => {
                               {remainText}
                             </span>
                           </div>
+                          <AssignmentStepBadges
+                            includeAnalysis={a.include_analysis}
+                            includeTranslation={a.include_translation}
+                            includeWordtest={a.include_wordtest}
+                          />
                           {a.description && (
                             <p className="text-xs text-muted-foreground line-clamp-2">
                               {a.description}

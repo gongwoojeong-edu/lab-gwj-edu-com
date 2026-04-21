@@ -71,6 +71,9 @@ export type Database = {
           description: string | null
           due_at: string
           id: string
+          include_analysis: boolean
+          include_translation: boolean
+          include_wordtest: boolean
           sentence_id: string | null
           student_id: string | null
           teacher_id: string
@@ -82,6 +85,9 @@ export type Database = {
           description?: string | null
           due_at: string
           id?: string
+          include_analysis?: boolean
+          include_translation?: boolean
+          include_wordtest?: boolean
           sentence_id?: string | null
           student_id?: string | null
           teacher_id: string
@@ -93,6 +99,9 @@ export type Database = {
           description?: string | null
           due_at?: string
           id?: string
+          include_analysis?: boolean
+          include_translation?: boolean
+          include_wordtest?: boolean
           sentence_id?: string | null
           student_id?: string | null
           teacher_id?: string
