@@ -145,7 +145,8 @@ const SentenceLearn = () => {
       setEntries(built);
 
       if (!prog?.pre_done) setStep("pre");
-      else if (!prog?.analysis_done || !prog?.translation_done) setStep("analysis");
+      else if (!prog?.analysis_done) setStep("analysis");
+      else if (!prog?.translation_done) setStep("translation");
       else setStep("post");
 
       setLoading(false);
@@ -158,11 +159,21 @@ const SentenceLearn = () => {
   const stepStates = useMemo(
     () => ({
       pre: { done: preDone, locked: false },
-      analysis: { done: analysisDone && translationDone, locked: !preDone },
+      analysis: { done: analysisDone, locked: !preDone || translationDone },
+      translation: { done: translationDone, locked: !analysisDone },
       post: { done: false, locked: !(preDone && analysisDone && translationDone) },
     }),
     [preDone, analysisDone, translationDone],
   );
+
+  /** 백워드 전이 차단: 한글해석 제출 후에는 분석/단어학습 단계 진입 차단 */
+  const safeSetStep = (next: Step) => {
+    if (translationDone && (next === "pre" || next === "analysis")) {
+      setStep("post");
+      return;
+    }
+    setStep(next);
+  };
 
   /** Word test 종료(PASS/FAIL 무관) → 분석 채점 + attempt log 기록 + status 업데이트 */
   const recordAttempt = async (wordTest: { passed: boolean; score: number }) => {
