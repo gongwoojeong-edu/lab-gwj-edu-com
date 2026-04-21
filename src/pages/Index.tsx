@@ -2332,6 +2332,7 @@ const Index = ({
           !embedMode && !analysisPanelHidden && "lg:pr-[calc(min(30vw,420px)+2rem)]",
         )}
       >
+        {!embedMode && (
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2 flex-wrap">
@@ -2361,6 +2362,7 @@ const Index = ({
             </div>
           )}
         </div>
+        )}
 
         {answerInputMode && (
           <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2 flex items-center gap-2">
