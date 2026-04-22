@@ -226,7 +226,7 @@ const AnalysisRequests = () => {
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        분석률 {Math.round(Number(r.analysis_rate) * 100)}% · 시도 {r.attempt_no}회 ·{" "}
+                        정답률 {Math.round(Number(r.analysis_rate) * 100)}% · 시도 {r.attempt_no}회 ·{" "}
                         {new Date(r.requested_at).toLocaleTimeString("ko-KR", {
                           hour: "2-digit",
                           minute: "2-digit",

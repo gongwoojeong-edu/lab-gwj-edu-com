@@ -338,7 +338,7 @@ const RequestsInbox = () => {
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      분석률 {Math.round(Number(req.analysis_rate) * 100)}% · 시도 {req.attempt_no}회 · {time}
+                      정답률 {Math.round(Number(req.analysis_rate) * 100)}% · 시도 {req.attempt_no}회 · {time}
                       {req.track === "fail_assist" && (
                         <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">
                           미통 보조
