@@ -26,6 +26,7 @@ const HandoutPage = () => {
   const fromQueue = params.get("fromQueue") === "1";
   const reqId = params.get("reqId");
   const autoprint = params.get("autoprint") === "1";
+  const embed = params.get("embed") === "1";
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
@@ -83,17 +84,31 @@ const HandoutPage = () => {
     return () => window.removeEventListener("beforeprint", onBeforePrint);
   }, [fromQueue, reqId, studentId]);
 
-  // ===== autoprint=1 쿼리: 데이터 로드 후 자동 인쇄 트리거 =====
+  // ===== autoprint=1 쿼리: 데이터 + 레이아웃 안정화 후 자동 인쇄 =====
   useEffect(() => {
     if (!autoprint || loading || !passage) return;
-    const t = setTimeout(() => {
-      try {
-        window.print();
-      } catch (e) {
-        console.error("[Handout] auto-print failed", e);
-      }
-    }, 0);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    // 두 번의 rAF 후 print() — 폰트/이미지 레이아웃 안정화 대기
+    const fire = () => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          try {
+            window.print();
+          } catch (e) {
+            console.error("[Handout] auto-print failed", e);
+          }
+        });
+      });
+    };
+    // QR/폰트 등 비동기 자원이 잠깐 안정화되도록 80ms 대기
+    const t = window.setTimeout(fire, 80);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, [autoprint, loading, passage]);
 
   const segments = useMemo(
