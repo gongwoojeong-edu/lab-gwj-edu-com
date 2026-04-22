@@ -73,6 +73,10 @@ const LearningResults = () => {
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
   // 한글해석 제출 여부: `${userId}::${sentenceId}` → true
   const [translationSet, setTranslationSet] = useState<Record<string, boolean>>({});
+  // 한글해석 본문 캐시 (hover 시 fetch): `${userId}::${sentenceId}` → text | null(미제출) | undefined(미조회)
+  const [translationTextCache, setTranslationTextCache] = useState<
+    Record<string, string | null>
+  >({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
