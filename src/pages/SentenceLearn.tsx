@@ -332,7 +332,7 @@ const SentenceLearn = () => {
       if (!opts?.teacherOverride && grade.hasMaster && !requiredOk) {
         toast({
           title: "주절 S/V·접속절 V 분석이 필요해요",
-          description: "분석률이 충분해도 주어/동사·접속절의 동사 분석은 모두 완료되어야 통과합니다.",
+          description: "정답률이 충분해도 주어/동사·접속절의 동사 분석은 모두 완료되어야 통과합니다.",
           variant: "destructive",
         });
       }
@@ -426,7 +426,7 @@ const SentenceLearn = () => {
       if (!track) {
         toast({
           title: "요청을 보낼 수 없어요",
-          description: "분석률 80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
+          description: "정답률 80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
           variant: "destructive",
         });
         return;

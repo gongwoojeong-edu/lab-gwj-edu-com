@@ -197,7 +197,7 @@ const StudentHome = () => {
       const grade = await gradeAnalysis(sentenceId);
       if (grade.rate < 0.5) {
         toast({
-          title: "분석률이 부족해요",
+          title: `${grade.hasMaster ? "정답률" : "분석률"}이 부족해요`,
           description: `현재 ${Math.round(grade.rate * 100)}% — 50% 이상 분석 후 요청 가능`,
           variant: "destructive",
         });
