@@ -216,17 +216,37 @@ const BookshelfUnit = () => {
                           <span className="line-clamp-2">{p.english}</span>
                         </td>
                         <td className="py-2 px-3">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
-                              hasExtracted
-                                ? "bg-primary/15 text-primary"
-                                : "bg-muted text-muted-foreground",
-                            )}
-                          >
-                            <Sparkles className="size-3" />
-                            {hasExtracted ? `${wordCount}개` : "미추출"}
-                          </span>
+                          {hasExtracted ? (
+                            <button
+                              type="button"
+                              onClick={() => handleExtract(p)}
+                              disabled={extractingCode === p.code}
+                              title="다시 추출"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary hover:bg-primary/25 transition disabled:opacity-50"
+                            >
+                              {extractingCode === p.code ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="size-3" />
+                              )}
+                              {wordCount}개
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleExtract(p)}
+                              disabled={extractingCode === p.code}
+                              title="AI 단어 추출"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary transition disabled:opacity-50"
+                            >
+                              {extractingCode === p.code ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="size-3" />
+                              )}
+                              {extractingCode === p.code ? "추출 중…" : "미추출"}
+                            </button>
+                          )}
                         </td>
                         <td className="py-2 px-3">
                           <span
@@ -253,14 +273,14 @@ const BookshelfUnit = () => {
                             size="sm"
                             variant="ghost"
                             title="Hand-out 인쇄"
-                            onClick={() =>
-                              window.open(
-                                `/teacher/handout/${encodeURIComponent(p.code)}`,
-                                "_blank",
-                              )
-                            }
+                            disabled={printingCode === p.code}
+                            onClick={() => handlePrint(p)}
                           >
-                            <Printer className="size-3.5" />
+                            {printingCode === p.code ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Printer className="size-3.5" />
+                            )}
                           </Button>
                           <Button
                             size="sm"
