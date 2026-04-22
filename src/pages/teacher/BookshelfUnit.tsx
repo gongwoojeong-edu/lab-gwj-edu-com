@@ -216,6 +216,28 @@ const BookshelfUnit = () => {
           </div>
         </Card>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>지문을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-mono text-foreground">{deleteTarget?.code}</span> 지문과
+              관련된 분석/학습 기록은 그대로 남지만, 책장에서는 더 이상 보이지 않습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePassage}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="size-3.5 mr-1 animate-spin" />}삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TeacherLayout>
   );
 };
