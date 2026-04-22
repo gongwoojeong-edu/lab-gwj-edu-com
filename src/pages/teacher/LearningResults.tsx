@@ -299,6 +299,15 @@ const LearningResults = () => {
       });
       setStudentSentences(ssMap);
       setTranslationSet(tSet);
+
+      // === pre-warm: 첫 학생의 첫 sentence 로 iframe 미리 로드 (DNS/JS/CSS 캐시 hit) ===
+      const firstUid = Object.keys(ssMap)[0];
+      const firstSid = firstUid ? ssMap[firstUid]?.[0] : undefined;
+      if (firstUid && firstSid) {
+        prewarmPrintIframe(
+          `/print/handout/${encodeURIComponent(firstSid)}?student=${firstUid}&autoprint=1&embed=1`,
+        );
+      }
     } finally {
       setLoading(false);
     }
