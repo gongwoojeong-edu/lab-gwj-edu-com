@@ -1,119 +1,181 @@
 
+## 검토 결론
 
-## 플랜 — 인쇄 즉시 활성화 + "[object Object]" 토스트 제거
+제미나이 조언은 **방향은 일부 맞지만, 현재 코드 기준으로는 그대로 적용하면 핵심 병목을 못 잡습니다.**
 
-### 진단
+### 그대로 채택할 항목
+1. **Data Pre-loading**
+   - 맞습니다. 지금은 클릭 후 iframe 안에서 다시 fetch 하므로 느립니다.
+   - 특히 `LearningResults`, `PrintQueue`, `RequestsInbox`, `AnalysisCompare`에서 **인쇄용 데이터 자체를 클릭 전에 준비**해야 합니다.
 
-스크린샷 우측 하단의 **"인쇄 처리 일부 실패 [object Object]"** 토스트가 정확한 단서입니다.
-1. `LearningResults.handlePrint` 의 `catch (e) { description: String(e) }` → Supabase 에러 객체는 `String(e)` 시 `[object Object]` 로 찍힘.
-2. iframe 내부 핸드아웃 페이지가 **로드 도중 에러로 죽거나**, `__LOVABLE_PRINT_READY` 시그널을 못 보낸 채 멈춰 → 인쇄창은 떠도 **빈 페이지** 또는 **인쇄/미리보기 버튼이 무동작**.
-3. iframe 내부에서 SPA 전체(라우터, 인증, RequireAuth 등)를 통째로 끌고 들어가기 때문에 폰트/QR/lazy 컴포넌트가 다 풀려야 print() 가 의미 있게 동작 → 체감상 매우 느리고, 일부 환경에선 빈 페이지로 나옴.
+2. **Minimalist Print Window**
+   - 맞습니다. 다만 `window.open()` 새 팝업보다는, 이미 도입한 **hidden iframe 재사용**을 유지하되
+   - **URL 라우트 로드 방식**이 아니라 **부모에서 가벼운 HTML을 직접 주입(srcdoc / document.write)** 하는 쪽이 더 빠릅니다.
+   - 이렇게 해야 React/Router/Auth/페이지 fetch를 다시 태우지 않습니다.
 
-→ 사용자가 요청한 4가지 최적화 (pre-warm iframe / heavy lib 제거 / eager 이미지 / 컴포넌트 경량화) 전부 적용 + 토스트 메시지 정리.
+3. **Error Handling**
+   - 꼭 필요합니다.
+   - 지금은 `launchPrint()` 실패와 데이터 누락이 섞여 있고, 일부는 `[object Object]` 또는 모호한 토스트로 끝납니다.
+
+### 제한적으로만 채택할 항목
+4. **Base64 Image Conversion**
+   - 현재 인쇄 경로의 핵심 문서(`PrintableHandout`, `PrintableWord`)에는 **외부 URL 이미지가 거의 없습니다.**
+   - QR은 `QRCodeSVG` 인라인 SVG라서 **Base64 변환 이득이 거의 없고**, 오히려 Canvas 변환이 CPU를 더 씁니다.
+   - 따라서 이 항목은 **“실제 외부 이미지가 있는 경우만 선택 적용”** 으로 두는 게 맞습니다.
+   - 전역 기본 전략으로 쓰기엔 과합니다.
+
+### 제미나이 조언이 놓친 실제 핵심 문제
+1. **현재 `/print/*`도 여전히 React 앱 전체를 부팅**
+   - `src/App.tsx`에서 `/print/handout`, `/print/word`, `/print/analysis`가 아직 `RequireAuth` 안에 있습니다.
+   - 즉, hidden iframe이 떠도 실제로는 **전체 SPA + 인증 + 라우팅 + 각 페이지 fetch**를 다시 태웁니다.
+
+2. **`PrintableAnalysis`가 여전히 `Index`를 임베드**
+   - 이건 가장 무거운 경로입니다.
+   - “경량 인쇄” 이름과 달리 실제로는 분석기 본체를 다시 마운트합니다.
+
+3. **DB 에러 원인이 아직 남아 있음**
+   - `handout_results`에 `sentence_id` 인덱스는 추가됐지만, 원래의 `UNIQUE (user_id, test_date)` 제약이 남아 있습니다.
+   - 그래서 문장별 분리 저장을 해도 **같은 날 같은 학생의 다른 문장 저장 시 중복 오류**가 날 수 있습니다.
+   - 게다가 `PrintQueue`, `RequestsInbox`는 아직 `ensureHandoutRow(..., testDate)` 호출 시 **`sentenceId`를 안 넘기고 있습니다.**
 
 ---
 
-### 1. 진짜 가벼운 "PrintableWorkbook" 라우트 신설
+## 구현 플랜
 
-**신규 파일**: `src/pages/print/PrintableHandout.tsx`, `src/pages/print/PrintableWord.tsx`, `src/pages/print/PrintableAnalysis.tsx`
+### 1. URL 기반 iframe 인쇄를 버리고, “HTML 직주입” 방식으로 전환
+**핵심 변경:** `src/lib/printLauncher.ts`
 
-- 라우트 prefix: `/print/handout/...`, `/print/word/...`, `/print/analysis/...`
-- 특징:
-  - `RequireAuth` 미사용 — supabase anon key 로 직접 SELECT (RLS 허용 범위 안에서)
-  - React Router/Provider 트리 최소화 (필요 시 별도 Router branch)
-  - **애니메이션, lucide 아이콘, Button, Toolbar 등 인쇄와 무관한 UI 전부 제거**
-  - `<img>` 없음 (있으면 `loading="eager"` + `decoding="sync"`)
-  - QR 코드도 SSR-safe `qrcode.react` 만 사용 (이미 가벼움) → 유지
-  - 순수 텍스트 + 표 + `@media print` 만으로 구성
-  - html2pdf/jspdf 등 무거운 라이브러리 import 절대 없음 (현재도 없지만 정책 명문화)
-- 기존 `Handout.tsx`, `HandoutWord.tsx`, `AnalysisHandout.tsx` 는 **교사 미리보기 전용**(/teacher/handout/...) 으로 남겨 호환 유지.
+- `launchPrint(url)` 중심 구조를
+  - `launchPrintHtml(html, options)`
+  - `prewarmPrintDocument(key, html)`
+  형태로 확장
+- hidden iframe은 유지하되, `frame.src = "/print/..."` 대신
+  - `iframe.contentDocument.open()`
+  - 최소 HTML + 인라인 CSS 주입
+  - `document.close()`
+  - 문서 준비 완료 후 `contentWindow.print()`
+- 이렇게 하면:
+  - React 앱 재부팅 없음
+  - Router/Auth 없음
+  - 네트워크 재조회 최소화
+  - 클릭 직후 거의 바로 print preview 진입
 
-### 2. Pre-warmed Hidden Iframe 풀
+### 2. 인쇄용 데이터 사전 적재 계층 추가
+**신규 유틸 제안:** `src/lib/printPreload.ts` 또는 유사 파일
 
-**파일 수정**: `src/lib/printLauncher.ts`
+- 문서 종류별로 인쇄 payload를 미리 준비:
+  - **구문 HO**: 학생정보, 지문, 번역, 구조힌트
+  - **단어 HO**: 학생정보, 오답단어/전체단어, 모드 정보
+  - **분석 인쇄**: 학생정보, 비교 diff, 문장 텍스트/토큰
+- `LearningResults.refresh()` 완료 시:
+  - 현재 화면의 학생/문장 목록 기준으로 첫 배치 preload
+- `PrintQueue`, `RequestsInbox`도 행 렌더 후 preload
+- 클릭 시에는 “fetch 후 print”가 아니라 **준비된 payload → HTML 생성 → 즉시 print**
 
-- 모듈 레벨에 **항상 살아 있는 hidden iframe 1개**(off-screen) 를 lazy 생성해 풀로 보관.
-- 첫 인쇄 클릭 전에 백그라운드로 미리 다음 URL 을 prefetch:
-  - 가장 마지막에 학습결과를 본 학생의 첫 sentence 인쇄 URL (LearningResults 마운트 시 1건 워밍).
-- 인쇄 클릭 시:
-  1. 풀의 iframe 에 `src` 만 교체 (새 DOM/iframe 생성 안 함 → DNS/캐시 hit).
-  2. iframe 내부가 `window.__LOVABLE_PRINT_READY = true` 를 세팅하면 **부모에서 즉시** `iframe.contentWindow.print()`.
-  3. afterprint 후 iframe 은 **파기하지 않고 about:blank 로 비워 재사용**.
-- 동시 print() 충돌 방지를 위한 직렬 큐는 유지.
-- 다건(전체 인쇄) 은 풀 iframe 1개를 순차 재사용.
+### 3. 인쇄 템플릿을 React 페이지가 아닌 “순수 HTML 템플릿”으로 분리
+**신규 유틸 제안:** `src/lib/printTemplates.ts`
 
-### 3. Print-ready 시그널 견고화
+- `buildHandoutPrintHtml(payload)`
+- `buildWordPrintHtml(payload)`
+- `buildAnalysisPrintHtml(payload)`
 
-**파일**: 새 `PrintableHandout/Word/Analysis` 3종
+원칙:
+- 순수 HTML 문자열
+- 인라인 CSS + `@media print`
+- 불필요한 컴포넌트/아이콘/상태 없음
+- 이미지가 있으면 `loading="eager"` 적용
+- 가능하면 SVG/텍스트 중심
 
-- 데이터 fetch 완료 + 1 rAF + 폰트 ready (`document.fonts?.ready`) 후
-  - `__LOVABLE_PRINT_READY = true`
-- `autoprint=1` 인 경우(직접 새 탭으로 띄운 fallback) 에서만 자체 `window.print()` 호출
-- iframe 내부 인쇄에서는 **자체 print() 호출 안 함**(부모만 호출, 이중 호출 방지)
-- iframe 모드 식별: `embed=1` 쿼리 → 이때만 `__LOVABLE_PRINT_READY` 시그널 사용, autoprint 분기 비활성
+이렇게 하면 기존 `PrintableHandout.tsx`, `PrintableWord.tsx`, `PrintableAnalysis.tsx`는
+- **미리보기/수동 디버그용**으로만 남기고
+- **실제 즉시 인쇄 경로에서는 사용하지 않음**
 
-### 4. 토스트 / 에러 처리 정리
+### 4. `PrintableAnalysis`의 무거운 `Index` 임베드 제거
+**가장 큰 속도 개선 포인트**
 
-**파일 수정**: `src/pages/teacher/LearningResults.tsx`, `RequestsInbox.tsx`, `PrintQueue.tsx`
+- 현재 `PrintableAnalysis`는 `Index`를 마운트해서 사실상 분석기 전체를 띄웁니다.
+- 즉시 인쇄용은 다음처럼 단순화:
+  - 상단: 학생/문장 정보
+  - 중단: 비교 결과 요약(틀린 요소 목록, 강조 문장/구절)
+  - 하단: 재분석용 줄칸
+- 즉, **인쇄용 분석본은 정적 문서**로 재구성
+- 인터랙티브 분석 화면이 필요한 경우만 기존 `/teacher/compare/...` 또는 미리보기 경로 사용
 
-- 모든 `String(e)` → 다음 helper 로 교체:
-  ```ts
-  const errMsg = (e: unknown) =>
-    e instanceof Error ? e.message
-    : typeof e === "string" ? e
-    : (e as { message?: string })?.message ?? JSON.stringify(e);
-  ```
-- `print_requests` insert 실패는 **사용자 토스트로 띄우지 않음** (콘솔 경고만). 인쇄 자체는 성공이므로 사용자에게 실패처럼 보이면 안 됨.
-- `ensureHandoutRow` 실패만 별도 케이스로 처리 — 토스트는 `description: errMsg(e)` 사용.
-- 성공 토스트는 "인쇄창이 열립니다" → "인쇄 준비 완료 — 인쇄창이 떴어요" 로 정리.
+### 5. `handout_results` 저장 구조를 완전히 문장별로 정리
+**DB + 호출부 동시 수정 필요**
 
-### 5. 라우팅 등록
+#### DB 마이그레이션
+- 기존 `UNIQUE (user_id, test_date)` 제거
+- `(user_id, test_date, COALESCE(sentence_id, ''))` 유니크만 유지
+- 필요 시 기존 제약/인덱스 이름 기준으로 안전하게 `DROP CONSTRAINT` / `DROP INDEX`
 
-**파일 수정**: `src/App.tsx`
-
-- 신규 print 라우트 추가:
-  - `/print/handout/:passageCode`
-  - `/print/word/:passageCode`
-  - `/print/analysis/:sentenceId/:studentId`
-- 모두 `RequireAuth` 바깥에 위치 (인쇄용은 supabase anon SELECT 로 동작).
-- 단, 학생 식별 정보 등 민감 데이터는 anon SELECT 가능한지 RLS 확인 후 필요한 SELECT 정책만 보장.
-
-### 6. 호출부 URL 교체
-
-**파일 수정**:
-- `src/pages/teacher/LearningResults.tsx`
-- `src/pages/teacher/RequestsInbox.tsx`
+#### 호출부 수정
 - `src/pages/teacher/PrintQueue.tsx`
-- `src/pages/teacher/AnalysisCompare.tsx`
+  - `ensureHandoutRow(req.user_id, null, toIsoDate(new Date()))`
+  - 를 `sentenceId` 포함 호출로 변경
+- `src/pages/teacher/RequestsInbox.tsx`
+  - 동일하게 `sentenceId` 전달
+- `src/lib/handoutResults.ts`
+  - `fetchHandoutResultsByDate`도 user 단독 key가 아니라
+    `user_id::sentence_id` 기준으로 맞추거나 배열 반환으로 정리
+- 목적:
+  - 다른 문장 값이 같이 바뀌는 문제 방지
+  - duplicate key 오류 제거
+  - 인쇄 직후 점수 입력칸 활성화 로직 안정화
 
-- `launchPrint` 에 넘기는 URL 들을 `/teacher/handout/...` → `/print/handout/...` 등 신규 경량 라우트로 교체.
-- 미리보기(PDF) 버튼은 기존 `/teacher/handout/...` 유지 (사용자 요청대로 드물게 사용).
+### 6. 에러를 “단계별”로 분리해서 사용자에게 보여주기
+**파일:** `LearningResults.tsx`, `PrintQueue.tsx`, `RequestsInbox.tsx`, `AnalysisCompare.tsx`, `printLauncher.ts`
 
-### 7. 워밍 호출
+에러 분류:
+- 학생 정보 없음
+- 지문 데이터 없음
+- 단어 목록 없음
+- 분석 비교 데이터 없음
+- 인쇄 문서 생성 실패
+- 브라우저 인쇄창 호출 실패
 
-**파일 수정**: `src/pages/teacher/LearningResults.tsx`
+토스트 예시:
+- “학생 정보가 없어 인쇄를 준비하지 못했어요.”
+- “지문 데이터를 아직 못 불러왔어요. 잠시 후 다시 시도해 주세요.”
+- “이 브라우저가 인쇄창 호출을 막았어요. 미리보기로 열어주세요.”
 
-- 학생/문장 목록 로드 완료 시점에 첫 학생의 첫 sentence 로 `prewarmPrintIframe(url)` 호출.
-- `printLauncher.ts` 에 `prewarmPrintIframe(url)` export 추가 — iframe 풀에 미리 src 만 로드 후 print 안 함.
+### 7. Base64 이미지는 “선택 옵션”으로만 적용
+- 현재 문서 기준 필수 아님
+- 추후 외부 로고/사진/서명 이미지를 인쇄에 넣을 때만 적용
+- 적용 위치:
+  - preload 단계에서 1회 변환
+  - 클릭 시 변환 금지
+- QR은 인라인 SVG 유지
 
 ---
 
-### 변경 파일 요약
-- 신규
-  - `src/pages/print/PrintableHandout.tsx`
-  - `src/pages/print/PrintableWord.tsx`
-  - `src/pages/print/PrintableAnalysis.tsx`
-- 수정
-  - `src/lib/printLauncher.ts` (iframe 풀 + prewarm)
-  - `src/App.tsx` (print 라우트 등록)
-  - `src/pages/teacher/LearningResults.tsx` (URL 교체 + prewarm + 토스트 정리)
-  - `src/pages/teacher/RequestsInbox.tsx` (URL 교체)
-  - `src/pages/teacher/PrintQueue.tsx` (URL 교체)
-  - `src/pages/teacher/AnalysisCompare.tsx` (URL 교체)
+## 변경 대상 요약
 
-### 기대 결과
-- 인쇄 버튼 클릭 → **현재 화면 유지 + OS 인쇄창 즉시 활성화 + 미리보기 정상 표시 + 인쇄 정상 동작**.
-- "[object Object]" 토스트 사라짐. 실패 시 사람이 읽을 수 있는 메시지.
-- pre-warm 덕분에 첫 인쇄도 체감상 즉각적.
-- PDF 미리보기는 기존 `/teacher/handout/...` 경로로 별도 유지.
+### 수정
+- `src/lib/printLauncher.ts`
+- `src/lib/handoutResults.ts`
+- `src/pages/teacher/LearningResults.tsx`
+- `src/pages/teacher/PrintQueue.tsx`
+- `src/pages/teacher/RequestsInbox.tsx`
+- `src/pages/teacher/AnalysisCompare.tsx`
+- `src/App.tsx` (print route 역할 축소 또는 preview 전용 정리)
 
+### 신규
+- `src/lib/printPreload.ts`
+- `src/lib/printTemplates.ts`
+
+### DB 마이그레이션
+- `handout_results` 기존 `(user_id, test_date)` 유니크 제거
+- 문장별 유니크만 유지
+
+---
+
+## 기대 결과
+
+- 인쇄 버튼 클릭 시 **React 앱 재로딩 없이** 즉시 문서 주입
+- **OS 인쇄창 / 미리보기 속도 대폭 개선**
+- 현재처럼 “print route 들어가서 다시 fetch”하는 병목 제거
+- `[object Object]` 같은 모호한 오류 대신 원인별 메시지 표시
+- 같은 학생이 같은 날 여러 문장을 인쇄/채점해도 **서로 값이 섞이지 않음**
+- 제미나이 조언은 **Data Pre-loading / Minimal HTML / Error Handling은 채택**,  
+  **Base64 이미지는 실제 필요 시만 적용**하는 방향이 가장 적합
