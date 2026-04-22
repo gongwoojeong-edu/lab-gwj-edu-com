@@ -35,7 +35,7 @@ import {
   type WordAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
-import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen } from "lucide-react";
+import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save } from "lucide-react";
 import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
 import { ExtractedWordsPanel } from "@/components/analyzer/ExtractedWordsPanel";
 import { Separator } from "@/components/ui/separator";
