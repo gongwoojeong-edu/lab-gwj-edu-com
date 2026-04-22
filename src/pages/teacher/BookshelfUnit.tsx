@@ -40,6 +40,47 @@ const BookshelfUnit = () => {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [extractingCode, setExtractingCode] = useState<string | null>(null);
+  const [printingCode, setPrintingCode] = useState<string | null>(null);
+
+  const handleExtract = async (p: Passage) => {
+    if (extractingCode) return;
+    setExtractingCode(p.code);
+    try {
+      const res = await runExtraction(p.code, p.english);
+      if ("error" in res) {
+        const status = res.status;
+        if (status === 429) {
+          toast({ title: "잠시 후 다시 시도해 주세요", description: "AI 호출 한도 초과", variant: "destructive" });
+        } else if (status === 402) {
+          toast({ title: "AI 크레딧이 소진되었어요", variant: "destructive" });
+        } else if (status === 403) {
+          toast({ title: "권한이 없습니다", variant: "destructive" });
+        } else {
+          toast({ title: "추출 실패", description: res.error, variant: "destructive" });
+        }
+        return;
+      }
+      toast({ title: "✨ 단어 추출 완료", description: `${res.count}개 단어` });
+      setExtractedMap((prev) => ({ ...prev, [p.code]: res.count }));
+    } finally {
+      setExtractingCode(null);
+    }
+  };
+
+  const handlePrint = async (p: Passage) => {
+    if (printingCode) return;
+    setPrintingCode(p.code);
+    try {
+      const html = await buildHandoutPrintHtmlFor({ sentenceId: p.code });
+      await launchPrintHtml(html, { jobKey: `book-handout:${p.code}` });
+    } catch (e) {
+      const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+      toast({ title: "인쇄 실패", description: msg, variant: "destructive" });
+    } finally {
+      setPrintingCode(null);
+    }
+  };
 
   const reload = () => {
     if (!level || !unitNo) return;
