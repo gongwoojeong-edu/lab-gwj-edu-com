@@ -44,7 +44,13 @@ import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutRe
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
-import { launchPrint, launchPrintMany, prewarmPrintIframe } from "@/lib/printLauncher";
+import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/lib/printLauncher";
+import {
+  buildHandoutPrintHtmlFor,
+  buildWordPrintHtmlFor,
+  printStageMessage,
+  PrintPreloadError,
+} from "@/lib/printPreload";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 
@@ -300,14 +306,8 @@ const LearningResults = () => {
       setStudentSentences(ssMap);
       setTranslationSet(tSet);
 
-      // === pre-warm: 첫 학생의 첫 sentence 로 iframe 미리 로드 (DNS/JS/CSS 캐시 hit) ===
-      const firstUid = Object.keys(ssMap)[0];
-      const firstSid = firstUid ? ssMap[firstUid]?.[0] : undefined;
-      if (firstUid && firstSid) {
-        prewarmPrintIframe(
-          `/print/handout/${encodeURIComponent(firstSid)}?student=${firstUid}&autoprint=1&embed=1`,
-        );
-      }
+      // === pre-warm: 풀 iframe 만 살려둠 (HTML 직주입 방식이라 별도 prefetch 불필요) ===
+      prewarmPrintDocument();
     } finally {
       setLoading(false);
     }
@@ -333,19 +333,30 @@ const LearningResults = () => {
   const handlePrint = async (userId: string, sentenceId: string) => {
     const key = `print:${userId}:${sentenceId}`;
     setBusy((p) => ({ ...p, [key]: true }));
-    // 1) 화면전환 없이 즉시 인쇄창 — 숨김 iframe 사용 (경량 라우트)
-    launchPrint(
-      `/print/handout/${encodeURIComponent(sentenceId)}?student=${userId}&autoprint=1&embed=1`,
-      { jobKey: key },
-    ).catch((e) => console.warn("[LearningResults] launchPrint failed", e));
+    // 1) 데이터 사전 적재 → HTML 생성 → hidden iframe 직주입 인쇄
+    let html: string;
+    try {
+      html = await buildHandoutPrintHtmlFor({ sentenceId, studentId: userId });
+    } catch (e) {
+      const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+      toast({ title: "인쇄 준비 실패", description: msg, variant: "destructive" });
+      setBusy((p) => ({ ...p, [key]: false }));
+      return;
+    }
+    launchPrintHtml(html, { jobKey: key }).catch((e) => {
+      toast({
+        title: "인쇄창 호출 실패",
+        description: errMsg(e),
+        variant: "destructive",
+      });
+    });
     // 2) 낙관적 마킹 — HO 입력란 즉시 활성화
     const nowIso = new Date().toISOString();
     const stateKey = `${userId}::${sentenceId}`;
     setPrintedSet((p) => ({ ...p, [stateKey]: nowIso }));
-    // 3) 백그라운드 처리: print_requests 로깅(실패해도 토스트 안 띄움) + handout 행 보장
+    // 3) 백그라운드 처리: print_requests 로깅 + handout 행 보장
     try {
       const { data: u } = await supabase.auth.getUser();
-      // print_requests insert 실패는 사용자에게 노출하지 않음
       supabase
         .from("print_requests")
         .insert({
@@ -367,13 +378,9 @@ const LearningResults = () => {
         sentenceId,
       );
       setHandoutMap((prev) => ({ ...prev, [`${userId}::${sentenceId}`]: row }));
-      toast({ title: "인쇄창 준비 완료" });
     } catch (e) {
-      toast({
-        title: "인쇄 결과 기록 실패",
-        description: errMsg(e),
-        variant: "destructive",
-      });
+      // 인쇄 자체는 성공이므로 사용자 토스트는 굳이 띄우지 않음
+      console.warn("[LearningResults] handout row ensure failed", e);
     } finally {
       setBusy((p) => ({ ...p, [key]: false }));
     }
