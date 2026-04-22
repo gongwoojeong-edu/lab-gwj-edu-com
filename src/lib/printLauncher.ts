@@ -36,7 +36,7 @@ interface LaunchOptions {
  * 화면 이동/새 탭 없음. 항상 직렬 큐로 실행.
  */
 export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void> => {
-  const { jobKey, loadTimeoutMs = 15000, cleanupAfterMs = 2000, printDelayMs = 600 } = opts;
+  const { jobKey, loadTimeoutMs = 15000, cleanupAfterMs = 2000, printDelayMs = 100 } = opts;
   if (jobKey && inflight.has(jobKey)) {
     return Promise.resolve();
   }

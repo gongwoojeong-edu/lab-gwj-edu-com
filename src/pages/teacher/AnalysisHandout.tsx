@@ -25,9 +25,9 @@ const AnalysisHandout = () => {
   const [diff, setDiff] = useState<CompareDiffResult | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // autoprint 처리 — 데이터 로드 + 두 번 rAF 후 인쇄
+  // 데이터/레이아웃 준비 후 부모에 신호 + autoprint 시 직접 인쇄
   useEffect(() => {
-    if (!autoprint || loading) return;
+    if (loading) return;
     let cancelled = false;
     const fire = () => {
       if (cancelled) return;
@@ -35,10 +35,13 @@ const AnalysisHandout = () => {
         if (cancelled) return;
         requestAnimationFrame(() => {
           if (cancelled) return;
-          try {
-            window.print();
-          } catch (e) {
-            console.error("[AnalysisHandout] auto-print failed", e);
+          (window as unknown as { __LOVABLE_PRINT_READY?: boolean }).__LOVABLE_PRINT_READY = true;
+          if (autoprint) {
+            try {
+              window.print();
+            } catch (e) {
+              console.error("[AnalysisHandout] auto-print failed", e);
+            }
           }
         });
       });
