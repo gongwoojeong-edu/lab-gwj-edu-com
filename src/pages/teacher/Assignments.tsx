@@ -229,6 +229,14 @@ const Assignments = () => {
     };
   }, [rows, students]);
 
+  // 활성 = 미완료 항목만. 마감되었어도 미완료면 활성에 잔존.
+  // (완료된 항목은 [과거 과제함] 으로 이동)
+  const activeRows = useMemo(() => {
+    if (rows.length === 0) return rows;
+    const allIds = students.map((s) => s.user_id);
+    return rows.filter((r) => !isAssignmentDone(r, progressByAsg[r.id], allIds));
+  }, [rows, students, progressByAsg]);
+
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
