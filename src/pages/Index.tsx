@@ -1356,10 +1356,11 @@ const Index = ({
       return;
     }
 
-    // === Shift+클릭 = 누적 선택 (삭제 아님) ===
+    // === Shift+클릭 = 누적 선택 + 드래그 시작 (드래그로 범위 확장 가능) ===
     if (e.shiftKey && selectedWordIndices.length > 0) {
       const next = Array.from(new Set([...selectedWordIndices, idx])).sort((a, b) => a - b);
       setSelectedWordIndices(next);
+      setDragStart(idx); // 드래그 확장 시작점
       const sid = pickSelectedIdFromIndices(next);
       if (sid) {
         setSelectedId(sid);
@@ -1373,7 +1374,12 @@ const Index = ({
     // → 기존 owner는 보존된 채 그 위에 새 layer 분석 가능
     setDragStart(idx);
     setSelectedWordIndices([idx]);
-    const sid = pickSelectedIdFromIndices([idx]);
+    // 다층 분석 보장: 클릭한 단일 토큰이 이미 완료된 단일 owner(progressMap)면
+    // 같은 인덱스로 span owner를 생성해 새 layer로 분리한다.
+    let sid = pickSelectedIdFromIndices([idx]);
+    if (sid && progressMap[sid]?.completed) {
+      sid = buildSpanOwnerId(idx, idx);
+    }
     if (sid) {
       setSelectedId(sid);
       setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
@@ -1388,6 +1394,7 @@ const Index = ({
     const hi = Math.max(dragStart, idx);
     setSelectedWordIndices((prev) => {
       const next = new Set(prev);
+      // 기존 누적 선택을 보존(Shift 워크플로) + 새 드래그 범위 union
       for (let i = lo; i <= hi; i++) {
         if (!isPunct(wordUnits[i].word)) next.add(i);
       }
