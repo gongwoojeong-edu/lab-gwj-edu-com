@@ -51,12 +51,14 @@ import {
   type Textbook,
 } from "@/lib/textbooks";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const BookshelfLevel = () => {
   const { level } = useParams<{ level: LevelCode }>();
   const navigate = useNavigate();
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
+  const [firstSentenceMap, setFirstSentenceMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   // create textbook dialog
@@ -88,7 +90,28 @@ const BookshelfLevel = () => {
     if (!level) return;
     setLoading(true);
     fetchTextbooksByLevel(level)
-      .then(setTextbooks)
+      .then(async (tbs) => {
+        setTextbooks(tbs);
+        const ids = tbs.map((t) => t.id);
+        if (ids.length > 0) {
+          const { data } = await supabase
+            .from("textbook_passages")
+            .select("textbook_id, passage_no, english")
+            .in("textbook_id", ids)
+            .order("passage_no", { ascending: true });
+          const map: Record<string, string> = {};
+          (data ?? []).forEach((row) => {
+            const tid = row.textbook_id as string;
+            if (!map[tid] && row.english) {
+              const first = String(row.english).split(/(?<=[.!?])\s+/)[0] ?? row.english;
+              map[tid] = first;
+            }
+          });
+          setFirstSentenceMap(map);
+        } else {
+          setFirstSentenceMap({});
+        }
+      })
       .finally(() => setLoading(false));
   };
 
@@ -260,7 +283,14 @@ const BookshelfLevel = () => {
                     <div className="text-xs text-muted-foreground font-mono">
                       U{tb.unit_no}
                     </div>
-                    <h2 className="text-lg font-bold mt-0.5">{tb.title}</h2>
+                    <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
+                      <h2 className="text-lg font-bold shrink-0">{tb.title}</h2>
+                      {firstSentenceMap[tb.id] && (
+                        <span className="text-xs text-muted-foreground italic line-clamp-1 min-w-0">
+                          “{firstSentenceMap[tb.id]}”
+                        </span>
+                      )}
+                    </div>
                     {tb.description && (
                       <p className="text-xs text-muted-foreground mt-1">{tb.description}</p>
                     )}
