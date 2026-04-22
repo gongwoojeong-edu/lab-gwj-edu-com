@@ -36,7 +36,7 @@ interface LaunchOptions {
  * 화면 이동/새 탭 없음. 항상 직렬 큐로 실행.
  */
 export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void> => {
-  const { jobKey, loadTimeoutMs = 15000, cleanupAfterMs = 2000, printDelayMs = 600 } = opts;
+  const { jobKey, loadTimeoutMs = 15000, cleanupAfterMs = 2000, printDelayMs = 100 } = opts;
   if (jobKey && inflight.has(jobKey)) {
     return Promise.resolve();
   }
@@ -119,10 +119,35 @@ export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void
           }
         };
 
+        // iframe 내부 React 앱이 렌더 + 데이터 fetch 를 끝내면
+        // window.__LOVABLE_PRINT_READY = true 로 신호를 보냄.
+        // 이 신호가 올 때까지 폴링하다가, 신호가 오면 print() 호출.
+        // 폴링 타임아웃(loadTimeoutMs) 내에 신호가 없으면 강제 인쇄.
+        const waitReadyAndPrint = () => {
+          const start = performance.now();
+          const tick = () => {
+            if (printed) return;
+            const cw = frame.contentWindow;
+            const ready =
+              !!cw && (cw as unknown as { __LOVABLE_PRINT_READY?: boolean }).__LOVABLE_PRINT_READY === true;
+            if (ready) {
+              // 레이아웃이 안정화될 시간을 한 박자 더 줌
+              window.setTimeout(doPrint, 80);
+              return;
+            }
+            if (performance.now() - start > loadTimeoutMs) {
+              console.warn("[printLauncher] ready timeout — forcing print");
+              doPrint();
+              return;
+            }
+            window.setTimeout(tick, 80);
+          };
+          tick();
+        };
+
         frame.onload = () => {
-          // iframe 내부 React 앱이 데이터 로드 + 레이아웃 안정화 시간을 좀 줌.
-          // (autoprint=1 가 있어도 우리가 직접 한 번 더 시도 — 중복 호출은 브라우저가 무시)
-          printTimer = window.setTimeout(doPrint, printDelayMs);
+          // 최소한의 데이터 로딩 시간 후 ready 신호를 기다림
+          printTimer = window.setTimeout(waitReadyAndPrint, printDelayMs);
         };
 
         // 절대 안전망: loadTimeoutMs 가 지나도 print 시도가 없으면 정리

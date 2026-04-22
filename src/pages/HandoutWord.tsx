@@ -101,8 +101,9 @@ const HandoutWord = () => {
     };
   }, [passageCode, studentId, scope]);
 
+  // 데이터/레이아웃 준비 후 부모에 신호 + autoprint 시 직접 인쇄
   useEffect(() => {
-    if (!autoprint || loading || !passage) return;
+    if (loading || !passage) return;
     let cancelled = false;
     const fire = () => {
       if (cancelled) return;
@@ -110,10 +111,13 @@ const HandoutWord = () => {
         if (cancelled) return;
         requestAnimationFrame(() => {
           if (cancelled) return;
-          try {
-            window.print();
-          } catch (e) {
-            console.error("[HandoutWord] auto-print failed", e);
+          (window as unknown as { __LOVABLE_PRINT_READY?: boolean }).__LOVABLE_PRINT_READY = true;
+          if (autoprint) {
+            try {
+              window.print();
+            } catch (e) {
+              console.error("[HandoutWord] auto-print failed", e);
+            }
           }
         });
       });

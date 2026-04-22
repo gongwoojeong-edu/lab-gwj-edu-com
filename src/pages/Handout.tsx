@@ -84,26 +84,31 @@ const HandoutPage = () => {
     return () => window.removeEventListener("beforeprint", onBeforePrint);
   }, [fromQueue, reqId, studentId]);
 
-  // ===== autoprint=1 쿼리: 데이터 + 레이아웃 안정화 후 자동 인쇄 =====
+  // ===== 인쇄 준비 신호 + autoprint 처리 =====
+  // 데이터/레이아웃이 안정화되면 window.__LOVABLE_PRINT_READY 를 true 로 세팅.
+  // 부모(printLauncher)가 이 신호를 보고 print() 를 호출.
+  // autoprint=1 인 경우(직접 새창으로 열린 경우) 우리도 한 번 print() 호출.
   useEffect(() => {
-    if (!autoprint || loading || !passage) return;
+    if (loading || !passage) return;
     let cancelled = false;
-    // 두 번의 rAF 후 print() — 폰트/이미지 레이아웃 안정화 대기
     const fire = () => {
       if (cancelled) return;
       requestAnimationFrame(() => {
         if (cancelled) return;
         requestAnimationFrame(() => {
           if (cancelled) return;
-          try {
-            window.print();
-          } catch (e) {
-            console.error("[Handout] auto-print failed", e);
+          (window as unknown as { __LOVABLE_PRINT_READY?: boolean }).__LOVABLE_PRINT_READY = true;
+          if (autoprint) {
+            try {
+              window.print();
+            } catch (e) {
+              console.error("[Handout] auto-print failed", e);
+            }
           }
         });
       });
     };
-    // QR/폰트 등 비동기 자원이 잠깐 안정화되도록 80ms 대기
+    // QR/폰트 등 비동기 자원 안정화 짧은 대기
     const t = window.setTimeout(fire, 80);
     return () => {
       cancelled = true;
