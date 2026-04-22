@@ -1,6 +1,10 @@
 // ============================================================
 // HandoutWord — 단어 HO 학습지 (B5 인쇄)
-// 라우트: /teacher/handout/word/:passageCode?student=...&scope=wrong|all&autoprint=1
+// 라우트: /teacher/handout/word/:passageCode
+//   ?student=...  &scope=wrong|all  &mode=ko|en|mix  &autoprint=1
+//   - mode=ko : 영어 보임, 한글 빈칸
+//   - mode=en : 한글 뜻 보임, 영어 빈칸
+//   - mode=mix: 절반은 한글 빈칸, 절반은 영어 빈칸
 // ============================================================
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
@@ -19,11 +23,14 @@ interface WordItem {
   expected: string;
 }
 
+type WordMode = "ko" | "en" | "mix";
+
 const HandoutWord = () => {
   const { passageCode } = useParams<{ passageCode: string }>();
   const [params] = useSearchParams();
   const studentId = params.get("student");
   const scope = (params.get("scope") ?? "wrong") as "wrong" | "all";
+  const mode = (params.get("mode") ?? "ko") as WordMode;
   const autoprint = params.get("autoprint") === "1";
 
   const [passage, setPassage] = useState<Passage | null>(null);
@@ -101,7 +108,7 @@ const HandoutWord = () => {
       } catch (e) {
         console.error("[HandoutWord] auto-print failed", e);
       }
-    }, 350);
+    }, 0);
     return () => clearTimeout(t);
   }, [autoprint, loading, passage]);
 
@@ -110,6 +117,15 @@ const HandoutWord = () => {
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }, []);
+
+  // mode=mix 일 때 인덱스별 빈칸 종류 결정 (홀수: 한글 빈칸, 짝수: 영어 빈칸)
+  const blankSideOf = (idx0: number): "ko" | "en" => {
+    if (mode === "ko") return "ko";
+    if (mode === "en") return "en";
+    return idx0 % 2 === 0 ? "ko" : "en";
+  };
+
+  const modeLabel = mode === "ko" ? "한글 채우기" : mode === "en" ? "영어 채우기" : "혼합";
 
   if (loading) {
     return (
@@ -169,7 +185,8 @@ const HandoutWord = () => {
         }
         .word-row .num { font-size: 8pt; color: #444; text-align: right; padding-right: 1mm; }
         .word-row .en { font-size: 11pt; font-weight: 600; }
-        .word-row .ko { font-size: 9.5pt; color: #444; }
+        .word-row .ko { font-size: 9.5pt; color: #333; }
+        .word-row .blank { color: transparent; }
         .toolbar {
           position: sticky; top: 0; z-index: 10;
           background: hsl(var(--background));
@@ -186,20 +203,22 @@ const HandoutWord = () => {
         }
       `}</style>
 
-      <div className="toolbar no-print">
-        <Link to="/teacher/bookshelf">
-          <Button size="sm" variant="ghost">
-            <ArrowLeft className="size-4 mr-1" /> 책장
+      {!autoprint && (
+        <div className="toolbar no-print">
+          <Link to="/teacher/bookshelf">
+            <Button size="sm" variant="ghost">
+              <ArrowLeft className="size-4 mr-1" /> 책장
+            </Button>
+          </Link>
+          <div className="text-sm text-muted-foreground flex-1">
+            단어 HO · {passage.code} ·{" "}
+            {scope === "wrong" ? "오답만" : "전체"} · {modeLabel} · {items.length}개
+          </div>
+          <Button size="sm" onClick={() => window.print()}>
+            <Printer className="size-4 mr-1" /> 인쇄
           </Button>
-        </Link>
-        <div className="text-sm text-muted-foreground flex-1">
-          단어 HO · {passage.code} ·{" "}
-          {scope === "wrong" ? "오답만" : "전체"} · {items.length}개
         </div>
-        <Button size="sm" onClick={() => window.print()}>
-          <Printer className="size-4 mr-1" /> 인쇄
-        </Button>
-      </div>
+      )}
 
       <div className="word-page">
         <div className="word-header">
@@ -207,7 +226,7 @@ const HandoutWord = () => {
             <div className="word-eyebrow">Gongwoojeong · Word Hand-out</div>
             <div className="word-title">단어 HO · {passage.code}</div>
             <div className="word-meta">
-              {scope === "wrong" ? "오답 단어 학습지" : "전체 단어 학습지"} · {items.length}문항
+              {scope === "wrong" ? "오답 단어 학습지" : "전체 단어 학습지"} · {modeLabel} · {items.length}문항
             </div>
           </div>
           <div className="word-meta" style={{ textAlign: "right" }}>
@@ -229,12 +248,18 @@ const HandoutWord = () => {
             {[left, right].map((col, ci) => (
               <div key={ci} className="word-col">
                 {col.map((it, i) => {
-                  const idx = ci === 0 ? i + 1 : half + i + 1;
+                  const idx0 = ci === 0 ? i : half + i;
+                  const idx = idx0 + 1;
+                  const side = blankSideOf(idx0);
                   return (
                     <div key={idx} className="word-row">
                       <div className="num">{idx}.</div>
-                      <div className="en">{it.word}</div>
-                      <div className="ko">&nbsp;</div>
+                      <div className={side === "en" ? "en blank" : "en"}>
+                        {side === "en" ? "______" : it.word}
+                      </div>
+                      <div className={side === "ko" ? "ko blank" : "ko"}>
+                        {side === "ko" ? "______" : (it.expected || "—")}
+                      </div>
                     </div>
                   );
                 })}
