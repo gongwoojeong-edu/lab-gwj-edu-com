@@ -250,7 +250,7 @@ const TeacherAnalysisReview = () => {
                   </span>
                 )}
                 <span className="px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground text-xs font-bold">
-                  📊 정답률 {ratePct}%
+                  📊 {Object.keys(master).length === 0 ? "분석률" : "정답률"} {ratePct}%
                 </span>
                 <span
                   className={cn(
