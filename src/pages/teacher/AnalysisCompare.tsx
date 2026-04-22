@@ -66,6 +66,7 @@ const AnalysisCompare = () => {
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [wordList, setWordList] = useState<string[]>([]);
+  const [flatUnits, setFlatUnits] = useState<FlatWordUnit[]>([]);
 
   useEffect(() => {
     if (!sentenceId || !studentId) return;
