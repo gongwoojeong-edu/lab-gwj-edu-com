@@ -58,6 +58,7 @@ const BookshelfLevel = () => {
   const { level } = useParams<{ level: LevelCode }>();
   const navigate = useNavigate();
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
+  const [firstSentenceMap, setFirstSentenceMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   // create textbook dialog
