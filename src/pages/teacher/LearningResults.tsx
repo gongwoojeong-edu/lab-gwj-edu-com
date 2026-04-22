@@ -416,7 +416,7 @@ const LearningResults = () => {
         description: "학생 홈에 [재시험] 특별과제로 표시됩니다.",
       });
     } catch (e) {
-      toast({ title: "재시험 등록 실패", description: String(e), variant: "destructive" });
+      toast({ title: "재시험 등록 실패", description: errMsg(e), variant: "destructive" });
     } finally {
       setBusy((p) => ({ ...p, [key]: false }));
     }
@@ -426,7 +426,7 @@ const LearningResults = () => {
     // 직렬 인쇄 큐 — 한 건씩 OS 인쇄창이 순차로 뜸 (화면전환 없음)
     const urls = sentenceIds.map(
       (sid) =>
-        `/teacher/handout/${encodeURIComponent(sid)}?student=${userId}&autoprint=1&embed=1`,
+        `/print/handout/${encodeURIComponent(sid)}?student=${userId}&autoprint=1&embed=1`,
     );
     launchPrintMany(urls, { jobKey: `printAll:${userId}` }).catch((e) =>
       console.warn("[LearningResults] launchPrintMany failed", e),
@@ -443,22 +443,28 @@ const LearningResults = () => {
   ) => {
     const key = `wordPrint:${userId}:${sentenceId}:${scope}:${mode}`;
     launchPrint(
-      `/teacher/handout/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&mode=${mode}&autoprint=1&embed=1`,
+      `/print/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&mode=${mode}&autoprint=1&embed=1`,
       { jobKey: key },
     ).catch((e) => console.warn("[LearningResults] word launchPrint failed", e));
     const nowIso = new Date().toISOString();
     setPrintedSet((p) => ({ ...p, [`${userId}::${sentenceId}`]: nowIso }));
     try {
       const { data: u } = await supabase.auth.getUser();
-      await supabase.from("print_requests").insert({
-        user_id: userId,
-        sentence_id: sentenceId,
-        teacher_id: u.user?.id ?? null,
-        status: "printed",
-        handled_at: nowIso,
-        handled_by: u.user?.id ?? null,
-        note: `teacher-print-word-${scope}`,
-      });
+      // print_requests insert 실패는 사용자에게 노출하지 않음 (인쇄 자체는 성공)
+      supabase
+        .from("print_requests")
+        .insert({
+          user_id: userId,
+          sentence_id: sentenceId,
+          teacher_id: u.user?.id ?? null,
+          status: "printed",
+          handled_at: nowIso,
+          handled_by: u.user?.id ?? null,
+          note: `teacher-print-word-${scope}`,
+        })
+        .then(({ error }) => {
+          if (error) console.warn("[LearningResults] word print_requests insert skipped", error);
+        });
       const row = await ensureHandoutRow(
         userId,
         u.user?.id ?? null,
