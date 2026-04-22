@@ -398,6 +398,79 @@ const BookshelfLevel = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit textbook dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>교재 정보 수정 — {editTarget?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="edit-unit">유닛 번호</Label>
+              <Input
+                id="edit-unit"
+                type="number"
+                min={1}
+                value={editUnit}
+                onChange={(e) => setEditUnit(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-title">제목</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-desc">설명 (선택)</Label>
+              <Textarea
+                id="edit-desc"
+                rows={2}
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder="교재에 대한 간단한 메모"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="size-3.5 mr-1 animate-spin" />}저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete textbook confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>교재를 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-bold text-foreground">
+                {deleteTarget?.title} (U{deleteTarget?.unit_no})
+              </span>{" "}
+              교재와 그 안의 <b>모든 지문 · 분석 데이터</b>가 함께 삭제됩니다. 이 작업은
+              되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="size-3.5 mr-1 animate-spin" />}삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TeacherLayout>
   );
 };
