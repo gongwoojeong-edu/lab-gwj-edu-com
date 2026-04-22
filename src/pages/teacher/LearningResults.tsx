@@ -67,6 +67,7 @@ const LearningResults = () => {
   const [date, setDate] = useState<string>(toIsoDate(new Date()));
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
+  // key: `${user_id}::${sentence_id}` → HandoutResult (문장별 분리)
   const [handoutMap, setHandoutMap] = useState<Record<string, HandoutResult>>({});
   // key: `${user_id}::${sentence_id}` → AttemptStat
   const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
@@ -109,9 +110,10 @@ const LearningResults = () => {
     return unsub;
   }, []);
 
-  // HO 점수 입력 후 handoutMap 갱신
+  // HO 점수 입력 후 handoutMap 갱신 (sentence 별 키)
   const handleHandoutSaved = (row: HandoutResult) => {
-    setHandoutMap((prev) => ({ ...prev, [row.user_id]: row }));
+    const key = `${row.user_id}::${row.sentence_id ?? ""}`;
+    setHandoutMap((prev) => ({ ...prev, [key]: row }));
   };
 
   const refresh = async () => {
