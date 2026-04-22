@@ -44,7 +44,8 @@ import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutRe
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
-import { launchPrint, launchPrintMany } from "@/lib/printLauncher";
+import { launchPrint, launchPrintMany, prewarmPrintIframe } from "@/lib/printLauncher";
+import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
@@ -323,20 +324,22 @@ const LearningResults = () => {
   const handlePrint = async (userId: string, sentenceId: string) => {
     const key = `print:${userId}:${sentenceId}`;
     setBusy((p) => ({ ...p, [key]: true }));
-    // 1) 화면전환 없이 즉시 인쇄창 — 숨김 iframe 사용
+    // 1) 화면전환 없이 즉시 인쇄창 — 숨김 iframe 사용 (경량 라우트)
     launchPrint(
-      `/teacher/handout/${encodeURIComponent(sentenceId)}?student=${userId}&autoprint=1&embed=1`,
+      `/print/handout/${encodeURIComponent(sentenceId)}?student=${userId}&autoprint=1&embed=1`,
       { jobKey: key },
     ).catch((e) => console.warn("[LearningResults] launchPrint failed", e));
     // 2) 낙관적 마킹 — HO 입력란 즉시 활성화
     const nowIso = new Date().toISOString();
     const stateKey = `${userId}::${sentenceId}`;
     setPrintedSet((p) => ({ ...p, [stateKey]: nowIso }));
-    // 3) 백그라운드 처리: print_requests 로깅 + handout 행 보장
+    // 3) 백그라운드 처리: print_requests 로깅(실패해도 토스트 안 띄움) + handout 행 보장
     try {
       const { data: u } = await supabase.auth.getUser();
-      try {
-        await supabase.from("print_requests").insert({
+      // print_requests insert 실패는 사용자에게 노출하지 않음
+      supabase
+        .from("print_requests")
+        .insert({
           user_id: userId,
           sentence_id: sentenceId,
           teacher_id: u.user?.id ?? null,
@@ -344,10 +347,10 @@ const LearningResults = () => {
           handled_at: nowIso,
           handled_by: u.user?.id ?? null,
           note: "teacher-print",
+        })
+        .then(({ error }) => {
+          if (error) console.warn("[LearningResults] print_requests insert skipped", error);
         });
-      } catch (e) {
-        console.warn("[LearningResults] print_requests insert skipped", e);
-      }
       const row = await ensureHandoutRow(
         userId,
         u.user?.id ?? null,
@@ -355,9 +358,13 @@ const LearningResults = () => {
         sentenceId,
       );
       setHandoutMap((prev) => ({ ...prev, [`${userId}::${sentenceId}`]: row }));
-      toast({ title: "인쇄창이 열립니다 — HO 입력란 활성화" });
+      toast({ title: "인쇄창 준비 완료" });
     } catch (e) {
-      toast({ title: "인쇄 처리 일부 실패", description: String(e), variant: "destructive" });
+      toast({
+        title: "인쇄 결과 기록 실패",
+        description: errMsg(e),
+        variant: "destructive",
+      });
     } finally {
       setBusy((p) => ({ ...p, [key]: false }));
     }
