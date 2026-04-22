@@ -627,7 +627,7 @@ const LearningResults = () => {
                           <th className="text-left px-3 py-2 font-medium">단어시험</th>
                           <th className="text-left px-3 py-2 font-medium">단어 HO</th>
                           <th className="text-left px-3 py-2 font-medium">구문 HO</th>
-                          <th className="text-right px-3 py-2 font-medium">인쇄 및 재시험 러정</th>
+                          <th className="text-right px-3 py-2 font-medium">재시험</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -644,6 +644,7 @@ const LearningResults = () => {
                           const isPrinted = !!printedAt;
                           const printKey = `print:${userId}:${sid}`;
                           const retestKey = `retest:${userId}:${sid}`;
+                          const cachedTrans = translationTextCache[stateKey];
                           return (
                             <tr key={sid} className="hover:bg-muted/20 align-middle">
                               <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
@@ -657,44 +658,83 @@ const LearningResults = () => {
                                   )}
                                 </div>
                               </td>
+                              {/* 분석+해석 셀: hover→해석 미리보기, 클릭→비교 페이지 + 옆 인쇄 */}
                               <td className="px-3 py-2 whitespace-nowrap">
                                 {aScore == null && !translationSet[stateKey] ? (
                                   <span className="text-xs text-muted-foreground">—</span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-xs">
-                                    {aScore != null && (
-                                      <>
-                                        <Badge
-                                          className={
-                                            a?.analysis_passed
-                                              ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
-                                              : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
-                                          }
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <HoverCard openDelay={150} closeDelay={80}>
+                                      <HoverCardTrigger asChild>
+                                        <Link
+                                          to={`/teacher/compare/${encodeURIComponent(sid)}/${userId}`}
+                                          target="_blank"
+                                          title="클릭: 분석 비교 / Hover: 해석 미리보기"
+                                          onMouseEnter={() => prefetchTranslation(userId, sid)}
+                                          onFocus={() => prefetchTranslation(userId, sid)}
+                                          className="inline-flex items-center gap-1 text-xs hover:underline"
                                         >
-                                          {a?.analysis_passed ? "P" : "F"}
-                                        </Badge>
-                                        <span className="text-muted-foreground tabular-nums">
-                                          {aScore}%
-                                        </span>
-                                      </>
-                                    )}
-                                    <span className="text-muted-foreground">·</span>
-                                    {translationSet[stateKey] ? (
-                                      <span className="text-primary font-medium">해석✓</span>
-                                    ) : (
-                                      <span className="text-muted-foreground">해석✗</span>
-                                    )}
-                                    <Link
-                                      to={`/teacher/compare/${encodeURIComponent(sid)}/${userId}`}
-                                      target="_blank"
-                                      title="분석 + 한글해석 보기"
-                                      className="text-muted-foreground hover:text-primary"
+                                          {aScore != null && (
+                                            <>
+                                              <Badge
+                                                className={
+                                                  a?.analysis_passed
+                                                    ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
+                                                    : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
+                                                }
+                                              >
+                                                {a?.analysis_passed ? "P" : "F"}
+                                              </Badge>
+                                              <span className="text-muted-foreground tabular-nums">
+                                                {aScore}%
+                                              </span>
+                                            </>
+                                          )}
+                                          <span className="text-muted-foreground">·</span>
+                                          {translationSet[stateKey] ? (
+                                            <span className="text-primary font-medium">해석✓</span>
+                                          ) : (
+                                            <span className="text-muted-foreground">해석✗</span>
+                                          )}
+                                        </Link>
+                                      </HoverCardTrigger>
+                                      <HoverCardContent
+                                        side="top"
+                                        align="start"
+                                        className="w-80 max-h-72 overflow-y-auto"
+                                      >
+                                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                                          학생 한글해석
+                                        </p>
+                                        {cachedTrans === undefined ? (
+                                          <p className="text-xs text-muted-foreground">
+                                            불러오는 중…
+                                          </p>
+                                        ) : cachedTrans === null || !cachedTrans.trim() ? (
+                                          <p className="text-xs text-muted-foreground">
+                                            제출된 해석이 없습니다.
+                                          </p>
+                                        ) : (
+                                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                            {cachedTrans}
+                                          </p>
+                                        )}
+                                      </HoverCardContent>
+                                    </HoverCard>
+                                    <Button
+                                      size="sm"
+                                      variant={isPrinted ? "secondary" : "default"}
+                                      className="h-6 px-1.5"
+                                      disabled={!!busy[printKey]}
+                                      onClick={() => handlePrint(userId, sid)}
+                                      title={isPrinted ? "재인쇄 (분석+해석)" : "인쇄 (분석+해석)"}
                                     >
-                                      <Eye className="size-3.5" />
-                                    </Link>
-                                  </span>
+                                      <Printer className="size-3" />
+                                    </Button>
+                                  </div>
                                 )}
                               </td>
+                              {/* 단어시험 셀: 점수 + 보기 + 인쇄 드롭다운 */}
                               <td className="px-3 py-2 whitespace-nowrap">
                                 <div className="inline-flex items-center gap-1.5">
                                   {wScore == null ? (
@@ -718,14 +758,39 @@ const LearningResults = () => {
                                   >
                                     <Eye className="size-3.5" />
                                   </button>
-                                  <button
-                                    type="button"
-                                    title="한글해석 보기"
-                                    className="text-muted-foreground hover:text-primary"
-                                    onClick={() => handleViewTranslation(userId, sid)}
-                                  >
-                                    <FileText className="size-3.5" />
-                                  </button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant={isPrinted ? "secondary" : "outline"}
+                                        className="h-6 px-1.5"
+                                        title="단어 핸드아웃 인쇄"
+                                      >
+                                        <Printer className="size-3" />
+                                        <ChevronDown className="size-3 ml-0.5" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start">
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "ko")}>
+                                        오답 · 한글 채우기
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "en")}>
+                                        오답 · 스펠 채우기
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "mix")}>
+                                        오답 · 혼합
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "ko")}>
+                                        전체 · 한글 채우기
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "en")}>
+                                        전체 · 스펠 채우기
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "mix")}>
+                                        전체 · 혼합
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </td>
                               <td className="px-3 py-2">
@@ -750,59 +815,6 @@ const LearningResults = () => {
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center justify-end gap-1.5">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => handleOpenPdf(userId, sid)}
-                                    title="PDF 미리보기"
-                                  >
-                                    <FileText className="size-3" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant={isPrinted ? "secondary" : "default"}
-                                    className="h-7 px-2 text-xs"
-                                    disabled={!!busy[printKey]}
-                                    onClick={() => handlePrint(userId, sid)}
-                                    title={isPrinted ? "재인쇄" : "인쇄"}
-                                  >
-                                    <Printer className="size-3 mr-1" />
-                                    인쇄
-                                  </Button>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 px-2 text-xs"
-                                      >
-                                        <BookOpen className="size-3 mr-1" />
-                                        단어
-                                        <ChevronDown className="size-3 ml-0.5" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "ko")}>
-                                        오답 · 한글 채우기
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "en")}>
-                                        오답 · 스펠 채우기
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "mix")}>
-                                        오답 · 혼합
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "ko")}>
-                                        전체 · 한글 채우기
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "en")}>
-                                        전체 · 스펠 채우기
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "mix")}>
-                                        전체 · 혼합
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
                                   <Button
                                     size="sm"
                                     variant="secondary"
