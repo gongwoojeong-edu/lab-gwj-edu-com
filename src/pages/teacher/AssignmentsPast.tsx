@@ -13,6 +13,7 @@ import {
   fetchAssignmentProgress,
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
+import { isAssignmentDone } from "@/lib/assignmentCompletion";
 
 interface AssignmentRow {
   id: string;
@@ -55,10 +56,10 @@ const AssignmentsPast = () => {
     void (async () => {
       const [studs, { data }] = await Promise.all([
         fetchAllStudents(),
+        // 모든 과제 로드 — "완료된 것"만 클라이언트에서 필터 (마감 무관)
         supabase
           .from("assignments")
           .select("*")
-          .lt("due_at", new Date().toISOString())
           .order("due_at", { ascending: false }),
       ]);
       setStudents(studs);
