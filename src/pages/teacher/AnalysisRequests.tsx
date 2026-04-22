@@ -27,6 +27,7 @@ import {
   subscribeToReviewRequests,
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
+import { fetchMasterAvailability } from "@/lib/masterAvailability";
 import { loadSoundPrefs, saveSoundPrefs, playNotifyDing } from "@/lib/notifySound";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -44,6 +45,7 @@ const AnalysisRequests = () => {
   const [rows, setRows] = useState<AnalysisReviewRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
+  const [masterMap, setMasterMap] = useState<Record<string, boolean>>({});
   const [prefs, setPrefs] = useState(() => loadSoundPrefs());
 
   const refresh = async () => {
@@ -61,6 +63,13 @@ const AnalysisRequests = () => {
         map[s.user_id] = s as StudentInfo;
       });
       setStudents(map);
+    }
+    const sentenceIds = Array.from(new Set(list.map((r) => r.sentence_id)));
+    if (sentenceIds.length > 0) {
+      const m = await fetchMasterAvailability(sentenceIds);
+      setMasterMap(m);
+    } else {
+      setMasterMap({});
     }
     setLoading(false);
   };

@@ -47,6 +47,7 @@ import {
   printStageMessage,
   PrintPreloadError,
 } from "@/lib/printPreload";
+import { fetchMasterAvailability } from "@/lib/masterAvailability";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ const RequestsInbox = () => {
   const [printRows, setPrintRows] = useState<PrintRequest[]>([]);
   const [reviewRows, setReviewRows] = useState<AnalysisReviewRequest[]>([]);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
+  const [masterMap, setMasterMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
 
@@ -91,6 +93,14 @@ const RequestsInbox = () => {
           map[s.user_id] = s as StudentInfo;
         });
         setStudents(map);
+      }
+      // 정답보기(review) 요청들의 sentence별 마스터 유무 확인
+      const reviewSentenceIds = Array.from(new Set(rl.map((r) => r.sentence_id)));
+      if (reviewSentenceIds.length > 0) {
+        const m = await fetchMasterAvailability(reviewSentenceIds);
+        setMasterMap(m);
+      } else {
+        setMasterMap({});
       }
     } finally {
       setLoading(false);
