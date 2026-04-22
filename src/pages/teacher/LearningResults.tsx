@@ -615,7 +615,6 @@ const LearningResults = () => {
           <div className="space-y-3">
             {groupedEntries.map(([userId, sentenceIds]) => {
               const s = students[userId];
-              const handout = handoutMap[userId];
               return (
                 <Card key={userId} className="p-4 space-y-3">
                   {/* 학생 헤더 */}
