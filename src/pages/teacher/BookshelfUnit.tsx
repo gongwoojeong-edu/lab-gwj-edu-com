@@ -32,6 +32,7 @@ const BookshelfUnit = () => {
   const navigate = useNavigate();
   const [tb, setTb] = useState<Textbook | null>(null);
   const [passages, setPassages] = useState<Passage[]>([]);
+  const [extractedMap, setExtractedMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -45,6 +46,21 @@ const BookshelfUnit = () => {
       if (textbook) {
         const ps = await fetchPassagesByTextbook(textbook.id);
         setPassages(ps);
+        const ids = ps.map((p) => p.code);
+        if (ids.length > 0) {
+          const { data } = await supabase
+            .from("sentence_word_extractions")
+            .select("sentence_id, words")
+            .in("sentence_id", ids);
+          const map: Record<string, number> = {};
+          (data ?? []).forEach((row) => {
+            const arr = Array.isArray(row.words) ? row.words : [];
+            map[row.sentence_id as string] = arr.length;
+          });
+          setExtractedMap(map);
+        } else {
+          setExtractedMap({});
+        }
       }
       setLoading(false);
     });
