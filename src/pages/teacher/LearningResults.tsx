@@ -598,7 +598,7 @@ const LearningResults = () => {
                       <thead className="bg-muted/40 text-[11px] text-muted-foreground">
                         <tr>
                           <th className="text-left px-3 py-2 font-medium">문장 코드</th>
-                          <th className="text-left px-3 py-2 font-medium">구문분석</th>
+                          <th className="text-left px-3 py-2 font-medium">분석+해석</th>
                           <th className="text-left px-3 py-2 font-medium">단어시험</th>
                           <th className="text-left px-3 py-2 font-medium">단어 HO</th>
                           <th className="text-left px-3 py-2 font-medium">구문 HO</th>
