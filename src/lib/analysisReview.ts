@@ -23,14 +23,16 @@ export interface AnalysisReviewRequest {
   updated_at: string;
 }
 
-/** 트랙 판정: 정상 트랙 / 미통 보조 / 불가 */
+/** 트랙 판정: 정상 트랙 / 미통 보조 / 불가
+ *  - hold(마스터 미등록 상태)는 학생이 50% 이상 분석했으면 normal 트랙으로 요청 가능. */
 export const decideTrack = (input: {
   rate: number;
   requiredFilled: boolean;
-  sentenceStatus: "pending" | "pass" | "fail";
+  sentenceStatus: "pending" | "pass" | "fail" | "hold";
 }): ReviewTrack | null => {
   if (input.rate >= 0.8 && input.requiredFilled) return "normal";
   if (input.rate >= 0.5 && input.sentenceStatus === "fail") return "fail_assist";
+  if (input.rate >= 0.5 && input.sentenceStatus === "hold") return "normal";
   return null;
 };
 

@@ -42,6 +42,12 @@ const norm = (v: unknown): string => (v === null || v === undefined ? "" : Strin
 export const rateLabel = (hasMaster: boolean): "정답률" | "분석률" =>
   hasMaster ? "정답률" : "분석률";
 
+/** sentence_progress.status → 화면 라벨 */
+export const statusLabel = (
+  s: "pending" | "pass" | "fail" | "hold",
+): "PASS" | "미통" | "보류" | "진행중" =>
+  ({ pass: "PASS", fail: "미통", hold: "보류", pending: "진행중" } as const)[s];
+
 const detailsEqual = (a: AnyProgress, b: AnyProgress): boolean => {
   if (norm(a.pos) !== norm(b.pos)) return false;
   switch (a.pos) {
