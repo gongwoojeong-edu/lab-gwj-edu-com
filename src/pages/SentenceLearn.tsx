@@ -41,7 +41,7 @@ import { WordTestStep } from "@/components/learning/WordTestStep";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
-import { gradeAnalysis, type OwnerDiffEntry } from "@/lib/analysisGrading";
+import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
@@ -89,8 +89,11 @@ const SentenceLearn = () => {
   const [hintWrongOwnerIds, setHintWrongOwnerIds] = useState<Set<string>>(new Set());
   const [sessionStartedAt] = useState<string>(() => new Date().toISOString());
   const [translationText, setTranslationText] = useState<string>("");
-  const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[] } | null>(null);
+  const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[]; hasMaster: boolean } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
+  const [analysisHasMaster, setAnalysisHasMaster] = useState(false);
+  const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
+  const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
   const [skipFlags, setSkipFlags] = useState<{ pre: boolean; analysis: boolean; translation: boolean; wordtest: boolean }>({
     pre: true,
@@ -323,13 +326,13 @@ const SentenceLearn = () => {
       // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
       const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
       const overallPass = analysisPassed && wordTestPassed;
-      setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
+      setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs, hasMaster: grade.hasMaster });
 
       // 필수 owner 누락 안내 (학생에게) — override 시에는 생략
       if (!opts?.teacherOverride && grade.hasMaster && !requiredOk) {
         toast({
           title: "주절 S/V·접속절 V 분석이 필요해요",
-          description: "분석률이 충분해도 주어/동사·접속절의 동사 분석은 모두 완료되어야 통과합니다.",
+          description: "정답률이 충분해도 주어/동사·접속절의 동사 분석은 모두 완료되어야 통과합니다.",
           variant: "destructive",
         });
       }
@@ -423,7 +426,7 @@ const SentenceLearn = () => {
       if (!track) {
         toast({
           title: "요청을 보낼 수 없어요",
-          description: "분석률 80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
+          description: "정답률 80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
           variant: "destructive",
         });
         return;
@@ -469,6 +472,9 @@ const SentenceLearn = () => {
   /** 5-state 요청 버튼 렌더 */
   const renderReviewRequestButton = () => {
     if (!sentence) return null;
+    // 마스터 정답이 없는 문장은 첨삭 요청 자체를 노출하지 않음
+    const hasMaster = analysisGrade?.hasMaster ?? analysisHasMaster;
+    if (!hasMaster && !openRequest) return null;
     if (openRequest?.status === "approved") {
       return (
         <Button
@@ -497,10 +503,11 @@ const SentenceLearn = () => {
     const required = analysisGrade
       ? !analysisGrade.diffs.some((d) => d.status === "missing")
       : analysisRequiredFilled;
+    const label = rateLabel(hasMaster);
     if (rate < 0.5) {
       return (
         <Button size="sm" disabled variant="outline" className="text-xs">
-          <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (분석률 {Math.round(rate * 100)}%)
+          <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({label} {Math.round(rate * 100)}%)
         </Button>
       );
     }
@@ -783,7 +790,10 @@ const SentenceLearn = () => {
                   studentMode={true}
                   embedSentenceId={sentence.id}
                   onAnalysisDone={() => setAnalysisDone(true)}
-                  onAnalysisProgress={setAnalysisRate}
+                  onAnalysisProgress={(rate, meta) => {
+                    setAnalysisRate(rate);
+                    setAnalysisHasMaster(meta.hasMaster);
+                  }}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
               </div>
@@ -827,6 +837,7 @@ const SentenceLearn = () => {
           sentenceId={sentence.id}
           currentStatus={previousStatus}
           onConfirmSubmit={proceedToTranslation}
+          wordAnalysisRate={analysisRate}
         />
 
         {/* unused-old-marker */}

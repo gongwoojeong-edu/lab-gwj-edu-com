@@ -38,6 +38,10 @@ export interface AnalysisGradeResult {
 
 const norm = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
 
+/** 마스터키 유무에 따라 표기 라벨을 결정 — 모든 화면 공통 사용 */
+export const rateLabel = (hasMaster: boolean): "정답률" | "분석률" =>
+  hasMaster ? "정답률" : "분석률";
+
 const detailsEqual = (a: AnyProgress, b: AnyProgress): boolean => {
   if (norm(a.pos) !== norm(b.pos)) return false;
   switch (a.pos) {
