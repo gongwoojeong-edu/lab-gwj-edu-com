@@ -819,7 +819,8 @@ const LearningResults = () => {
                                   userId={userId}
                                   teacherId={teacherId}
                                   testDate={date}
-                                  current={handout ?? null}
+                                  sentenceId={sid}
+                                  current={handoutMap[`${userId}::${sid}`] ?? null}
                                   onSaved={handleHandoutSaved}
                                   disabled={!isPrinted}
                                 />
@@ -829,7 +830,8 @@ const LearningResults = () => {
                                   userId={userId}
                                   teacherId={teacherId}
                                   testDate={date}
-                                  current={handout ?? null}
+                                  sentenceId={sid}
+                                  current={handoutMap[`${userId}::${sid}`] ?? null}
                                   onSaved={handleHandoutSaved}
                                   disabled={!isPrinted}
                                 />
