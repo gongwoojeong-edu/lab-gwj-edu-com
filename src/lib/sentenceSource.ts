@@ -112,11 +112,12 @@ export const hydrateSentencesFromDb = async (force = false): Promise<void> => {
         if (!tb) continue;
         const level = tb.level as LevelCode;
         const idx = SENTENCES.findIndex((s) => s.id === row.code);
-        const next = rowToSentence(row, level);
-        // tokens 가 비어있고 정적 데이터가 있으면 정적 보존
-        if ((!next.tokens || next.tokens.length === 0) && idx >= 0) {
+        const dbTokens = row.tokens ?? [];
+        // DB tokens 비어있고 정적 데이터가 있으면 정적 보존 (정적 SENTENCES 유지)
+        if (dbTokens.length === 0 && idx >= 0) {
           continue;
         }
+        const next = rowToSentence(row, level);
         if (idx >= 0) {
           SENTENCES[idx] = { ...SENTENCES[idx], ...next };
         } else {
