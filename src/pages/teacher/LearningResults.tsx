@@ -70,6 +70,12 @@ const LearningResults = () => {
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
   const [printedSet, setPrintedSet] = useState<Record<string, string>>({});
+  // 한글해석 / 단어시험 보기 다이얼로그
+  const [viewDialog, setViewDialog] = useState<{
+    kind: "translation" | "wordTest";
+    title: string;
+    body: React.ReactNode;
+  } | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
