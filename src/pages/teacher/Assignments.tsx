@@ -56,6 +56,7 @@ import {
   fetchAssignmentProgress,
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
+import { isAssignmentDone } from "@/lib/assignmentCompletion";
 
 interface AssignmentRow {
   id: string;
