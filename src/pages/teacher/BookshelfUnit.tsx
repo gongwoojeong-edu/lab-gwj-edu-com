@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer, Trash2 } from "lucide-react";
+import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer, Trash2, Sparkles } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchTextbook,
@@ -23,6 +23,7 @@ import {
   type Passage,
 } from "@/lib/textbooks";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
