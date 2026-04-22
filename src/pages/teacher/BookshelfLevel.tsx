@@ -265,7 +265,24 @@ const BookshelfLevel = () => {
                       <p className="text-xs text-muted-foreground mt-1">{tb.description}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEdit(tb)}
+                      title="교재 정보 수정"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(tb)}
+                      title="교재 삭제"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => openInsert(tb)}>
                       <Sparkles className="size-3.5 mr-1" /> 교재 만들기
                     </Button>
