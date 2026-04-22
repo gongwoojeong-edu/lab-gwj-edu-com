@@ -22,6 +22,7 @@ import PrintQueue from "./pages/teacher/PrintQueue.tsx";
 import LearningResults from "./pages/teacher/LearningResults.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
 import HandoutPage from "./pages/Handout.tsx";
+import HandoutWord from "./pages/HandoutWord.tsx";
 import AnalysisReview from "./pages/AnalysisReview.tsx";
 import LearnCompare from "./pages/LearnCompare.tsx";
 import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
@@ -206,6 +207,14 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <HandoutPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/handout/word/:passageCode"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <HandoutWord />
                 </RequireAuth>
               }
             />

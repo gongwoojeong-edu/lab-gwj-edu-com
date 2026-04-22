@@ -12,12 +12,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Archive,
   Loader2,
   Printer,
   RefreshCcw,
   FileText,
+  Eye,
+  BookOpen,
+  ChevronDown,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
@@ -54,6 +70,12 @@ const LearningResults = () => {
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
   const [printedSet, setPrintedSet] = useState<Record<string, string>>({});
+  // 한글해석 / 단어시험 보기 다이얼로그
+  const [viewDialog, setViewDialog] = useState<{
+    kind: "translation" | "wordTest";
+    title: string;
+    body: React.ReactNode;
+  } | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
@@ -368,12 +390,139 @@ const LearningResults = () => {
 
   const handlePrintAll = async (userId: string, sentenceIds: string[]) => {
     for (const sid of sentenceIds) {
-      // 순차 호출 (한꺼번에 너무 많은 탭 열림 방지: 첫 PDF만 새 탭)
-      // 여기선 단순화: 각 sentence 마다 PDF 탭만 열고 처리 마킹
       handleOpenPdf(userId, sid);
     }
     toast({ title: `${sentenceIds.length}개 핸드아웃 탭 열림` });
   };
+
+  // 단어 HO 인쇄 (오답만 / 전체)
+  const handlePrintWord = async (
+    userId: string,
+    sentenceId: string,
+    scope: "wrong" | "all",
+  ) => {
+    window.open(
+      `/teacher/handout/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&autoprint=1`,
+      "_blank",
+    );
+    const nowIso = new Date().toISOString();
+    setPrintedSet((p) => ({ ...p, [`${userId}::${sentenceId}`]: nowIso }));
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      await supabase.from("print_requests").insert({
+        user_id: userId,
+        sentence_id: sentenceId,
+        teacher_id: u.user?.id ?? null,
+        status: "printed",
+        handled_at: nowIso,
+        handled_by: u.user?.id ?? null,
+        note: `teacher-print-word-${scope}`,
+      });
+      const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
+      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+    } catch (e) {
+      console.warn("[LearningResults] word print log failed", e);
+    }
+  };
+
+  // 학생이 제출한 한글해석 보기
+  const handleViewTranslation = async (userId: string, sentenceId: string) => {
+    const { data } = await supabase
+      .from("sentence_translations")
+      .select("text, submitted_at")
+      .eq("user_id", userId)
+      .eq("sentence_id", sentenceId)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setViewDialog({
+      kind: "translation",
+      title: `한글해석 — ${sentenceId}`,
+      body: data?.text ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            제출:{" "}
+            {new Date(data.submitted_at).toLocaleString("ko-KR")}
+          </p>
+          <p className="whitespace-pre-wrap leading-relaxed text-sm bg-muted/30 p-3 rounded">
+            {data.text}
+          </p>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">제출된 해석이 없습니다.</p>
+      ),
+    });
+  };
+
+  // 학생 단어시험 결과 보기
+  const handleViewWordTest = async (userId: string, sentenceId: string) => {
+    const { data } = await supabase
+      .from("word_test_results")
+      .select("score, passed, items, wrong_words, taken_at, attempt_no")
+      .eq("user_id", userId)
+      .eq("sentence_id", sentenceId)
+      .order("taken_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) {
+      setViewDialog({
+        kind: "wordTest",
+        title: `단어시험 — ${sentenceId}`,
+        body: <p className="text-sm text-muted-foreground">결과가 없습니다.</p>,
+      });
+      return;
+    }
+    const items = (data.items ?? []) as Array<{
+      word: string;
+      expected: string;
+      given: string;
+      correct: boolean;
+    }>;
+    setViewDialog({
+      kind: "wordTest",
+      title: `단어시험 — ${sentenceId} · ${data.passed ? "통과" : "재시도"} (${Math.round(Number(data.score))}점)`,
+      body: (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            응시: {new Date(data.taken_at).toLocaleString("ko-KR")} · {data.attempt_no}회차
+          </p>
+          <div className="overflow-hidden rounded border border-border max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40 sticky top-0">
+                <tr>
+                  <th className="text-left px-2 py-1">단어</th>
+                  <th className="text-left px-2 py-1">정답</th>
+                  <th className="text-left px-2 py-1">학생 답</th>
+                  <th className="text-center px-2 py-1 w-12">결과</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {items.map((it, i) => (
+                  <tr key={i} className={it.correct ? "" : "bg-destructive/5"}>
+                    <td className="px-2 py-1 font-mono">{it.word}</td>
+                    <td className="px-2 py-1">{it.expected}</td>
+                    <td
+                      className={
+                        it.correct
+                          ? "px-2 py-1 text-primary"
+                          : "px-2 py-1 text-destructive"
+                      }
+                    >
+                      {it.given || "—"}
+                    </td>
+                    <td className="px-2 py-1 text-center">
+                      {it.correct ? "✓" : "✗"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ),
+    });
+  };
+
 
   return (
     <TeacherLayout>
@@ -493,23 +642,49 @@ const LearningResults = () => {
                                     <span className="text-muted-foreground tabular-nums">
                                       {aScore}%
                                     </span>
+                                    <Link
+                                      to={`/teacher/compare/${encodeURIComponent(sid)}/${userId}`}
+                                      target="_blank"
+                                      title="구문분석 정답 확인"
+                                      className="text-muted-foreground hover:text-primary"
+                                    >
+                                      <Eye className="size-3.5" />
+                                    </Link>
                                   </span>
                                 )}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap">
-                                {wScore == null ? (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                ) : (
-                                  <span
-                                    className={
-                                      a?.word_passed
-                                        ? "text-primary font-semibold tabular-nums"
-                                        : "text-destructive font-semibold tabular-nums"
-                                    }
+                                <div className="inline-flex items-center gap-1.5">
+                                  {wScore == null ? (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  ) : (
+                                    <span
+                                      className={
+                                        a?.word_passed
+                                          ? "text-primary font-semibold tabular-nums"
+                                          : "text-destructive font-semibold tabular-nums"
+                                      }
+                                    >
+                                      {wScore}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    title="단어시험 결과 보기"
+                                    className="text-muted-foreground hover:text-primary"
+                                    onClick={() => handleViewWordTest(userId, sid)}
                                   >
-                                    {wScore}
-                                  </span>
-                                )}
+                                    <Eye className="size-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="한글해석 보기"
+                                    className="text-muted-foreground hover:text-primary"
+                                    onClick={() => handleViewTranslation(userId, sid)}
+                                  >
+                                    <FileText className="size-3.5" />
+                                  </button>
+                                </div>
                               </td>
                               <td className="px-3 py-2">
                                 <WordHoInput
@@ -544,13 +719,40 @@ const LearningResults = () => {
                                   </Button>
                                   <Button
                                     size="sm"
+                                    variant={isPrinted ? "secondary" : "default"}
                                     className="h-7 px-2 text-xs"
                                     disabled={!!busy[printKey]}
                                     onClick={() => handlePrint(userId, sid)}
+                                    title={isPrinted ? "재인쇄 (구문)" : "구문 인쇄"}
                                   >
                                     <Printer className="size-3 mr-1" />
-                                    인쇄
+                                    {isPrinted ? "재구문" : "구문"}
                                   </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        <BookOpen className="size-3 mr-1" />
+                                        단어
+                                        <ChevronDown className="size-3 ml-0.5" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        onClick={() => handlePrintWord(userId, sid, "wrong")}
+                                      >
+                                        오답만 인쇄
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handlePrintWord(userId, sid, "all")}
+                                      >
+                                        전체 단어 인쇄
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                   <Button
                                     size="sm"
                                     variant="secondary"
@@ -575,6 +777,16 @@ const LearningResults = () => {
           </div>
         )}
       </div>
+
+      {/* 보기 다이얼로그 (한글해석 / 단어시험) */}
+      <Dialog open={!!viewDialog} onOpenChange={(o) => !o && setViewDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewDialog?.title}</DialogTitle>
+          </DialogHeader>
+          {viewDialog?.body}
+        </DialogContent>
+      </Dialog>
     </TeacherLayout>
   );
 };
