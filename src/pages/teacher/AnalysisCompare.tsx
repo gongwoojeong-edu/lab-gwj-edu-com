@@ -24,6 +24,11 @@ interface StudentProfile {
   student_no: string;
 }
 
+interface TranslationRow {
+  text: string;
+  submitted_at: string;
+}
+
 const SS_KEY = (sid: string, uid: string) => `gwj.compareToggle.${sid}.${uid}`;
 
 const loadToggleSet = (sid: string, uid: string): Set<string> => {
