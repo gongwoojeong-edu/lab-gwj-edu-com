@@ -72,6 +72,18 @@ const BookshelfLevel = () => {
   const [splitMode, setSplitMode] = useState<"blank" | "line" | "sentence">("blank");
   const [inserting, setInserting] = useState(false);
 
+  // edit textbook dialog
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Textbook | null>(null);
+  const [editUnit, setEditUnit] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // delete textbook dialog
+  const [deleteTarget, setDeleteTarget] = useState<Textbook | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const reload = () => {
     if (!level) return;
     setLoading(true);
