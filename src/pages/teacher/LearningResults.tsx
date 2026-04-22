@@ -282,6 +282,7 @@ const LearningResults = () => {
         ssMap[uid] = Array.from(set).sort();
       });
       setStudentSentences(ssMap);
+      setTranslationSet(tSet);
     } finally {
       setLoading(false);
     }
