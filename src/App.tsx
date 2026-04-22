@@ -30,6 +30,9 @@ import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
 import AnalysisCompare from "./pages/teacher/AnalysisCompare.tsx";
 import AnalysisHandout from "./pages/teacher/AnalysisHandout.tsx";
 import RequestsInbox from "./pages/teacher/RequestsInbox.tsx";
+import PrintableHandout from "./pages/print/PrintableHandout.tsx";
+import PrintableWord from "./pages/print/PrintableWord.tsx";
+import PrintableAnalysis from "./pages/print/PrintableAnalysis.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
@@ -248,6 +251,31 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <TeacherDashboard />
+                </RequireAuth>
+              }
+            />
+            {/* === 경량 인쇄 라우트 (iframe 즉시 인쇄용) === */}
+            <Route
+              path="/print/handout/:passageCode"
+              element={
+                <RequireAuth>
+                  <PrintableHandout />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/print/word/:passageCode"
+              element={
+                <RequireAuth>
+                  <PrintableWord />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/print/analysis/:sentenceId/:studentId"
+              element={
+                <RequireAuth>
+                  <PrintableAnalysis />
                 </RequireAuth>
               }
             />

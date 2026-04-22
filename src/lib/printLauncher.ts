@@ -1,20 +1,12 @@
 // ============================================================
-// printLauncher — 화면전환 없는 즉시 인쇄 (숨김 iframe 기반)
+// printLauncher — 화면전환 없는 즉시 인쇄 (재사용 hidden iframe 풀)
 //
-// 사용 예:
-//   await launchPrint(`/teacher/handout/${sid}?student=${uid}&autoprint=1&embed=1`);
-//
-// 동작:
-//   1. 현재 페이지에 화면 밖 <iframe>을 만들고 인쇄 전용 URL을 로드
-//   2. iframe load 후 부모(런처)가 직접 print() 호출 → OS 인쇄창 즉시 표시
-//   3. afterprint 또는 타임아웃 후 iframe 자동 정리
-//
-// 주의:
-//   - iframe 을 width:0/height:0/display:none 로 두면 일부 브라우저(Chrome 등)는
-//     rAF / print() 를 throttling/무시함. 따라서 화면 밖(off-screen) 위치에
-//     실제 크기를 가진 iframe 을 둠.
-//   - 동시에 여러 print() 호출 시 충돌 → Promise queue 로 1건씩 직렬 실행
-//   - 같은 jobKey 가 이미 진행 중이면 무시 (중복 클릭 방지)
+// 변경점 (2026-04):
+//   - 모듈 레벨에 hidden iframe 1개를 lazy 생성해 재사용 (DOM 재생성 없음)
+//   - prewarmPrintIframe(url): 미리 src 로드 → DNS/JS/CSS 캐시 hit
+//   - launchPrint(url): 풀 iframe 의 src 만 교체, ready 신호 받으면 부모가 print()
+//   - 다건은 직렬 큐로 순차 실행
+//   - autoprint/embed 모드 분리: iframe 안에서는 자체 print() 호출 안 함
 // ============================================================
 
 let queue: Promise<void> = Promise.resolve();
@@ -25,18 +17,71 @@ interface LaunchOptions {
   jobKey?: string;
   /** iframe 로드 후 print() 호출까지 최대 대기 시간 (ms). */
   loadTimeoutMs?: number;
-  /** print 후 iframe 정리까지 대기 시간 (ms). afterprint 가 더 빨리 오면 그때 정리 */
+  /** print 후 정리까지 대기 시간 (ms). afterprint 가 더 빨리 오면 그때 정리 */
   cleanupAfterMs?: number;
-  /** iframe 내부 데이터 로딩 대기 (ms). load 이벤트 이후 추가 대기 */
-  printDelayMs?: number;
 }
+
+// ----- 풀 -----
+let poolFrame: HTMLIFrameElement | null = null;
+let poolReadyToken = 0; // 매 src 교체 시 증가 → 이전 폴링 무효화
+
+const ensurePoolFrame = (): HTMLIFrameElement => {
+  if (poolFrame && poolFrame.isConnected) return poolFrame;
+  const frame = document.createElement("iframe");
+  frame.setAttribute(
+    "style",
+    [
+      "position: fixed",
+      "left: -10000px",
+      "top: 0",
+      "width: 800px",
+      "height: 1000px",
+      "border: 0",
+      "opacity: 0",
+      "pointer-events: none",
+      "z-index: -1",
+    ].join("; "),
+  );
+  frame.setAttribute("aria-hidden", "true");
+  frame.setAttribute("tabindex", "-1");
+  frame.setAttribute("title", "print-pool");
+  frame.src = "about:blank";
+  document.body.appendChild(frame);
+  poolFrame = frame;
+  return frame;
+};
+
+const clearReadyFlag = (frame: HTMLIFrameElement) => {
+  try {
+    const cw = frame.contentWindow as unknown as { __LOVABLE_PRINT_READY?: boolean } | null;
+    if (cw) cw.__LOVABLE_PRINT_READY = false;
+  } catch {
+    /* cross-origin or detached — ignore */
+  }
+};
+
+/**
+ * 풀 iframe 에 인쇄 URL 을 미리 로드해 둠 (print() 호출 안 함).
+ * 첫 인쇄 클릭 직전에 호출하면 체감 속도가 크게 개선.
+ */
+export const prewarmPrintIframe = (url: string): void => {
+  if (typeof window === "undefined") return;
+  try {
+    const frame = ensurePoolFrame();
+    poolReadyToken++;
+    clearReadyFlag(frame);
+    frame.src = url;
+  } catch (e) {
+    console.warn("[printLauncher] prewarm failed", e);
+  }
+};
 
 /**
  * 숨김 iframe 으로 인쇄 URL 을 로드하고 OS 인쇄창을 즉시 띄움.
  * 화면 이동/새 탭 없음. 항상 직렬 큐로 실행.
  */
 export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void> => {
-  const { jobKey, loadTimeoutMs = 15000, cleanupAfterMs = 2000, printDelayMs = 100 } = opts;
+  const { jobKey, loadTimeoutMs = 12000, cleanupAfterMs = 2000 } = opts;
   if (jobKey && inflight.has(jobKey)) {
     return Promise.resolve();
   }
@@ -45,125 +90,123 @@ export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void
   const job = queue.then(
     () =>
       new Promise<void>((resolve) => {
-        const cleanup = (frame: HTMLIFrameElement | null) => {
-          if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
-          if (jobKey) inflight.delete(jobKey);
-          resolve();
-        };
-
-        const frame = document.createElement("iframe");
-        // 화면 밖(off-screen) 위치에 실제 크기로 배치 — display:none/0x0 은 일부 브라우저에서
-        // rAF / print() 를 막거나 throttling 함. A4 비슷한 크기를 줘야 안전.
-        frame.setAttribute(
-          "style",
-          [
-            "position: fixed",
-            "left: -10000px",
-            "top: 0",
-            "width: 800px",
-            "height: 1000px",
-            "border: 0",
-            "opacity: 0",
-            "pointer-events: none",
-            "z-index: -1",
-          ].join("; "),
-        );
-        frame.setAttribute("aria-hidden", "true");
-        frame.setAttribute("tabindex", "-1");
+        const frame = ensurePoolFrame();
+        const myToken = ++poolReadyToken;
 
         let printed = false;
         let cleanupTimer: number | null = null;
-        let printTimer: number | null = null;
         let safetyTimer: number | null = null;
+        let pollTimer: number | null = null;
 
-        const triggerCleanup = () => {
+        const finish = () => {
           if (cleanupTimer != null) {
             window.clearTimeout(cleanupTimer);
             cleanupTimer = null;
-          }
-          if (printTimer != null) {
-            window.clearTimeout(printTimer);
-            printTimer = null;
           }
           if (safetyTimer != null) {
             window.clearTimeout(safetyTimer);
             safetyTimer = null;
           }
-          cleanup(frame);
+          if (pollTimer != null) {
+            window.clearTimeout(pollTimer);
+            pollTimer = null;
+          }
+          window.removeEventListener("afterprint", onAfterPrint);
+          if (jobKey) inflight.delete(jobKey);
+          // 풀 iframe 은 파기하지 않고 about:blank 로 비워 재사용
+          try {
+            clearReadyFlag(frame);
+            frame.src = "about:blank";
+          } catch {
+            /* ignore */
+          }
+          resolve();
         };
 
         const onAfterPrint = () => {
-          window.removeEventListener("afterprint", onAfterPrint);
-          // afterprint 직후 약간의 여유를 두고 정리 (Safari/일부 환경 안정성)
-          window.setTimeout(triggerCleanup, 200);
+          // 약간의 여유 후 정리
+          window.setTimeout(finish, 200);
         };
         window.addEventListener("afterprint", onAfterPrint);
 
         const doPrint = () => {
           if (printed) return;
+          printed = true;
           try {
             const cw = frame.contentWindow;
             if (!cw) {
               console.warn("[printLauncher] no contentWindow");
-              triggerCleanup();
+              finish();
               return;
             }
             cw.focus();
             cw.print();
-            printed = true;
-            // print() 호출 후 cleanupAfterMs 안에 afterprint 가 안 오면 강제 정리
-            cleanupTimer = window.setTimeout(triggerCleanup, cleanupAfterMs);
+            cleanupTimer = window.setTimeout(finish, cleanupAfterMs);
           } catch (e) {
             console.warn("[printLauncher] print() failed", e);
-            triggerCleanup();
+            finish();
           }
         };
 
-        // iframe 내부 React 앱이 렌더 + 데이터 fetch 를 끝내면
-        // window.__LOVABLE_PRINT_READY = true 로 신호를 보냄.
-        // 이 신호가 올 때까지 폴링하다가, 신호가 오면 print() 호출.
-        // 폴링 타임아웃(loadTimeoutMs) 내에 신호가 없으면 강제 인쇄.
-        const waitReadyAndPrint = () => {
-          const start = performance.now();
-          const tick = () => {
-            if (printed) return;
-            const cw = frame.contentWindow;
-            const ready =
-              !!cw && (cw as unknown as { __LOVABLE_PRINT_READY?: boolean }).__LOVABLE_PRINT_READY === true;
-            if (ready) {
-              // 레이아웃이 안정화될 시간을 한 박자 더 줌
-              window.setTimeout(doPrint, 80);
-              return;
-            }
-            if (performance.now() - start > loadTimeoutMs) {
-              console.warn("[printLauncher] ready timeout — forcing print");
-              doPrint();
-              return;
-            }
-            window.setTimeout(tick, 80);
-          };
-          tick();
+        // ready 시그널 폴링
+        const startedAt = performance.now();
+        const poll = () => {
+          if (printed) return;
+          // 이 작업 토큰이 무효화됐으면 중단
+          if (myToken !== poolReadyToken) {
+            finish();
+            return;
+          }
+          let ready = false;
+          try {
+            const cw = frame.contentWindow as unknown as
+              | { __LOVABLE_PRINT_READY?: boolean }
+              | null;
+            ready = !!cw && cw.__LOVABLE_PRINT_READY === true;
+          } catch {
+            /* cross-origin shouldn't happen — same origin */
+          }
+          if (ready) {
+            // 한 박자 더 줘서 레이아웃/폰트 안정화
+            window.setTimeout(doPrint, 60);
+            return;
+          }
+          if (performance.now() - startedAt > loadTimeoutMs) {
+            console.warn("[printLauncher] ready timeout — forcing print");
+            doPrint();
+            return;
+          }
+          pollTimer = window.setTimeout(poll, 60);
         };
 
-        frame.onload = () => {
-          // 최소한의 데이터 로딩 시간 후 ready 신호를 기다림
-          printTimer = window.setTimeout(waitReadyAndPrint, printDelayMs);
-        };
-
-        // 절대 안전망: loadTimeoutMs 가 지나도 print 시도가 없으면 정리
+        // src 교체 → 폴링 시작
+        try {
+          clearReadyFlag(frame);
+          frame.src = url;
+        } catch (e) {
+          console.warn("[printLauncher] src set failed", e);
+          finish();
+          return;
+        }
+        // 절대 안전망
         safetyTimer = window.setTimeout(() => {
           if (!printed) {
-            console.warn("[printLauncher] load timeout — forcing print");
+            console.warn("[printLauncher] absolute timeout — forcing print");
             doPrint();
           }
-        }, loadTimeoutMs);
+        }, loadTimeoutMs + 1000);
 
-        frame.src = url;
-        document.body.appendChild(frame);
+        // load 후 폴링 시작 (load 가 이미 끝났을 수도 있으니 조금 후에도 시도)
+        const onLoad = () => {
+          frame.removeEventListener("load", onLoad);
+          window.setTimeout(poll, 30);
+        };
+        frame.addEventListener("load", onLoad);
+        // load 가 fire 됐을 가능성 대비
+        window.setTimeout(poll, 50);
       }),
   );
 
-  // 큐는 항상 직렬 — 다음 작업이 이전 작업 완료 후 시작
   queue = job.catch(() => undefined);
   return job;
 };
@@ -175,7 +218,9 @@ export const launchPrintMany = async (
   urls: string[],
   opts: LaunchOptions = {},
 ): Promise<void> => {
-  for (const u of urls) {
-    await launchPrint(u, opts);
+  for (let i = 0; i < urls.length; i++) {
+    const u = urls[i];
+    const k = opts.jobKey ? `${opts.jobKey}:${i}` : undefined;
+    await launchPrint(u, { ...opts, jobKey: k });
   }
 };

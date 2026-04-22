@@ -25,6 +25,7 @@ import {
 import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
 import { launchPrint, launchPrintMany } from "@/lib/printLauncher";
 import { supabase } from "@/integrations/supabase/client";
+import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
@@ -161,11 +162,11 @@ const PrintQueue = () => {
     const sid = encodeURIComponent(req.sentence_id);
     const urls: string[] = [];
     if (kind === "syntax" || kind === "all") {
-      urls.push(`/teacher/handout/${sid}?student=${req.user_id}&autoprint=1&embed=1`);
+      urls.push(`/print/handout/${sid}?student=${req.user_id}&autoprint=1&embed=1`);
     }
     if (kind === "word" || kind === "all") {
       urls.push(
-        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1&embed=1`,
+        `/print/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1&embed=1`,
       );
     }
     launchPrintMany(urls, { jobKey: busyKey }).catch((e) =>
@@ -174,11 +175,11 @@ const PrintQueue = () => {
     try {
       await markPrintRequestHandled(req.id);
       await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()));
-      toast({ title: "인쇄창이 열립니다 — 학습결과로 이동됨" });
+      toast({ title: "인쇄창 준비 완료 — 학습결과로 이동됨" });
     } catch (e) {
       toast({
         title: "처리 마킹 실패",
-        description: String(e),
+        description: errMsg(e),
         variant: "destructive",
       });
     } finally {
