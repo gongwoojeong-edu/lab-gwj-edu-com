@@ -27,15 +27,30 @@ import {
   BookOpen,
   FileText,
   Sparkles,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchTextbooksByLevel,
   createTextbook,
+  updateTextbook,
+  deleteTextbook,
   bulkInsertPassages,
   splitPassageText,
   type Textbook,
 } from "@/lib/textbooks";
+import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { toast } from "@/hooks/use-toast";
 
 const BookshelfLevel = () => {
