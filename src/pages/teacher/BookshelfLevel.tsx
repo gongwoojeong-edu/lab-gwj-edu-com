@@ -283,7 +283,14 @@ const BookshelfLevel = () => {
                     <div className="text-xs text-muted-foreground font-mono">
                       U{tb.unit_no}
                     </div>
-                    <h2 className="text-lg font-bold mt-0.5">{tb.title}</h2>
+                    <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
+                      <h2 className="text-lg font-bold shrink-0">{tb.title}</h2>
+                      {firstSentenceMap[tb.id] && (
+                        <span className="text-xs text-muted-foreground italic line-clamp-1 min-w-0">
+                          “{firstSentenceMap[tb.id]}”
+                        </span>
+                      )}
+                    </div>
                     {tb.description && (
                       <p className="text-xs text-muted-foreground mt-1">{tb.description}</p>
                     )}
