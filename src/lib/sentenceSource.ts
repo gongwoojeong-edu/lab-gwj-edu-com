@@ -66,16 +66,21 @@ interface TextbookRow {
 let hydrated = false;
 let hydrating: Promise<void> | null = null;
 
-/** DB → Sentence 변환 */
-const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => ({
-  id: row.code,
-  no: row.passage_no,
-  level,
-  english: row.english,
-  korean: row.korean ?? "",
-  structureTags: [],
-  tokens: row.tokens ?? [],
-});
+/** DB → Sentence 변환. tokens 가 비어있으면 영문에서 자동 토큰화. */
+const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => {
+  const dbTokens = row.tokens ?? [];
+  const tokens =
+    dbTokens.length > 0 ? dbTokens : buildTokensFromEnglish(row.english);
+  return {
+    id: row.code,
+    no: row.passage_no,
+    level,
+    english: row.english,
+    korean: row.korean ?? "",
+    structureTags: [],
+    tokens,
+  };
+};
 
 /**
  * DB의 모든 passage를 읽어 정적 SENTENCES와 머지한다.
