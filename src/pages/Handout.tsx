@@ -150,7 +150,7 @@ const HandoutPage = () => {
   const audioUrl = `https://lab.gwj-edu.com/learn/sentence/${passage.code}?audio=1`;
 
   return (
-    <div className="handout-root bg-muted/40 min-h-screen">
+    <div className={`handout-root ${embed ? "" : "bg-muted/40"} min-h-screen`}>
       <style>{`
         @page { size: B5 portrait; margin: 10mm; }
         .handout-page {
