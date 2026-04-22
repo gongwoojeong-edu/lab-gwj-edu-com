@@ -20,6 +20,7 @@ import {
   type FlatWordUnit,
 } from "@/lib/analysisCompare";
 import { fetchPassageByCode } from "@/lib/textbooks";
+import { launchPrint } from "@/lib/printLauncher";
 
 interface AdminProfile {
   user_id: string;
@@ -209,18 +210,39 @@ const AnalysisCompare = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                launchPrint(
+                  `/teacher/handout/analysis/${sentenceId}/${studentId}?mode=marked&autoprint=1&embed=1`,
+                  { jobKey: `cmp-marked:${sentenceId}:${studentId}` },
+                )
+              }
+              title="채점본을 화면전환 없이 즉시 인쇄"
+            >
+              <Printer className="size-4" /> 채점본 인쇄
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                launchPrint(
+                  `/teacher/handout/analysis/${sentenceId}/${studentId}?mode=blank&autoprint=1&embed=1`,
+                  { jobKey: `cmp-blank:${sentenceId}:${studentId}` },
+                )
+              }
+              title="blank 본을 화면전환 없이 즉시 인쇄"
+            >
+              <Printer className="size-4" /> blank 인쇄
+            </Button>
+            <Button asChild variant="ghost" size="sm" title="채점본 새 탭에서 미리보기">
               <Link to={`/teacher/handout/analysis/${sentenceId}/${studentId}?mode=marked`} target="_blank">
-                <FileText className="size-4" /> 핸드아웃(채점)
+                <FileText className="size-4" /> 미리보기
               </Link>
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to={`/teacher/handout/analysis/${sentenceId}/${studentId}?mode=blank`} target="_blank">
-                <FileText className="size-4" /> 핸드아웃(blank)
-              </Link>
-            </Button>
-            <Button size="sm" onClick={() => window.print()}>
-              <Printer className="size-4" /> 둘 다 인쇄
+            <Button size="sm" onClick={() => window.print()} title="현재 비교 화면 인쇄">
+              <Printer className="size-4" /> 비교화면 인쇄
             </Button>
           </div>
         </div>

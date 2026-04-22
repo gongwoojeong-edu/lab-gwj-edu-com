@@ -32,6 +32,7 @@ const HandoutWord = () => {
   const scope = (params.get("scope") ?? "wrong") as "wrong" | "all";
   const mode = (params.get("mode") ?? "ko") as WordMode;
   const autoprint = params.get("autoprint") === "1";
+  const embed = params.get("embed") === "1";
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
@@ -102,14 +103,26 @@ const HandoutWord = () => {
 
   useEffect(() => {
     if (!autoprint || loading || !passage) return;
-    const t = setTimeout(() => {
-      try {
-        window.print();
-      } catch (e) {
-        console.error("[HandoutWord] auto-print failed", e);
-      }
-    }, 0);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    const fire = () => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          try {
+            window.print();
+          } catch (e) {
+            console.error("[HandoutWord] auto-print failed", e);
+          }
+        });
+      });
+    };
+    const t = window.setTimeout(fire, 80);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, [autoprint, loading, passage]);
 
   const printedAt = useMemo(() => {
@@ -154,7 +167,7 @@ const HandoutWord = () => {
   const right = items.slice(half);
 
   return (
-    <div className="handout-root bg-muted/40 min-h-screen">
+    <div className={`handout-root ${embed ? "" : "bg-muted/40"} min-h-screen`}>
       <style>{`
         @page { size: B5 portrait; margin: 10mm; }
         .word-page {
@@ -203,7 +216,7 @@ const HandoutWord = () => {
         }
       `}</style>
 
-      {!autoprint && (
+      {!autoprint && !embed && (
         <div className="toolbar no-print">
           <Link to="/teacher/bookshelf">
             <Button size="sm" variant="ghost">
