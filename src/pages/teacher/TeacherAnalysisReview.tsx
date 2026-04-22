@@ -265,6 +265,11 @@ const TeacherAnalysisReview = () => {
                     {req.status}
                   </span>
                 )}
+                {Object.keys(master).length === 0 && (
+                  <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-xs font-bold">
+                    마스터 미등록
+                  </span>
+                )}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {LEVEL_LABEL[sentence.level]} · {sentence.id} · 시도 {req.attempt_no}회
@@ -296,7 +301,8 @@ const TeacherAnalysisReview = () => {
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
               onClick={handleApprove}
-              disabled={acting !== null || req.status !== "pending"}
+              disabled={acting !== null || req.status !== "pending" || Object.keys(master).length === 0}
+              title={Object.keys(master).length === 0 ? "마스터 등록 후 승인 가능" : undefined}
             >
               <CheckCircle2 className="w-4 h-4 mr-1" /> 승인
             </Button>

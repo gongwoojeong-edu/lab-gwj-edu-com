@@ -206,14 +206,17 @@ const AnalysisRequests = () => {
           <div className="space-y-2">
             {rows.map((r) => {
               const s = students[r.user_id];
+              const masterReady = masterMap[r.sentence_id] ?? true;
               return (
                 <Card
                   key={r.id}
                   className={cn(
                     "p-4 flex items-center justify-between gap-3 flex-wrap border-2",
-                    r.track === "fail_assist"
-                      ? "border-amber-500/40 bg-amber-50/20 dark:bg-amber-500/5"
-                      : "border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-500/5",
+                    !masterReady
+                      ? "border-muted bg-muted/20"
+                      : r.track === "fail_assist"
+                        ? "border-amber-500/40 bg-amber-50/20 dark:bg-amber-500/5"
+                        : "border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-500/5",
                   )}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -227,6 +230,11 @@ const AnalysisRequests = () => {
                     >
                       {r.track === "fail_assist" ? "미통 보조" : "정상"}
                     </span>
+                    {!masterReady && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowrap bg-muted text-muted-foreground">
+                        마스터 미등록
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <div className="font-bold text-foreground">
                         {s?.display_name ?? s?.student_no ?? r.user_id.slice(0, 8)}
@@ -267,6 +275,8 @@ const AnalysisRequests = () => {
                       size="sm"
                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => handleApprove(r.id)}
+                      disabled={!masterReady}
+                      title={!masterReady ? "마스터 등록 후 승인 가능" : undefined}
                     >
                       <CheckCircle2 className="w-4 h-4 mr-1" /> 승인
                     </Button>
