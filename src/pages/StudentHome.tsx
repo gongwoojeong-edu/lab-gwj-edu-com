@@ -490,14 +490,17 @@ const StudentHome = () => {
                 <div className="grid gap-3 sm:grid-cols-3">
                   {recent.map(({ sentence, status, updated_at }) => {
                     const isFail = status === "fail";
+                    const isHold = status === "hold";
                     return (
                       <Card
                         key={sentence.id}
                         className={cn(
                           "p-4 space-y-2 transition-colors",
-                          isFail
-                            ? "border-amber-500/40 hover:border-amber-500/60"
-                            : "border-primary/20 hover:border-primary/40",
+                          isHold
+                            ? "border-muted hover:border-muted-foreground/40"
+                            : isFail
+                              ? "border-amber-500/40 hover:border-amber-500/60"
+                              : "border-primary/20 hover:border-primary/40",
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -505,10 +508,14 @@ const StudentHome = () => {
                           <span
                             className={cn(
                               "px-2 py-0.5 rounded-full text-[10px] font-extrabold",
-                              isFail ? "bg-amber-500 text-white" : "bg-emerald-500 text-white",
+                              isHold
+                                ? "bg-muted text-muted-foreground"
+                                : isFail
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-emerald-500 text-white",
                             )}
                           >
-                            {isFail ? "미통" : "PASS"}
+                            {isHold ? "보류" : isFail ? "미통" : "PASS"}
                           </span>
                         </div>
                         <p className="text-xs text-foreground/80 line-clamp-2 min-h-[2.5em]">
