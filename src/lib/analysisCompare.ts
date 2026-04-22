@@ -10,7 +10,7 @@ import {
 
 export interface CompareDetailRow {
   ownerId: string;
-  status: "exact" | "partial" | "miss" | "missing";
+  status: "exact" | "partial" | "miss" | "missing" | "extra";
   masterPos: string | null;
   studentPos: string | null;
 }
@@ -20,6 +20,8 @@ export interface CompareDiffResult {
   diffOwnerIds: Set<string>;
   /** 학생이 미입력한 마스터 owner 집합 (회색 점선) */
   missingOwnerIds: Set<string>;
+  /** 학생이 마스터에 없는 owner를 분석한 집합 */
+  extraOwnerIds: Set<string>;
   /** 일치율 0~1 */
   rate: number;
   masterCount: number;
@@ -93,6 +95,7 @@ export const computeCompareDiff = async (
   const masterIds = Object.keys(master);
   const diffOwnerIds = new Set<string>();
   const missingOwnerIds = new Set<string>();
+  const extraOwnerIds = new Set<string>();
   const details: CompareDetailRow[] = [];
   let total = 0;
   for (const ownerId of masterIds) {
@@ -116,9 +119,18 @@ export const computeCompareDiff = async (
       details.push({ ownerId, status: "miss", masterPos: m.pos, studentPos: s.pos });
     }
   }
+  // 학생이 마스터에 없는 owner를 분석한 경우 → "extra"
+  for (const ownerId of Object.keys(student)) {
+    if (master[ownerId]) continue;
+    const s = student[ownerId];
+    if (!s || !s.pos) continue;
+    extraOwnerIds.add(ownerId);
+    details.push({ ownerId, status: "extra", masterPos: null, studentPos: s.pos });
+  }
   return {
     diffOwnerIds,
     missingOwnerIds,
+    extraOwnerIds,
     rate: masterIds.length === 0 ? 1 : total / masterIds.length,
     masterCount: masterIds.length,
     hasMaster: masterIds.length > 0,
