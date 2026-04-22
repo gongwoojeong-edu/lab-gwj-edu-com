@@ -1,51 +1,145 @@
 // ============================================================
-// PrintQueue — 선생님: 학생 시험지(핸드아웃) 인쇄 요청 대기열
-// 워크플로:
-//  - [PDF] 클릭 → 새 탭으로 핸드아웃 열기 (이 시점엔 처리 마킹 X)
-//  - 새 탭 핸드아웃 페이지에서 실제 인쇄(window.print) 실행 시
-//    onbeforeprint 가 ?fromQueue=1&reqId=... 를 감지하고 처리완료 마킹.
-//  - 처리되면 실시간 구독으로 행이 사라짐.
+// PrintQueue — 선생님: 학생 시험지 인쇄 요청 대기열
+// 학습결과 페이지와 동일한 한 줄 컬럼(코드/구문분석/단어시험)을 보여주고
+// [구문], [단어(오답/전체)], [전체] 액션을 제공.
+// 처리되면 print_requests 가 'printed' 로 전환되어 행이 사라짐.
 // ============================================================
 import { useEffect, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Printer, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Printer, Loader2, FileText, BookOpen, ChevronDown } from "lucide-react";
 import {
   fetchPendingPrintRequests,
   subscribeToPrintRequests,
+  markPrintRequestHandled,
   type PrintRequest,
 } from "@/lib/printRequests";
+import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
   user_id: string;
   display_name: string | null;
   student_no: string;
 }
+interface AttemptStat {
+  best_word_score: number | null;
+  best_analysis_rate: number | null;
+  word_passed: boolean;
+  analysis_passed: boolean;
+}
 
 const PrintQueue = () => {
   const [rows, setRows] = useState<PrintRequest[]>([]);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
+  const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
 
   const refresh = async () => {
     setLoading(true);
-    const list = await fetchPendingPrintRequests();
-    setRows(list);
-    const userIds = Array.from(new Set(list.map((r) => r.user_id)));
-    if (userIds.length > 0) {
-      const { data } = await supabase
-        .from("student_profiles")
-        .select("user_id, display_name, student_no")
-        .in("user_id", userIds);
-      const map: Record<string, StudentInfo> = {};
-      (data ?? []).forEach((s) => {
-        map[s.user_id] = s as StudentInfo;
-      });
-      setStudents(map);
+    try {
+      const list = await fetchPendingPrintRequests();
+      setRows(list);
+      const userIds = Array.from(new Set(list.map((r) => r.user_id)));
+      const sentenceIds = Array.from(new Set(list.map((r) => r.sentence_id)));
+
+      if (userIds.length > 0) {
+        const { data } = await supabase
+          .from("student_profiles")
+          .select("user_id, display_name, student_no")
+          .in("user_id", userIds);
+        const map: Record<string, StudentInfo> = {};
+        (data ?? []).forEach((s) => {
+          map[s.user_id] = s as StudentInfo;
+        });
+        setStudents(map);
+      }
+
+      // 점수 통계 join — 모든 attempt + word_test_results
+      if (userIds.length > 0 && sentenceIds.length > 0) {
+        const [attRes, wtRes] = await Promise.all([
+          supabase
+            .from("sentence_attempt_logs")
+            .select(
+              "user_id, sentence_id, word_test_score, word_test_passed, analysis_match_rate, analysis_passed",
+            )
+            .in("user_id", userIds)
+            .in("sentence_id", sentenceIds),
+          supabase
+            .from("word_test_results")
+            .select("user_id, sentence_id, score, passed")
+            .in("user_id", userIds)
+            .in("sentence_id", sentenceIds),
+        ]);
+        const aMap: Record<string, AttemptStat> = {};
+        ((attRes.data ?? []) as Array<{
+          user_id: string;
+          sentence_id: string;
+          word_test_score: number | null;
+          word_test_passed: boolean;
+          analysis_match_rate: number | null;
+          analysis_passed: boolean;
+        }>).forEach((l) => {
+          const key = `${l.user_id}::${l.sentence_id}`;
+          const cur = aMap[key] ?? {
+            best_word_score: null,
+            best_analysis_rate: null,
+            word_passed: false,
+            analysis_passed: false,
+          };
+          const ws = Number(l.word_test_score ?? 0);
+          const ar = Number(l.analysis_match_rate ?? 0);
+          aMap[key] = {
+            best_word_score:
+              cur.best_word_score == null ? ws : Math.max(cur.best_word_score, ws),
+            best_analysis_rate:
+              cur.best_analysis_rate == null ? ar : Math.max(cur.best_analysis_rate, ar),
+            word_passed: cur.word_passed || !!l.word_test_passed,
+            analysis_passed: cur.analysis_passed || !!l.analysis_passed,
+          };
+        });
+        ((wtRes.data ?? []) as Array<{
+          user_id: string;
+          sentence_id: string;
+          score: number;
+          passed: boolean;
+        }>).forEach((w) => {
+          const key = `${w.user_id}::${w.sentence_id}`;
+          const cur = aMap[key];
+          const sc = Number(w.score ?? 0);
+          if (!cur) {
+            aMap[key] = {
+              best_word_score: sc,
+              best_analysis_rate: null,
+              word_passed: !!w.passed,
+              analysis_passed: false,
+            };
+          } else {
+            aMap[key] = {
+              ...cur,
+              best_word_score:
+                cur.best_word_score == null ? sc : Math.max(cur.best_word_score, sc),
+              word_passed: cur.word_passed || !!w.passed,
+            };
+          }
+        });
+        setAttemptMap(aMap);
+      } else {
+        setAttemptMap({});
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -54,16 +148,53 @@ const PrintQueue = () => {
     return unsub;
   }, []);
 
+  // 인쇄 액션: 새 탭으로 열고 (autoprint=1), 백그라운드에서 처리완료 마킹
+  const triggerPrint = async (
+    req: PrintRequest,
+    kind: "syntax" | "word" | "all",
+    wordScope: "wrong" | "all" = "wrong",
+  ) => {
+    const busyKey = `${kind}:${req.id}`;
+    setBusy((p) => ({ ...p, [busyKey]: true }));
+    const sid = encodeURIComponent(req.sentence_id);
+    if (kind === "syntax" || kind === "all") {
+      window.open(
+        `/teacher/handout/${sid}?student=${req.user_id}&autoprint=1`,
+        "_blank",
+      );
+    }
+    if (kind === "word" || kind === "all") {
+      window.open(
+        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&autoprint=1`,
+        "_blank",
+      );
+    }
+    try {
+      await markPrintRequestHandled(req.id);
+      await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()));
+      toast({ title: "인쇄 처리됨 — 학습결과로 이동됨" });
+    } catch (e) {
+      toast({
+        title: "처리 마킹 실패",
+        description: String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setBusy((p) => ({ ...p, [busyKey]: false }));
+    }
+  };
+
   const handleOpenPdf = (req: PrintRequest) => {
-    const url =
-      `/teacher/handout/${encodeURIComponent(req.sentence_id)}` +
-      `?student=${req.user_id}&fromQueue=1&reqId=${req.id}&autoprint=1`;
-    window.open(url, "_blank");
+    // 미리보기: autoprint 없이 그냥 열기
+    window.open(
+      `/teacher/handout/${encodeURIComponent(req.sentence_id)}?student=${req.user_id}`,
+      "_blank",
+    );
   };
 
   return (
     <TeacherLayout>
-      <div className="p-6 max-w-4xl mx-auto space-y-4">
+      <div className="p-6 max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Printer className="size-6 text-primary" /> 인쇄 대기열
@@ -73,9 +204,10 @@ const PrintQueue = () => {
           </h1>
         </div>
 
-        <Card className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 font-kr">
-          [인쇄] 클릭 시 새 탭에서 핸드아웃이 열리고 <b>OS 인쇄 대화상자가 자동으로</b> 뜹니다.
-          처리되면 학습결과 화면에 자동 합류합니다. (PDF로 보고 싶다면 새 탭의 [PDF로 보기]를 누르세요.)
+        <Card className="px-4 py-2 text-xs text-muted-foreground bg-muted/30">
+          [구문]/[단어]/[전체] 클릭 시 새 탭에서 핸드아웃이 열리고{" "}
+          <b>OS 인쇄 대화상자가 자동으로</b> 뜹니다. 처리되면 학습결과 화면에 자동
+          합류합니다. PDF 작업이 필요하면 [📄] 버튼으로 미리보기를 여세요.
         </Card>
 
         {loading ? (
@@ -87,40 +219,149 @@ const PrintQueue = () => {
             대기 중인 시험지 요청이 없습니다.
           </Card>
         ) : (
-          <div className="space-y-2">
-            {rows.map((req) => {
-              const s = students[req.user_id];
-              return (
-                <Card key={req.id} className="p-4 flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-bold text-foreground">
-                        {s?.display_name ?? "학생"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        ({s?.student_no ?? "—"})
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      지문 <span className="font-mono text-foreground">{req.sentence_id}</span>
-                      {" · "}
-                      {new Date(req.requested_at).toLocaleString("ko-KR", {
-                        month: "2-digit",
-                        day: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button size="sm" onClick={() => handleOpenPdf(req)}>
-                      <Printer className="size-4 mr-1" /> 인쇄
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">학생</th>
+                    <th className="text-left px-3 py-2 font-medium">문장 코드</th>
+                    <th className="text-left px-3 py-2 font-medium">구문분석</th>
+                    <th className="text-left px-3 py-2 font-medium">단어시험</th>
+                    <th className="text-left px-3 py-2 font-medium">요청시각</th>
+                    <th className="text-right px-3 py-2 font-medium">인쇄 액션</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rows.map((req) => {
+                    const s = students[req.user_id];
+                    const a = attemptMap[`${req.user_id}::${req.sentence_id}`];
+                    const wScore =
+                      a?.best_word_score != null ? Math.round(a.best_word_score) : null;
+                    const aScore =
+                      a?.best_analysis_rate != null
+                        ? Math.round(a.best_analysis_rate * 100)
+                        : null;
+                    return (
+                      <tr key={req.id} className="hover:bg-muted/20 align-middle">
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className="font-bold text-foreground">
+                            {s?.display_name ?? "학생"}
+                          </span>
+                          <span className="text-xs font-mono text-muted-foreground ml-1">
+                            ({s?.student_no ?? "—"})
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
+                          {req.sentence_id}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {aScore == null ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs">
+                              <Badge
+                                className={
+                                  a?.analysis_passed
+                                    ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
+                                    : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
+                                }
+                              >
+                                {a?.analysis_passed ? "P" : "F"}
+                              </Badge>
+                              <span className="text-muted-foreground tabular-nums">
+                                {aScore}%
+                              </span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {wScore == null ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <span
+                              className={
+                                a?.word_passed
+                                  ? "text-primary font-semibold tabular-nums"
+                                  : "text-destructive font-semibold tabular-nums"
+                              }
+                            >
+                              {wScore}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(req.requested_at).toLocaleString("ko-KR", {
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={() => handleOpenPdf(req)}
+                              title="PDF 미리보기"
+                            >
+                              <FileText className="size-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              disabled={!!busy[`syntax:${req.id}`]}
+                              onClick={() => triggerPrint(req, "syntax")}
+                            >
+                              구문
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  disabled={!!busy[`word:${req.id}`]}
+                                >
+                                  <BookOpen className="size-3 mr-1" />
+                                  단어
+                                  <ChevronDown className="size-3 ml-0.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => triggerPrint(req, "word", "wrong")}
+                                >
+                                  오답만 인쇄
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => triggerPrint(req, "word", "all")}
+                                >
+                                  전체 단어 인쇄
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              disabled={!!busy[`all:${req.id}`]}
+                              onClick={() => triggerPrint(req, "all", "wrong")}
+                            >
+                              <Printer className="size-3 mr-1" />
+                              전체
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
       </div>
     </TeacherLayout>
