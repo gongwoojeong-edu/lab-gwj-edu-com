@@ -56,6 +56,7 @@ import {
   fetchAssignmentProgress,
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
+import { isAssignmentDone } from "@/lib/assignmentCompletion";
 
 interface AssignmentRow {
   id: string;
@@ -227,6 +228,14 @@ const Assignments = () => {
       cancelled = true;
     };
   }, [rows, students]);
+
+  // 활성 = 미완료 항목만. 마감되었어도 미완료면 활성에 잔존.
+  // (완료된 항목은 [과거 과제함] 으로 이동)
+  const activeRows = useMemo(() => {
+    if (rows.length === 0) return rows;
+    const allIds = students.map((s) => s.user_id);
+    return rows.filter((r) => !isAssignmentDone(r, progressByAsg[r.id], allIds));
+  }, [rows, students, progressByAsg]);
 
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
@@ -640,12 +649,12 @@ const Assignments = () => {
         </Card>
 
         <Card className="p-5 space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">과제 목록 ({rows.length})</h2>
-          {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">아직 과제가 없습니다.</p>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeRows.length})</h2>
+          {activeRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">진행중인 과제가 없습니다.</p>
           ) : (
             <div className="space-y-2">
-              {rows.map((r) => {
+              {activeRows.map((r) => {
                 const rem = remaining(r.due_at);
                 const passageLabel = r.sentence_id ? codeLabelMap.get(r.sentence_id) ?? r.sentence_id : null;
                 const missingSentence = !r.sentence_id;

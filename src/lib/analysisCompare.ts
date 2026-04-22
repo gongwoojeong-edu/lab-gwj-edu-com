@@ -7,6 +7,60 @@ import {
   fetchMasterAnswers,
   fetchStudentAnswersByUserId,
 } from "./analysisGrading";
+import type { SentenceToken } from "@/data/sentences";
+
+/** Index.tsx 의 wordUnits 분해 규칙과 동일하게 평탄화 — owner_id::idx 매핑용 */
+export interface FlatWordUnit {
+  word: string;
+  tokenId?: string;
+}
+export const buildWordUnitsFromTokens = (tokens: SentenceToken[]): FlatWordUnit[] => {
+  const out: FlatWordUnit[] = [];
+  tokens.forEach((t) => {
+    if (t.type === "static" && (t.role === "bracket" || t.role === "punct")) {
+      out.push({ word: t.text });
+      return;
+    }
+    const text = t.text;
+    const parts = text.split(/\s+/).filter(Boolean);
+    parts.forEach((p) => {
+      if (t.type === "analyzable") out.push({ word: p, tokenId: t.id });
+      else out.push({ word: p });
+    });
+  });
+  return out;
+};
+
+/** owner_id → 사람이 읽는 단어/구절 surface */
+export const ownerIdToSurface = (
+  ownerId: string,
+  units: FlatWordUnit[],
+): string => {
+  const SEP = "::";
+  const parts = ownerId.split(SEP);
+  // span::{sentenceId}::{start}-{end}
+  if (parts[0] === "span" || parts[0] === "__span__") {
+    const range = parts[parts.length - 1];
+    const [s, e] = range.split("-").map((n) => parseInt(n, 10));
+    if (!Number.isFinite(s) || !Number.isFinite(e)) return ownerId;
+    const slice = units.slice(s, e + 1).map((u) => u.word).filter(Boolean);
+    if (slice.length === 0) return `(${range})`;
+    const joined = slice.join(" ");
+    return joined.length > 48 ? joined.slice(0, 46) + "…" : joined;
+  }
+  // {tid}::{idx}  — tid 자체는 보통 "{sentenceId}-{n}" (구분자 없음)
+  const last = parts[parts.length - 1];
+  const idx = parseInt(last, 10);
+  if (Number.isFinite(idx)) {
+    const u = units[idx];
+    if (u?.word) return u.word;
+    // fallback: tokenId 매칭
+    const tid = parts.slice(0, -1).join(SEP);
+    const byTid = units.filter((x) => x.tokenId === tid).map((x) => x.word);
+    if (byTid.length > 0) return byTid.join(" ");
+  }
+  return ownerId;
+};
 
 export interface CompareDetailRow {
   ownerId: string;
