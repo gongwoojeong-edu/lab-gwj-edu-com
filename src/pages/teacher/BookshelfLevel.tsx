@@ -90,7 +90,28 @@ const BookshelfLevel = () => {
     if (!level) return;
     setLoading(true);
     fetchTextbooksByLevel(level)
-      .then(setTextbooks)
+      .then(async (tbs) => {
+        setTextbooks(tbs);
+        const ids = tbs.map((t) => t.id);
+        if (ids.length > 0) {
+          const { data } = await supabase
+            .from("textbook_passages")
+            .select("textbook_id, passage_no, english")
+            .in("textbook_id", ids)
+            .order("passage_no", { ascending: true });
+          const map: Record<string, string> = {};
+          (data ?? []).forEach((row) => {
+            const tid = row.textbook_id as string;
+            if (!map[tid] && row.english) {
+              const first = String(row.english).split(/(?<=[.!?])\s+/)[0] ?? row.english;
+              map[tid] = first;
+            }
+          });
+          setFirstSentenceMap(map);
+        } else {
+          setFirstSentenceMap({});
+        }
+      })
       .finally(() => setLoading(false));
   };
 
