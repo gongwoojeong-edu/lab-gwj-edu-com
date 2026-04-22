@@ -32,8 +32,10 @@ const BookshelfUnit = () => {
   const [tb, setTb] = useState<Textbook | null>(null);
   const [passages, setPassages] = useState<Passage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
+  const reload = () => {
     if (!level || !unitNo) return;
     const u = parseInt(unitNo, 10);
     setLoading(true);
@@ -45,7 +47,32 @@ const BookshelfUnit = () => {
       }
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, unitNo]);
+
+  const handleDeletePassage = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deletePassage(deleteTarget.id);
+      await hydrateSentencesFromDb(true);
+      toast({ title: `지문 ${deleteTarget.code} 삭제됨` });
+      setDeleteTarget(null);
+      reload();
+    } catch (e) {
+      toast({
+        title: "삭제 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
