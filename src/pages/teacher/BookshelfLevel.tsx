@@ -160,6 +160,67 @@ const BookshelfLevel = () => {
     }
   };
 
+  const openEdit = (tb: Textbook) => {
+    setEditTarget(tb);
+    setEditUnit(String(tb.unit_no));
+    setEditTitle(tb.title);
+    setEditDesc(tb.description ?? "");
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    const unitNo = parseInt(editUnit, 10);
+    if (!Number.isFinite(unitNo) || unitNo < 1) {
+      toast({ title: "유닛 번호는 1 이상의 정수여야 합니다", variant: "destructive" });
+      return;
+    }
+    if (!editTitle.trim()) {
+      toast({ title: "제목을 입력하세요", variant: "destructive" });
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await updateTextbook(editTarget.id, {
+        unit_no: unitNo,
+        title: editTitle.trim(),
+        description: editDesc.trim() || null,
+      });
+      toast({ title: "교재 정보가 수정되었습니다" });
+      setEditOpen(false);
+      reload();
+    } catch (e) {
+      toast({
+        title: "수정 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteTextbook(deleteTarget.id);
+      // SENTENCES 캐시 무효화 — 다음 hydrate 때 새로 로드
+      await hydrateSentencesFromDb(true);
+      toast({ title: `"${deleteTarget.title}" 교재가 삭제되었습니다` });
+      setDeleteTarget(null);
+      reload();
+    } catch (e) {
+      toast({
+        title: "삭제 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <TeacherLayout>
       <div className="p-6 max-w-5xl mx-auto space-y-6">
