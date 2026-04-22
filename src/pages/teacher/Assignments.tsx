@@ -641,12 +641,12 @@ const Assignments = () => {
         </Card>
 
         <Card className="p-5 space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">과제 목록 ({rows.length})</h2>
-          {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">아직 과제가 없습니다.</p>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeRows.length})</h2>
+          {activeRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">진행중인 과제가 없습니다.</p>
           ) : (
             <div className="space-y-2">
-              {rows.map((r) => {
+              {activeRows.map((r) => {
                 const rem = remaining(r.due_at);
                 const passageLabel = r.sentence_id ? codeLabelMap.get(r.sentence_id) ?? r.sentence_id : null;
                 const missingSentence = !r.sentence_id;
