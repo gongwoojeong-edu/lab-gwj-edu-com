@@ -204,7 +204,10 @@ const LearningResults = () => {
 
       const sMap: Record<string, StudentInfo> = {};
       const hMap: Record<string, HandoutResult> = {};
-      ((handoutRes.data ?? []) as HandoutResult[]).forEach((r) => (hMap[r.user_id] = r));
+      ((handoutRes.data ?? []) as HandoutResult[]).forEach((r) => {
+        const key = `${r.user_id}::${r.sentence_id ?? ""}`;
+        hMap[key] = r;
+      });
 
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
