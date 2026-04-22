@@ -242,9 +242,9 @@ const AnalysisRequests = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => window.open(`/teacher/compare/${r.sentence_id}/${r.user_id}`, "_blank")}
-                      title="시각 비교 (마스터 vs 학생, 새 탭)"
+                      title="정답 확인 (마스터 vs 학생, 새 탭)"
                     >
-                      🖼 시각 비교
+                      🖼 정답 확인
                     </Button>
                     <Button
                       size="sm"

@@ -798,7 +798,7 @@ const SentenceLearn = () => {
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride
                   label="선생님 확인 후 분석 스킵"
-                  description="견해차나 오류가 있을 때 선생님 PIN을 확인하면 분석 단계를 스킵하고 한글 해석으로 넘어갑니다."
+                  description="의문점이나 오류가 있을 때 선생님 PIN을 확인하면 분석 단계를 스킵하고 한글 해석으로 넘어갑니다."
                   onApproved={async () => {
                     try {
                       await upsertSentenceProgress(sentence.id, { analysis_done: true });
@@ -892,10 +892,11 @@ const SentenceLearn = () => {
         )}
 
         {/* 분석 게이트에 막혀 PASS 처리되지 않은 경우 — 자기 첨삭 요청 + 선생님 PIN 통과 */}
-        {step === "post" && analysisGrade && !analysisGrade.passed && (
+        {/* 분석 단계(analysis)에서만 노출 — 단어시험 완료 화면(post)에선 숨김 */}
+        {step === "analysis" && analysisGrade && !analysisGrade.passed && (
           <Card className="p-4 border-2 border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/5 space-y-3">
             <div className="text-sm text-foreground">
-              <div className="font-bold">분석 결과에 견해차가 있나요?</div>
+              <div className="font-bold">분석 결과에 의문점이 있나요?</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 분석 일치율 {Math.round(analysisGrade.rate * 100)}% · 선생님분석본보기 요청을 보내거나 선생님 PIN으로 즉시 통과할 수 있어요.
               </div>
@@ -904,7 +905,7 @@ const SentenceLearn = () => {
               {renderReviewRequestButton()}
               <TeacherAnalysisOverride
                 label="선생님 확인 후 통과"
-                description="분석 결과에 견해차가 있을 때 선생님 PIN을 확인하면 이 지문이 PASS 처리됩니다."
+                description="분석 결과에 의문점이 있을 때 선생님 PIN을 확인하면 이 지문이 PASS 처리됩니다."
                 variant="outline"
                 className="text-xs"
                 onApproved={async () => {

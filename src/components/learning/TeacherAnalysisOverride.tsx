@@ -28,7 +28,7 @@ interface Props {
 }
 
 /**
- * 분석 결과에 견해차가 있을 때 선생님이 4-6자리 PIN을 입력해
+ * 분석 결과에 의문점이 있을 때 선생님이 4-6자리 PIN을 입력해
  * 즉시 통과 처리할 수 있는 안전망 버튼.
  * PIN은 student_profiles.teacher_pin에 저장됨.
  */
@@ -36,7 +36,7 @@ export const TeacherAnalysisOverride = ({
   onApproved,
   disabled,
   label = "선생님 확인 후 통과",
-  description = "분석 결과에 견해차가 있을 때 선생님 확인 후 통과 처리합니다.",
+  description = "분석 결과에 의문점이 있을 때 선생님 확인 후 통과 처리합니다.",
   variant = "ghost",
   className,
 }: Props) => {
