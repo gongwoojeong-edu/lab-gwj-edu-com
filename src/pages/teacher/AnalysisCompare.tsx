@@ -215,7 +215,7 @@ const AnalysisCompare = () => {
               size="sm"
               onClick={() =>
                 launchPrint(
-                  `/teacher/handout/analysis/${sentenceId}/${studentId}?mode=marked&autoprint=1&embed=1`,
+                  `/print/analysis/${sentenceId}/${studentId}?mode=marked&autoprint=1&embed=1`,
                   { jobKey: `cmp-marked:${sentenceId}:${studentId}` },
                 )
               }
@@ -228,7 +228,7 @@ const AnalysisCompare = () => {
               size="sm"
               onClick={() =>
                 launchPrint(
-                  `/teacher/handout/analysis/${sentenceId}/${studentId}?mode=blank&autoprint=1&embed=1`,
+                  `/print/analysis/${sentenceId}/${studentId}?mode=blank&autoprint=1&embed=1`,
                   { jobKey: `cmp-blank:${sentenceId}:${studentId}` },
                 )
               }
