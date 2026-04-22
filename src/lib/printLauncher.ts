@@ -5,11 +5,14 @@
 //   await launchPrint(`/teacher/handout/${sid}?student=${uid}&autoprint=1&embed=1`);
 //
 // 동작:
-//   1. 현재 페이지에 숨김 <iframe>을 만들고 인쇄 전용 URL을 로드
-//   2. iframe 내부 문서가 print() 를 호출하면 OS 인쇄 대화상자가 즉시 뜸
+//   1. 현재 페이지에 화면 밖 <iframe>을 만들고 인쇄 전용 URL을 로드
+//   2. iframe load 후 부모(런처)가 직접 print() 호출 → OS 인쇄창 즉시 표시
 //   3. afterprint 또는 타임아웃 후 iframe 자동 정리
 //
-// 큐:
+// 주의:
+//   - iframe 을 width:0/height:0/display:none 로 두면 일부 브라우저(Chrome 등)는
+//     rAF / print() 를 throttling/무시함. 따라서 화면 밖(off-screen) 위치에
+//     실제 크기를 가진 iframe 을 둠.
 //   - 동시에 여러 print() 호출 시 충돌 → Promise queue 로 1건씩 직렬 실행
 //   - 같은 jobKey 가 이미 진행 중이면 무시 (중복 클릭 방지)
 // ============================================================
@@ -20,10 +23,12 @@ const inflight = new Set<string>();
 interface LaunchOptions {
   /** 중복 클릭 방지 키 (같은 키가 이미 큐/실행 중이면 무시) */
   jobKey?: string;
-  /** iframe 로드 후 print() 호출까지 최대 대기 시간 (ms). 자체 autoprint 가 있으면 보통 그 전에 print 됨 */
+  /** iframe 로드 후 print() 호출까지 최대 대기 시간 (ms). */
   loadTimeoutMs?: number;
-  /** print 후 iframe 정리까지 대기 시간 (ms). afterprint 이벤트가 더 빨리 오면 그때 정리 */
+  /** print 후 iframe 정리까지 대기 시간 (ms). afterprint 가 더 빨리 오면 그때 정리 */
   cleanupAfterMs?: number;
+  /** iframe 내부 데이터 로딩 대기 (ms). load 이벤트 이후 추가 대기 */
+  printDelayMs?: number;
 }
 
 /**
@@ -31,7 +36,7 @@ interface LaunchOptions {
  * 화면 이동/새 탭 없음. 항상 직렬 큐로 실행.
  */
 export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void> => {
-  const { jobKey, loadTimeoutMs = 12000, cleanupAfterMs = 1500 } = opts;
+  const { jobKey, loadTimeoutMs = 15000, cleanupAfterMs = 2000, printDelayMs = 600 } = opts;
   if (jobKey && inflight.has(jobKey)) {
     return Promise.resolve();
   }
@@ -47,16 +52,16 @@ export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void
         };
 
         const frame = document.createElement("iframe");
-        // 화면 점유 없이 완전히 숨기되, 일부 브라우저는 display:none 인 iframe 의 print() 를 무시함
-        // → 시각적으로만 숨기고 레이아웃은 살림
+        // 화면 밖(off-screen) 위치에 실제 크기로 배치 — display:none/0x0 은 일부 브라우저에서
+        // rAF / print() 를 막거나 throttling 함. A4 비슷한 크기를 줘야 안전.
         frame.setAttribute(
           "style",
           [
             "position: fixed",
-            "right: 0",
-            "bottom: 0",
-            "width: 0",
-            "height: 0",
+            "left: -10000px",
+            "top: 0",
+            "width: 800px",
+            "height: 1000px",
             "border: 0",
             "opacity: 0",
             "pointer-events: none",
@@ -68,16 +73,21 @@ export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void
 
         let printed = false;
         let cleanupTimer: number | null = null;
-        let loadTimer: number | null = null;
+        let printTimer: number | null = null;
+        let safetyTimer: number | null = null;
 
         const triggerCleanup = () => {
           if (cleanupTimer != null) {
             window.clearTimeout(cleanupTimer);
             cleanupTimer = null;
           }
-          if (loadTimer != null) {
-            window.clearTimeout(loadTimer);
-            loadTimer = null;
+          if (printTimer != null) {
+            window.clearTimeout(printTimer);
+            printTimer = null;
+          }
+          if (safetyTimer != null) {
+            window.clearTimeout(safetyTimer);
+            safetyTimer = null;
           }
           cleanup(frame);
         };
@@ -89,26 +99,39 @@ export const launchPrint = (url: string, opts: LaunchOptions = {}): Promise<void
         };
         window.addEventListener("afterprint", onAfterPrint);
 
-        // iframe 내부에서 autoprint 처리하지 못한 경우 → 우리가 한 번 더 시도
-        frame.onload = () => {
-          // iframe 내 autoprint 가 데이터 로드 완료 후 직접 print() 를 호출함.
-          // 일부 케이스에 대비해 onload 이후 fallback timer 로 한번 더 시도.
-          loadTimer = window.setTimeout(() => {
-            if (printed) return;
-            try {
-              frame.contentWindow?.focus();
-              frame.contentWindow?.print();
-              printed = true;
-            } catch (e) {
-              console.warn("[printLauncher] fallback print failed", e);
+        const doPrint = () => {
+          if (printed) return;
+          try {
+            const cw = frame.contentWindow;
+            if (!cw) {
+              console.warn("[printLauncher] no contentWindow");
+              triggerCleanup();
+              return;
             }
-            // 인쇄 대화상자가 뜨든 안 뜨든 cleanupAfterMs 후 강제 정리
+            cw.focus();
+            cw.print();
+            printed = true;
+            // print() 호출 후 cleanupAfterMs 안에 afterprint 가 안 오면 강제 정리
             cleanupTimer = window.setTimeout(triggerCleanup, cleanupAfterMs);
-          }, 800);
+          } catch (e) {
+            console.warn("[printLauncher] print() failed", e);
+            triggerCleanup();
+          }
         };
 
-        // 절대 안전망: loadTimeoutMs 가 지나면 무조건 정리
-        cleanupTimer = window.setTimeout(triggerCleanup, loadTimeoutMs);
+        frame.onload = () => {
+          // iframe 내부 React 앱이 데이터 로드 + 레이아웃 안정화 시간을 좀 줌.
+          // (autoprint=1 가 있어도 우리가 직접 한 번 더 시도 — 중복 호출은 브라우저가 무시)
+          printTimer = window.setTimeout(doPrint, printDelayMs);
+        };
+
+        // 절대 안전망: loadTimeoutMs 가 지나도 print 시도가 없으면 정리
+        safetyTimer = window.setTimeout(() => {
+          if (!printed) {
+            console.warn("[printLauncher] load timeout — forcing print");
+            doPrint();
+          }
+        }, loadTimeoutMs);
 
         frame.src = url;
         document.body.appendChild(frame);
