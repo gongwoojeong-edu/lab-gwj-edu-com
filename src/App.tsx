@@ -30,6 +30,9 @@ import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
 import AnalysisCompare from "./pages/teacher/AnalysisCompare.tsx";
 import AnalysisHandout from "./pages/teacher/AnalysisHandout.tsx";
 import RequestsInbox from "./pages/teacher/RequestsInbox.tsx";
+import PrintableHandout from "./pages/print/PrintableHandout.tsx";
+import PrintableWord from "./pages/print/PrintableWord.tsx";
+import PrintableAnalysis from "./pages/print/PrintableAnalysis.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
