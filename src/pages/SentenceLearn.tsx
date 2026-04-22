@@ -837,6 +837,7 @@ const SentenceLearn = () => {
           sentenceId={sentence.id}
           currentStatus={previousStatus}
           onConfirmSubmit={proceedToTranslation}
+          wordAnalysisRate={analysisRate}
         />
 
         {/* unused-old-marker */}
