@@ -4,9 +4,47 @@
 // 호출처(Index, SentenceLearn, StudentHome, nextSentence)는 여전히
 // `SENTENCES`를 그대로 사용하지만, 부팅 시 DB 행이 자동 머지된다.
 // ============================================================
-import { SENTENCES, type Sentence, type SentenceToken } from "@/data/sentences";
+import { SENTENCES, type Sentence, type SentenceToken, type WordAnswer } from "@/data/sentences";
 import type { LevelCode } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * 영문 본문을 클릭 가능한 analyzable 토큰으로 자동 분리.
+ * - 단어 → analyzable (빈 answer)
+ * - 구두점 → static punct
+ * - 공백 → static word(공백)
+ * 정적 SENTENCES의 W()/P() 헬퍼와 호환 구조.
+ */
+export const buildTokensFromEnglish = (english: string): SentenceToken[] => {
+  if (!english) return [];
+  const out: SentenceToken[] = [];
+  // 단어(영문/숫자/어퍼스트로피/하이픈) | 구두점 | 공백
+  const re = /([A-Za-z0-9][A-Za-z0-9'’\-]*)|([.,!?;:"“”()\[\]{}…—–])|(\s+)/g;
+  let m: RegExpExecArray | null;
+  let wIdx = 0;
+  const emptyAnswer = (): WordAnswer => ({
+    pos: "기타",
+    kind: "부연",
+    role: "",
+    koreanLabel: "",
+  });
+  while ((m = re.exec(english)) !== null) {
+    const [, word, punct, space] = m;
+    if (word) {
+      out.push({
+        type: "analyzable",
+        id: `w${wIdx++}`,
+        text: word,
+        answer: emptyAnswer(),
+      });
+    } else if (punct) {
+      out.push({ type: "static", text: punct, role: "punct" });
+    } else if (space) {
+      out.push({ type: "static", text: " ", role: "word" });
+    }
+  }
+  return out;
+};
 
 interface PassageRow {
   id: string;
