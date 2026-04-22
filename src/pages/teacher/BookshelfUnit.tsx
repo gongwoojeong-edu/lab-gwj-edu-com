@@ -3,14 +3,27 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer, Trash2 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchTextbook,
   fetchPassagesByTextbook,
+  deletePassage,
   type Textbook,
   type Passage,
 } from "@/lib/textbooks";
+import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const BookshelfUnit = () => {
