@@ -254,6 +254,31 @@ const App = () => (
                 </RequireAuth>
               }
             />
+            {/* === 경량 인쇄 라우트 (iframe 즉시 인쇄용) === */}
+            <Route
+              path="/print/handout/:passageCode"
+              element={
+                <RequireAuth>
+                  <PrintableHandout />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/print/word/:passageCode"
+              element={
+                <RequireAuth>
+                  <PrintableWord />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/print/analysis/:sentenceId/:studentId"
+              element={
+                <RequireAuth>
+                  <PrintableAnalysis />
+                </RequireAuth>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
