@@ -14,7 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Printer, ArrowLeft, FileText } from "lucide-react";
 import {
   computeCompareDiff,
+  buildWordUnitsFromTokens,
+  ownerIdToSurface,
   type CompareDiffResult,
+  type FlatWordUnit,
 } from "@/lib/analysisCompare";
 import { fetchPassageByCode } from "@/lib/textbooks";
 
