@@ -96,9 +96,12 @@ const AnalysisCompare = () => {
         setTranslation((t as TranslationRow | null) ?? null);
         setDiff(d);
         setManualToggles(loadToggleSet(sentenceId, studentId));
-        // 영어 문장을 공백 기준 단어 배열로 — owner_id 의 idx → surface 매핑용
+        // 영어 문장을 공백 기준 단어 배열로 — owner_id 의 idx → surface 매핑용 (fallback)
         const eng = p?.english ?? "";
         setWordList(eng.split(/\s+/).filter(Boolean));
+        // tokens 기반 정확한 wordUnits — 구두점/괄호도 인덱스 차지 (Index.tsx와 동일)
+        const tokens = (p?.tokens ?? []) as Parameters<typeof buildWordUnitsFromTokens>[0];
+        setFlatUnits(tokens.length > 0 ? buildWordUnitsFromTokens(tokens) : []);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -108,10 +111,13 @@ const AnalysisCompare = () => {
     };
   }, [sentenceId, studentId]);
 
-  // owner_id 에서 단어 surface 추출
-  // 형식 1: <tokenId>::<idx>          → 단일 단어
-  // 형식 2: span::<sentenceId>::<start>-<end>  → 범위
+  // owner_id → 단어/구절 surface
   const surfaceOf = (ownerId: string): string => {
+    if (flatUnits.length > 0) {
+      const s = ownerIdToSurface(ownerId, flatUnits);
+      if (s && s !== ownerId) return s;
+    }
+    // fallback — 영어 split 기반 (tokens 미존재 시)
     const parts = ownerId.split("::");
     const last = parts[parts.length - 1];
     if (last.includes("-")) {
@@ -120,7 +126,7 @@ const AnalysisCompare = () => {
       const slice = wordList.slice(s, e + 1);
       if (slice.length === 0) return `(${last})`;
       const joined = slice.join(" ");
-      return joined.length > 32 ? joined.slice(0, 30) + "…" : joined;
+      return joined.length > 48 ? joined.slice(0, 46) + "…" : joined;
     }
     const idx = parseInt(last, 10);
     if (Number.isFinite(idx) && wordList[idx]) return wordList[idx];
