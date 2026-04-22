@@ -24,6 +24,10 @@ import {
 } from "@/lib/textbooks";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
+import { launchPrintHtml } from "@/lib/printLauncher";
+import { buildHandoutPrintHtmlFor, printStageMessage, PrintPreloadError } from "@/lib/printPreload";
+import { runExtraction } from "@/lib/wordExtraction";
+import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
