@@ -474,9 +474,9 @@ const SentenceLearn = () => {
         <Button
           size="sm"
           className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          onClick={() => navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}/review`)}
+          onClick={() => navigate(`/learn/compare/${encodeURIComponent(sentence.id)}`)}
         >
-          <Eye className="w-4 h-4 mr-1" /> 자기 첨삭 모드 켜기
+          <Eye className="w-4 h-4 mr-1" /> 정답 확인
         </Button>
       );
     }

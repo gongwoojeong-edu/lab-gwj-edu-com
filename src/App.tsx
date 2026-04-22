@@ -23,6 +23,7 @@ import LearningResults from "./pages/teacher/LearningResults.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
 import HandoutPage from "./pages/Handout.tsx";
 import AnalysisReview from "./pages/AnalysisReview.tsx";
+import LearnCompare from "./pages/LearnCompare.tsx";
 import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
 import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
 import AnalysisCompare from "./pages/teacher/AnalysisCompare.tsx";
@@ -75,6 +76,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <AnalysisReview />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn/compare/:sentenceId"
+              element={
+                <RequireAuth>
+                  <LearnCompare />
                 </RequireAuth>
               }
             />

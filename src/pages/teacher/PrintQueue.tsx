@@ -74,8 +74,8 @@ const PrintQueue = () => {
         </div>
 
         <Card className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 font-kr">
-          [PDF] 버튼 클릭 시 새 탭에서 핸드아웃이 열립니다. 그 화면에서{" "}
-          <b>인쇄</b> 버튼을 누르면 자동으로 처리완료 처리되고 학습결과함으로 합류합니다.
+          [인쇄] 클릭 시 새 탭에서 핸드아웃이 열리고 <b>OS 인쇄 대화상자가 자동으로</b> 뜹니다.
+          처리되면 학습결과 화면에 자동 합류합니다. (PDF로 보고 싶다면 새 탭의 [PDF로 보기]를 누르세요.)
         </Card>
 
         {loading ? (
