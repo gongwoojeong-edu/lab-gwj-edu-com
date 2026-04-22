@@ -92,7 +92,7 @@ const HandoutPage = () => {
       } catch (e) {
         console.error("[Handout] auto-print failed", e);
       }
-    }, 350);
+    }, 0);
     return () => clearTimeout(t);
   }, [autoprint, loading, passage]);
 
@@ -260,19 +260,21 @@ const HandoutPage = () => {
         }
       `}</style>
 
-      <div className="toolbar no-print">
-        <Link to="/teacher/bookshelf">
-          <Button size="sm" variant="ghost">
-            <ArrowLeft className="size-4 mr-1" /> 책장
+      {!autoprint && (
+        <div className="toolbar no-print">
+          <Link to="/teacher/bookshelf">
+            <Button size="sm" variant="ghost">
+              <ArrowLeft className="size-4 mr-1" /> 책장
+            </Button>
+          </Link>
+          <div className="text-sm text-muted-foreground flex-1">
+            B5 Hand-out · {passage.code}
+          </div>
+          <Button size="sm" onClick={() => window.print()}>
+            <Printer className="size-4 mr-1" /> 인쇄
           </Button>
-        </Link>
-        <div className="text-sm text-muted-foreground flex-1">
-          B5 Hand-out · {passage.code}
         </div>
-        <Button size="sm" onClick={() => window.print()}>
-          <Printer className="size-4 mr-1" /> 인쇄
-        </Button>
-      </div>
+      )}
 
       {/* ===== Page 1 ===== */}
       <div className="handout-page">

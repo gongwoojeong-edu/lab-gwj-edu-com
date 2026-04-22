@@ -153,6 +153,7 @@ const PrintQueue = () => {
     req: PrintRequest,
     kind: "syntax" | "word" | "all",
     wordScope: "wrong" | "all" = "wrong",
+    wordMode: "ko" | "en" | "mix" = "ko",
   ) => {
     const busyKey = `${kind}:${req.id}`;
     setBusy((p) => ({ ...p, [busyKey]: true }));
@@ -165,7 +166,7 @@ const PrintQueue = () => {
     }
     if (kind === "word" || kind === "all") {
       window.open(
-        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&autoprint=1`,
+        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1`,
         "_blank",
       );
     }
@@ -332,15 +333,23 @@ const PrintQueue = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => triggerPrint(req, "word", "wrong")}
-                                >
-                                  오답만 인쇄
+                                <DropdownMenuItem onClick={() => triggerPrint(req, "word", "wrong", "ko")}>
+                                  오답 · 한글 채우기
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => triggerPrint(req, "word", "all")}
-                                >
-                                  전체 단어 인쇄
+                                <DropdownMenuItem onClick={() => triggerPrint(req, "word", "wrong", "en")}>
+                                  오답 · 스펠 채우기
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => triggerPrint(req, "word", "wrong", "mix")}>
+                                  오답 · 혼합
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => triggerPrint(req, "word", "all", "ko")}>
+                                  전체 · 한글 채우기
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => triggerPrint(req, "word", "all", "en")}>
+                                  전체 · 스펠 채우기
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => triggerPrint(req, "word", "all", "mix")}>
+                                  전체 · 혼합
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

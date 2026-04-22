@@ -402,14 +402,15 @@ const LearningResults = () => {
     toast({ title: `${sentenceIds.length}개 핸드아웃 탭 열림` });
   };
 
-  // 단어 HO 인쇄 (오답만 / 전체)
+  // 단어 HO 인쇄 (오답만 / 전체 × 한글/스펠/혼합)
   const handlePrintWord = async (
     userId: string,
     sentenceId: string,
     scope: "wrong" | "all",
+    mode: "ko" | "en" | "mix" = "ko",
   ) => {
     window.open(
-      `/teacher/handout/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&autoprint=1`,
+      `/teacher/handout/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&mode=${mode}&autoprint=1`,
       "_blank",
     );
     const nowIso = new Date().toISOString();
@@ -758,15 +759,23 @@ const LearningResults = () => {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem
-                                        onClick={() => handlePrintWord(userId, sid, "wrong")}
-                                      >
-                                        오답만 인쇄
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "ko")}>
+                                        오답 · 한글 채우기
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => handlePrintWord(userId, sid, "all")}
-                                      >
-                                        전체 단어 인쇄
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "en")}>
+                                        오답 · 스펠 채우기
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "wrong", "mix")}>
+                                        오답 · 혼합
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "ko")}>
+                                        전체 · 한글 채우기
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "en")}>
+                                        전체 · 스펠 채우기
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePrintWord(userId, sid, "all", "mix")}>
+                                        전체 · 혼합
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>

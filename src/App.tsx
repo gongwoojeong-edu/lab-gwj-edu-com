@@ -29,6 +29,7 @@ import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
 import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
 import AnalysisCompare from "./pages/teacher/AnalysisCompare.tsx";
 import AnalysisHandout from "./pages/teacher/AnalysisHandout.tsx";
+import RequestsInbox from "./pages/teacher/RequestsInbox.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 
@@ -85,6 +86,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <LearnCompare />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/inbox"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <RequestsInbox />
                 </RequireAuth>
               }
             />

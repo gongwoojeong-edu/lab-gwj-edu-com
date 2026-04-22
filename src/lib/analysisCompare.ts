@@ -13,6 +13,7 @@ export interface CompareDetailRow {
   status: "exact" | "partial" | "miss" | "missing" | "extra";
   masterPos: string | null;
   studentPos: string | null;
+  surface?: string;
 }
 
 export interface CompareDiffResult {

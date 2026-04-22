@@ -59,9 +59,10 @@ const TeacherSidebarInner = () => {
   const bookshelfActive = pathname.startsWith("/teacher/bookshelf");
   const learnMgmtActive =
     pathname.startsWith("/teacher/students") ||
-    pathname.startsWith("/teacher/assignments") ||
-    pathname.startsWith("/teacher/print-queue") ||
     pathname.startsWith("/teacher/results") ||
+    pathname.startsWith("/teacher/assignments") ||
+    pathname.startsWith("/teacher/inbox") ||
+    pathname.startsWith("/teacher/print-queue") ||
     pathname.startsWith("/teacher/requests");
 
   const groupLabelCls = (active: boolean) =>
@@ -160,30 +161,6 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/assignments" end className={({ isActive }) => linkCls(isActive)}>
-                    <ClipboardList className="size-4" />
-                    {!collapsed && <span>특별과제</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/print-queue" className={({ isActive }) => linkCls(isActive)}>
-                    <Printer className="size-4" />
-                    {!collapsed && <span>시험지 요청</span>}
-                    {printCount > 0 && (
-                      <span className={cn(
-                        "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center",
-                        collapsed && "absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 ml-0",
-                      )}>
-                        {printCount}
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
                   <NavLink to="/teacher/results" className={({ isActive }) => linkCls(isActive)}>
                     <FolderArchive className="size-4" />
                     {!collapsed && <span>학습결과</span>}
@@ -192,15 +169,23 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/requests" className={({ isActive }) => linkCls(isActive)}>
+                  <NavLink to="/teacher/assignments" end className={({ isActive }) => linkCls(isActive)}>
+                    <ClipboardList className="size-4" />
+                    {!collapsed && <span>특별과제</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/inbox" className={({ isActive }) => linkCls(isActive)}>
                     <Inbox className="size-4" />
-                    {!collapsed && <span>선생님분석본보기요청</span>}
-                    {pendingCount > 0 && (
+                    {!collapsed && <span>요청확인</span>}
+                    {(printCount + pendingCount) > 0 && (
                       <span className={cn(
                         "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center",
                         collapsed && "absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 ml-0",
                       )}>
-                        {pendingCount}
+                        {printCount + pendingCount}
                       </span>
                     )}
                   </NavLink>

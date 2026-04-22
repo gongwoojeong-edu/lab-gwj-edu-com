@@ -1,0 +1,389 @@
+// ============================================================
+// RequestsInbox — 통합 [요청확인] 페이지
+// 시험지 인쇄 요청 + 선생님분석본보기(자기첨삭) 요청을 한 화면에 표기.
+// 각 행 맨 앞에 종류 배지 [시험지] / [정답보기] 표기.
+// ============================================================
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { TeacherLayout } from "@/components/teacher/TeacherLayout";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Inbox,
+  Loader2,
+  Printer,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  BookOpen,
+  ChevronDown,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchPendingPrintRequests,
+  subscribeToPrintRequests,
+  markPrintRequestHandled,
+  type PrintRequest,
+} from "@/lib/printRequests";
+import {
+  fetchPendingRequests,
+  subscribeToReviewRequests,
+  approveReviewRequest,
+  rejectReviewRequest,
+  type AnalysisReviewRequest,
+} from "@/lib/analysisReview";
+import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+interface StudentInfo {
+  user_id: string;
+  display_name: string | null;
+  student_no: string;
+}
+
+type InboxItem =
+  | { kind: "print"; created_at: string; row: PrintRequest }
+  | { kind: "review"; created_at: string; row: AnalysisReviewRequest };
+
+const RequestsInbox = () => {
+  const navigate = useNavigate();
+  const [printRows, setPrintRows] = useState<PrintRequest[]>([]);
+  const [reviewRows, setReviewRows] = useState<AnalysisReviewRequest[]>([]);
+  const [students, setStudents] = useState<Record<string, StudentInfo>>({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const [pl, rl] = await Promise.all([
+        fetchPendingPrintRequests(),
+        fetchPendingRequests(),
+      ]);
+      setPrintRows(pl);
+      setReviewRows(rl);
+      const userIds = Array.from(
+        new Set([...pl.map((r) => r.user_id), ...rl.map((r) => r.user_id)]),
+      );
+      if (userIds.length > 0) {
+        const { data } = await supabase
+          .from("student_profiles")
+          .select("user_id, display_name, student_no")
+          .in("user_id", userIds);
+        const map: Record<string, StudentInfo> = {};
+        (data ?? []).forEach((s) => {
+          map[s.user_id] = s as StudentInfo;
+        });
+        setStudents(map);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    const u1 = subscribeToPrintRequests(() => refresh());
+    const u2 = subscribeToReviewRequests(() => refresh());
+    return () => {
+      u1?.();
+      u2?.();
+    };
+  }, []);
+
+  const items = useMemo<InboxItem[]>(() => {
+    const out: InboxItem[] = [
+      ...printRows.map((r): InboxItem => ({
+        kind: "print",
+        created_at: r.requested_at ?? r.created_at,
+        row: r,
+      })),
+      ...reviewRows.map((r): InboxItem => ({
+        kind: "review",
+        created_at: r.requested_at ?? r.created_at,
+        row: r,
+      })),
+    ];
+    out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    return out;
+  }, [printRows, reviewRows]);
+
+  const triggerPrint = async (
+    req: PrintRequest,
+    kind: "syntax" | "word" | "all",
+    wordScope: "wrong" | "all" = "wrong",
+    wordMode: "ko" | "en" | "mix" = "ko",
+  ) => {
+    const busyKey = `${kind}:${req.id}`;
+    setBusy((p) => ({ ...p, [busyKey]: true }));
+    const sid = encodeURIComponent(req.sentence_id);
+    if (kind === "syntax" || kind === "all") {
+      window.open(
+        `/teacher/handout/${sid}?student=${req.user_id}&autoprint=1`,
+        "_blank",
+      );
+    }
+    if (kind === "word" || kind === "all") {
+      window.open(
+        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1`,
+        "_blank",
+      );
+    }
+    try {
+      await markPrintRequestHandled(req.id);
+      await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()));
+      toast({ title: "인쇄 처리됨" });
+    } catch (e) {
+      toast({
+        title: "처리 마킹 실패",
+        description: String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setBusy((p) => ({ ...p, [busyKey]: false }));
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      await approveReviewRequest(id);
+      toast({ title: "승인 완료" });
+    } catch (e) {
+      toast({ title: "승인 실패", description: String(e), variant: "destructive" });
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    const note = window.prompt("반려 사유 (선택):") ?? undefined;
+    try {
+      await rejectReviewRequest(id, note);
+      toast({ title: "반려 처리됨" });
+    } catch (e) {
+      toast({ title: "반려 실패", description: String(e), variant: "destructive" });
+    }
+  };
+
+  return (
+    <TeacherLayout>
+      <div className="p-6 max-w-6xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Inbox className="size-6 text-primary" /> 요청확인
+              <span className="text-sm font-normal text-muted-foreground">
+                · 대기 {items.length}건
+              </span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              학생들이 보낸 시험지 인쇄 요청과 정답 보기 요청을 한 곳에서 처리합니다.
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <Card className="p-10 flex items-center justify-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </Card>
+        ) : items.length === 0 ? (
+          <Card className="p-10 text-center text-sm text-muted-foreground">
+            현재 대기 중인 요청이 없습니다.
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {items.map((it) => {
+              const s = students[it.row.user_id];
+              const studentName =
+                s?.display_name ?? s?.student_no ?? it.row.user_id.slice(0, 8);
+              const studentNo = s?.student_no ?? "—";
+              const time = new Date(it.created_at).toLocaleString("ko-KR", {
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+
+              if (it.kind === "print") {
+                const req = it.row;
+                return (
+                  <Card
+                    key={`p-${req.id}`}
+                    className="p-3 flex items-center gap-3 flex-wrap border-l-4 border-l-amber-500"
+                  >
+                    <Badge className="bg-amber-500 text-white font-bold">시험지</Badge>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-foreground">
+                        {studentName}{" "}
+                        <span className="text-xs font-mono text-muted-foreground">
+                          ({studentNo})
+                        </span>
+                        <span className="ml-2 text-xs font-mono text-muted-foreground">
+                          {req.sentence_id}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{time}</div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        disabled={!!busy[`syntax:${req.id}`]}
+                        onClick={() => triggerPrint(req, "syntax")}
+                      >
+                        구문
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            disabled={!!busy[`word:${req.id}`]}
+                          >
+                            <BookOpen className="size-3 mr-1" />
+                            단어
+                            <ChevronDown className="size-3 ml-0.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => triggerPrint(req, "word", "wrong", "ko")}>
+                            오답 · 한글 채우기
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => triggerPrint(req, "word", "wrong", "en")}>
+                            오답 · 스펠 채우기
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => triggerPrint(req, "word", "wrong", "mix")}>
+                            오답 · 혼합
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => triggerPrint(req, "word", "all", "ko")}>
+                            전체 · 한글 채우기
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => triggerPrint(req, "word", "all", "en")}>
+                            전체 · 스펠 채우기
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => triggerPrint(req, "word", "all", "mix")}>
+                            전체 · 혼합
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <Button
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={!!busy[`all:${req.id}`]}
+                        onClick={() => triggerPrint(req, "all", "wrong", "ko")}
+                      >
+                        <Printer className="size-3 mr-1" />
+                        전체
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              }
+
+              const req = it.row;
+              return (
+                <Card
+                  key={`r-${req.id}`}
+                  className={cn(
+                    "p-3 flex items-center gap-3 flex-wrap border-l-4",
+                    req.track === "fail_assist"
+                      ? "border-l-amber-500"
+                      : "border-l-emerald-600",
+                  )}
+                >
+                  <Badge
+                    className={cn(
+                      "font-bold text-white",
+                      req.track === "fail_assist" ? "bg-amber-500" : "bg-emerald-600",
+                    )}
+                  >
+                    정답보기
+                  </Badge>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-foreground">
+                      {studentName}{" "}
+                      <span className="text-xs font-mono text-muted-foreground">
+                        ({studentNo})
+                      </span>
+                      <span className="ml-2 text-xs font-mono text-muted-foreground">
+                        {req.sentence_id}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      분석률 {Math.round(Number(req.analysis_rate) * 100)}% · 시도 {req.attempt_no}회 · {time}
+                      {req.track === "fail_assist" && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">
+                          미통 보조
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => navigate(`/teacher/review/${req.id}`)}
+                    >
+                      <Eye className="size-3 mr-1" /> 보기
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() =>
+                        window.open(
+                          `/teacher/compare/${req.sentence_id}/${req.user_id}`,
+                          "_blank",
+                        )
+                      }
+                    >
+                      🖼 비교
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                      onClick={() => handleReject(req.id)}
+                    >
+                      <XCircle className="size-3 mr-1" /> 반려
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => handleApprove(req.id)}
+                    >
+                      <CheckCircle2 className="size-3 mr-1" /> 승인
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        <Card className="p-3 text-[11px] text-muted-foreground bg-muted/30">
+          기존 페이지(시험지 요청 / 선생님분석본보기요청)는{" "}
+          <Link to="/teacher/print-queue" className="underline">
+            인쇄 대기열
+          </Link>
+          {" / "}
+          <Link to="/teacher/requests" className="underline">
+            정답 보기 요청
+          </Link>
+          {" "}경로로 계속 사용할 수 있습니다.
+        </Card>
+      </div>
+    </TeacherLayout>
+  );
+};
+
+export default RequestsInbox;
