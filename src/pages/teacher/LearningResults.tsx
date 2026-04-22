@@ -442,6 +442,21 @@ const LearningResults = () => {
     }
   };
 
+  // hover 시 한글해석 본문 프리페치 (1회 캐시)
+  const prefetchTranslation = async (userId: string, sentenceId: string) => {
+    const key = `${userId}::${sentenceId}`;
+    if (key in translationTextCache) return;
+    const { data } = await supabase
+      .from("sentence_translations")
+      .select("text")
+      .eq("user_id", userId)
+      .eq("sentence_id", sentenceId)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setTranslationTextCache((p) => ({ ...p, [key]: data?.text ?? null }));
+  };
+
   // 학생이 제출한 한글해석 보기
   const handleViewTranslation = async (userId: string, sentenceId: string) => {
     const { data } = await supabase
