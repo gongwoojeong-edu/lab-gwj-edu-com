@@ -9,6 +9,8 @@ interface Props {
   userId: string;
   teacherId: string | null;
   testDate: string;
+  /** 문장별 행을 분리할 때 전달. 미전달 시 sentence_id=null 행 사용. */
+  sentenceId?: string | null;
   current: HandoutResult | null;
   onSaved: (row: HandoutResult) => void;
   /** true 면 클릭 불가(회색). 인쇄 전 등 잠금 상태에 사용. */
@@ -18,7 +20,7 @@ interface Props {
 type Status = "idle" | "saving" | "saved" | "error";
 
 const SyntaxHoToggle = forwardRef<HTMLButtonElement, Props>(function SyntaxHoToggle(
-  { userId, teacherId, testDate, current, onSaved, disabled },
+  { userId, teacherId, testDate, sentenceId, current, onSaved, disabled },
   ref,
 ) {
   const [val, setVal] = useState<"PASS" | "FAIL" | null>(
@@ -49,6 +51,7 @@ const SyntaxHoToggle = forwardRef<HTMLButtonElement, Props>(function SyntaxHoTog
         userId,
         teacherId,
         testDate,
+        sentenceId: sentenceId ?? null,
         syntaxHoResult: next,
       });
       onSaved(row);

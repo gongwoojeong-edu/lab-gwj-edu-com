@@ -13,6 +13,8 @@ interface Props {
   userId: string;
   teacherId: string | null;
   testDate: string;
+  /** 문장별 행을 분리할 때 전달. 미전달 시 sentence_id=null 행 사용. */
+  sentenceId?: string | null;
   current: HandoutResult | null;
   onSaved: (row: HandoutResult) => void;
   onEnterNext?: () => void;
@@ -47,6 +49,7 @@ const WordHoInput = forwardRef<HTMLInputElement, Props>(function WordHoInput(
     userId,
     teacherId,
     testDate,
+    sentenceId,
     current,
     onSaved,
     onEnterNext,
@@ -97,6 +100,7 @@ const WordHoInput = forwardRef<HTMLInputElement, Props>(function WordHoInput(
         userId,
         teacherId,
         testDate,
+        sentenceId: sentenceId ?? null,
         wordHoScore: parsed,
       });
       onSaved(row);

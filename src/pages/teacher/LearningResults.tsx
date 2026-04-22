@@ -67,6 +67,7 @@ const LearningResults = () => {
   const [date, setDate] = useState<string>(toIsoDate(new Date()));
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
+  // key: `${user_id}::${sentence_id}` → HandoutResult (문장별 분리)
   const [handoutMap, setHandoutMap] = useState<Record<string, HandoutResult>>({});
   // key: `${user_id}::${sentence_id}` → AttemptStat
   const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
@@ -109,9 +110,10 @@ const LearningResults = () => {
     return unsub;
   }, []);
 
-  // HO 점수 입력 후 handoutMap 갱신
+  // HO 점수 입력 후 handoutMap 갱신 (sentence 별 키)
   const handleHandoutSaved = (row: HandoutResult) => {
-    setHandoutMap((prev) => ({ ...prev, [row.user_id]: row }));
+    const key = `${row.user_id}::${row.sentence_id ?? ""}`;
+    setHandoutMap((prev) => ({ ...prev, [key]: row }));
   };
 
   const refresh = async () => {
@@ -202,7 +204,10 @@ const LearningResults = () => {
 
       const sMap: Record<string, StudentInfo> = {};
       const hMap: Record<string, HandoutResult> = {};
-      ((handoutRes.data ?? []) as HandoutResult[]).forEach((r) => (hMap[r.user_id] = r));
+      ((handoutRes.data ?? []) as HandoutResult[]).forEach((r) => {
+        const key = `${r.user_id}::${r.sentence_id ?? ""}`;
+        hMap[key] = r;
+      });
 
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
@@ -343,8 +348,13 @@ const LearningResults = () => {
       } catch (e) {
         console.warn("[LearningResults] print_requests insert skipped", e);
       }
-      const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
-      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+      const row = await ensureHandoutRow(
+        userId,
+        u.user?.id ?? null,
+        toIsoDate(new Date()),
+        sentenceId,
+      );
+      setHandoutMap((prev) => ({ ...prev, [`${userId}::${sentenceId}`]: row }));
       toast({ title: "인쇄창이 열립니다 — HO 입력란 활성화" });
     } catch (e) {
       toast({ title: "인쇄 처리 일부 실패", description: String(e), variant: "destructive" });
@@ -442,8 +452,13 @@ const LearningResults = () => {
         handled_by: u.user?.id ?? null,
         note: `teacher-print-word-${scope}`,
       });
-      const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
-      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+      const row = await ensureHandoutRow(
+        userId,
+        u.user?.id ?? null,
+        toIsoDate(new Date()),
+        sentenceId,
+      );
+      setHandoutMap((prev) => ({ ...prev, [`${userId}::${sentenceId}`]: row }));
     } catch (e) {
       console.warn("[LearningResults] word print log failed", e);
     }
