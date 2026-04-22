@@ -24,6 +24,10 @@ import {
 } from "@/lib/textbooks";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
+import { launchPrintHtml } from "@/lib/printLauncher";
+import { buildHandoutPrintHtmlFor, printStageMessage, PrintPreloadError } from "@/lib/printPreload";
+import { runExtraction } from "@/lib/wordExtraction";
+import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +40,47 @@ const BookshelfUnit = () => {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [extractingCode, setExtractingCode] = useState<string | null>(null);
+  const [printingCode, setPrintingCode] = useState<string | null>(null);
+
+  const handleExtract = async (p: Passage) => {
+    if (extractingCode) return;
+    setExtractingCode(p.code);
+    try {
+      const res = await runExtraction(p.code, p.english);
+      if ("error" in res) {
+        const status = res.status;
+        if (status === 429) {
+          toast({ title: "잠시 후 다시 시도해 주세요", description: "AI 호출 한도 초과", variant: "destructive" });
+        } else if (status === 402) {
+          toast({ title: "AI 크레딧이 소진되었어요", variant: "destructive" });
+        } else if (status === 403) {
+          toast({ title: "권한이 없습니다", variant: "destructive" });
+        } else {
+          toast({ title: "추출 실패", description: res.error, variant: "destructive" });
+        }
+        return;
+      }
+      toast({ title: "✨ 단어 추출 완료", description: `${res.count}개 단어` });
+      setExtractedMap((prev) => ({ ...prev, [p.code]: res.count }));
+    } finally {
+      setExtractingCode(null);
+    }
+  };
+
+  const handlePrint = async (p: Passage) => {
+    if (printingCode) return;
+    setPrintingCode(p.code);
+    try {
+      const html = await buildHandoutPrintHtmlFor({ sentenceId: p.code });
+      await launchPrintHtml(html, { jobKey: `book-handout:${p.code}` });
+    } catch (e) {
+      const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+      toast({ title: "인쇄 실패", description: msg, variant: "destructive" });
+    } finally {
+      setPrintingCode(null);
+    }
+  };
 
   const reload = () => {
     if (!level || !unitNo) return;
@@ -171,17 +216,37 @@ const BookshelfUnit = () => {
                           <span className="line-clamp-2">{p.english}</span>
                         </td>
                         <td className="py-2 px-3">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
-                              hasExtracted
-                                ? "bg-primary/15 text-primary"
-                                : "bg-muted text-muted-foreground",
-                            )}
-                          >
-                            <Sparkles className="size-3" />
-                            {hasExtracted ? `${wordCount}개` : "미추출"}
-                          </span>
+                          {hasExtracted ? (
+                            <button
+                              type="button"
+                              onClick={() => handleExtract(p)}
+                              disabled={extractingCode === p.code}
+                              title="다시 추출"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary hover:bg-primary/25 transition disabled:opacity-50"
+                            >
+                              {extractingCode === p.code ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="size-3" />
+                              )}
+                              {wordCount}개
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleExtract(p)}
+                              disabled={extractingCode === p.code}
+                              title="AI 단어 추출"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary transition disabled:opacity-50"
+                            >
+                              {extractingCode === p.code ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="size-3" />
+                              )}
+                              {extractingCode === p.code ? "추출 중…" : "미추출"}
+                            </button>
+                          )}
                         </td>
                         <td className="py-2 px-3">
                           <span
@@ -208,14 +273,14 @@ const BookshelfUnit = () => {
                             size="sm"
                             variant="ghost"
                             title="Hand-out 인쇄"
-                            onClick={() =>
-                              window.open(
-                                `/teacher/handout/${encodeURIComponent(p.code)}`,
-                                "_blank",
-                              )
-                            }
+                            disabled={printingCode === p.code}
+                            onClick={() => handlePrint(p)}
                           >
-                            <Printer className="size-3.5" />
+                            {printingCode === p.code ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Printer className="size-3.5" />
+                            )}
                           </Button>
                           <Button
                             size="sm"
