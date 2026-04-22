@@ -20,7 +20,14 @@ import {
   type FlatWordUnit,
 } from "@/lib/analysisCompare";
 import { fetchPassageByCode } from "@/lib/textbooks";
-import { launchPrint } from "@/lib/printLauncher";
+import { launchPrintHtml } from "@/lib/printLauncher";
+import {
+  buildAnalysisPrintHtmlFor,
+  printStageMessage,
+  PrintPreloadError,
+} from "@/lib/printPreload";
+import { errMsg } from "@/lib/errMsg";
+import { toast } from "@/hooks/use-toast";
 
 interface AdminProfile {
   user_id: string;
@@ -213,12 +220,21 @@ const AnalysisCompare = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                launchPrint(
-                  `/print/analysis/${sentenceId}/${studentId}?mode=marked&autoprint=1&embed=1`,
-                  { jobKey: `cmp-marked:${sentenceId}:${studentId}` },
-                )
-              }
+              onClick={async () => {
+                try {
+                  const html = await buildAnalysisPrintHtmlFor({
+                    sentenceId: sentenceId!,
+                    studentId: studentId!,
+                    mode: "marked",
+                  });
+                  launchPrintHtml(html, {
+                    jobKey: `cmp-marked:${sentenceId}:${studentId}`,
+                  });
+                } catch (e) {
+                  const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+                  toast({ title: "채점본 준비 실패", description: msg, variant: "destructive" });
+                }
+              }}
               title="채점본을 화면전환 없이 즉시 인쇄"
             >
               <Printer className="size-4" /> 채점본 인쇄
@@ -226,12 +242,21 @@ const AnalysisCompare = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                launchPrint(
-                  `/print/analysis/${sentenceId}/${studentId}?mode=blank&autoprint=1&embed=1`,
-                  { jobKey: `cmp-blank:${sentenceId}:${studentId}` },
-                )
-              }
+              onClick={async () => {
+                try {
+                  const html = await buildAnalysisPrintHtmlFor({
+                    sentenceId: sentenceId!,
+                    studentId: studentId!,
+                    mode: "blank",
+                  });
+                  launchPrintHtml(html, {
+                    jobKey: `cmp-blank:${sentenceId}:${studentId}`,
+                  });
+                } catch (e) {
+                  const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+                  toast({ title: "blank 본 준비 실패", description: msg, variant: "destructive" });
+                }
+              }}
               title="blank 본을 화면전환 없이 즉시 인쇄"
             >
               <Printer className="size-4" /> blank 인쇄
