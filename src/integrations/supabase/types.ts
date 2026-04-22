@@ -145,6 +145,7 @@ export type Database = {
           created_at: string
           id: string
           is_integrated: boolean
+          sentence_id: string | null
           session_no: number
           syntax_ho_result: string | null
           teacher_id: string | null
@@ -157,6 +158,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_integrated?: boolean
+          sentence_id?: string | null
           session_no?: number
           syntax_ho_result?: string | null
           teacher_id?: string | null
@@ -169,6 +171,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_integrated?: boolean
+          sentence_id?: string | null
           session_no?: number
           syntax_ho_result?: string | null
           teacher_id?: string | null
