@@ -93,7 +93,7 @@ const StudentHome = () => {
             .order("due_at", { ascending: true })
             .limit(5),
         ]);
-        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail"; updated_at: string; passed_at: string | null }[];
+        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold"; updated_at: string; passed_at: string | null }[];
         const enriched: RecentItem[] = rows
           .map((row) => {
             const s = SENTENCES.find((x) => x.id === row.sentence_id);
