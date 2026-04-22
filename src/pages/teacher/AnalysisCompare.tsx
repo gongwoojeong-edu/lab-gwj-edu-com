@@ -283,13 +283,23 @@ const AnalysisCompare = () => {
           {/* 차이 요약 */}
           {diff && diff.details.length > 0 && (
             <Card className="no-print p-4 mt-4">
-              <h3 className="text-sm font-bold mb-3">차이 요약</h3>
+              <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+                <h3 className="text-sm font-bold">
+                  차이 요약 ({showAll ? diff.details.length : diff.details.filter((d) => d.status !== "exact").length}건)
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Switch id="show-all" checked={showAll} onCheckedChange={setShowAll} />
+                  <Label htmlFor="show-all" className="text-xs cursor-pointer">
+                    {showAll ? "모두 보기" : "차이만 보기"}
+                  </Label>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b text-left text-[10px] text-muted-foreground">
                       <th className="py-1.5 pr-2">상태</th>
-                      <th className="py-1.5 pr-2">단어/요지</th>
+                      <th className="py-1.5 pr-2">단어/구절</th>
                       <th className="py-1.5 pr-2">정답 POS</th>
                       <th className="py-1.5 pr-2">학생 POS</th>
                       <th className="py-1.5 pr-2">owner_id</th>
@@ -297,19 +307,17 @@ const AnalysisCompare = () => {
                   </thead>
                   <tbody>
                     {diff.details
-                      .filter((d) => d.status !== "exact")
+                      .filter((d) => (showAll ? true : d.status !== "exact"))
                       .map((d) => {
-                        // owner_id 형식: tokenId::idx 또는 span::sid::start-end
-                        // 간이 surface 추출: 마지막 segment에서 idx 또는 range
-                        const parts = d.ownerId.split("::");
-                        const last = parts[parts.length - 1];
-                        const surface = last.includes("-") ? `(${last})` : last;
+                        const surface = surfaceOf(d.ownerId);
                         const variant =
-                          d.status === "missing"
-                            ? "outline"
-                            : d.status === "extra"
-                              ? "secondary"
-                              : "destructive";
+                          d.status === "exact"
+                            ? "secondary"
+                            : d.status === "missing"
+                              ? "outline"
+                              : d.status === "extra"
+                                ? "secondary"
+                                : "destructive";
                         return (
                           <tr key={d.ownerId} className="border-b border-border/40">
                             <td className="py-1.5 pr-2">
@@ -317,7 +325,7 @@ const AnalysisCompare = () => {
                                 {d.status}
                               </Badge>
                             </td>
-                            <td className="py-1.5 pr-2 font-mono text-[10px]">{surface}</td>
+                            <td className="py-1.5 pr-2 font-semibold">{surface}</td>
                             <td className="py-1.5 pr-2">{d.masterPos ?? "—"}</td>
                             <td className="py-1.5 pr-2">{d.studentPos ?? "—"}</td>
                             <td className="py-1.5 pr-2 font-mono text-[10px] text-muted-foreground">
