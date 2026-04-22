@@ -84,7 +84,7 @@ const AnalysisHandout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className={`min-h-screen ${embed ? "" : "bg-muted/30"}`}>
       <style>{`
         @page { size: B5 portrait; margin: 8mm; }
         @media print {
@@ -117,17 +117,19 @@ const AnalysisHandout = () => {
         }
       `}</style>
 
-      <div className="no-print sticky top-0 z-50 border-b bg-background/95 backdrop-blur px-4 py-2 flex items-center justify-between">
-        <div className="text-sm font-bold">
-          학생본 핸드아웃 — {mode === "marked" ? "채점본 (틀린 부분 음영)" : "blank (재분석용)"}
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            · 양면 인쇄 권장 (1장 2페이지)
-          </span>
+      {!autoprint && !embed && (
+        <div className="no-print sticky top-0 z-50 border-b bg-background/95 backdrop-blur px-4 py-2 flex items-center justify-between">
+          <div className="text-sm font-bold">
+            학생본 핸드아웃 — {mode === "marked" ? "채점본 (틀린 부분 음영)" : "blank (재분석용)"}
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              · 양면 인쇄 권장 (1장 2페이지)
+            </span>
+          </div>
+          <Button size="sm" onClick={() => window.print()}>
+            <Printer className="size-4" /> 인쇄
+          </Button>
         </div>
-        <Button size="sm" onClick={() => window.print()}>
-          <Printer className="size-4" /> 인쇄
-        </Button>
-      </div>
+      )}
 
       {loading ? (
         <div className="p-12 text-center text-sm text-muted-foreground">불러오는 중...</div>
