@@ -166,6 +166,20 @@ export const bulkInsertPassages = async (
   return (data ?? []) as Passage[];
 };
 
+export const updateTextbook = async (
+  id: string,
+  patch: { title?: string; unit_no?: number; description?: string | null },
+): Promise<void> => {
+  const { error } = await supabase.from("textbooks").update(patch).eq("id", id);
+  if (error) throw error;
+};
+
+export const deleteTextbook = async (id: string): Promise<void> => {
+  // textbook_passages 는 ON DELETE CASCADE 로 자동 삭제됨
+  const { error } = await supabase.from("textbooks").delete().eq("id", id);
+  if (error) throw error;
+};
+
 export const updatePassageKorean = async (code: string, korean: string): Promise<void> => {
   const { error } = await supabase
     .from("textbook_passages")

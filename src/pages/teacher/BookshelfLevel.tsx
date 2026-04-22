@@ -27,15 +27,30 @@ import {
   BookOpen,
   FileText,
   Sparkles,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchTextbooksByLevel,
   createTextbook,
+  updateTextbook,
+  deleteTextbook,
   bulkInsertPassages,
   splitPassageText,
   type Textbook,
 } from "@/lib/textbooks";
+import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { toast } from "@/hooks/use-toast";
 
 const BookshelfLevel = () => {
@@ -56,6 +71,18 @@ const BookshelfLevel = () => {
   const [bulkText, setBulkText] = useState("");
   const [splitMode, setSplitMode] = useState<"blank" | "line" | "sentence">("blank");
   const [inserting, setInserting] = useState(false);
+
+  // edit textbook dialog
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Textbook | null>(null);
+  const [editUnit, setEditUnit] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // delete textbook dialog
+  const [deleteTarget, setDeleteTarget] = useState<Textbook | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const reload = () => {
     if (!level) return;
@@ -133,6 +160,67 @@ const BookshelfLevel = () => {
     }
   };
 
+  const openEdit = (tb: Textbook) => {
+    setEditTarget(tb);
+    setEditUnit(String(tb.unit_no));
+    setEditTitle(tb.title);
+    setEditDesc(tb.description ?? "");
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    const unitNo = parseInt(editUnit, 10);
+    if (!Number.isFinite(unitNo) || unitNo < 1) {
+      toast({ title: "유닛 번호는 1 이상의 정수여야 합니다", variant: "destructive" });
+      return;
+    }
+    if (!editTitle.trim()) {
+      toast({ title: "제목을 입력하세요", variant: "destructive" });
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await updateTextbook(editTarget.id, {
+        unit_no: unitNo,
+        title: editTitle.trim(),
+        description: editDesc.trim() || null,
+      });
+      toast({ title: "교재 정보가 수정되었습니다" });
+      setEditOpen(false);
+      reload();
+    } catch (e) {
+      toast({
+        title: "수정 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteTextbook(deleteTarget.id);
+      // SENTENCES 캐시 무효화 — 다음 hydrate 때 새로 로드
+      await hydrateSentencesFromDb(true);
+      toast({ title: `"${deleteTarget.title}" 교재가 삭제되었습니다` });
+      setDeleteTarget(null);
+      reload();
+    } catch (e) {
+      toast({
+        title: "삭제 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <TeacherLayout>
       <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -177,7 +265,24 @@ const BookshelfLevel = () => {
                       <p className="text-xs text-muted-foreground mt-1">{tb.description}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEdit(tb)}
+                      title="교재 정보 수정"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(tb)}
+                      title="교재 삭제"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => openInsert(tb)}>
                       <Sparkles className="size-3.5 mr-1" /> 교재 만들기
                     </Button>
@@ -293,6 +398,79 @@ const BookshelfLevel = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit textbook dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>교재 정보 수정 — {editTarget?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="edit-unit">유닛 번호</Label>
+              <Input
+                id="edit-unit"
+                type="number"
+                min={1}
+                value={editUnit}
+                onChange={(e) => setEditUnit(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-title">제목</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-desc">설명 (선택)</Label>
+              <Textarea
+                id="edit-desc"
+                rows={2}
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder="교재에 대한 간단한 메모"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="size-3.5 mr-1 animate-spin" />}저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete textbook confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>교재를 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-bold text-foreground">
+                {deleteTarget?.title} (U{deleteTarget?.unit_no})
+              </span>{" "}
+              교재와 그 안의 <b>모든 지문 · 분석 데이터</b>가 함께 삭제됩니다. 이 작업은
+              되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="size-3.5 mr-1 animate-spin" />}삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TeacherLayout>
   );
 };

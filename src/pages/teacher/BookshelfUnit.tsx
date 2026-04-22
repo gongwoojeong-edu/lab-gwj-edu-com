@@ -3,14 +3,27 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer, Trash2 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchTextbook,
   fetchPassagesByTextbook,
+  deletePassage,
   type Textbook,
   type Passage,
 } from "@/lib/textbooks";
+import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const BookshelfUnit = () => {
@@ -19,8 +32,10 @@ const BookshelfUnit = () => {
   const [tb, setTb] = useState<Textbook | null>(null);
   const [passages, setPassages] = useState<Passage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
+  const reload = () => {
     if (!level || !unitNo) return;
     const u = parseInt(unitNo, 10);
     setLoading(true);
@@ -32,7 +47,32 @@ const BookshelfUnit = () => {
       }
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, unitNo]);
+
+  const handleDeletePassage = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deletePassage(deleteTarget.id);
+      await hydrateSentencesFromDb(true);
+      toast({ title: `지문 ${deleteTarget.code} 삭제됨` });
+      setDeleteTarget(null);
+      reload();
+    } catch (e) {
+      toast({
+        title: "삭제 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -157,6 +197,15 @@ const BookshelfUnit = () => {
                           >
                             <Pencil className="size-3.5 mr-1" /> 정답 설정
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="지문 삭제"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-1"
+                            onClick={() => setDeleteTarget(p)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -167,6 +216,28 @@ const BookshelfUnit = () => {
           </div>
         </Card>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>지문을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-mono text-foreground">{deleteTarget?.code}</span> 지문과
+              관련된 분석/학습 기록은 그대로 남지만, 책장에서는 더 이상 보이지 않습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePassage}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="size-3.5 mr-1 animate-spin" />}삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TeacherLayout>
   );
 };
