@@ -24,6 +24,11 @@ interface StudentProfile {
   student_no: string;
 }
 
+interface TranslationRow {
+  text: string;
+  submitted_at: string;
+}
+
 const SS_KEY = (sid: string, uid: string) => `gwj.compareToggle.${sid}.${uid}`;
 
 const loadToggleSet = (sid: string, uid: string): Set<string> => {
@@ -49,6 +54,7 @@ const AnalysisCompare = () => {
   const navigate = useNavigate();
   const [adminId, setAdminId] = useState<string | null>(null);
   const [student, setStudent] = useState<StudentProfile | null>(null);
+  const [translation, setTranslation] = useState<TranslationRow | null>(null);
   const [diff, setDiff] = useState<CompareDiffResult | null>(null);
   const [manualToggles, setManualToggles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -64,12 +70,21 @@ const AnalysisCompare = () => {
         .select("display_name, student_no")
         .eq("user_id", studentId)
         .maybeSingle(),
+      supabase
+        .from("sentence_translations")
+        .select("text, submitted_at")
+        .eq("sentence_id", sentenceId)
+        .eq("user_id", studentId)
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       computeCompareDiff(sentenceId, studentId),
     ])
-      .then(([{ data: a }, { data: s }, d]) => {
+      .then(([{ data: a }, { data: s }, { data: t }, d]) => {
         if (cancelled) return;
         setAdminId(((a as AdminProfile | null)?.user_id) ?? null);
         setStudent((s as StudentProfile | null) ?? null);
+        setTranslation((t as TranslationRow | null) ?? null);
         setDiff(d);
         setManualToggles(loadToggleSet(sentenceId, studentId));
       })
@@ -182,6 +197,22 @@ const AnalysisCompare = () => {
               ⚠️ 이 문장에는 아직 마스터키(원장 정답)가 등록되지 않았습니다. 차이 계산이 불가합니다.
             </Card>
           )}
+          {/* 학생 한글해석 카드 */}
+          <Card className="p-4 mb-4">
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="text-sm font-bold">✍️ 학생 한글해석</h3>
+              {translation?.submitted_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  제출: {new Date(translation.submitted_at).toLocaleString("ko-KR")}
+                </span>
+              )}
+            </div>
+            {translation?.text ? (
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{translation.text}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">한글해석 미제출</p>
+            )}
+          </Card>
           <div className="compare-grid grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* 좌: 마스터키 */}
             <Card className="compare-panel p-3 lg:p-4">

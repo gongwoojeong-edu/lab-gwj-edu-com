@@ -66,6 +66,8 @@ const LearningResults = () => {
   const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
   // 학생별 sentence_id 목록 (그 날 활동 흔적이 있는 모든 sentence)
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
+  // 한글해석 제출 여부: `${userId}::${sentenceId}` → true
+  const [translationSet, setTranslationSet] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
@@ -167,8 +169,12 @@ const LearningResults = () => {
       ((attemptsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
         (r) => addPair(r.user_id, r.sentence_id),
       );
+      const tSet: Record<string, boolean> = {};
       ((translationsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
+        (r) => {
+          addPair(r.user_id, r.sentence_id);
+          tSet[`${r.user_id}::${r.sentence_id}`] = true;
+        },
       );
       ((wordTestRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
         (r) => addPair(r.user_id, r.sentence_id),
@@ -276,6 +282,7 @@ const LearningResults = () => {
         ssMap[uid] = Array.from(set).sort();
       });
       setStudentSentences(ssMap);
+      setTranslationSet(tSet);
     } finally {
       setLoading(false);
     }
@@ -591,7 +598,7 @@ const LearningResults = () => {
                       <thead className="bg-muted/40 text-[11px] text-muted-foreground">
                         <tr>
                           <th className="text-left px-3 py-2 font-medium">문장 코드</th>
-                          <th className="text-left px-3 py-2 font-medium">구문분석</th>
+                          <th className="text-left px-3 py-2 font-medium">분석+해석</th>
                           <th className="text-left px-3 py-2 font-medium">단어시험</th>
                           <th className="text-left px-3 py-2 font-medium">단어 HO</th>
                           <th className="text-left px-3 py-2 font-medium">구문 HO</th>
@@ -626,26 +633,36 @@ const LearningResults = () => {
                                 </div>
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap">
-                                {aScore == null ? (
+                                {aScore == null && !translationSet[stateKey] ? (
                                   <span className="text-xs text-muted-foreground">—</span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 text-xs">
-                                    <Badge
-                                      className={
-                                        a?.analysis_passed
-                                          ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
-                                          : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
-                                      }
-                                    >
-                                      {a?.analysis_passed ? "P" : "F"}
-                                    </Badge>
-                                    <span className="text-muted-foreground tabular-nums">
-                                      {aScore}%
-                                    </span>
+                                    {aScore != null && (
+                                      <>
+                                        <Badge
+                                          className={
+                                            a?.analysis_passed
+                                              ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
+                                              : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
+                                          }
+                                        >
+                                          {a?.analysis_passed ? "P" : "F"}
+                                        </Badge>
+                                        <span className="text-muted-foreground tabular-nums">
+                                          {aScore}%
+                                        </span>
+                                      </>
+                                    )}
+                                    <span className="text-muted-foreground">·</span>
+                                    {translationSet[stateKey] ? (
+                                      <span className="text-primary font-medium">해석✓</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">해석✗</span>
+                                    )}
                                     <Link
                                       to={`/teacher/compare/${encodeURIComponent(sid)}/${userId}`}
                                       target="_blank"
-                                      title="구문분석 정답 확인"
+                                      title="분석 + 한글해석 보기"
                                       className="text-muted-foreground hover:text-primary"
                                     >
                                       <Eye className="size-3.5" />
