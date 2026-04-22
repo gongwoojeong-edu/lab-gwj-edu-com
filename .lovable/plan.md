@@ -1,93 +1,135 @@
 
 
-## 플랜 — 사이드바·대시보드·학습결과·인쇄 통합 정리
+## 플랜 — 구문분석 / 정답확인 / 인쇄대기열 / 학습결과 통합 개선
 
-### 1. 사이드바 메뉴 정리
-**파일**: `src/components/teacher/TeacherLayout.tsx`
+### 1. 구문분석 (`src/pages/Index.tsx`)
 
-- "과거 과제함" 메뉴 항목 **삭제** (특별과제 페이지 내부에서 접근 가능 → 중복 제거).
-- "과거 과제함" → "과거 과제"로 라벨 변경(만약 다른 곳에 남는 자리 있으면). 실제로는 위 삭제로 메뉴에서 사라짐.
-- "학습결과함" → **"학습결과"** 로 라벨 변경.
-- 기존 활성 음영 강조 유지.
+#### 1-1. Shift+클릭으로 단어 추가 시에도 드래그 동작 허용
+현재 `handleWordMouseDown` 의 Shift+클릭 분기는 단순히 인덱스만 누적하고 `dragStart` 를 설정하지 않아서 드래그 확장이 불가. 변경:
+- Shift+클릭 시 기존 인덱스를 `selectedWordIndices` 에 누적함과 동시에 `setDragStart(idx)` 를 호출 → 그 다음 mouse-enter 가 정상적으로 범위 확장.
+- `handleWordMouseEnter` 에서 dragStart 와 idx 사이 + 이미 선택된 인덱스의 union 으로 확장 (Shift 워크플로 보존).
 
-### 2. 대시보드 — "마감 임박 특별과제" 학습완료 표기
-**파일**: `src/pages/teacher/TeacherHome.tsx`
+#### 1-2. 학생 화면에서도 지우개 / 선택 해제 / 저장 버튼 노출
+현재 staff toolbar 는 `isAdmin && (!embedMode || showStaffToolbar)` 조건으로만 렌더 — 학생은 분석을 잘못해도 되돌릴 수단이 없음. 변경:
+- 학생용 미니 툴바를 `embedMode + studentMode` 일 때 분석 패널 상단 또는 문장 컨테이너 우상단에 노출.
+- 노출 버튼: **[지우개]** (eraserMode 토글), **[선택 해제]** (`clearActiveSelection()`), **[저장]** (분석 진행 자동 저장은 이미 동작 — 명시적 [저장] 버튼은 현재 owner 의 progress 를 `sentence_progress` 로 즉시 sync + "저장됨" 토스트 표기).
+- 학생용은 정답 입력 / 정답 초기화 / AI 추출 / 힌트 버튼은 노출 X.
 
-- 각 과제 행에 이미 `progressByAsg[a.id]` 진척 데이터를 보유.
-- 새 헬퍼: `targetUserIds` 전원이 모든 step `pass`/`done` 이면 행 우측에 **녹색 [학습완료]** 배지 추가, 마감 시간 배지 옆 또는 대체.
-- 단일 학생 과제(`student_id` 지정)면 그 학생만 평가, 전체 과제면 모든 학생 통과 시에만 [완료].
-- 일부만 완료면 `(N/M 완료)` 작은 라벨 추가.
+#### 1-3. 절 내부 절(N중 절) 분석 버그
+현재 `handleWordMouseDown` 일반 클릭 경로에서 완료 owner 위 클릭 시 단일 토큰만 선택해 다층 분석을 시작하도록 의도되어 있으나, 클릭한 단어가 이미 안쪽 owner 의 일부일 때 `pickSelectedIdFromIndices` 가 그 단일 토큰의 owner_id 를 반환해 기존 분석을 덮어씀.
+- 수정: 단일 토큰 owner 가 이미 progressMap 에 존재하고 완료 상태면, 동일 인덱스로 새 span owner(`buildSpanOwnerId(idx, idx)`) 를 강제 생성해 별도 layer 로 분리.
+- 또한 Shift+드래그로 새 절을 묶을 때 기존 안쪽 owner 와 인덱스 범위가 겹쳐도 새 span owner 로 분리되도록 `pickSelectedIdFromIndices` 의 단일 인덱스 분기에서 "기존 단일 owner 가 이미 완료된 경우" span owner 로 fallback.
 
-### 3. PDF 누르면 학생화면으로 리다이렉트되는 버그 (★ 핵심)
+#### 1-4. 분석율 산정 기준 보정 (마스터키 분석 owner 대비)
+현재 `Index.tsx` line 1004-1018 의 `onAnalysisProgress` 는 `masterOwnerIds.size > 0` 이면 마스터키 owner 대비로 계산하도록 되어 있어 정상이나, `SentenceLearn.tsx` 의 `analysisRate` 표기(`Math.round(analysisRate * 100)%`) 와 게이트 검사도 동일해야 함. 검증 후, 마스터키가 없을 때만 `completedCount / analyzableIds.length` fallback 으로 명확화.
+- 또한 `analysisGrading.gradeAnalysis` 의 `rate = total / masterIds.length` (이미 마스터 분모) 도 그대로 사용 — 변경 불필요.
+- UI 라벨 보강: 학생 화면에 `({Math.round(rate*100)}% — 마스터키 N개 owner 중 M개 완료)` 형태로 분모를 명시.
 
-**원인**: `RequireAuth.tsx` line 54-60 — 교사가 `viewMode === "student"` 상태이면 모든 `/teacher/*` 라우트가 `/learn` 으로 강제 리다이렉트됨. 새 탭에서 핸드아웃 열 때 동일 origin 으로 viewMode 가 공유되어 학생 화면으로 튕김.
+#### 1-5. "견해차" → "의문점" + 단어학습 완료 화면에서 숨김
+- `SentenceLearn.tsx` line 896-917 의 "분석 결과에 견해차가 있나요?" 카드를 `step === "analysis"` 일 때만 노출하도록 조건 추가 (현재 `step === "post"` 인 단어시험 완료 화면에도 노출됨).
+- 모든 "견해차" 문구를 "**의문점**" 으로 치환:
+  - `SentenceLearn.tsx` line 801, 898, 907.
+  - `TeacherAnalysisOverride.tsx` line 31, 39.
 
-**수정** (`src/components/auth/RequireAuth.tsx`):
-- line 54-60 의 `mode === "student"` 강제 리다이렉트 조건을 **완화**: 핸드아웃처럼 인쇄 전용 라우트(`/teacher/handout/`)는 viewMode 와 무관하게 통과시킴.
-- 단순화 안: `requireRole` 이 명시되어 통과한 사용자는 viewMode 강제 리다이렉트 면제. (즉 staff 권한이 있고 페이지가 staff role 을 명시적으로 요구한다면 viewMode 무시)
-- 결과: 학습결과함의 `[PDF]`/`[인쇄]` 새 탭이 정상적으로 핸드아웃을 표시.
+### 2. 정답확인 (자기 첨삭 / 시각 비교)
 
-### 4. 학습결과 페이지 — 한 줄 통합 + 인쇄 후 HO 활성
+#### 2-1. 텍스트 보여주는 보기(`AnalysisReview.tsx`) 삭제
+- `src/pages/AnalysisReview.tsx` 파일 폐기. `App.tsx` 의 `/learn/review/:sentenceId` 라우트 제거.
+- 학생 화면 `SentenceLearn.tsx` 의 `renderReviewRequestButton` 에서 승인 후 "보기" 버튼이 `AnalysisReview` 로 이동하던 링크를 `AnalysisCompare` (`/teacher/compare/:sid/:uid`) 로 교체. 단, 학생 자신의 비교는 새 라우트 `/learn/compare/:sentenceId` 로 띄우고 내부적으로 `studentId = auth.uid()` 로 `AnalysisCompare` 를 재사용 (compareMode + 본인 hydrate).
 
-**파일**: `src/pages/teacher/LearningResults.tsx`
+#### 2-2. [시각 비교] → [정답 확인] 라벨 변경
+- `AnalysisRequests.tsx` line 247: `🖼 시각 비교` → **[정답 확인]**.
+- `TeacherAnalysisReview.tsx` line 280-285: 동일 라벨 변경.
+- `AnalysisCompare.tsx` 의 페이지 헤더 "둘 다 인쇄" 도 그대로 유지하되, 페이지 타이틀/배지에서 "시각 비교" 라는 명칭 사용 시 "정답 확인" 으로 통일.
 
-#### 4-1. 페이지 제목/메뉴 라벨
-- `학습결과함` → `학습결과` (h1 텍스트).
+#### 2-3. 시각비교 — 차이 요약 누락 버그
+현재 `AnalysisCompare.tsx` line 218-253 의 차이 요약 표는 `diff.details.filter(d => d.status !== "exact")` 만 표시 → `analysisCompare.ts` 의 `details` 에 학생 답안이 일부 채워졌더라도 정상.
+- 점검 필요: `computeCompareDiff` 가 `details` 에 모든 master owner 를 push 하는데, `manualToggles` 로 추가된 owner (마스터에는 없지만 학생이 임의 입력한 owner) 는 누락. 보완:
+  - `computeCompareDiff` 가 학생 owner 중 master 에 없는 항목도 `details` 에 `status: "extra"` 로 추가.
+  - 표에 "extra" 행 표시 (학생이 마스터에 없는 owner 를 분석한 경우).
+- 또한 표 컬럼에 **요지(label)** 컬럼 추가: master_pos / student_pos 외에 owner 단어(surface) 도 함께 표기.
 
-#### 4-2. 한 줄 컬럼 재설계 (기존 표 헤더 교체)
-| 문장코드 | 구문분석 (P/F) | 단어시험 (점수) | 단어HO (점수) | 구문HO (P/F) | 인쇄 |
+### 3. 인쇄 대기열 — 학습결과와 동등 UI
 
-- **문장코드** — 그대로.
-- **구문분석** — `analysis_passed` 면 P(녹색), 아니면 F(빨강). + 매치율 % 작게 병기 (`P 87%` 형태).
-- **단어시험** — `best_word_score` 점수, pass/fail 색상.
-- **단어HO** — `WordHoInput` 인라인 (수동 입력란). 자동계산 옵션:
-  - **신규 입력 형식**: 사용자가 `8/10` 또는 `8/10` 입력 시 80점으로 자동 환산. 수동 점수 입력도 그대로 허용. `WordHoInput` 의 onChange/parse 확장.
-  - 인쇄 전이면 **disabled** (회색 placeholder "—"), 인쇄 완료된 sentence 행만 활성화.
-- **구문HO** — `SyntaxHoToggle` 인라인. 동일하게 인쇄 전이면 비활성, 인쇄 후 활성.
-- **인쇄** — 단일 버튼 [인쇄]. 클릭 시:
-  1. 새 탭 핸드아웃 오픈 (자동 인쇄 트리거 쿼리 `?student=&autoprint=1` 추가),
-  2. `print_requests` 에 `status='printed'` 행 insert,
-  3. `ensureHandoutRow(...)` 로 HO 행 보장,
-  4. 로컬 state `printedSet` 에 `{userId, sentenceId}` 추가하여 그 행의 HO 입력 즉시 활성.
-- 이전의 [재시험] 버튼은 행 우측 컴팩트 아이콘 메뉴(`⋮`) 하위로 이동 — 한 줄 폭 절약.
-- 인쇄 항목 선택 박스(체크박스) 신규 추가: 행 선두 체크 → 헤더 [선택 인쇄] 일괄 버튼. 학생 카드 헤더의 [전체 인쇄]는 유지.
+#### 3-1. PrintQueue 항목을 학습결과와 동일 한 줄 카드 형태로 재구성
+**파일**: `src/pages/teacher/PrintQueue.tsx`
+- 현재 단순 [인쇄] 버튼 1개 → 학습결과 페이지와 동일하게 **문장코드 / 구문분석(P/F %) / 단어시험 / 단어HO / 구문HO** 컬럼 표기.
+- 데이터 보강: `fetchPendingPrintRequests` 결과를 `sentence_attempt_logs` 와 join 해 각 (user_id, sentence_id) 의 best 점수도 함께 보여줌.
+- 인쇄 액션을 항목별로 분리:
+  - **[구문 인쇄]** — 기존 핸드아웃(분석/한글해석 페이지).
+  - **[단어 인쇄]** — 단어 HO 시험지(아래 4번에서 새 라우트).
+  - **[전체 인쇄]** — 구문 + 단어를 한 PDF/탭으로 묶음.
+- 인쇄 시 **PDF 미리보기 단계 제거**: `?autoprint=1` 으로 이미 자동 인쇄 트리거 중. 추가로 화면 진입 직후 toolbar 의 PDF 미리보기 영역을 숨기고 `window.print()` 를 0ms 지연으로 호출 → 사용자는 곧바로 OS 인쇄 대화상자를 봄. 미리보기를 원하면 toolbar 의 [PDF로 보기] 별도 버튼 노출.
 
-#### 4-3. 인쇄 완료 마킹
-- 인쇄대기열에서 인쇄 처리되면 (`subscribeToPrintRequests`) 학습결과 페이지도 실시간 구독해 동일 `printedSet` 갱신.
-- 인쇄 완료 후 행에 [인쇄완료 ✓ HH:mm] 표기 + HO 입력 활성.
-- HO 입력 활성 조건: `attemptMap[key].printed_at != null` OR 로컬 `printedSet` 에 포함.
+#### 3-2. 단어 HO 인쇄 — 오답만 / 전체 옵션
+- 신규 라우트 `/teacher/handout/word/:passageCode?student=...&scope=wrong|all&autoprint=1`.
+- 신규 페이지 `src/pages/HandoutWord.tsx`: `word_test_results` 의 최신 시도에서 `wrong_words` 를 가져와 단어 학습지 출력.
+  - `scope=wrong` → 틀린 단어만, `scope=all` → 추출된 모든 단어.
+- PrintQueue / LearningResults 의 [단어 인쇄] 버튼 옆에 토글 (오답만 / 전체) 라디오 또는 드롭다운 추가.
 
-#### 4-4. 성능 개선
-- `handlePrint` 종료 후 전체 `refresh()` 호출 제거 → 로컬 state 직접 갱신(낙관적 업데이트).
-- 클릭 즉시 새 탭 오픈 → 백그라운드에서 insert/ensureHandoutRow.
-- `attemptMap` 갱신은 print_requests realtime 구독에 위임.
+#### 3-3. PrintQueue 의 안내 문구 수정
+- 기존 "PDF 가 새 탭에서 열립니다" 문구를 "**OS 인쇄 대화상자가 자동으로 열립니다. PDF 작업이 필요하면 [PDF로 보기]를 누르세요.**" 로 변경.
 
-### 5. 인쇄대기열 — 인쇄 후 학습결과로 이동 강화
-**파일**: `src/pages/teacher/PrintQueue.tsx`, `src/pages/Handout.tsx`
+### 4. 학습결과 페이지 (`src/pages/teacher/LearningResults.tsx`)
 
-- PrintQueue 의 [PDF] 버튼 라벨 → **[인쇄]** 로 변경(직관성).
-- Handout 새 탭 URL 에 `?fromQueue=1&autoprint=1` 추가 — 페이지 로드 후 자동으로 `window.print()` 호출.
-- `Handout.tsx`: `autoprint=1` 이면 데이터 로드 직후 `setTimeout(() => window.print(), 300)`.
-- `onbeforeprint` 에서 기존대로 `markPrintRequestHandled` + `ensureHandoutRow` 처리(현행 유지).
-- 처리 후 PrintQueue 페이지에는 realtime 으로 행 사라지고, 학습결과 페이지에 새 라인 자동 합류 (실시간 구독).
+#### 4-1. 온라인 학습 성적(구문분석 + 단어시험) 누락 보정
+- 현재 `attemptMap` 은 `sentence_attempt_logs` 와 `word_test_results` 를 사용하지만, 점수가 표시되지 않는 행이 발생.
+- 원인: `word_test_results` 보충 로직이 `if (!cur)` 조건이라 attempt log 가 있고 word_score 가 0인 경우 word_test_results 의 점수가 무시됨. 변경:
+  - `word_test_results` 결과를 항상 best_word_score 와 비교 후 max 적용.
+- `attempt_source = 'regular'` 만 best 통계로 사용하던 부분이 있다면 모든 attempt 를 합산.
 
-### 6. 콘솔 경고 정리 (forwardRef)
-**파일**: `src/components/teacher/WordHoInput.tsx`, `src/components/teacher/SyntaxHoToggle.tsx`
+#### 4-2. 행 동작 워크플로 재정렬
+- HO 입력란 활성화: **인쇄 완료 후** (`isPrinted`) — 현재와 동일.
+- 인쇄 버튼 활성화: **HO 입력 전엔 노란 점멸 효과로 활성**, 인쇄 후 회색으로 표기. (요청 사항: "인쇄 버튼은 HO 성적 입력 후 활성화" → 재해석: 인쇄 후 HO 가 입력되면 행 전체가 "확정" 상태로 잠금. 미입력이면 인쇄 버튼이 강조되어 재인쇄 가능.)
+  - 명확한 구현:
+    - 1단계 (인쇄 전): `[인쇄]` 버튼만 활성, HO 입력 disabled.
+    - 2단계 (인쇄 완료 + HO 미입력): HO 입력 활성, [인쇄] 는 [재인쇄] 로 라벨 변경 + secondary 스타일.
+    - 3단계 (HO 입력 완료): HO 인풋 disabled (저장됨 표기), [재인쇄] 만 가능.
 
-- `LearningResults` 가 두 컴포넌트에 ref 를 전달하지는 않지만, `Card` 내부 layout 에서 ref forwarding warning 발생.
-- `WordHoInput` 을 `React.forwardRef` 로 감싸 ref 를 내부 input 으로 전달.
-- `SyntaxHoToggle` 도 동일 패턴(Button ref 위임).
-- 콘솔 노이즈 제거 + React strict mode 호환.
+#### 4-3. 재시험 → 특별과제(assignment)로 자동 부여
+- 현재 `handleRetest` 는 `sentence_progress.status='retest'` 만 갱신 → 학생이 자연스럽게 그 문장으로 재진입할 동선이 약함.
+- 변경: `handleRetest` 가 `assignments` 테이블에 **재시험 과제** row insert.
+  - 필드: `title="[재시험] {sentence_code}"`, `description="이전 학습 결과 기반 재시험"`, `student_id=userId`, `sentence_id=sid`, `due_at=now()+1day`, include_pre/analysis/translation/wordtest 모두 true, `teacher_id=auth.uid()`.
+  - 동시에 기존 `sentence_progress.status='retest'` 도 유지(학생 홈 RetestBanner 표시용).
+- 학습결과 행에 **재시험 배지** 표기: `assignments` 에서 `(student_id, sentence_id, title startsWith "[재시험]")` 가 존재하면 행 우측에 작은 `[재시험]` 배지.
+
+#### 4-4. 인쇄 완료 표기
+- 현재 행 `문장 코드` 옆에 `<Printer />` 시간 표기로 이미 구현.
+- 보강: `isPrinted` 면 행 좌측에 녹색 점 + tooltip "인쇄 완료 HH:mm".
+
+#### 4-5. 학생 제출 결과 보기 버튼 (구문분석, 한글해석)
+- 각 점수 셀 옆에 작은 [👁 보기] 아이콘 버튼 추가:
+  - **구문분석 보기**: 새 탭으로 `/teacher/compare/:sentenceId/:userId` 열기 (마스터 vs 학생 그래픽 비교).
+  - **한글해석 보기**: Popover 또는 Dialog 로 `sentence_translations.text` 를 그 자리에서 표시. 길면 "전체 보기" 링크로 새 탭.
+- 단어시험 보기: `word_test_results.items` + `wrong_words` 를 Dialog 로 표 형태 표시.
+
+### 5. 단어 채점 정규화 (단어 뜻 띄어쓰기 / 영어 스펠 대소문자)
+
+#### 5-1. 한국어 뜻 — 띄어쓰기 무시
+**파일**: `src/lib/wordTestBuilder.ts`
+- `normalizeKo` 가 이미 `.replace(/\s+/g, " ")` 을 적용 → " " 1개로 축약. 변경: 모든 공백 제거 (`.replace(/\s+/g, "")`) 로 강화.
+- `isAnswerCorrect` 의 `exps.some((e) => e === g || e.includes(g) || g.includes(e))` 를 normalizeKo 적용된 후 비교 — 띄어쓰기 차이 완전 무시.
+
+#### 5-2. 영어 스펠 — 대소문자 무시
+**파일**: `src/lib/wordTest.ts`
+- `normSpell` 이 이미 `.toLowerCase()` + 공백제거 → 대/소문자 무시 정상. 단, `isQuestionCorrect` 내 비교가 직접 `q.word` 를 normalize 하므로 OK.
+- 추가 보강: `wordTestBuilder.isAnswerCorrect` 의 영어 정답(POS=단어 자체) 케이스에도 `.toLowerCase()` 명시.
 
 ### 변경 파일 요약
 
-- `src/components/auth/RequireAuth.tsx` — staff role 명시 라우트는 viewMode 무시 (PDF 리다이렉트 버그 해결).
-- `src/components/teacher/TeacherLayout.tsx` — 과거과제함 항목 제거, 학습결과함→학습결과 라벨 변경.
-- `src/pages/teacher/TeacherHome.tsx` — 마감 임박 과제에 [학습완료] 배지.
-- `src/pages/teacher/LearningResults.tsx` — 페이지 제목 변경, 한 줄 통합 표, 인쇄 후 HO 활성, 8/10→80 자동환산, 낙관적 갱신, 선택 인쇄.
-- `src/pages/teacher/PrintQueue.tsx` — [PDF] → [인쇄] 라벨, autoprint 쿼리.
-- `src/pages/Handout.tsx` — `autoprint=1` 시 자동 인쇄 트리거.
-- `src/components/teacher/WordHoInput.tsx`, `SyntaxHoToggle.tsx` — `forwardRef` 전환.
+- `src/pages/Index.tsx` — Shift 드래그 결합, 학생 미니 툴바, N중 절 owner 분리, 분석률 라벨 분모 표기.
+- `src/pages/SentenceLearn.tsx` — "견해차" 카드를 analysis step 한정, "의문점" 표현 변경.
+- `src/components/learning/TeacherAnalysisOverride.tsx` — "견해차" 문구 교체.
+- `src/pages/AnalysisReview.tsx` — 파일 삭제. `src/App.tsx` 라우트 제거 + `/learn/compare/:sid` 신설.
+- `src/pages/teacher/AnalysisCompare.tsx` — 차이 요약 보강(extra status, surface 컬럼), [정답 확인] 라벨.
+- `src/pages/teacher/AnalysisRequests.tsx`, `TeacherAnalysisReview.tsx` — 라벨 변경.
+- `src/lib/analysisCompare.ts` — `details` 에 학생-only owner(`extra`) 추가.
+- `src/pages/teacher/PrintQueue.tsx` — 학습결과 동등 컬럼, [구문/단어/전체] 분리, 자동 인쇄 강화.
+- `src/pages/HandoutWord.tsx` — 신규(단어 HO 학습지, scope=wrong|all).
+- `src/App.tsx` — `/teacher/handout/word/:code` 라우트 신설, `/learn/compare/:sid` 라우트 신설.
+- `src/pages/teacher/LearningResults.tsx` — 온라인 점수 보정, 재인쇄 라벨, 재시험→assignments insert, 재시험 배지, 결과 보기 버튼.
+- `src/lib/wordTestBuilder.ts` — `normalizeKo` 공백 완전 제거.
+- `src/lib/wordTest.ts` — 영어 스펠 비교 보강.
 
-DB 스키마 변경 없음.
+DB 스키마 변경 없음. 기존 `assignments` 테이블 그대로 사용(재시험은 title prefix 로 식별).
 
