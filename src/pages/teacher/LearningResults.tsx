@@ -44,6 +44,7 @@ import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutRe
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
+import { launchPrint, launchPrintMany } from "@/lib/printLauncher";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
@@ -317,11 +318,11 @@ const LearningResults = () => {
   const handlePrint = async (userId: string, sentenceId: string) => {
     const key = `print:${userId}:${sentenceId}`;
     setBusy((p) => ({ ...p, [key]: true }));
-    // 1) 즉시 새 탭 오픈 (autoprint=1) — 사용자 클릭 컨텍스트 보존
-    window.open(
-      `/teacher/handout/${encodeURIComponent(sentenceId)}?student=${userId}&autoprint=1`,
-      "_blank",
-    );
+    // 1) 화면전환 없이 즉시 인쇄창 — 숨김 iframe 사용
+    launchPrint(
+      `/teacher/handout/${encodeURIComponent(sentenceId)}?student=${userId}&autoprint=1&embed=1`,
+      { jobKey: key },
+    ).catch((e) => console.warn("[LearningResults] launchPrint failed", e));
     // 2) 낙관적 마킹 — HO 입력란 즉시 활성화
     const nowIso = new Date().toISOString();
     const stateKey = `${userId}::${sentenceId}`;
@@ -344,7 +345,7 @@ const LearningResults = () => {
       }
       const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
       setHandoutMap((prev) => ({ ...prev, [userId]: row }));
-      toast({ title: "인쇄 처리됨 — HO 입력란 활성화" });
+      toast({ title: "인쇄창이 열립니다 — HO 입력란 활성화" });
     } catch (e) {
       toast({ title: "인쇄 처리 일부 실패", description: String(e), variant: "destructive" });
     } finally {
@@ -405,10 +406,15 @@ const LearningResults = () => {
   };
 
   const handlePrintAll = async (userId: string, sentenceIds: string[]) => {
-    for (const sid of sentenceIds) {
-      handleOpenPdf(userId, sid);
-    }
-    toast({ title: `${sentenceIds.length}개 핸드아웃 탭 열림` });
+    // 직렬 인쇄 큐 — 한 건씩 OS 인쇄창이 순차로 뜸 (화면전환 없음)
+    const urls = sentenceIds.map(
+      (sid) =>
+        `/teacher/handout/${encodeURIComponent(sid)}?student=${userId}&autoprint=1&embed=1`,
+    );
+    launchPrintMany(urls, { jobKey: `printAll:${userId}` }).catch((e) =>
+      console.warn("[LearningResults] launchPrintMany failed", e),
+    );
+    toast({ title: `${sentenceIds.length}개 인쇄창이 순차로 열립니다` });
   };
 
   // 단어 HO 인쇄 (오답만 / 전체 × 한글/스펠/혼합)
@@ -418,10 +424,11 @@ const LearningResults = () => {
     scope: "wrong" | "all",
     mode: "ko" | "en" | "mix" = "ko",
   ) => {
-    window.open(
-      `/teacher/handout/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&mode=${mode}&autoprint=1`,
-      "_blank",
-    );
+    const key = `wordPrint:${userId}:${sentenceId}:${scope}:${mode}`;
+    launchPrint(
+      `/teacher/handout/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&mode=${mode}&autoprint=1&embed=1`,
+      { jobKey: key },
+    ).catch((e) => console.warn("[LearningResults] word launchPrint failed", e));
     const nowIso = new Date().toISOString();
     setPrintedSet((p) => ({ ...p, [`${userId}::${sentenceId}`]: nowIso }));
     try {
