@@ -127,7 +127,9 @@ const AnalysisCompare = () => {
               <ArrowLeft className="size-4" /> 뒤로
             </Button>
             <div className="text-sm">
-              <span className="font-bold">{student?.display_name ?? "학생"}</span>
+              <span className="font-bold">정답 확인</span>
+              <span className="text-muted-foreground ml-2">·</span>
+              <span className="font-bold ml-2">{student?.display_name ?? "학생"}</span>
               <span className="text-muted-foreground ml-1">#{student?.student_no ?? ""}</span>
               <span className="text-muted-foreground ml-3 font-mono text-xs">{sentenceId}</span>
             </div>
@@ -137,7 +139,7 @@ const AnalysisCompare = () => {
                   일치율 {Math.round(diff.rate * 100)}%
                 </Badge>
                 <Badge variant="destructive" className="font-bold">
-                  자동 {diff.diffOwnerIds.size}
+                  불일치 {diff.diffOwnerIds.size}
                 </Badge>
                 {manualToggles.size > 0 && (
                   <Badge variant="outline" className="font-bold">
@@ -145,6 +147,11 @@ const AnalysisCompare = () => {
                   </Badge>
                 )}
                 <Badge variant="outline">미입력 {diff.missingOwnerIds.size}</Badge>
+                {diff.extraOwnerIds.size > 0 && (
+                  <Badge variant="outline" className="border-amber-500 text-amber-700">
+                    추가 {diff.extraOwnerIds.size}
+                  </Badge>
+                )}
               </div>
             )}
           </div>
@@ -223,29 +230,43 @@ const AnalysisCompare = () => {
                   <thead>
                     <tr className="border-b text-left text-[10px] text-muted-foreground">
                       <th className="py-1.5 pr-2">상태</th>
-                      <th className="py-1.5 pr-2">owner_id</th>
+                      <th className="py-1.5 pr-2">단어/요지</th>
                       <th className="py-1.5 pr-2">정답 POS</th>
                       <th className="py-1.5 pr-2">학생 POS</th>
+                      <th className="py-1.5 pr-2">owner_id</th>
                     </tr>
                   </thead>
                   <tbody>
                     {diff.details
                       .filter((d) => d.status !== "exact")
-                      .map((d) => (
-                        <tr key={d.ownerId} className="border-b border-border/40">
-                          <td className="py-1.5 pr-2">
-                            <Badge
-                              variant={d.status === "missing" ? "outline" : "destructive"}
-                              className="text-[9px] px-1.5 py-0 font-bold"
-                            >
-                              {d.status}
-                            </Badge>
-                          </td>
-                          <td className="py-1.5 pr-2 font-mono text-[10px]">{d.ownerId}</td>
-                          <td className="py-1.5 pr-2">{d.masterPos ?? "—"}</td>
-                          <td className="py-1.5 pr-2">{d.studentPos ?? "—"}</td>
-                        </tr>
-                      ))}
+                      .map((d) => {
+                        // owner_id 형식: tokenId::idx 또는 span::sid::start-end
+                        // 간이 surface 추출: 마지막 segment에서 idx 또는 range
+                        const parts = d.ownerId.split("::");
+                        const last = parts[parts.length - 1];
+                        const surface = last.includes("-") ? `(${last})` : last;
+                        const variant =
+                          d.status === "missing"
+                            ? "outline"
+                            : d.status === "extra"
+                              ? "secondary"
+                              : "destructive";
+                        return (
+                          <tr key={d.ownerId} className="border-b border-border/40">
+                            <td className="py-1.5 pr-2">
+                              <Badge variant={variant} className="text-[9px] px-1.5 py-0 font-bold">
+                                {d.status}
+                              </Badge>
+                            </td>
+                            <td className="py-1.5 pr-2 font-mono text-[10px]">{surface}</td>
+                            <td className="py-1.5 pr-2">{d.masterPos ?? "—"}</td>
+                            <td className="py-1.5 pr-2">{d.studentPos ?? "—"}</td>
+                            <td className="py-1.5 pr-2 font-mono text-[10px] text-muted-foreground">
+                              {d.ownerId}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
