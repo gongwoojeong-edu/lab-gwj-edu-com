@@ -102,7 +102,12 @@ export async function upsertHandoutResult(params: {
   // 기존 행이 있으면 update, 없으면 insert — sentence_id 가 null 인 행에 대한
   // unique 제약은 COALESCE 기반 인덱스로 보장됨.
   if (existing) {
-    const patch: Record<string, unknown> = {
+    const patch: {
+      teacher_id: string | null;
+      session_no: number;
+      word_ho_score?: number | null;
+      syntax_ho_result?: string | null;
+    } = {
       teacher_id: teacherId,
       session_no: sessionNo,
     };
