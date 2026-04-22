@@ -145,14 +145,15 @@ const BookshelfUnit = () => {
                   <th className="py-2 px-3 w-12">#</th>
                   <th className="py-2 px-3 w-32">코드</th>
                   <th className="py-2 px-3">본문 (미리보기)</th>
-                  <th className="py-2 px-3 w-24">상태</th>
+                  <th className="py-2 px-3 w-28">단어추출</th>
+                  <th className="py-2 px-3 w-28">분석상태</th>
                   <th className="py-2 px-3 w-44 text-right">액션</th>
                 </tr>
               </thead>
               <tbody>
                 {passages.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                    <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
                       아직 지문이 없습니다. 이전 화면의 <strong>교재 만들기</strong>로 본문을
                       삽입하세요.
                     </td>
@@ -160,12 +161,27 @@ const BookshelfUnit = () => {
                 ) : (
                   passages.map((p) => {
                     const ready = p.analysis_status === "ready";
+                    const wordCount = extractedMap[p.code] ?? 0;
+                    const hasExtracted = wordCount > 0;
                     return (
                       <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
                         <td className="py-2 px-3 font-mono text-xs">{p.passage_no}</td>
                         <td className="py-2 px-3 font-mono text-xs text-primary">{p.code}</td>
                         <td className="py-2 px-3 text-xs text-foreground/80 max-w-xl">
                           <span className="line-clamp-2">{p.english}</span>
+                        </td>
+                        <td className="py-2 px-3">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
+                              hasExtracted
+                                ? "bg-primary/15 text-primary"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            <Sparkles className="size-3" />
+                            {hasExtracted ? `${wordCount}개` : "미추출"}
+                          </span>
                         </td>
                         <td className="py-2 px-3">
                           <span
@@ -178,11 +194,11 @@ const BookshelfUnit = () => {
                           >
                             {ready ? (
                               <>
-                                <FileCheck className="size-3" /> ready
+                                <FileCheck className="size-3" /> 완료
                               </>
                             ) : (
                               <>
-                                <FileEdit className="size-3" /> draft
+                                <FileEdit className="size-3" /> 준비중
                               </>
                             )}
                           </span>
