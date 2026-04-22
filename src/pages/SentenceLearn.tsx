@@ -484,9 +484,7 @@ const SentenceLearn = () => {
   /** 5-state 요청 버튼 렌더 */
   const renderReviewRequestButton = () => {
     if (!sentence) return null;
-    // 마스터 정답이 없는 문장은 첨삭 요청 자체를 노출하지 않음
     const hasMaster = analysisGrade?.hasMaster ?? analysisHasMaster;
-    if (!hasMaster && !openRequest) return null;
     if (openRequest?.status === "approved") {
       return (
         <Button
@@ -520,6 +518,14 @@ const SentenceLearn = () => {
       return (
         <Button size="sm" disabled variant="outline" className="text-xs">
           <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({label} {Math.round(rate * 100)}%)
+        </Button>
+      );
+    }
+    // 마스터 없음 → 50% 이상이면 normal 트랙으로 요청 가능
+    if (!hasMaster) {
+      return (
+        <Button size="sm" onClick={requestAnalysisReview} disabled={requesting}>
+          <ShieldCheck className="w-4 h-4 mr-1" /> 선생님분석본보기요청 ({label} {Math.round(rate * 100)}%)
         </Button>
       );
     }
@@ -588,6 +594,11 @@ const SentenceLearn = () => {
                 {previousStatus === "pass" && (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
                     PASS
+                  </span>
+                )}
+                {previousStatus === "hold" && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px] font-bold">
+                    보류
                   </span>
                 )}
               </div>
