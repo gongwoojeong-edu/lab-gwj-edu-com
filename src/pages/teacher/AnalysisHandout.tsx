@@ -19,9 +19,36 @@ const AnalysisHandout = () => {
   const { sentenceId, studentId } = useParams<{ sentenceId: string; studentId: string }>();
   const [params] = useSearchParams();
   const mode = (params.get("mode") ?? "marked") as "marked" | "blank";
+  const autoprint = params.get("autoprint") === "1";
+  const embed = params.get("embed") === "1";
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [diff, setDiff] = useState<CompareDiffResult | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // autoprint 처리 — 데이터 로드 + 두 번 rAF 후 인쇄
+  useEffect(() => {
+    if (!autoprint || loading) return;
+    let cancelled = false;
+    const fire = () => {
+      if (cancelled) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          try {
+            window.print();
+          } catch (e) {
+            console.error("[AnalysisHandout] auto-print failed", e);
+          }
+        });
+      });
+    };
+    const t = window.setTimeout(fire, 100);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [autoprint, loading]);
 
   useEffect(() => {
     if (!sentenceId || !studentId) return;
