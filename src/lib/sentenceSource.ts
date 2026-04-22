@@ -4,9 +4,47 @@
 // 호출처(Index, SentenceLearn, StudentHome, nextSentence)는 여전히
 // `SENTENCES`를 그대로 사용하지만, 부팅 시 DB 행이 자동 머지된다.
 // ============================================================
-import { SENTENCES, type Sentence, type SentenceToken } from "@/data/sentences";
+import { SENTENCES, type Sentence, type SentenceToken, type WordAnswer } from "@/data/sentences";
 import type { LevelCode } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * 영문 본문을 클릭 가능한 analyzable 토큰으로 자동 분리.
+ * - 단어 → analyzable (빈 answer)
+ * - 구두점 → static punct
+ * - 공백 → static word(공백)
+ * 정적 SENTENCES의 W()/P() 헬퍼와 호환 구조.
+ */
+export const buildTokensFromEnglish = (english: string): SentenceToken[] => {
+  if (!english) return [];
+  const out: SentenceToken[] = [];
+  // 단어(영문/숫자/어퍼스트로피/하이픈) | 구두점 | 공백
+  const re = /([A-Za-z0-9][A-Za-z0-9'’\-]*)|([.,!?;:"“”()\[\]{}…—–])|(\s+)/g;
+  let m: RegExpExecArray | null;
+  let wIdx = 0;
+  const emptyAnswer = (): WordAnswer => ({
+    pos: "기타",
+    kind: "부연",
+    role: "",
+    koreanLabel: "",
+  });
+  while ((m = re.exec(english)) !== null) {
+    const [, word, punct, space] = m;
+    if (word) {
+      out.push({
+        type: "analyzable",
+        id: `w${wIdx++}`,
+        text: word,
+        answer: emptyAnswer(),
+      });
+    } else if (punct) {
+      out.push({ type: "static", text: punct, role: "punct" });
+    } else if (space) {
+      out.push({ type: "static", text: " ", role: "word" });
+    }
+  }
+  return out;
+};
 
 interface PassageRow {
   id: string;
@@ -28,16 +66,21 @@ interface TextbookRow {
 let hydrated = false;
 let hydrating: Promise<void> | null = null;
 
-/** DB → Sentence 변환 */
-const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => ({
-  id: row.code,
-  no: row.passage_no,
-  level,
-  english: row.english,
-  korean: row.korean ?? "",
-  structureTags: [],
-  tokens: row.tokens ?? [],
-});
+/** DB → Sentence 변환. tokens 가 비어있으면 영문에서 자동 토큰화. */
+const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => {
+  const dbTokens = row.tokens ?? [];
+  const tokens =
+    dbTokens.length > 0 ? dbTokens : buildTokensFromEnglish(row.english);
+  return {
+    id: row.code,
+    no: row.passage_no,
+    level,
+    english: row.english,
+    korean: row.korean ?? "",
+    structureTags: [],
+    tokens,
+  };
+};
 
 /**
  * DB의 모든 passage를 읽어 정적 SENTENCES와 머지한다.
@@ -69,11 +112,12 @@ export const hydrateSentencesFromDb = async (force = false): Promise<void> => {
         if (!tb) continue;
         const level = tb.level as LevelCode;
         const idx = SENTENCES.findIndex((s) => s.id === row.code);
-        const next = rowToSentence(row, level);
-        // tokens 가 비어있고 정적 데이터가 있으면 정적 보존
-        if ((!next.tokens || next.tokens.length === 0) && idx >= 0) {
+        const dbTokens = row.tokens ?? [];
+        // DB tokens 비어있고 정적 데이터가 있으면 정적 보존 (정적 SENTENCES 유지)
+        if (dbTokens.length === 0 && idx >= 0) {
           continue;
         }
+        const next = rowToSentence(row, level);
         if (idx >= 0) {
           SENTENCES[idx] = { ...SENTENCES[idx], ...next };
         } else {

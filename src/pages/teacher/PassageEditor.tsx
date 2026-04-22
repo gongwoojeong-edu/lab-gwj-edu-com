@@ -99,8 +99,9 @@ const PassageEditor = () => {
               {passage.english}
             </p>
             <p className="text-[11px] text-muted-foreground mt-1 font-kr">
-              💡 분석은 하단 <b>[정답 입력]</b> 토글을 켠 뒤 단어를 클릭해 입력 →{" "}
-              <b>[정답 저장]</b> 으로 저장하세요 (마스터키).
+              💡 본문은 자동으로 단어 단위로 분리되어 표시됩니다. 하단{" "}
+              <b>[정답 입력]</b> 토글을 켠 뒤 단어를 클릭해 입력 →{" "}
+              <b>[정답 저장]</b> 으로 저장하세요. (AI 단어 추출은 선택 단계)
             </p>
           </div>
           <div className="flex items-center gap-2">
