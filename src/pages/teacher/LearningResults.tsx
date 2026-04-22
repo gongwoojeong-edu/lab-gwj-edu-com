@@ -595,7 +595,7 @@ const LearningResults = () => {
                           <th className="text-left px-3 py-2 font-medium">단어시험</th>
                           <th className="text-left px-3 py-2 font-medium">단어 HO</th>
                           <th className="text-left px-3 py-2 font-medium">구문 HO</th>
-                          <th className="text-right px-3 py-2 font-medium">인쇄</th>
+                          <th className="text-right px-3 py-2 font-medium">인쇄 및 재시험 러정</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -723,10 +723,10 @@ const LearningResults = () => {
                                     className="h-7 px-2 text-xs"
                                     disabled={!!busy[printKey]}
                                     onClick={() => handlePrint(userId, sid)}
-                                    title={isPrinted ? "재인쇄 (구문)" : "구문 인쇄"}
+                                    title={isPrinted ? "재인쇄" : "인쇄"}
                                   >
                                     <Printer className="size-3 mr-1" />
-                                    {isPrinted ? "재구문" : "구문"}
+                                    인쇄
                                   </Button>
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
