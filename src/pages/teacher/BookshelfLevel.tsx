@@ -51,6 +51,7 @@ import {
   type Textbook,
 } from "@/lib/textbooks";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const BookshelfLevel = () => {
