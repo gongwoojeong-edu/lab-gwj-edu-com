@@ -130,7 +130,13 @@ const AssignmentsPast = () => {
     return { passed, total: targetIds.length };
   };
 
-  const sorted = useMemo(() => rows, [rows]);
+  // 완료된 과제만 — 모든 대상 학생이 포함된 단계를 모두 통과한 항목.
+  // (마감 후라도 미완료면 [활성 과제]에 잔존)
+  const doneRows = useMemo(() => {
+    if (rows.length === 0) return rows;
+    const allIds = students.map((s) => s.user_id);
+    return rows.filter((r) => isAssignmentDone(r, progressByAsg[r.id], allIds));
+  }, [rows, students, progressByAsg]);
 
   return (
     <TeacherLayout>
@@ -140,27 +146,27 @@ const AssignmentsPast = () => {
             to="/teacher/assignments"
             className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors"
           >
-            <ChevronLeft className="size-3.5" /> 활성 과제로
+            <ChevronLeft className="size-3.5" /> 진행중 과제로
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
-            <ClipboardList className="size-6 text-primary" /> 과거 과제함
+            <ClipboardList className="size-6 text-primary" /> 완료된 과제함
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            마감일이 지난 과제와 학생별 통과 현황을 확인할 수 있어요.
+            모든 대상 학생이 통과한 과제만 모입니다. 마감되었어도 미완료 과제는 진행중 목록에 남아 있어요.
           </p>
         </div>
 
         <Card className="p-5 space-y-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-primary">
-            마감 완료 과제 ({sorted.length})
+            완료 과제 ({doneRows.length})
           </h2>
-          {sorted.length === 0 ? (
+          {doneRows.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
-              아직 과거 과제가 없어요.
+              아직 완료된 과제가 없어요.
             </p>
           ) : (
             <div className="space-y-2">
-              {sorted.map((r) => {
+              {doneRows.map((r) => {
                 const { passed, total } = passInfo(r);
                 const isOpen = expanded === r.id;
                 const targetIds = r.student_id
