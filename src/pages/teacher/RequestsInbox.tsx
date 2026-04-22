@@ -47,6 +47,7 @@ import {
   printStageMessage,
   PrintPreloadError,
 } from "@/lib/printPreload";
+import { fetchMasterAvailability } from "@/lib/masterAvailability";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ const RequestsInbox = () => {
   const [printRows, setPrintRows] = useState<PrintRequest[]>([]);
   const [reviewRows, setReviewRows] = useState<AnalysisReviewRequest[]>([]);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
+  const [masterMap, setMasterMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
 
@@ -91,6 +93,14 @@ const RequestsInbox = () => {
           map[s.user_id] = s as StudentInfo;
         });
         setStudents(map);
+      }
+      // 정답보기(review) 요청들의 sentence별 마스터 유무 확인
+      const reviewSentenceIds = Array.from(new Set(rl.map((r) => r.sentence_id)));
+      if (reviewSentenceIds.length > 0) {
+        const m = await fetchMasterAvailability(reviewSentenceIds);
+        setMasterMap(m);
+      } else {
+        setMasterMap({});
       }
     } finally {
       setLoading(false);
@@ -309,14 +319,17 @@ const RequestsInbox = () => {
               }
 
               const req = it.row;
+              const masterReady = masterMap[req.sentence_id] ?? true;
               return (
                 <Card
                   key={`r-${req.id}`}
                   className={cn(
                     "p-3 flex items-center gap-3 flex-wrap border-l-4",
-                    req.track === "fail_assist"
-                      ? "border-l-amber-500"
-                      : "border-l-emerald-600",
+                    !masterReady
+                      ? "border-l-muted-foreground/40"
+                      : req.track === "fail_assist"
+                        ? "border-l-amber-500"
+                        : "border-l-emerald-600",
                   )}
                 >
                   <Badge
@@ -342,6 +355,11 @@ const RequestsInbox = () => {
                       {req.track === "fail_assist" && (
                         <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">
                           미통 보조
+                        </span>
+                      )}
+                      {!masterReady && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px]">
+                          마스터 미등록
                         </span>
                       )}
                     </div>
@@ -380,6 +398,8 @@ const RequestsInbox = () => {
                       size="sm"
                       className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => handleApprove(req.id)}
+                      disabled={!masterReady}
+                      title={!masterReady ? "마스터 등록 후 승인 가능" : undefined}
                     >
                       <CheckCircle2 className="size-3 mr-1" /> 승인
                     </Button>

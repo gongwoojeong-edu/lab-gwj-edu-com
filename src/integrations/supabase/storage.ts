@@ -14,7 +14,7 @@ const getUserId = async (): Promise<string | null> => {
 };
 
 // ---------- sentence_progress ----------
-export type SentenceProgressStatus = "pending" | "pass" | "fail";
+export type SentenceProgressStatus = "pending" | "pass" | "fail" | "hold";
 
 export interface SentenceProgressRow {
   sentence_id: string;

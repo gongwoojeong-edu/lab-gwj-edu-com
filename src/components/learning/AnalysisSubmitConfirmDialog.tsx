@@ -21,7 +21,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   sentenceId: string;
   /** 현재 sentence_progress.status (이미 미통이면 fail_assist 트랙 안내) */
-  currentStatus: "pending" | "pass" | "fail";
+  currentStatus: "pending" | "pass" | "fail" | "hold";
   /** "제출 →" 클릭 시 */
   onConfirmSubmit: () => void;
   /** 마스터 없을 때 fallback 표기에 쓰는 단어 분석률 (0~1) */

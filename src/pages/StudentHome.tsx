@@ -33,7 +33,7 @@ import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 
 interface RecentItem {
   sentence: Sentence;
-  status: "pass" | "fail";
+  status: "pass" | "fail" | "hold";
   updated_at: string;
 }
 
@@ -93,7 +93,7 @@ const StudentHome = () => {
             .order("due_at", { ascending: true })
             .limit(5),
         ]);
-        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail"; updated_at: string; passed_at: string | null }[];
+        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold"; updated_at: string; passed_at: string | null }[];
         const enriched: RecentItem[] = rows
           .map((row) => {
             const s = SENTENCES.find((x) => x.id === row.sentence_id);
@@ -203,10 +203,18 @@ const StudentHome = () => {
         });
         return;
       }
-      const isPass = recent.find((r) => r.sentence.id === sentenceId)?.status === "pass";
-      const track = grade.rate >= 0.8 && grade.requiredOwnersFilled
-        ? "normal"
-        : (!isPass && grade.rate >= 0.5 ? "fail_assist" : null);
+      const cur = recent.find((r) => r.sentence.id === sentenceId);
+      const isPass = cur?.status === "pass";
+      const isFail = cur?.status === "fail";
+      // 마스터 없음(hold 또는 hasMaster=false): 50% 이상이면 normal 트랙으로 허용
+      const track: "normal" | "fail_assist" | null =
+        grade.rate >= 0.8 && grade.requiredOwnersFilled
+          ? "normal"
+          : !grade.hasMaster && grade.rate >= 0.5
+            ? "normal"
+            : isFail && grade.rate >= 0.5
+              ? "fail_assist"
+              : null;
       if (!track) {
         toast({
           title: "요청 조건 미충족",
@@ -482,14 +490,17 @@ const StudentHome = () => {
                 <div className="grid gap-3 sm:grid-cols-3">
                   {recent.map(({ sentence, status, updated_at }) => {
                     const isFail = status === "fail";
+                    const isHold = status === "hold";
                     return (
                       <Card
                         key={sentence.id}
                         className={cn(
                           "p-4 space-y-2 transition-colors",
-                          isFail
-                            ? "border-amber-500/40 hover:border-amber-500/60"
-                            : "border-primary/20 hover:border-primary/40",
+                          isHold
+                            ? "border-muted hover:border-muted-foreground/40"
+                            : isFail
+                              ? "border-amber-500/40 hover:border-amber-500/60"
+                              : "border-primary/20 hover:border-primary/40",
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -497,10 +508,14 @@ const StudentHome = () => {
                           <span
                             className={cn(
                               "px-2 py-0.5 rounded-full text-[10px] font-extrabold",
-                              isFail ? "bg-amber-500 text-white" : "bg-emerald-500 text-white",
+                              isHold
+                                ? "bg-muted text-muted-foreground"
+                                : isFail
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-emerald-500 text-white",
                             )}
                           >
-                            {isFail ? "미통" : "PASS"}
+                            {isHold ? "보류" : isFail ? "미통" : "PASS"}
                           </span>
                         </div>
                         <p className="text-xs text-foreground/80 line-clamp-2 min-h-[2.5em]">
