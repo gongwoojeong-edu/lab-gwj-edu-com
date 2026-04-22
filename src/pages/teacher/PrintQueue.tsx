@@ -23,6 +23,7 @@ import {
   type PrintRequest,
 } from "@/lib/printRequests";
 import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
+import { launchPrint, launchPrintMany } from "@/lib/printLauncher";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -148,7 +149,7 @@ const PrintQueue = () => {
     return unsub;
   }, []);
 
-  // 인쇄 액션: 새 탭으로 열고 (autoprint=1), 백그라운드에서 처리완료 마킹
+  // 인쇄 액션: 화면전환 없이 숨김 iframe 으로 즉시 인쇄창 표시
   const triggerPrint = async (
     req: PrintRequest,
     kind: "syntax" | "word" | "all",
@@ -158,22 +159,22 @@ const PrintQueue = () => {
     const busyKey = `${kind}:${req.id}`;
     setBusy((p) => ({ ...p, [busyKey]: true }));
     const sid = encodeURIComponent(req.sentence_id);
+    const urls: string[] = [];
     if (kind === "syntax" || kind === "all") {
-      window.open(
-        `/teacher/handout/${sid}?student=${req.user_id}&autoprint=1`,
-        "_blank",
-      );
+      urls.push(`/teacher/handout/${sid}?student=${req.user_id}&autoprint=1&embed=1`);
     }
     if (kind === "word" || kind === "all") {
-      window.open(
-        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1`,
-        "_blank",
+      urls.push(
+        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1&embed=1`,
       );
     }
+    launchPrintMany(urls, { jobKey: busyKey }).catch((e) =>
+      console.warn("[PrintQueue] launchPrintMany failed", e),
+    );
     try {
       await markPrintRequestHandled(req.id);
       await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()));
-      toast({ title: "인쇄 처리됨 — 학습결과로 이동됨" });
+      toast({ title: "인쇄창이 열립니다 — 학습결과로 이동됨" });
     } catch (e) {
       toast({
         title: "처리 마킹 실패",
@@ -186,7 +187,7 @@ const PrintQueue = () => {
   };
 
   const handleOpenPdf = (req: PrintRequest) => {
-    // 미리보기: autoprint 없이 그냥 열기
+    // 미리보기: autoprint 없이 새 탭에서 그냥 열기
     window.open(
       `/teacher/handout/${encodeURIComponent(req.sentence_id)}?student=${req.user_id}`,
       "_blank",
@@ -206,9 +207,8 @@ const PrintQueue = () => {
         </div>
 
         <Card className="px-4 py-2 text-xs text-muted-foreground bg-muted/30">
-          [구문]/[단어]/[전체] 클릭 시 새 탭에서 핸드아웃이 열리고{" "}
-          <b>OS 인쇄 대화상자가 자동으로</b> 뜹니다. 처리되면 학습결과 화면에 자동
-          합류합니다. PDF 작업이 필요하면 [📄] 버튼으로 미리보기를 여세요.
+          [구문]/[단어]/[전체] 클릭 시 <b>현재 화면에서 OS 인쇄 대화상자가 즉시</b> 뜹니다.
+          처리되면 학습결과 화면에 자동 합류합니다. PDF 작업이 필요하면 [📄] 버튼으로 미리보기를 새 탭에서 여세요.
         </Card>
 
         {loading ? (

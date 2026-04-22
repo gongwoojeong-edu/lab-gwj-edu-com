@@ -40,6 +40,7 @@ import {
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
 import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
+import { launchPrintMany } from "@/lib/printLauncher";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -125,22 +126,22 @@ const RequestsInbox = () => {
     const busyKey = `${kind}:${req.id}`;
     setBusy((p) => ({ ...p, [busyKey]: true }));
     const sid = encodeURIComponent(req.sentence_id);
+    const urls: string[] = [];
     if (kind === "syntax" || kind === "all") {
-      window.open(
-        `/teacher/handout/${sid}?student=${req.user_id}&autoprint=1`,
-        "_blank",
-      );
+      urls.push(`/teacher/handout/${sid}?student=${req.user_id}&autoprint=1&embed=1`);
     }
     if (kind === "word" || kind === "all") {
-      window.open(
-        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1`,
-        "_blank",
+      urls.push(
+        `/teacher/handout/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1&embed=1`,
       );
     }
+    launchPrintMany(urls, { jobKey: busyKey }).catch((e) =>
+      console.warn("[RequestsInbox] launchPrintMany failed", e),
+    );
     try {
       await markPrintRequestHandled(req.id);
       await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()));
-      toast({ title: "인쇄 처리됨" });
+      toast({ title: "인쇄창이 열립니다" });
     } catch (e) {
       toast({
         title: "처리 마킹 실패",
