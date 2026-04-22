@@ -45,7 +45,11 @@ const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => ({
  * - 없으면 추가
  * - tokens가 비어있는 DB 행은 정적 데이터를 보존
  */
-export const hydrateSentencesFromDb = async (): Promise<void> => {
+export const hydrateSentencesFromDb = async (force = false): Promise<void> => {
+  if (force) {
+    hydrated = false;
+    hydrating = null;
+  }
   if (hydrated) return;
   if (hydrating) return hydrating;
   hydrating = (async () => {

@@ -23,7 +23,8 @@ const PassageEditor = () => {
     if (!passageCode) return;
     setLoading(true);
     (async () => {
-      await hydrateSentencesFromDb();
+      // 새 교재/지문이 추가됐을 수 있으므로 강제 재 hydrate (캐시된 SENTENCES 갱신)
+      await hydrateSentencesFromDb(true);
       const p = await fetchPassageByCode(passageCode);
       setPassage(p);
       setLoading(false);
