@@ -197,6 +197,22 @@ const AnalysisCompare = () => {
               ⚠️ 이 문장에는 아직 마스터키(원장 정답)가 등록되지 않았습니다. 차이 계산이 불가합니다.
             </Card>
           )}
+          {/* 학생 한글해석 카드 */}
+          <Card className="p-4 mb-4">
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="text-sm font-bold">✍️ 학생 한글해석</h3>
+              {translation?.submitted_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  제출: {new Date(translation.submitted_at).toLocaleString("ko-KR")}
+                </span>
+              )}
+            </div>
+            {translation?.text ? (
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{translation.text}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">한글해석 미제출</p>
+            )}
+          </Card>
           <div className="compare-grid grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* 좌: 마스터키 */}
             <Card className="compare-panel p-3 lg:p-4">
