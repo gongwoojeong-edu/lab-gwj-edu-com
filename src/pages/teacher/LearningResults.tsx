@@ -66,6 +66,8 @@ const LearningResults = () => {
   const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
   // 학생별 sentence_id 목록 (그 날 활동 흔적이 있는 모든 sentence)
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
+  // 한글해석 제출 여부: `${userId}::${sentenceId}` → true
+  const [translationSet, setTranslationSet] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
