@@ -41,7 +41,7 @@ import { WordTestStep } from "@/components/learning/WordTestStep";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
-import { gradeAnalysis, type OwnerDiffEntry } from "@/lib/analysisGrading";
+import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
@@ -89,8 +89,11 @@ const SentenceLearn = () => {
   const [hintWrongOwnerIds, setHintWrongOwnerIds] = useState<Set<string>>(new Set());
   const [sessionStartedAt] = useState<string>(() => new Date().toISOString());
   const [translationText, setTranslationText] = useState<string>("");
-  const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[] } | null>(null);
+  const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[]; hasMaster: boolean } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
+  const [analysisHasMaster, setAnalysisHasMaster] = useState(false);
+  const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
+  const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
   const [skipFlags, setSkipFlags] = useState<{ pre: boolean; analysis: boolean; translation: boolean; wordtest: boolean }>({
     pre: true,
@@ -323,7 +326,7 @@ const SentenceLearn = () => {
       // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
       const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
       const overallPass = analysisPassed && wordTestPassed;
-      setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs });
+      setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs, hasMaster: grade.hasMaster });
 
       // 필수 owner 누락 안내 (학생에게) — override 시에는 생략
       if (!opts?.teacherOverride && grade.hasMaster && !requiredOk) {
