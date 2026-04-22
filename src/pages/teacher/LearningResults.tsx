@@ -169,8 +169,12 @@ const LearningResults = () => {
       ((attemptsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
         (r) => addPair(r.user_id, r.sentence_id),
       );
+      const tSet: Record<string, boolean> = {};
       ((translationsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
+        (r) => {
+          addPair(r.user_id, r.sentence_id);
+          tSet[`${r.user_id}::${r.sentence_id}`] = true;
+        },
       );
       ((wordTestRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
         (r) => addPair(r.user_id, r.sentence_id),
