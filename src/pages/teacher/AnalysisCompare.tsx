@@ -61,6 +61,8 @@ const AnalysisCompare = () => {
   const [diff, setDiff] = useState<CompareDiffResult | null>(null);
   const [manualToggles, setManualToggles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+  const [wordList, setWordList] = useState<string[]>([]);
 
   useEffect(() => {
     if (!sentenceId || !studentId) return;
@@ -82,14 +84,18 @@ const AnalysisCompare = () => {
         .limit(1)
         .maybeSingle(),
       computeCompareDiff(sentenceId, studentId),
+      fetchPassageByCode(sentenceId),
     ])
-      .then(([{ data: a }, { data: s }, { data: t }, d]) => {
+      .then(([{ data: a }, { data: s }, { data: t }, d, p]) => {
         if (cancelled) return;
         setAdminId(((a as AdminProfile | null)?.user_id) ?? null);
         setStudent((s as StudentProfile | null) ?? null);
         setTranslation((t as TranslationRow | null) ?? null);
         setDiff(d);
         setManualToggles(loadToggleSet(sentenceId, studentId));
+        // 영어 문장을 공백 기준 단어 배열로 — owner_id 의 idx → surface 매핑용
+        const eng = p?.english ?? "";
+        setWordList(eng.split(/\s+/).filter(Boolean));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -98,6 +104,25 @@ const AnalysisCompare = () => {
       cancelled = true;
     };
   }, [sentenceId, studentId]);
+
+  // owner_id 에서 단어 surface 추출
+  // 형식 1: <tokenId>::<idx>          → 단일 단어
+  // 형식 2: span::<sentenceId>::<start>-<end>  → 범위
+  const surfaceOf = (ownerId: string): string => {
+    const parts = ownerId.split("::");
+    const last = parts[parts.length - 1];
+    if (last.includes("-")) {
+      const [s, e] = last.split("-").map((n) => parseInt(n, 10));
+      if (!Number.isFinite(s) || !Number.isFinite(e)) return `(${last})`;
+      const slice = wordList.slice(s, e + 1);
+      if (slice.length === 0) return `(${last})`;
+      const joined = slice.join(" ");
+      return joined.length > 32 ? joined.slice(0, 30) + "…" : joined;
+    }
+    const idx = parseInt(last, 10);
+    if (Number.isFinite(idx) && wordList[idx]) return wordList[idx];
+    return last;
+  };
 
   // 자동 diff XOR 수동 토글 = 최종 강조 집합
   const finalDiffOwnerIds = useMemo(() => {
