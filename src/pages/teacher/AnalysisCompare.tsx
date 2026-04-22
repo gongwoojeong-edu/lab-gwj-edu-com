@@ -54,6 +54,7 @@ const AnalysisCompare = () => {
   const navigate = useNavigate();
   const [adminId, setAdminId] = useState<string | null>(null);
   const [student, setStudent] = useState<StudentProfile | null>(null);
+  const [translation, setTranslation] = useState<TranslationRow | null>(null);
   const [diff, setDiff] = useState<CompareDiffResult | null>(null);
   const [manualToggles, setManualToggles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -69,12 +70,21 @@ const AnalysisCompare = () => {
         .select("display_name, student_no")
         .eq("user_id", studentId)
         .maybeSingle(),
+      supabase
+        .from("sentence_translations")
+        .select("text, submitted_at")
+        .eq("sentence_id", sentenceId)
+        .eq("user_id", studentId)
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       computeCompareDiff(sentenceId, studentId),
     ])
-      .then(([{ data: a }, { data: s }, d]) => {
+      .then(([{ data: a }, { data: s }, { data: t }, d]) => {
         if (cancelled) return;
         setAdminId(((a as AdminProfile | null)?.user_id) ?? null);
         setStudent((s as StudentProfile | null) ?? null);
+        setTranslation((t as TranslationRow | null) ?? null);
         setDiff(d);
         setManualToggles(loadToggleSet(sentenceId, studentId));
       })
