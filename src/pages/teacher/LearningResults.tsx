@@ -440,14 +440,20 @@ const LearningResults = () => {
 
   const handlePrintAll = async (userId: string, sentenceIds: string[]) => {
     // 직렬 인쇄 큐 — 한 건씩 OS 인쇄창이 순차로 뜸 (화면전환 없음)
-    const urls = sentenceIds.map(
-      (sid) =>
-        `/print/handout/${encodeURIComponent(sid)}?student=${userId}&autoprint=1&embed=1`,
-    );
-    launchPrintMany(urls, { jobKey: `printAll:${userId}` }).catch((e) =>
-      console.warn("[LearningResults] launchPrintMany failed", e),
-    );
-    toast({ title: `${sentenceIds.length}개 인쇄창이 순차로 열립니다` });
+    try {
+      const htmls = await Promise.all(
+        sentenceIds.map((sid) =>
+          buildHandoutPrintHtmlFor({ sentenceId: sid, studentId: userId }),
+        ),
+      );
+      launchPrintHtmlMany(htmls, { jobKey: `printAll:${userId}` }).catch((e) =>
+        console.warn("[LearningResults] launchPrintHtmlMany failed", e),
+      );
+      toast({ title: `${sentenceIds.length}개 인쇄창이 순차로 열립니다` });
+    } catch (e) {
+      const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+      toast({ title: "인쇄 준비 실패", description: msg, variant: "destructive" });
+    }
   };
 
   // 단어 HO 인쇄 (오답만 / 전체 × 한글/스펠/혼합)
@@ -458,10 +464,17 @@ const LearningResults = () => {
     mode: "ko" | "en" | "mix" = "ko",
   ) => {
     const key = `wordPrint:${userId}:${sentenceId}:${scope}:${mode}`;
-    launchPrint(
-      `/print/word/${encodeURIComponent(sentenceId)}?student=${userId}&scope=${scope}&mode=${mode}&autoprint=1&embed=1`,
-      { jobKey: key },
-    ).catch((e) => console.warn("[LearningResults] word launchPrint failed", e));
+    let html: string;
+    try {
+      html = await buildWordPrintHtmlFor({ sentenceId, studentId: userId, scope, mode });
+    } catch (e) {
+      const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+      toast({ title: "단어 HO 준비 실패", description: msg, variant: "destructive" });
+      return;
+    }
+    launchPrintHtml(html, { jobKey: key }).catch((e) =>
+      console.warn("[LearningResults] word launchPrintHtml failed", e),
+    );
     const nowIso = new Date().toISOString();
     setPrintedSet((p) => ({ ...p, [`${userId}::${sentenceId}`]: nowIso }));
     try {
