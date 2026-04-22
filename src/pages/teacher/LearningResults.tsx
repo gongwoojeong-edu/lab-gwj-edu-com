@@ -642,23 +642,49 @@ const LearningResults = () => {
                                     <span className="text-muted-foreground tabular-nums">
                                       {aScore}%
                                     </span>
+                                    <Link
+                                      to={`/teacher/compare/${encodeURIComponent(sid)}/${userId}`}
+                                      target="_blank"
+                                      title="구문분석 정답 확인"
+                                      className="text-muted-foreground hover:text-primary"
+                                    >
+                                      <Eye className="size-3.5" />
+                                    </Link>
                                   </span>
                                 )}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap">
-                                {wScore == null ? (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                ) : (
-                                  <span
-                                    className={
-                                      a?.word_passed
-                                        ? "text-primary font-semibold tabular-nums"
-                                        : "text-destructive font-semibold tabular-nums"
-                                    }
+                                <div className="inline-flex items-center gap-1.5">
+                                  {wScore == null ? (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  ) : (
+                                    <span
+                                      className={
+                                        a?.word_passed
+                                          ? "text-primary font-semibold tabular-nums"
+                                          : "text-destructive font-semibold tabular-nums"
+                                      }
+                                    >
+                                      {wScore}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    title="단어시험 결과 보기"
+                                    className="text-muted-foreground hover:text-primary"
+                                    onClick={() => handleViewWordTest(userId, sid)}
                                   >
-                                    {wScore}
-                                  </span>
-                                )}
+                                    <Eye className="size-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="한글해석 보기"
+                                    className="text-muted-foreground hover:text-primary"
+                                    onClick={() => handleViewTranslation(userId, sid)}
+                                  >
+                                    <FileText className="size-3.5" />
+                                  </button>
+                                </div>
                               </td>
                               <td className="px-3 py-2">
                                 <WordHoInput
@@ -693,13 +719,40 @@ const LearningResults = () => {
                                   </Button>
                                   <Button
                                     size="sm"
+                                    variant={isPrinted ? "secondary" : "default"}
                                     className="h-7 px-2 text-xs"
                                     disabled={!!busy[printKey]}
                                     onClick={() => handlePrint(userId, sid)}
+                                    title={isPrinted ? "재인쇄 (구문)" : "구문 인쇄"}
                                   >
                                     <Printer className="size-3 mr-1" />
-                                    인쇄
+                                    {isPrinted ? "재구문" : "구문"}
                                   </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        <BookOpen className="size-3 mr-1" />
+                                        단어
+                                        <ChevronDown className="size-3 ml-0.5" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        onClick={() => handlePrintWord(userId, sid, "wrong")}
+                                      >
+                                        오답만 인쇄
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handlePrintWord(userId, sid, "all")}
+                                      >
+                                        전체 단어 인쇄
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                   <Button
                                     size="sm"
                                     variant="secondary"
@@ -724,6 +777,16 @@ const LearningResults = () => {
           </div>
         )}
       </div>
+
+      {/* 보기 다이얼로그 (한글해석 / 단어시험) */}
+      <Dialog open={!!viewDialog} onOpenChange={(o) => !o && setViewDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewDialog?.title}</DialogTitle>
+          </DialogHeader>
+          {viewDialog?.body}
+        </DialogContent>
+      </Dialog>
     </TeacherLayout>
   );
 };
