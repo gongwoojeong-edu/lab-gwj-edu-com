@@ -40,7 +40,13 @@ import {
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
 import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
-import { launchPrintMany } from "@/lib/printLauncher";
+import { launchPrintHtmlMany } from "@/lib/printLauncher";
+import {
+  buildHandoutPrintHtmlFor,
+  buildWordPrintHtmlFor,
+  printStageMessage,
+  PrintPreloadError,
+} from "@/lib/printPreload";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -126,29 +132,41 @@ const RequestsInbox = () => {
   ) => {
     const busyKey = `${kind}:${req.id}`;
     setBusy((p) => ({ ...p, [busyKey]: true }));
-    const sid = encodeURIComponent(req.sentence_id);
-    const urls: string[] = [];
-    if (kind === "syntax" || kind === "all") {
-      urls.push(`/print/handout/${sid}?student=${req.user_id}&autoprint=1&embed=1`);
+    const htmls: string[] = [];
+    try {
+      if (kind === "syntax" || kind === "all") {
+        htmls.push(
+          await buildHandoutPrintHtmlFor({
+            sentenceId: req.sentence_id,
+            studentId: req.user_id,
+          }),
+        );
+      }
+      if (kind === "word" || kind === "all") {
+        htmls.push(
+          await buildWordPrintHtmlFor({
+            sentenceId: req.sentence_id,
+            studentId: req.user_id,
+            scope: wordScope,
+            mode: wordMode,
+          }),
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
+      toast({ title: "인쇄 준비 실패", description: msg, variant: "destructive" });
+      setBusy((p) => ({ ...p, [busyKey]: false }));
+      return;
     }
-    if (kind === "word" || kind === "all") {
-      urls.push(
-        `/print/word/${sid}?student=${req.user_id}&scope=${wordScope}&mode=${wordMode}&autoprint=1&embed=1`,
-      );
-    }
-    launchPrintMany(urls, { jobKey: busyKey }).catch((e) =>
-      console.warn("[RequestsInbox] launchPrintMany failed", e),
+    launchPrintHtmlMany(htmls, { jobKey: busyKey }).catch((e) =>
+      console.warn("[RequestsInbox] launchPrintHtmlMany failed", e),
     );
     try {
       await markPrintRequestHandled(req.id);
-      await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()));
+      await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()), req.sentence_id);
       toast({ title: "인쇄창 준비 완료" });
     } catch (e) {
-      toast({
-        title: "처리 마킹 실패",
-        description: errMsg(e),
-        variant: "destructive",
-      });
+      console.warn("[RequestsInbox] markHandled/ensureRow failed", e);
     } finally {
       setBusy((p) => ({ ...p, [busyKey]: false }));
     }
