@@ -197,6 +197,15 @@ const BookshelfUnit = () => {
                           >
                             <Pencil className="size-3.5 mr-1" /> 정답 설정
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="지문 삭제"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-1"
+                            onClick={() => setDeleteTarget(p)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
                         </td>
                       </tr>
                     );
