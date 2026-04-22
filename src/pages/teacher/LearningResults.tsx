@@ -633,26 +633,36 @@ const LearningResults = () => {
                                 </div>
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap">
-                                {aScore == null ? (
+                                {aScore == null && !translationSet[stateKey] ? (
                                   <span className="text-xs text-muted-foreground">—</span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 text-xs">
-                                    <Badge
-                                      className={
-                                        a?.analysis_passed
-                                          ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
-                                          : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
-                                      }
-                                    >
-                                      {a?.analysis_passed ? "P" : "F"}
-                                    </Badge>
-                                    <span className="text-muted-foreground tabular-nums">
-                                      {aScore}%
-                                    </span>
+                                    {aScore != null && (
+                                      <>
+                                        <Badge
+                                          className={
+                                            a?.analysis_passed
+                                              ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
+                                              : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
+                                          }
+                                        >
+                                          {a?.analysis_passed ? "P" : "F"}
+                                        </Badge>
+                                        <span className="text-muted-foreground tabular-nums">
+                                          {aScore}%
+                                        </span>
+                                      </>
+                                    )}
+                                    <span className="text-muted-foreground">·</span>
+                                    {translationSet[stateKey] ? (
+                                      <span className="text-primary font-medium">해석✓</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">해석✗</span>
+                                    )}
                                     <Link
                                       to={`/teacher/compare/${encodeURIComponent(sid)}/${userId}`}
                                       target="_blank"
-                                      title="구문분석 정답 확인"
+                                      title="분석 + 한글해석 보기"
                                       className="text-muted-foreground hover:text-primary"
                                     >
                                       <Eye className="size-3.5" />
