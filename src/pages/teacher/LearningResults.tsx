@@ -348,8 +348,13 @@ const LearningResults = () => {
       } catch (e) {
         console.warn("[LearningResults] print_requests insert skipped", e);
       }
-      const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
-      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+      const row = await ensureHandoutRow(
+        userId,
+        u.user?.id ?? null,
+        toIsoDate(new Date()),
+        sentenceId,
+      );
+      setHandoutMap((prev) => ({ ...prev, [`${userId}::${sentenceId}`]: row }));
       toast({ title: "인쇄창이 열립니다 — HO 입력란 활성화" });
     } catch (e) {
       toast({ title: "인쇄 처리 일부 실패", description: String(e), variant: "destructive" });
@@ -447,8 +452,13 @@ const LearningResults = () => {
         handled_by: u.user?.id ?? null,
         note: `teacher-print-word-${scope}`,
       });
-      const row = await ensureHandoutRow(userId, u.user?.id ?? null, toIsoDate(new Date()));
-      setHandoutMap((prev) => ({ ...prev, [userId]: row }));
+      const row = await ensureHandoutRow(
+        userId,
+        u.user?.id ?? null,
+        toIsoDate(new Date()),
+        sentenceId,
+      );
+      setHandoutMap((prev) => ({ ...prev, [`${userId}::${sentenceId}`]: row }));
     } catch (e) {
       console.warn("[LearningResults] word print log failed", e);
     }
