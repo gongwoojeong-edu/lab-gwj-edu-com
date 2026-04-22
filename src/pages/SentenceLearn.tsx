@@ -82,7 +82,7 @@ const SentenceLearn = () => {
   const [translationDone, setTranslationDone] = useState(false);
   const [step, setStep] = useState<Step>("pre");
   const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [previousStatus, setPreviousStatus] = useState<"pending" | "pass" | "fail">("pending");
+  const [previousStatus, setPreviousStatus] = useState<"pending" | "pass" | "fail" | "hold">("pending");
   const [showFailIntro, setShowFailIntro] = useState(false);
   const [attemptLogs, setAttemptLogs] = useState<AttemptLogRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -195,7 +195,7 @@ const SentenceLearn = () => {
       setTranslationDone(translationDoneEff);
       setProfile(prof);
       setAttemptLogs(logs);
-      const status = (prog?.status ?? "pending") as "pending" | "pass" | "fail";
+      const status = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
       setPreviousStatus(status);
 
       // 미통 + 힌트 모드 ON → 직전 시도의 wrong owner_id 추출
@@ -205,7 +205,7 @@ const SentenceLearn = () => {
         setHintWrongOwnerIds(new Set(diffs.map((d) => d.owner_id)));
       }
 
-      // 미통 진입 시 인트로 노출
+      // 미통 진입 시 인트로 노출 (보류는 미노출)
       if (status === "fail") {
         setShowFailIntro(true);
       }
@@ -321,11 +321,17 @@ const SentenceLearn = () => {
       const threshold = profile?.analysis_pass_threshold ?? 0.8;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
-      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : true;
+      // 마스터 없으면 분석 통과/미통 판정 자체를 보류 (단어시험만 반영)
+      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : false;
       const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
       // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
       const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
-      const overallPass = analysisPassed && wordTestPassed;
+      // 마스터 없으면 overallPass=false → status 'hold'로 저장
+      const overallPass = grade.hasMaster
+        ? analysisPassed && wordTestPassed
+        : opts?.teacherOverride
+          ? wordTestPassed
+          : false;
       setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs, hasMaster: grade.hasMaster });
 
       // 필수 owner 누락 안내 (학생에게) — override 시에는 생략
@@ -370,10 +376,16 @@ const SentenceLearn = () => {
           word_test_done: wordTestPassed,
         });
       } else {
+        // 마스터 없으면 → status 'hold', passed_at null (보상/streak 미부여)
+        const nextStatus: "pass" | "fail" | "hold" = grade.hasMaster
+          ? overallPass ? "pass" : "fail"
+          : opts?.teacherOverride
+            ? overallPass ? "pass" : "hold"
+            : "hold";
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
-          status: overallPass ? "pass" : "fail",
-          passed_at: overallPass ? new Date().toISOString() : null,
+          status: nextStatus,
+          passed_at: nextStatus === "pass" ? new Date().toISOString() : null,
         });
       }
 
