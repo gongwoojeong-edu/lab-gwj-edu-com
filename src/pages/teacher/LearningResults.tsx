@@ -12,12 +12,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Archive,
   Loader2,
   Printer,
   RefreshCcw,
   FileText,
+  Eye,
+  BookOpen,
+  ChevronDown,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
