@@ -9,11 +9,14 @@ import Index from "@/pages/Index";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Printer, ArrowLeft, FileText } from "lucide-react";
 import {
   computeCompareDiff,
   type CompareDiffResult,
 } from "@/lib/analysisCompare";
+import { fetchPassageByCode } from "@/lib/textbooks";
 
 interface AdminProfile {
   user_id: string;
