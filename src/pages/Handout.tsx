@@ -275,7 +275,7 @@ const HandoutPage = () => {
         }
       `}</style>
 
-      {!autoprint && (
+      {!autoprint && !embed && (
         <div className="toolbar no-print">
           <Link to="/teacher/bookshelf">
             <Button size="sm" variant="ghost">
