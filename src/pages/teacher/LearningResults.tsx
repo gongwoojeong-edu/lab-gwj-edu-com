@@ -206,7 +206,7 @@ const LearningResults = () => {
           analysis_passed: cur.analysis_passed || !!l.analysis_passed,
         };
       });
-      // word_test_results 도 보충 (학생이 분석은 안 했지만 단어시험만 본 경우)
+      // word_test_results — 항상 best_word_score와 비교 후 max
       ((wordTestRes.data ?? []) as Array<{
         user_id: string;
         sentence_id: string;
@@ -215,13 +215,21 @@ const LearningResults = () => {
       }>).forEach((w) => {
         const key = `${w.user_id}::${w.sentence_id}`;
         const cur = aMap[key];
+        const sc = Number(w.score ?? 0);
         if (!cur) {
           aMap[key] = {
-            best_word_score: Number(w.score ?? 0),
+            best_word_score: sc,
             best_analysis_rate: null,
             word_passed: !!w.passed,
             analysis_passed: false,
             printed_at: null,
+          };
+        } else {
+          aMap[key] = {
+            ...cur,
+            best_word_score:
+              cur.best_word_score == null ? sc : Math.max(cur.best_word_score, sc),
+            word_passed: cur.word_passed || !!w.passed,
           };
         }
       });
@@ -310,7 +318,7 @@ const LearningResults = () => {
     const key = `retest:${userId}:${sentenceId}`;
     setBusy((p) => ({ ...p, [key]: true }));
     try {
-      // sentence_progress 행 upsert: status='retest'
+      // 1) sentence_progress.status='retest' (학생 홈 RetestBanner용)
       const { data: existing } = await supabase
         .from("sentence_progress")
         .select("id")
@@ -329,9 +337,27 @@ const LearningResults = () => {
           status: "retest",
         });
       }
+      // 2) assignments 에 [재시험] 행 insert (학생 홈 특별과제로 노출)
+      const { data: u } = await supabase.auth.getUser();
+      if (u.user?.id) {
+        const due = new Date();
+        due.setDate(due.getDate() + 1);
+        await supabase.from("assignments").insert({
+          teacher_id: u.user.id,
+          student_id: userId,
+          sentence_id: sentenceId,
+          title: `[재시험] ${sentenceId}`,
+          description: "이전 학습 결과 기반 재시험",
+          due_at: due.toISOString(),
+          include_pre: true,
+          include_analysis: true,
+          include_translation: true,
+          include_wordtest: true,
+        });
+      }
       toast({
         title: "재시험 등록됨",
-        description: "학생이 다음 접속 시 해당 문장이 다시 출제됩니다.",
+        description: "학생 홈에 [재시험] 특별과제로 표시됩니다.",
       });
     } catch (e) {
       toast({ title: "재시험 등록 실패", description: String(e), variant: "destructive" });

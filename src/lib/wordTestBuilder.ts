@@ -44,8 +44,9 @@ export const buildWordTest = (
   return out;
 };
 
+// 띄어쓰기/구두점 모두 제거 + 소문자화 → 단어뜻 한글/영어 모두 관대 비교
 export const normalizeKo = (s: string) =>
-  s.trim().replace(/\s+/g, " ").replace(/[.,~!?·…/()]/g, "").toLowerCase();
+  s.trim().replace(/\s+/g, "").replace(/[.,~!?·…/()]/g, "").toLowerCase();
 
 export const isAnswerCorrect = (given: string, expected: string): boolean => {
   if (!given.trim()) return false;

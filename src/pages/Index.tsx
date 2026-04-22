@@ -35,7 +35,7 @@ import {
   type WordAnswer,
 } from "@/data/sentences";
 import { cn } from "@/lib/utils";
-import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen } from "lucide-react";
+import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save } from "lucide-react";
 import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
 import { ExtractedWordsPanel } from "@/components/analyzer/ExtractedWordsPanel";
 import { Separator } from "@/components/ui/separator";
@@ -1356,10 +1356,11 @@ const Index = ({
       return;
     }
 
-    // === Shift+클릭 = 누적 선택 (삭제 아님) ===
+    // === Shift+클릭 = 누적 선택 + 드래그 시작 (드래그로 범위 확장 가능) ===
     if (e.shiftKey && selectedWordIndices.length > 0) {
       const next = Array.from(new Set([...selectedWordIndices, idx])).sort((a, b) => a - b);
       setSelectedWordIndices(next);
+      setDragStart(idx); // 드래그 확장 시작점
       const sid = pickSelectedIdFromIndices(next);
       if (sid) {
         setSelectedId(sid);
@@ -1373,7 +1374,12 @@ const Index = ({
     // → 기존 owner는 보존된 채 그 위에 새 layer 분석 가능
     setDragStart(idx);
     setSelectedWordIndices([idx]);
-    const sid = pickSelectedIdFromIndices([idx]);
+    // 다층 분석 보장: 클릭한 단일 토큰이 이미 완료된 단일 owner(progressMap)면
+    // 같은 인덱스로 span owner를 생성해 새 layer로 분리한다.
+    let sid = pickSelectedIdFromIndices([idx]);
+    if (sid && progressMap[sid]?.completed) {
+      sid = buildSpanOwnerId(idx, idx);
+    }
     if (sid) {
       setSelectedId(sid);
       setProgressMap((pm) => (pm[sid] ? pm : { ...pm, [sid]: emptyProgress() }));
@@ -1388,6 +1394,7 @@ const Index = ({
     const hi = Math.max(dragStart, idx);
     setSelectedWordIndices((prev) => {
       const next = new Set(prev);
+      // 기존 누적 선택을 보존(Shift 워크플로) + 새 드래그 범위 union
       for (let i = lo; i <= hi; i++) {
         if (!isPunct(wordUnits[i].word)) next.add(i);
       }
@@ -2390,6 +2397,44 @@ const Index = ({
         )}
 
         {/* 정답 입력 모드 안내 배너 — 제거됨 (하단 토글 버튼이 ON 상태로 충분히 표시) */}
+
+        {/* 학생용 미니 툴바 — embedMode + studentMode + 비교모드 아닐 때만 */}
+        {embedMode && studentMode && !compareMode && (
+          <div className="flex items-center justify-end gap-1.5 mb-2">
+            <button
+              type="button"
+              onClick={() => setEraserMode((p) => !p)}
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-bold font-kr transition-colors",
+                eraserMode
+                  ? "bg-destructive/15 border-destructive/40 text-destructive"
+                  : "bg-card border-border text-muted-foreground hover:bg-accent",
+              )}
+              title="지우개 모드 (다음 클릭한 분석 삭제)"
+            >
+              <Eraser className="size-3" />
+              지우개
+            </button>
+            <button
+              type="button"
+              onClick={clearActiveSelection}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border bg-card text-muted-foreground hover:bg-accent text-[11px] font-bold font-kr"
+              title="현재 선택 해제"
+            >
+              <X className="size-3" />
+              선택 해제
+            </button>
+            <button
+              type="button"
+              onClick={() => toast({ title: "💾 저장됨", description: "분석 진행은 자동으로 저장됩니다." })}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-primary/40 bg-primary/10 text-primary text-[11px] font-bold font-kr hover:bg-primary/20"
+              title="저장 확인"
+            >
+              <Save className="size-3" />
+              저장
+            </button>
+          </div>
+        )}
 
         {eraserMode && (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
