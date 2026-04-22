@@ -472,6 +472,9 @@ const SentenceLearn = () => {
   /** 5-state 요청 버튼 렌더 */
   const renderReviewRequestButton = () => {
     if (!sentence) return null;
+    // 마스터 정답이 없는 문장은 첨삭 요청 자체를 노출하지 않음
+    const hasMaster = analysisGrade?.hasMaster ?? analysisHasMaster;
+    if (!hasMaster && !openRequest) return null;
     if (openRequest?.status === "approved") {
       return (
         <Button
@@ -500,10 +503,11 @@ const SentenceLearn = () => {
     const required = analysisGrade
       ? !analysisGrade.diffs.some((d) => d.status === "missing")
       : analysisRequiredFilled;
+    const label = rateLabel(hasMaster);
     if (rate < 0.5) {
       return (
         <Button size="sm" disabled variant="outline" className="text-xs">
-          <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (분석률 {Math.round(rate * 100)}%)
+          <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({label} {Math.round(rate * 100)}%)
         </Button>
       );
     }
@@ -786,7 +790,10 @@ const SentenceLearn = () => {
                   studentMode={true}
                   embedSentenceId={sentence.id}
                   onAnalysisDone={() => setAnalysisDone(true)}
-                  onAnalysisProgress={setAnalysisRate}
+                  onAnalysisProgress={(rate, meta) => {
+                    setAnalysisRate(rate);
+                    setAnalysisHasMaster(meta.hasMaster);
+                  }}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
               </div>
