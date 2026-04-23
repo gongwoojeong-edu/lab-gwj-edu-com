@@ -434,7 +434,15 @@ const SentenceLearn = () => {
 
   const startRetryNow = () => {
     setShowFailIntro(false);
-    setStep("analysis");
+    // 새 흐름: 미통 재도전 시 단어테스트부터 다시 (단어학습은 이미 했음)
+    if (skipFlags.wordtest) {
+      setWordtestDone(false);
+      setStep("wordtest");
+    } else if (skipFlags.analysis) {
+      setStep("analysis");
+    } else {
+      setStep("translation");
+    }
   };
 
   /** 분석 → translation 전환 (다이얼로그 confirm 시) */
