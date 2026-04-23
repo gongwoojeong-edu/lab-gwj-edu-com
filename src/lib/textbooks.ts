@@ -384,6 +384,70 @@ export const getAnalysisPdfSignedUrl = async (
   return data?.signedUrl ?? null;
 };
 
+// ============================================================
+// 구조도 PDF 업로드/삭제 (유닛 단위) — 분석자료와 동일 버킷 재사용
+// ============================================================
+
+/** 유닛에 구조도 PDF 업로드. */
+export const uploadStructurePdf = async (
+  unitId: string,
+  file: File,
+): Promise<Unit> => {
+  const ts = Date.now();
+  const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+  const path = `${unitId}/structure-${ts}-${safeName}`;
+  const { error: upErr } = await supabase.storage
+    .from(ANALYSIS_BUCKET)
+    .upload(path, file, {
+      contentType: file.type || "application/pdf",
+      upsert: false,
+    });
+  if (upErr) throw upErr;
+  const { data, error } = await supabase
+    .from("textbook_units")
+    .update({
+      structure_pdf_url: path,
+      structure_pdf_name: file.name,
+      structure_pdf_uploaded_at: new Date().toISOString(),
+    })
+    .eq("id", unitId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as unknown as Unit;
+};
+
+/** 구조도 PDF 삭제 — Storage + 컬럼 클리어 */
+export const deleteStructurePdf = async (unit: Unit): Promise<void> => {
+  if (unit.structure_pdf_url) {
+    await supabase.storage
+      .from(ANALYSIS_BUCKET)
+      .remove([unit.structure_pdf_url])
+      .catch(() => undefined);
+  }
+  const { error } = await supabase
+    .from("textbook_units")
+    .update({
+      structure_pdf_url: null,
+      structure_pdf_name: null,
+      structure_pdf_uploaded_at: null,
+    })
+    .eq("id", unit.id);
+  if (error) throw error;
+};
+
+/** 구조도 PDF 서명 URL */
+export const getStructurePdfSignedUrl = async (
+  storagePath: string,
+  expiresInSec = 3600,
+): Promise<string | null> => {
+  const { data, error } = await supabase.storage
+    .from(ANALYSIS_BUCKET)
+    .createSignedUrl(storagePath, expiresInSec);
+  if (error) return null;
+  return data?.signedUrl ?? null;
+};
+
 export const fetchPassagesByUnit = async (unitId: string): Promise<Passage[]> => {
   const { data, error } = await supabase
     .from("textbook_passages")
