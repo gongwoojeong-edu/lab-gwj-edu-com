@@ -29,6 +29,7 @@ import {
   Upload,
   FileText,
   X,
+  Eye,
 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -39,8 +40,10 @@ import {
   deletePassage,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
+  getAnalysisPdfSignedUrl,
   uploadStructurePdf,
   deleteStructurePdf,
+  getStructurePdfSignedUrl,
   type Series,
   type Textbook,
   type Unit,
@@ -79,8 +82,44 @@ const BookshelfUnit = () => {
   const [printingCode, setPrintingCode] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingStructure, setUploadingStructure] = useState(false);
+  const [viewingAnalysis, setViewingAnalysis] = useState(false);
+  const [viewingStructure, setViewingStructure] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const structureInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleViewAnalysis = async () => {
+    if (!unit?.analysis_pdf_url || viewingAnalysis) return;
+    setViewingAnalysis(true);
+    try {
+      const url = await getAnalysisPdfSignedUrl(unit.analysis_pdf_url);
+      if (!url) {
+        toast({ title: "파일을 열 수 없어요", variant: "destructive" });
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast({ title: "열기 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setViewingAnalysis(false);
+    }
+  };
+
+  const handleViewStructure = async () => {
+    if (!unit?.structure_pdf_url || viewingStructure) return;
+    setViewingStructure(true);
+    try {
+      const url = await getStructurePdfSignedUrl(unit.structure_pdf_url);
+      if (!url) {
+        toast({ title: "파일을 열 수 없어요", variant: "destructive" });
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast({ title: "열기 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setViewingStructure(false);
+    }
+  };
 
   const handlePdfPick = () => {
     fileInputRef.current?.click();
@@ -360,6 +399,20 @@ const BookshelfUnit = () => {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
+                  onClick={handleViewAnalysis}
+                  disabled={viewingAnalysis}
+                >
+                  {viewingAnalysis ? (
+                    <Loader2 className="size-3 mr-1 animate-spin" />
+                  ) : (
+                    <Eye className="size-3 mr-1" />
+                  )}
+                  보기
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
                   onClick={handlePdfPick}
                   disabled={uploadingPdf}
                 >
@@ -437,6 +490,20 @@ const BookshelfUnit = () => {
                 </span>
               )}
               <div className="flex items-center gap-1.5 ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={handleViewStructure}
+                  disabled={viewingStructure}
+                >
+                  {viewingStructure ? (
+                    <Loader2 className="size-3 mr-1 animate-spin" />
+                  ) : (
+                    <Eye className="size-3 mr-1" />
+                  )}
+                  보기
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
