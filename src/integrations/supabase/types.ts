@@ -431,8 +431,10 @@ export type Database = {
       sentence_progress: {
         Row: {
           analysis_done: boolean
+          analysis_match_rate: number | null
           created_at: string
           id: string
+          last_activity_at: string | null
           passed_at: string | null
           pre_done: boolean
           sentence_id: string
@@ -444,8 +446,10 @@ export type Database = {
         }
         Insert: {
           analysis_done?: boolean
+          analysis_match_rate?: number | null
           created_at?: string
           id?: string
+          last_activity_at?: string | null
           passed_at?: string | null
           pre_done?: boolean
           sentence_id: string
@@ -457,8 +461,10 @@ export type Database = {
         }
         Update: {
           analysis_done?: boolean
+          analysis_match_rate?: number | null
           created_at?: string
           id?: string
+          last_activity_at?: string | null
           passed_at?: string | null
           pre_done?: boolean
           sentence_id?: string
