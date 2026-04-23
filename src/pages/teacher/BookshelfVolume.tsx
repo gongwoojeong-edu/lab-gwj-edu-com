@@ -86,7 +86,7 @@ const BookshelfVolume = () => {
   const [insertOpen, setInsertOpen] = useState(false);
   const [insertTarget, setInsertTarget] = useState<Unit | null>(null);
   const [bulkText, setBulkText] = useState("");
-  const [splitMode, setSplitMode] = useState<"blank" | "line" | "sentence">("blank");
+  const [splitMode, setSplitMode] = useState<"blank" | "line" | "sentence">("sentence");
   const [inserting, setInserting] = useState(false);
 
   // edit
