@@ -370,6 +370,62 @@ const BookshelfUnit = () => {
                             )}
                           </span>
                         </td>
+                        <td className="py-2 px-3">
+                          <input
+                            ref={(el) => (fileInputRefs.current[p.id] = el)}
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="hidden"
+                            onChange={(e) => handlePdfChange(p, e)}
+                          />
+                          {p.analysis_pdf_url ? (
+                            <div className="flex items-center gap-1">
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold max-w-[140px] truncate"
+                                title={p.analysis_pdf_name ?? ""}
+                              >
+                                <FileText className="size-3 shrink-0" />
+                                <span className="truncate">{p.analysis_pdf_name ?? "PDF"}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handlePdfPick(p.id)}
+                                disabled={uploadingId === p.id}
+                                title="교체"
+                                className="p-1 rounded hover:bg-muted text-muted-foreground"
+                              >
+                                {uploadingId === p.id ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <Upload className="size-3" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePdfDelete(p)}
+                                disabled={uploadingId === p.id}
+                                title="삭제"
+                                className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                              >
+                                <X className="size-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handlePdfPick(p.id)}
+                              disabled={uploadingId === p.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary transition disabled:opacity-50"
+                            >
+                              {uploadingId === p.id ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Upload className="size-3" />
+                              )}
+                              {uploadingId === p.id ? "업로드 중…" : "PDF 업로드"}
+                            </button>
+                          )}
+                        </td>
                         <td className="py-2 px-3 text-right whitespace-nowrap">
                           <Button
                             size="sm"
