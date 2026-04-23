@@ -83,6 +83,9 @@ const TeacherHome = () => {
   const [upcoming, setUpcoming] = useState<UpcomingAssignment[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
+  const [progressTick, setProgressTick] = useState(0);
+  const [longStalled, setLongStalled] = useState<StalledStudent[]>([]);
+  const [imminent, setImminent] = useState<StalledAssignmentTarget[]>([]);
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -140,7 +143,52 @@ const TeacherHome = () => {
     return () => {
       cancelled = true;
     };
-  }, [upcoming, students]);
+  }, [upcoming, students, progressTick]);
+
+  // 정체 학생 로딩
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [a, b] = await Promise.all([fetchLongStalled(), fetchImminentIncomplete()]);
+      if (cancelled) return;
+      setLongStalled(a);
+      setImminent(b);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [progressTick]);
+
+  // Realtime: 학생이 진척하거나 단어테스트 결과를 저장하면 진척/정체 데이터 재조회
+  useEffect(() => {
+    const sentenceIds = upcoming.map((a) => a.sentence_id).filter(Boolean) as string[];
+    if (sentenceIds.length === 0) return;
+    const channel = supabase
+      .channel("teacher-home-progress")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sentence_progress" },
+        (payload) => {
+          const sid = (payload.new as { sentence_id?: string })?.sentence_id
+            ?? (payload.old as { sentence_id?: string })?.sentence_id;
+          if (sid && sentenceIds.includes(sid)) {
+            setProgressTick((t) => t + 1);
+          } else {
+            // 정체 학생 목록은 다른 sentence에서도 변할 수 있으므로 살짝 갱신
+            setProgressTick((t) => t + 1);
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "word_test_results" },
+        () => setProgressTick((t) => t + 1),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [upcoming]);
 
   const [printedTodayUserIds, setPrintedTodayUserIds] = useState<Set<string>>(new Set());
 
