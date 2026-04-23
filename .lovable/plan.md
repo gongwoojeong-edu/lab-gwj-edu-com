@@ -1,76 +1,105 @@
 
 
-## 플랜 — 즉시 저장 + 실시간 표시 + 정체 학생 추적
+## 플랜 — 클로드 지문분석기 → 학생 학습기 직접 전송 연동
 
-### 1. DB 마이그레이션
+클로드 앱에서 만든 자료(지문 + 분석교안 + 구조도)를 PDF로 출력해 업로드하는 대신, **클릭 한 번으로 이 앱의 Bookshelf에 Passage로 등록**하고, 학생이 즉시 구문분석 학습기에서 학습할 수 있게 합니다.
 
-`sentence_progress` 테이블에 컬럼 추가:
-- `analysis_match_rate numeric DEFAULT NULL` — 분석 일치율 (즉시 저장용)
-- `last_activity_at timestamptz DEFAULT now()` — 마지막 단계 활동 시각 (정체 판단 기준)
+### 1. 데이터 흐름
 
-Realtime 활성화:
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.sentence_progress;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.word_test_results;
+```text
+[클로드 지문분석기]                    [이 앱 — Lovable Cloud]
+ library record                         textbook_passages
+  ├ textbook                ──┐          ├ code (자동 생성)
+  ├ lesson                   │          ├ english   ← passage
+  ├ item_code                │          ├ korean    ← topic_ko/title_ko
+  ├ title_ko                 ├──POST──▶ ├ tokens    ← (없음, 학생이 분석)
+  ├ expected_title           │          └ unit_id   ← 매칭된 Unit
+  ├ topic_ko / topic_en      │
+  ├ passage (영문 본문)       │         textbook_units (옵션)
+  ├ structure_steps         ──┤──PUT──▶  └ structure_pdf_url ← 구조도 HTML→PDF 자동저장
+  └ analysis(교안 본문) ────────┴──PUT──▶  └ analysis_pdf_url  ← 분석교안 HTML→PDF 자동저장
 ```
 
-### 2. 각 단계별 즉시 저장 (SentenceLearn.tsx)
+### 2. 새 Edge Function: `import-claude-handout`
 
-현재 상태: 단어테스트(`insertWordTestResult`)는 이미 즉시 저장됨. 분석 점수와 활동 시각은 한글해석 제출까지 대기 중.
+POST 요청을 받아 인증된 교사/관리자만 처리:
 
-**변경 내용:**
-- **단어학습 완료 시**: `upsertSentenceProgress(id, { pre_done: true, last_activity_at: now })` — 이미 `pre_done`은 저장 중, `last_activity_at` 추가
-- **단어테스트 통과 시**: `upsertSentenceProgress(id, { word_test_done: true, last_activity_at: now })` 추가
-- **분석 통과 시**: `upsertSentenceProgress(id, { analysis_done: true, analysis_match_rate: rate, last_activity_at: now })` 추가
-- **한글해석 제출 시**: 기존 `recordAttempt` 로직 유지 (최종 `sentence_attempt_logs` 기록)
+| 입력 필드 | 처리 |
+|---|---|
+| `textbook`, `lesson`, `item_code` | 기존 Series/Textbook/Unit과 자동 매칭. 없으면 자동 생성(설정 가능) |
+| `passage` (영문) | `textbook_passages.english`에 저장. `code`는 `{textbook}-{lesson}-{item_code}` 규칙으로 생성 |
+| `topic_ko`, `title_ko` | `korean` 컬럼 |
+| `analysis_html`, `structure_html` (선택) | Storage `analysis-materials` 버킷에 업로드 후 Unit의 `analysis_pdf_url` / `structure_pdf_url`에 연결 |
+| 응답 | 생성된 `passage_id`, `code`, 학생이 바로 진입할 수 있는 `learn_url` |
 
-이렇게 하면 선생님 화면에서 `sentence_progress` 또는 `word_test_results`를 쿼리하면 중간 단계 결과도 즉시 확인 가능.
+검증: Zod로 입력 스키마 검사, JWT 검증, 교사/관리자 role 확인.
 
-### 3. 선생님 화면 실시간 반영 (TeacherHome.tsx)
+### 3. 클로드 분석기에 추가할 "전송" 버튼 (사용자가 이식)
 
-**Realtime 구독 추가:**
-- `sentence_progress` 테이블의 UPDATE 이벤트 구독
-- `word_test_results` 테이블의 INSERT 이벤트 구독
-- 변경 감지 시 해당 과제의 `fetchAssignmentProgress`를 re-fetch
-- 수동 **새로고침 버튼** 추가 (과제 섹션 우측 상단)
+`buildStandaloneHtml` 옆에 새 함수 `sendToLearner(id)`를 추가:
 
-**`fetchAssignmentProgress` 보강:**
-- 분석 점수 소스: 기존 `sentence_attempt_logs`에 더해 `sentence_progress.analysis_match_rate`도 fallback으로 활용 (attempt log가 없어도 분석 점수 표시)
+```js
+async function sendToLearner(id) {
+  const rec = library.find(r => r.id === id);
+  const url = "https://lab.gwj-edu.com/api/import-claude-handout";  // 실제는 Edge Function URL
+  const apiKey = localStorage.getItem("GWJ_IMPORT_KEY");           // 교사 발급 1회 토큰
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      textbook: rec.data.textbook, lesson: rec.data.lesson, item_code: rec.data.item_code,
+      title_ko: rec.data.title_ko, expected_title: rec.data.expected_title,
+      topic_ko: rec.data.topic_ko, topic_en: rec.data.topic_en,
+      passage: rec.data.passage,
+      analysis_html: renderAnalysisToString(rec.data),
+      structure_html: renderStructureToString(rec.data),
+    }),
+  });
+  const j = await res.json();
+  if (j.ok) showToast(`📚 학습기 전송 완료: ${j.code}`, 'success');
+}
+```
 
-### 4. 정체 학생 추적
+라이브러리 카드의 footer에 `📚 학습기로 전송` 버튼만 한 줄 추가하면 됩니다. 코드 스니펫은 작업 후 최종본으로 제공.
 
-**정체 정의 (두 가지 분류):**
-1. **장기 정체**: `last_activity_at`이 3일 이상 경과 + 아직 `translation_done = false`인 학생
-2. **마감 임박 미완료**: 과제 `due_at`이 24시간 이내인데 모든 단계를 끝내지 못한 학생
+### 4. 인증 — "1회용 Import Token"
 
-**TeacherHome 요약 카드:**
-- 기존 KPI 카드 아래에 "정체 학생" 알림 카드 추가
-- 장기 정체 N명 / 마감 임박 미완료 N명 표시
-- 각 학생의 **마지막 완료 단계 + 단어테스트 점수** 미리보기 (상위 5명)
-- "전체 보기 →" 링크로 상세 페이지 이동
+Edge Function이 외부(Claude 앱)에서 호출되므로 안전한 토큰 인증 필요:
 
-**신규 페이지: `/teacher/stalled`**
-- 장기 정체 섹션 + 마감 임박 섹션 분리
-- 각 학생별: 이름, 과제명, 마지막 활동 시각, 완료된 단계 배지, 단어테스트 점수
-- 정렬: 가장 오래 정체된 순
-- "독려 메시지 보내기" 등은 추후 확장 영역
+- 새 테이블 `import_tokens(id, teacher_id, token_hash, label, created_at, last_used_at, revoked)`
+- 교사 화면(`/teacher/integrations`)에서 토큰 발급/회수
+- 발급 시 1회만 평문 노출 → 교사가 클로드 앱 콘솔에 `localStorage.setItem("GWJ_IMPORT_KEY", "...")` 로 저장
+- Edge Function은 토큰 해시로 교사 식별 후 그 교사의 권한으로 DB 작성
 
-### 5. 변경/생성 파일 요약
+### 5. 교사 UI 추가
 
-| 구분 | 파일 | 내용 |
-|------|------|------|
-| 마이그레이션 | `supabase/migrations/` | `sentence_progress` 컬럼 추가 + realtime 활성화 |
-| 수정 | `src/pages/SentenceLearn.tsx` | 각 단계 완료 시 `upsertSentenceProgress` 호출에 `last_activity_at` 포함 |
-| 수정 | `src/lib/assignmentProgress.ts` | 분석 점수 fallback 소스 추가 (`sentence_progress.analysis_match_rate`) |
-| 수정 | `src/pages/teacher/TeacherHome.tsx` | Realtime 구독 + 새로고침 버튼 + 정체 학생 요약 카드 |
-| 신규 | `src/pages/teacher/StalledStudents.tsx` | 정체 학생 상세 페이지 |
-| 수정 | `src/App.tsx` | `/teacher/stalled` 라우트 추가 |
-| 수정 | `src/components/teacher/TeacherLayout.tsx` | 사이드바에 "정체 학생" 메뉴 추가 |
+| 위치 | 변경 |
+|---|---|
+| `src/pages/teacher/Integrations.tsx` (신규) | Import Token 발급/관리 + 클로드 앱에 붙여넣을 스니펫 표시 |
+| `src/components/teacher/TeacherLayout.tsx` | 사이드바 "외부 연동" 메뉴 추가 |
+| `src/App.tsx` | `/teacher/integrations` 라우트 추가 |
+| `src/pages/teacher/BookshelfUnit.tsx` | Passage 행에 "클로드에서 자동 등록됨" 뱃지 (소스 표시) |
 
-### 6. 기대 결과
+### 6. 변경/생성 파일 요약
 
-- 학생이 단어테스트만 끝내도 선생님 화면에 점수가 바로 보임
-- 분석만 통과한 상태에서도 일치율이 즉시 반영됨
-- 3일 이상 다음 단계로 넘어가지 못한 학생이 자동 리스트업
-- 마감 24시간 전 미완료 학생도 별도 경고
+| 구분 | 파일 |
+|---|---|
+| 신규 마이그레이션 | `import_tokens` 테이블 + RLS (교사 본인만 SELECT/INSERT/UPDATE, 토큰 해시 저장) |
+| 신규 Edge Function | `supabase/functions/import-claude-handout/index.ts` (verify_jwt = false, 토큰으로 자체 인증) |
+| 신규 페이지 | `src/pages/teacher/Integrations.tsx` |
+| 수정 | `src/components/teacher/TeacherLayout.tsx`, `src/App.tsx`, `src/pages/teacher/BookshelfUnit.tsx` |
+| 사용자 수동 작업 | 클로드 HTML 앱에 `sendToLearner()` 함수 + 버튼 1개 추가 (스니펫 제공) |
+
+### 7. 기대 결과
+
+- 클로드 앱에서 "📚 학습기로 전송" 클릭 → 1초 내에 이 앱의 Bookshelf에 Passage 자동 등록
+- 분석교안/구조도 PDF도 동시에 해당 Unit에 첨부됨
+- 학생은 별도 작업 없이 바로 학습 시작 (`/learn/sentence/{passage_code}`)
+- 교사는 PDF 다운로드 → 업로드 왕복 작업 불필요
+
+### 8. 다음 단계 (승인 후)
+
+1. DB 마이그레이션 + Edge Function 배포
+2. 교사 Integrations 페이지 구현
+3. 사용자에게 클로드 앱에 붙여넣을 최종 JS 스니펫 + 토큰 설정 가이드 제공
 
