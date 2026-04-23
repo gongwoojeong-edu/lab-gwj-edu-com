@@ -64,7 +64,12 @@ const StudentHome = () => {
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
+  const [analysisPrintReqs, setAnalysisPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [reviewReqs, setReviewReqs] = useState<Record<string, AnalysisReviewRequest>>({});
+  const [handoutDoneSet, setHandoutDoneSet] = useState<Set<string>>(new Set());
+  const [analysisPdfMap, setAnalysisPdfMap] = useState<
+    Record<string, { storagePath: string; name: string | null }>
+  >({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
