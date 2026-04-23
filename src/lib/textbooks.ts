@@ -472,6 +472,21 @@ export const updatePassageKorean = async (code: string, korean: string): Promise
   if (error) throw error;
 };
 
+/** 지문 본문(영문/국문) 수정. 본문이 바뀌면 토큰/단어추출 캐시는 별도로 재생성해야 한다. */
+export const updatePassage = async (
+  id: string,
+  patch: { english?: string; korean?: string | null },
+): Promise<Passage> => {
+  const { data, error } = await supabase
+    .from("textbook_passages")
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapPassageRow(data as Record<string, unknown>);
+};
+
 export const deletePassage = async (id: string): Promise<void> => {
   const { error } = await supabase.from("textbook_passages").delete().eq("id", id);
   if (error) throw error;
