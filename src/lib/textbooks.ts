@@ -49,6 +49,9 @@ export interface Unit {
   analysis_pdf_url: string | null;
   analysis_pdf_name: string | null;
   analysis_pdf_uploaded_at: string | null;
+  structure_pdf_url: string | null;
+  structure_pdf_name: string | null;
+  structure_pdf_uploaded_at: string | null;
   created_at: string;
   updated_at: string;
 }
