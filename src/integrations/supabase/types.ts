@@ -586,6 +586,7 @@ export type Database = {
           passage_no: number
           textbook_id: string
           tokens: Json | null
+          unit_id: string
           updated_at: string
         }
         Insert: {
@@ -598,6 +599,7 @@ export type Database = {
           passage_no: number
           textbook_id: string
           tokens?: Json | null
+          unit_id: string
           updated_at?: string
         }
         Update: {
@@ -610,11 +612,93 @@ export type Database = {
           passage_no?: number
           textbook_id?: string
           tokens?: Json | null
+          unit_id?: string
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "textbook_passages_textbook_id_fkey"
+            columns: ["textbook_id"]
+            isOneToOne: false
+            referencedRelation: "textbooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "textbook_passages_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "textbook_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      textbook_series: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          level: string
+          series_no: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          level: string
+          series_no: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          level?: string
+          series_no?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      textbook_units: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          textbook_id: string
+          title: string
+          unit_no: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          textbook_id: string
+          title: string
+          unit_no: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          textbook_id?: string
+          title?: string
+          unit_no?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "textbook_units_textbook_id_fkey"
             columns: ["textbook_id"]
             isOneToOne: false
             referencedRelation: "textbooks"
@@ -629,9 +713,11 @@ export type Database = {
           description: string | null
           id: string
           level: string
+          series_id: string
           title: string
           unit_no: number
           updated_at: string
+          volume_no: number
         }
         Insert: {
           created_at?: string
@@ -639,9 +725,11 @@ export type Database = {
           description?: string | null
           id?: string
           level: string
+          series_id: string
           title: string
           unit_no: number
           updated_at?: string
+          volume_no: number
         }
         Update: {
           created_at?: string
@@ -649,11 +737,21 @@ export type Database = {
           description?: string | null
           id?: string
           level?: string
+          series_id?: string
           title?: string
           unit_no?: number
           updated_at?: string
+          volume_no?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "textbooks_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "textbook_series"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
