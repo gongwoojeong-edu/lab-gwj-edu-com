@@ -24,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   ChevronLeft,
@@ -39,7 +38,6 @@ import {
   Upload,
   FileText,
   X,
-  FileSignature,
 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -48,7 +46,6 @@ import {
   fetchUnit,
   fetchPassagesByUnit,
   deletePassage,
-  updatePassage,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
   type Series,
