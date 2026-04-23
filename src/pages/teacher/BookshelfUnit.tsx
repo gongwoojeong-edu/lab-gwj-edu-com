@@ -404,10 +404,87 @@ const BookshelfUnit = () => {
           )}
         </Card>
 
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+        {/* 유닛 단위 구조도(PDF) */}
+        <Card className="p-4 flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <FileText className="size-4 text-primary" />
+            구조도 (PDF)
+          </div>
+          <input
+            ref={structureInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={handleStructureChange}
+          />
+          {unit.structure_pdf_url ? (
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-primary/10 text-primary text-xs font-bold max-w-full truncate"
+                title={unit.structure_pdf_name ?? ""}
+              >
+                <FileText className="size-3.5 shrink-0" />
+                <span className="truncate">{unit.structure_pdf_name ?? "PDF"}</span>
+              </span>
+              {unit.structure_pdf_uploaded_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  업로드: {new Date(unit.structure_pdf_uploaded_at).toLocaleString("ko-KR", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={handleStructurePick}
+                  disabled={uploadingStructure}
+                >
+                  {uploadingStructure ? (
+                    <Loader2 className="size-3 mr-1 animate-spin" />
+                  ) : (
+                    <Upload className="size-3 mr-1" />
+                  )}
+                  교체
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleStructureDelete}
+                  disabled={uploadingStructure}
+                >
+                  <X className="size-3 mr-1" /> 삭제
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <span className="text-xs text-muted-foreground flex-1">
+                구조도 PDF를 올리면 학생이 학습 후 함께 열람할 수 있어요.
+              </span>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleStructurePick}
+                disabled={uploadingStructure}
+              >
+                {uploadingStructure ? (
+                  <Loader2 className="size-3 mr-1 animate-spin" />
+                ) : (
+                  <Upload className="size-3 mr-1" />
+                )}
+                {uploadingStructure ? "업로드 중…" : "PDF 업로드"}
+              </Button>
+            </>
+          )}
+        </Card>
+
+
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="py-2 px-3 w-12">#</th>
                   <th className="py-2 px-3 w-44">코드</th>
