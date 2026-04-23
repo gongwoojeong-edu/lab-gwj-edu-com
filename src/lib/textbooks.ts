@@ -474,6 +474,26 @@ export const fetchLevelStats = async (): Promise<Map<LevelCode, LevelStats>> => 
 // 호환 헬퍼 — 외부 호출부에서 점진 마이그레이션 위해 임시 유지
 // ============================================================
 
+/** @deprecated — 모든 권을 한번에 가져옴. Assignments 등 평탄한 목록이 필요한 곳에서 사용. */
+export const fetchAllTextbooks = async (): Promise<Textbook[]> => {
+  const { data: seriesData } = await supabase
+    .from("textbook_series")
+    .select("id, level");
+  const seriesMap = new Map<string, LevelCode>();
+  ((seriesData ?? []) as { id: string; level: LevelCode }[]).forEach((s) =>
+    seriesMap.set(s.id, s.level),
+  );
+  const { data, error } = await supabase
+    .from("textbooks")
+    .select("*")
+    .order("volume_no");
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    return mapTextbookRow(row, seriesMap.get(row.series_id as string));
+  });
+};
+
 /** @deprecated — 새 코드는 fetchTextbooksBySeries 를 사용하세요. */
 export const fetchTextbooksByLevel = async (level: LevelCode): Promise<Textbook[]> => {
   const { data: seriesData } = await supabase
