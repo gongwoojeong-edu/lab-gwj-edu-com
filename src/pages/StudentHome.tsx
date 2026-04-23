@@ -706,6 +706,47 @@ const StudentHome = () => {
                               </Button>
                             )}
 
+                            {handoutDoneSet.has(sentence.id) && analysisPdfMap[sentence.id] && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px] px-2 border-primary/40 text-primary"
+                                  onClick={() => handleViewAnalysisPdf(sentence.id)}
+                                  disabled={!!busy[`analysis:${sentence.id}`]}
+                                  title="분석자료 PDF 열람"
+                                >
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  분석자료 보기
+                                </Button>
+                                {analysisPrintReqs[sentence.id] ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-[11px] px-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                                    onClick={() => handleCancelAnalysisPrint(sentence.id)}
+                                    disabled={!!busy[`analysis-print:${sentence.id}`]}
+                                    title="요청 취소"
+                                  >
+                                    <Hourglass className="w-3 h-3 mr-1 animate-pulse" />
+                                    분석 인쇄 요청됨
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-[11px] px-2"
+                                    onClick={() => handleRequestAnalysisPrint(sentence.id)}
+                                    disabled={!!busy[`analysis-print:${sentence.id}`]}
+                                    title="선생님께 분석자료 인쇄 요청"
+                                  >
+                                    <Printer className="w-3 h-3 mr-1" />
+                                    분석 인쇄 요청
+                                  </Button>
+                                )}
+                              </>
+                            )}
+
                             {isFail && (
                               <Button
                                 size="sm"
