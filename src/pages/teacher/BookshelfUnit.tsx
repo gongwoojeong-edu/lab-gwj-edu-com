@@ -78,10 +78,16 @@ const BookshelfUnit = () => {
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingStructure, setUploadingStructure] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const structureInputRef = useRef<HTMLInputElement | null>(null);
 
   const handlePdfPick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleStructurePick = () => {
+    structureInputRef.current?.click();
   };
 
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
