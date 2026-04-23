@@ -24,6 +24,8 @@ export interface SentenceProgressRow {
   word_test_done: boolean;
   status: SentenceProgressStatus;
   passed_at: string | null;
+  analysis_match_rate: number | null;
+  last_activity_at: string | null;
 }
 
 export const fetchSentenceProgress = async (sentenceId: string): Promise<SentenceProgressRow | null> => {
@@ -36,11 +38,12 @@ export const fetchSentenceProgress = async (sentenceId: string): Promise<Sentenc
 
 export const upsertSentenceProgress = async (
   sentenceId: string,
-  patch: Partial<Omit<SentenceProgressRow, "sentence_id">>,
+  patch: Partial<Omit<SentenceProgressRow, "sentence_id">> & { touchActivity?: boolean },
 ): Promise<void> => {
   const userId = await getUserId();
   const existing = await fetchSentenceProgress(sentenceId);
-  const next = {
+  const { touchActivity, ...rest } = patch;
+  const next: Record<string, unknown> = {
     user_id: userId,
     sentence_id: sentenceId,
     pre_done: existing?.pre_done ?? false,
@@ -49,9 +52,22 @@ export const upsertSentenceProgress = async (
     word_test_done: existing?.word_test_done ?? false,
     status: existing?.status ?? "pending",
     passed_at: existing?.passed_at ?? null,
-    ...patch,
+    analysis_match_rate: existing?.analysis_match_rate ?? null,
+    ...rest,
   };
-  await supabase.from("sentence_progress").upsert(next, { onConflict: "user_id,sentence_id" });
+  // 명시적으로 touchActivity=true이거나, 진행 패치(어떤 단계 done/status)일 때 last_activity_at 갱신
+  const isProgressPatch =
+    touchActivity ||
+    "pre_done" in rest ||
+    "analysis_done" in rest ||
+    "translation_done" in rest ||
+    "word_test_done" in rest ||
+    "analysis_match_rate" in rest ||
+    "status" in rest;
+  if (isProgressPatch) {
+    next.last_activity_at = new Date().toISOString();
+  }
+  await supabase.from("sentence_progress").upsert(next as never, { onConflict: "user_id,sentence_id" });
 };
 
 // ---------- sentence_attempt_logs ----------
