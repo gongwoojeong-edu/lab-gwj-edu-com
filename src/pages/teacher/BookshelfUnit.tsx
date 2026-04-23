@@ -494,6 +494,20 @@ const BookshelfUnit = () => {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
+                  onClick={handleViewStructure}
+                  disabled={viewingStructure}
+                >
+                  {viewingStructure ? (
+                    <Loader2 className="size-3 mr-1 animate-spin" />
+                  ) : (
+                    <Eye className="size-3 mr-1" />
+                  )}
+                  보기
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
                   onClick={handleStructurePick}
                   disabled={uploadingStructure}
                 >
