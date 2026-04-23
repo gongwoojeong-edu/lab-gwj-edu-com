@@ -1,1 +1,4 @@
 project_id = "vyiwfkctilezvpafqjek"
+
+[functions.import-claude-handout]
+verify_jwt = false

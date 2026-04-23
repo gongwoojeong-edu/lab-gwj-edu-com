@@ -25,6 +25,7 @@ import {
   Inbox,
   FolderArchive,
   AlertTriangle,
+  Plug,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -197,6 +198,14 @@ const TeacherSidebarInner = () => {
                   <NavLink to="/teacher/stalled" className={({ isActive }) => linkCls(isActive)}>
                     <AlertTriangle className="size-4" />
                     {!collapsed && <span>정체 학생</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/integrations" className={({ isActive }) => linkCls(isActive)}>
+                    <Plug className="size-4" />
+                    {!collapsed && <span>외부 연동</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
