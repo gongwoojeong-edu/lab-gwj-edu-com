@@ -82,6 +82,8 @@ const SentenceLearn = () => {
   const [preDone, setPreDone] = useState(false);
   const [analysisDone, setAnalysisDone] = useState(false);
   const [translationDone, setTranslationDone] = useState(false);
+  const [wordtestDone, setWordtestDone] = useState(false);
+  const [wordTestResult, setWordTestResult] = useState<{ passed: boolean; score: number } | null>(null);
   const [step, setStep] = useState<Step>("pre");
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [previousStatus, setPreviousStatus] = useState<"pending" | "pass" | "fail" | "hold">("pending");
