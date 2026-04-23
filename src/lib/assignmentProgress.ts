@@ -109,6 +109,29 @@ export async function fetchAssignmentProgress(
     }
   });
 
+  // sentence_progress fallback — attempt log이 아직 없어도 즉시 저장된 부분 결과를 활용
+  ((progressRes.data ?? []) as any[]).forEach((row) => {
+    const uid = row.user_id as string | null;
+    if (!uid) return;
+    const cur = map.get(uid);
+    if (!cur) return;
+    // 분석: attempt log가 없어 missing이면 sentence_progress의 즉시 저장 점수로 대체
+    if (cur.analysis.status === "missing" && row.analysis_done) {
+      const rate = row.analysis_match_rate != null ? Number(row.analysis_match_rate) : null;
+      cur.analysis = {
+        status: "done",
+        score: rate != null ? Math.round(rate * 100) : null,
+      };
+    }
+    // pre/wordtest는 progress 플래그도 확인 (일부 row 누락 보완)
+    if (cur.pre.status === "missing" && row.pre_done) {
+      cur.pre = { status: "done", score: null };
+    }
+    if (cur.wordtest.status === "missing" && row.word_test_done) {
+      cur.wordtest = { status: "pass", score: null };
+    }
+  });
+
   // translation — existence
   const seenT = new Set<string>();
   ((translationRes.data ?? []) as any[]).forEach((row) => {
