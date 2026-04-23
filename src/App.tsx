@@ -12,6 +12,7 @@ import Signup from "./pages/Signup.tsx";
 import StudentHome from "./pages/StudentHome.tsx";
 import SentenceLearn from "./pages/SentenceLearn.tsx";
 import TeacherHome from "./pages/teacher/TeacherHome.tsx";
+import StalledStudents from "./pages/teacher/StalledStudents.tsx";
 import Bookshelf from "./pages/teacher/Bookshelf.tsx";
 import BookshelfLevel from "./pages/teacher/BookshelfLevel.tsx";
 import BookshelfSeries from "./pages/teacher/BookshelfSeries.tsx";
@@ -269,6 +270,14 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <TeacherDashboard />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/stalled"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <StalledStudents />
                 </RequireAuth>
               }
             />
