@@ -75,53 +75,50 @@ const BookshelfUnit = () => {
   const [deleting, setDeleting] = useState(false);
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handlePdfPick = (passageId: string) => {
-    fileInputRefs.current[passageId]?.click();
+  const handlePdfPick = () => {
+    fileInputRef.current?.click();
   };
 
-  const handlePdfChange = async (
-    p: Passage,
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
+    if (!file || !unit) return;
     if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       toast({ title: "PDF 파일만 업로드할 수 있어요", variant: "destructive" });
       return;
     }
-    setUploadingId(p.id);
+    setUploadingPdf(true);
     try {
-      const updated = await uploadAnalysisPdf(p.id, file);
-      setPassages((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
+      const updated = await uploadAnalysisPdf(unit.id, file);
+      setUnit(updated);
       toast({ title: "분석자료 업로드 완료", description: file.name });
     } catch (err) {
       toast({ title: "업로드 실패", description: errMsg(err), variant: "destructive" });
     } finally {
-      setUploadingId(null);
+      setUploadingPdf(false);
     }
   };
 
-  const handlePdfDelete = async (p: Passage) => {
-    if (!window.confirm(`'${p.analysis_pdf_name ?? "분석자료"}' 파일을 삭제할까요?`)) return;
-    setUploadingId(p.id);
+  const handlePdfDelete = async () => {
+    if (!unit) return;
+    if (!window.confirm(`'${unit.analysis_pdf_name ?? "분석자료"}' 파일을 삭제할까요?`)) return;
+    setUploadingPdf(true);
     try {
-      await deleteAnalysisPdf(p);
-      setPassages((prev) =>
-        prev.map((x) =>
-          x.id === p.id
-            ? { ...x, analysis_pdf_url: null, analysis_pdf_name: null, analysis_pdf_uploaded_at: null }
-            : x,
-        ),
-      );
+      await deleteAnalysisPdf(unit);
+      setUnit({
+        ...unit,
+        analysis_pdf_url: null,
+        analysis_pdf_name: null,
+        analysis_pdf_uploaded_at: null,
+      });
       toast({ title: "분석자료 삭제됨" });
     } catch (err) {
       toast({ title: "삭제 실패", description: errMsg(err), variant: "destructive" });
     } finally {
-      setUploadingId(null);
+      setUploadingPdf(false);
     }
   };
 
