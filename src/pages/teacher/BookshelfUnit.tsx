@@ -275,6 +275,87 @@ const BookshelfUnit = () => {
           )}
         </div>
 
+        {/* 유닛 단위 분석자료(PDF) */}
+        <Card className="p-4 flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <FileText className="size-4 text-primary" />
+            분석자료 (PDF)
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={handlePdfChange}
+          />
+          {unit.analysis_pdf_url ? (
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-primary/10 text-primary text-xs font-bold max-w-full truncate"
+                title={unit.analysis_pdf_name ?? ""}
+              >
+                <FileText className="size-3.5 shrink-0" />
+                <span className="truncate">{unit.analysis_pdf_name ?? "PDF"}</span>
+              </span>
+              {unit.analysis_pdf_uploaded_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  업로드: {new Date(unit.analysis_pdf_uploaded_at).toLocaleString("ko-KR", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={handlePdfPick}
+                  disabled={uploadingPdf}
+                >
+                  {uploadingPdf ? (
+                    <Loader2 className="size-3 mr-1 animate-spin" />
+                  ) : (
+                    <Upload className="size-3 mr-1" />
+                  )}
+                  교체
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handlePdfDelete}
+                  disabled={uploadingPdf}
+                >
+                  <X className="size-3 mr-1" /> 삭제
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <span className="text-xs text-muted-foreground flex-1">
+                아직 업로드된 분석자료가 없어요. 클로드에서 만든 PDF를 올리면 학생이 Hand-out
+                학습 완료 후 열람할 수 있어요.
+              </span>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handlePdfPick}
+                disabled={uploadingPdf}
+              >
+                {uploadingPdf ? (
+                  <Loader2 className="size-3 mr-1 animate-spin" />
+                ) : (
+                  <Upload className="size-3 mr-1" />
+                )}
+                {uploadingPdf ? "업로드 중…" : "PDF 업로드"}
+              </Button>
+            </>
+          )}
+        </Card>
+
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -285,7 +366,6 @@ const BookshelfUnit = () => {
                   <th className="py-2 px-3">본문 (미리보기)</th>
                   <th className="py-2 px-3 w-28">단어추출</th>
                   <th className="py-2 px-3 w-28">분석상태</th>
-                  <th className="py-2 px-3 w-44">분석자료(PDF)</th>
                   <th className="py-2 px-3 w-44 text-right">액션</th>
                 </tr>
               </thead>
@@ -293,7 +373,7 @@ const BookshelfUnit = () => {
                 {passages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="py-12 text-center text-sm text-muted-foreground"
                     >
                       아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
