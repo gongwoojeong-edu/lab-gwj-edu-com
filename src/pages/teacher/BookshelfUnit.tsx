@@ -1,7 +1,7 @@
 // ============================================================
 // BookshelfUnit — 유닛(예: 2603모고) 안의 지문 목록.
 // ============================================================
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
@@ -26,6 +26,9 @@ import {
   Printer,
   Trash2,
   Sparkles,
+  Upload,
+  FileText,
+  X,
 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -34,6 +37,8 @@ import {
   fetchUnit,
   fetchPassagesByUnit,
   deletePassage,
+  uploadAnalysisPdf,
+  deleteAnalysisPdf,
   type Series,
   type Textbook,
   type Unit,
@@ -70,6 +75,55 @@ const BookshelfUnit = () => {
   const [deleting, setDeleting] = useState(false);
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const handlePdfPick = (passageId: string) => {
+    fileInputRefs.current[passageId]?.click();
+  };
+
+  const handlePdfChange = async (
+    p: Passage,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast({ title: "PDF 파일만 업로드할 수 있어요", variant: "destructive" });
+      return;
+    }
+    setUploadingId(p.id);
+    try {
+      const updated = await uploadAnalysisPdf(p.id, file);
+      setPassages((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
+      toast({ title: "분석자료 업로드 완료", description: file.name });
+    } catch (err) {
+      toast({ title: "업로드 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handlePdfDelete = async (p: Passage) => {
+    if (!window.confirm(`'${p.analysis_pdf_name ?? "분석자료"}' 파일을 삭제할까요?`)) return;
+    setUploadingId(p.id);
+    try {
+      await deleteAnalysisPdf(p);
+      setPassages((prev) =>
+        prev.map((x) =>
+          x.id === p.id
+            ? { ...x, analysis_pdf_url: null, analysis_pdf_name: null, analysis_pdf_uploaded_at: null }
+            : x,
+        ),
+      );
+      toast({ title: "분석자료 삭제됨" });
+    } catch (err) {
+      toast({ title: "삭제 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
+  };
 
   const handleExtract = async (p: Passage) => {
     if (extractingCode) return;
