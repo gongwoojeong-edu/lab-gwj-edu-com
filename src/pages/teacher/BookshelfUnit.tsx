@@ -509,6 +509,14 @@ const BookshelfUnit = () => {
                           </Button>
                           <Button
                             size="sm"
+                            variant="ghost"
+                            title="본문 수정"
+                            onClick={() => openEdit(p)}
+                          >
+                            <FileSignature className="size-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() =>
                               navigate(
