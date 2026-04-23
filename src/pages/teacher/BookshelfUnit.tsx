@@ -288,6 +288,7 @@ const BookshelfUnit = () => {
                   <th className="py-2 px-3">본문 (미리보기)</th>
                   <th className="py-2 px-3 w-28">단어추출</th>
                   <th className="py-2 px-3 w-28">분석상태</th>
+                  <th className="py-2 px-3 w-44">분석자료(PDF)</th>
                   <th className="py-2 px-3 w-44 text-right">액션</th>
                 </tr>
               </thead>
@@ -295,7 +296,7 @@ const BookshelfUnit = () => {
                 {passages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="py-12 text-center text-sm text-muted-foreground"
                     >
                       아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
