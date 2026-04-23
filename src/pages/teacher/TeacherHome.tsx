@@ -39,6 +39,14 @@ import {
   fetchAssignmentProgress,
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
+import {
+  fetchLongStalled,
+  fetchImminentIncomplete,
+  STALL_THRESHOLD_DAYS,
+  type StalledStudent,
+  type StalledAssignmentTarget,
+} from "@/lib/stalledStudents";
+import { AlertTriangle } from "lucide-react";
 
 const TILES = [
   { to: "/teacher/requests", title: "선생님분석본보기요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
