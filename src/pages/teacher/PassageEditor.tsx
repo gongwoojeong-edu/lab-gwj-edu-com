@@ -10,8 +10,10 @@ import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 
 const PassageEditor = () => {
-  const { level, unitNo, passageCode } = useParams<{
+  const { level, seriesNo, volumeNo, unitNo, passageCode } = useParams<{
     level: string;
+    seriesNo: string;
+    volumeNo: string;
     unitNo: string;
     passageCode: string;
   }>();
@@ -86,13 +88,13 @@ const PassageEditor = () => {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <Link
-              to={`/teacher/bookshelf/${level}/${unitNo}`}
+              to={`/teacher/bookshelf/${level}/${seriesNo}/${volumeNo}/${unitNo}`}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              <ChevronLeft className="size-3" /> 교재로
+              <ChevronLeft className="size-3" /> 유닛으로
             </Link>
             <h1 className="text-xl font-bold mt-1">
-              {level} / U{unitNo} /{" "}
+              {level} / S{seriesNo} / V{volumeNo} / U{unitNo} /{" "}
               <span className="font-mono text-primary">{passage.code}</span>
             </h1>
             <p className="text-xs text-muted-foreground line-clamp-1 max-w-3xl">

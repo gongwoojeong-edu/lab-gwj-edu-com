@@ -14,6 +14,8 @@ import SentenceLearn from "./pages/SentenceLearn.tsx";
 import TeacherHome from "./pages/teacher/TeacherHome.tsx";
 import Bookshelf from "./pages/teacher/Bookshelf.tsx";
 import BookshelfLevel from "./pages/teacher/BookshelfLevel.tsx";
+import BookshelfSeries from "./pages/teacher/BookshelfSeries.tsx";
+import BookshelfVolume from "./pages/teacher/BookshelfVolume.tsx";
 import BookshelfUnit from "./pages/teacher/BookshelfUnit.tsx";
 import PassageEditor from "./pages/teacher/PassageEditor.tsx";
 import Assignments from "./pages/teacher/Assignments.tsx";
@@ -159,7 +161,23 @@ const App = () => (
               }
             />
             <Route
-              path="/teacher/bookshelf/:level/:unitNo"
+              path="/teacher/bookshelf/:level/:seriesNo"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <BookshelfSeries />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/bookshelf/:level/:seriesNo/:volumeNo"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <BookshelfVolume />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/bookshelf/:level/:seriesNo/:volumeNo/:unitNo"
               element={
                 <RequireAuth requireRole="teacher">
                   <BookshelfUnit />
@@ -167,7 +185,7 @@ const App = () => (
               }
             />
             <Route
-              path="/teacher/bookshelf/:level/:unitNo/:passageCode/edit"
+              path="/teacher/bookshelf/:level/:seriesNo/:volumeNo/:unitNo/:passageCode/edit"
               element={
                 <RequireAuth requireRole="teacher">
                   <PassageEditor />
