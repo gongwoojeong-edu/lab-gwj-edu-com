@@ -24,7 +24,9 @@ import {
   XCircle,
   BookOpen,
   ChevronDown,
+  FileText,
 } from "lucide-react";
+import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPendingPrintRequests,
