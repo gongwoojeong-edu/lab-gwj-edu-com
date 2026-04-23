@@ -1,9 +1,11 @@
 // ============================================================
 // printRequests.ts — 학생 → 선생님 시험지(핸드아웃) 인쇄 요청
+// kind='handout' (시험지) 또는 'analysis' (분석자료 PDF)로 구분.
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 
 export type PrintRequestStatus = "pending" | "printed" | "canceled";
+export type PrintRequestKind = "handout" | "analysis";
 
 export interface PrintRequest {
   id: string;
@@ -11,6 +13,8 @@ export interface PrintRequest {
   teacher_id: string | null;
   sentence_id: string;
   status: PrintRequestStatus;
+  kind: PrintRequestKind;
+  file_url: string | null;
   note: string | null;
   requested_at: string;
   handled_at: string | null;
@@ -19,9 +23,10 @@ export interface PrintRequest {
   updated_at: string;
 }
 
-/** 학생: 본인 + 특정 지문의 pending 요청 1건 */
+/** 학생: 본인 + 특정 지문의 pending 요청 1건 (kind 옵션, 기본 handout) */
 export const fetchMyPendingPrintRequest = async (
   sentenceId: string,
+  kind: PrintRequestKind = "handout",
 ): Promise<PrintRequest | null> => {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return null;
@@ -31,6 +36,7 @@ export const fetchMyPendingPrintRequest = async (
     .eq("user_id", u.user.id)
     .eq("sentence_id", sentenceId)
     .eq("status", "pending")
+    .eq("kind", kind)
     .maybeSingle();
   return (data as PrintRequest) ?? null;
 };
@@ -47,10 +53,12 @@ export const fetchMyPendingPrintRequests = async (): Promise<PrintRequest[]> => 
   return (data ?? []) as PrintRequest[];
 };
 
-/** 학생: 시험지 요청 생성 */
+/** 학생: 시험지 요청 생성 (kind 기본 handout) */
 export const createPrintRequest = async (input: {
   sentence_id: string;
   note?: string;
+  kind?: PrintRequestKind;
+  file_url?: string | null;
 }): Promise<PrintRequest> => {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("not authenticated");
@@ -68,12 +76,25 @@ export const createPrintRequest = async (input: {
       teacher_id: prof?.teacher_id ?? null,
       note: input.note ?? null,
       status: "pending",
+      kind: input.kind ?? "handout",
+      file_url: input.file_url ?? null,
     })
     .select()
     .single();
   if (error) throw error;
   return data as PrintRequest;
 };
+
+/** 학생: 분석자료 PDF 인쇄 요청 헬퍼 */
+export const createAnalysisPrintRequest = async (
+  sentenceId: string,
+  fileUrl: string,
+): Promise<PrintRequest> =>
+  createPrintRequest({
+    sentence_id: sentenceId,
+    kind: "analysis",
+    file_url: fileUrl,
+  });
 
 /** 학생: 본인 요청 취소 — RLS는 staff만 update 허용이므로, 본인은 delete로 처리 */
 export const cancelMyPrintRequest = async (id: string): Promise<void> => {

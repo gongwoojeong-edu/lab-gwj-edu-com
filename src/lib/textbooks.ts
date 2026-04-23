@@ -60,6 +60,9 @@ export interface Passage {
   korean: string | null;
   tokens: SentenceToken[] | null;
   analysis_status: "draft" | "ready";
+  analysis_pdf_url: string | null;
+  analysis_pdf_name: string | null;
+  analysis_pdf_uploaded_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -308,9 +311,78 @@ const mapPassageRow = (row: Record<string, unknown>): Passage => ({
   korean: (row.korean as string | null) ?? null,
   tokens: (row.tokens ?? null) as SentenceToken[] | null,
   analysis_status: ((row.analysis_status as string) ?? "draft") as "draft" | "ready",
+  analysis_pdf_url: (row.analysis_pdf_url as string | null) ?? null,
+  analysis_pdf_name: (row.analysis_pdf_name as string | null) ?? null,
+  analysis_pdf_uploaded_at: (row.analysis_pdf_uploaded_at as string | null) ?? null,
   created_at: row.created_at as string,
   updated_at: row.updated_at as string,
 });
+
+// ============================================================
+// 분석자료 PDF 업로드/삭제
+// ============================================================
+
+const ANALYSIS_BUCKET = "analysis-materials";
+
+/** 지문에 클로드 분석 PDF 업로드. Storage 저장 경로를 컬럼에 기록한다. */
+export const uploadAnalysisPdf = async (
+  passageId: string,
+  file: File,
+): Promise<Passage> => {
+  const ts = Date.now();
+  const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+  const path = `${passageId}/${ts}-${safeName}`;
+  const { error: upErr } = await supabase.storage
+    .from(ANALYSIS_BUCKET)
+    .upload(path, file, {
+      contentType: file.type || "application/pdf",
+      upsert: false,
+    });
+  if (upErr) throw upErr;
+  const { data, error } = await supabase
+    .from("textbook_passages")
+    .update({
+      analysis_pdf_url: path,
+      analysis_pdf_name: file.name,
+      analysis_pdf_uploaded_at: new Date().toISOString(),
+    })
+    .eq("id", passageId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapPassageRow(data as Record<string, unknown>);
+};
+
+/** 분석 PDF 삭제 — Storage + 컬럼 클리어 */
+export const deleteAnalysisPdf = async (passage: Passage): Promise<void> => {
+  if (passage.analysis_pdf_url) {
+    await supabase.storage
+      .from(ANALYSIS_BUCKET)
+      .remove([passage.analysis_pdf_url])
+      .catch(() => undefined);
+  }
+  const { error } = await supabase
+    .from("textbook_passages")
+    .update({
+      analysis_pdf_url: null,
+      analysis_pdf_name: null,
+      analysis_pdf_uploaded_at: null,
+    })
+    .eq("id", passage.id);
+  if (error) throw error;
+};
+
+/** Storage 경로 → 임시 서명 URL (열람·인쇄용, 1시간 유효) */
+export const getAnalysisPdfSignedUrl = async (
+  storagePath: string,
+  expiresInSec = 3600,
+): Promise<string | null> => {
+  const { data, error } = await supabase.storage
+    .from(ANALYSIS_BUCKET)
+    .createSignedUrl(storagePath, expiresInSec);
+  if (error) return null;
+  return data?.signedUrl ?? null;
+};
 
 export const fetchPassagesByUnit = async (unitId: string): Promise<Passage[]> => {
   const { data, error } = await supabase
