@@ -1,47 +1,78 @@
 
 
-## 플랜 — 새 지문 본문이 분석 입력기에 표시되지 않는 문제 해결
+## 플랜 — 지문별 분석자료 PDF 업로드/열람/인쇄 워크플로
 
-### 원인
-- 책장에서 `bulkInsertPassages`로 추가된 지문은 `tokens = null`로 저장됨
-- `Index.tsx`(분석 입력기)는 `sentence.tokens` 배열을 단어 단위로 렌더링하므로, 토큰이 없으면 **본문이 한 글자도 보이지 않음**
-- 헤더 미리보기에는 `english` 원문이 그대로 노출되니 사용자가 더 혼란
+### 목표
+선생님이 책장에서 지문에 **클로드 분석 PDF**를 업로드 → 학생이 **Hand out 학습 완료 후** 열람 가능 → 필요 시 **인쇄 요청** → 선생님 인박스에서 처리.
 
-### 해결 방향 — 토큰 자동 생성
-영문이 있으면 자동으로 단어 토큰을 만들어 즉시 클릭/분석 가능하게 한다.
+### 1. 백엔드 (Supabase)
 
-#### 1. 토크나이저 헬퍼 신설
-**파일:** `src/lib/sentenceSource.ts` 내부에 `buildTokensFromEnglish(english: string): SentenceToken[]` 추가
-- 단어/구두점/공백을 분리해 `SentenceToken` 형태로 변환
-  - 단어 → `{ kind: "word", text }` (analyzer가 클릭 대상으로 인식)
-  - 구두점(`,.!?;:`) → `{ kind: "punct", text }`
-  - 줄바꿈/공백은 분리 토큰으로 안정 처리
-- 기존 정적 SENTENCES의 `W()` / `P()` 헬퍼와 동일한 형태로 출력 (호환성 보장)
+**Storage 버킷 신설**
+- `analysis-materials` 버킷 생성 (private)
+- 경로 규칙: `{passage_id}/{timestamp}-{filename}.pdf`
+- RLS:
+  - SELECT: 인증된 사용자 전체 (학생 열람 허용 — 열람 조건은 앱에서 게이팅)
+  - INSERT/UPDATE/DELETE: teacher/admin만
 
-`src/data/sentences.ts`의 `W`, `P` 등 헬퍼와 `SentenceToken` 타입 구조를 먼저 확인 후, 동일 시그니처로 생성
+**`textbook_passages` 컬럼 추가**
+- `analysis_pdf_url text` — 공개 경로(또는 storage 경로)
+- `analysis_pdf_name text` — 원본 파일명
+- `analysis_pdf_uploaded_at timestamptz`
 
-#### 2. 머지 시 토큰 자동 채움
-**파일:** `src/lib/sentenceSource.ts` `hydrateSentencesFromDb`
-- DB row의 `tokens`가 비어있고 `english`가 있으면, **메모리상에서 자동 토큰화**해서 `Sentence.tokens`에 넣음
-- DB는 그대로 두고 런타임에서만 채움 (정답 저장 시 `saveSentenceTokens`로 자연스럽게 DB 반영)
-- `loadSentenceByCode`에도 동일 처리
+**`print_requests` 컬럼 추가**
+- `kind text default 'handout'` — `'handout' | 'analysis'`로 구분
+- `file_url text` — 분석자료 인쇄 요청 시 PDF URL 저장
 
-#### 3. PassageEditor 헤더 문구 보강
-**파일:** `src/pages/teacher/PassageEditor.tsx`
-- 안내 문구를 "본문은 자동으로 분리되어 표시됩니다. 단어를 클릭해 정답을 입력하세요."로 명료화
-- "AI 단어 추출"은 선택 단계임을 표시 (필수 아님)
+### 2. 선생님 화면 — 책장 유닛 페이지 (`BookshelfUnit.tsx`)
 
-#### 4. 검증 케이스
-- 새로 만든 `L08-U2603-001`처럼 `tokens=null`인 지문도 정답 입력기 캔버스에 본문이 즉시 표시되어야 함
-- 정답 입력 토글 후 단어 클릭 → 기존 흐름 그대로 동작
-- 정답 저장 시 `saveSentenceTokens`로 토큰이 DB에 정착
+지문 테이블에 **「분석자료」 컬럼** 추가:
+- 미업로드 → `[PDF 업로드]` 버튼 (파일 선택 → Storage 업로드 → 컬럼 갱신)
+- 업로드 완료 → 파일명 + `[교체]` `[삭제]` 버튼
+- 업로드 진행 중 로딩 스피너 표시
 
-### 변경 파일
-- 수정: `src/lib/sentenceSource.ts` (토크나이저 + hydrate 보강)
-- 수정: `src/pages/teacher/PassageEditor.tsx` (안내 문구)
+### 3. 학생 화면 — 학생 홈 (`StudentHome.tsx`)
+
+`recent` 학습 카드에서 **Hand out 학습 완료**(`handout_results`에 해당 sentence 결과가 존재)인 지문에 한해:
+- 분석 PDF가 업로드되어 있으면 `[분석자료 보기]` 버튼 노출
+  - 클릭 시 새 탭에서 PDF 열기 + 열람 로그 기록(선택)
+- `[인쇄 요청]` 버튼 → `print_requests`에 `kind='analysis'`, `file_url=<pdf_url>`로 insert
+
+**게이팅 조건 함수** (`src/lib/handoutResults.ts` 활용):
+```text
+canViewAnalysis = handoutResult exists AND passage.analysis_pdf_url != null
+```
+
+### 4. 선생님 인박스 (`RequestsInbox.tsx`)
+
+기존 `print` 항목을 `kind`별로 뱃지 구분:
+- `handout` → 기존 시험지 인쇄 흐름 유지
+- `analysis` → "분석자료" 뱃지 + `[PDF 열기]` 버튼(새 탭) + `[인쇄 완료] ` 버튼
+  - 인쇄 완료 시 `markPrintRequestHandled` 재사용
+
+### 5. 라이브러리 갱신
+
+**`src/lib/printRequests.ts`**
+- `createPrintRequest`에 `kind`, `file_url` 옵션 추가
+- 학생용 `createAnalysisPrintRequest(sentenceId, fileUrl)` 헬퍼 신설
+
+**`src/lib/textbooks.ts`**
+- `uploadAnalysisPdf(passageId, file)` — Storage 업로드 + 컬럼 갱신
+- `deleteAnalysisPdf(passageId)` — 파일 삭제 + 컬럼 클리어
+
+### 6. 검증 케이스
+1. 선생님: 지문에 PDF 업로드 → 파일명 표시, 교체/삭제 동작
+2. 학생: Hand out 미완료 상태 → 버튼 미노출
+3. 학생: Hand out 완료 + PDF 있음 → 「분석자료 보기」/「인쇄 요청」 노출
+4. 선생님 인박스: 분석 인쇄 요청이 별도 뱃지로 표시되고 PDF 미리보기 가능
+5. PDF 미업로드 지문: 학생 화면에 "선생님이 자료를 준비 중입니다" 표시
+
+### 변경/생성 파일
+- 마이그레이션: storage 버킷 + `textbook_passages`/`print_requests` 컬럼 추가
+- 수정: `src/lib/printRequests.ts`, `src/lib/textbooks.ts`
+- 수정: `src/pages/teacher/BookshelfUnit.tsx` (업로드 UI)
+- 수정: `src/pages/StudentHome.tsx` (열람/인쇄 요청 버튼)
+- 수정: `src/pages/teacher/RequestsInbox.tsx` (kind 분기)
 
 ### 기대 결과
-- 새 책/지문도 추가 직후 본문이 분석 입력기에 그대로 표시됨
-- "AI 단어 추출"을 누르지 않아도 즉시 정답 입력 가능
-- 기존 정적 SENTENCES와 100% 동일한 토큰 구조라 분석 로직 영향 없음
+선생님은 클로드에서 만든 분석 PDF를 **지문 단위로 한 번 업로드**해 두면, 학생은 Hand out 학습이 끝나는 즉시 열람·인쇄 요청을 할 수 있다. 인쇄 요청은 기존 인박스 흐름에 통합되어 추가 학습 곡선 없이 처리된다.
 
