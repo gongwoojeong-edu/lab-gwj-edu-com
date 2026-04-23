@@ -573,6 +573,64 @@ const BookshelfUnit = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(o) => !o && !savingEdit && setEditTarget(null)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSignature className="size-4 text-primary" /> 본문 수정
+            </DialogTitle>
+            <DialogDescription>
+              <span className="font-mono text-foreground">{editTarget?.code}</span> 의
+              본문을 직접 수정합니다. 본문이 바뀌면 단어추출/분석 답안은 다시 점검해
+              주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-english" className="text-xs">
+                영문 본문 *
+              </Label>
+              <Textarea
+                id="edit-english"
+                value={editEnglish}
+                onChange={(e) => setEditEnglish(e.target.value)}
+                rows={6}
+                className="font-mono text-sm"
+                disabled={savingEdit}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-korean" className="text-xs">
+                한글 해석 (선택)
+              </Label>
+              <Textarea
+                id="edit-korean"
+                value={editKorean}
+                onChange={(e) => setEditKorean(e.target.value)}
+                rows={4}
+                className="text-sm"
+                disabled={savingEdit}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditTarget(null)}
+              disabled={savingEdit}
+            >
+              취소
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="size-3.5 mr-1 animate-spin" />}저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TeacherLayout>
   );
 };
