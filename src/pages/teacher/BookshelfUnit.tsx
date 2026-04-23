@@ -130,6 +130,46 @@ const BookshelfUnit = () => {
     }
   };
 
+  const handleStructureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !unit) return;
+    if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast({ title: "PDF 파일만 업로드할 수 있어요", variant: "destructive" });
+      return;
+    }
+    setUploadingStructure(true);
+    try {
+      const updated = await uploadStructurePdf(unit.id, file);
+      setUnit(updated);
+      toast({ title: "구조도 업로드 완료", description: file.name });
+    } catch (err) {
+      toast({ title: "업로드 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingStructure(false);
+    }
+  };
+
+  const handleStructureDelete = async () => {
+    if (!unit) return;
+    if (!window.confirm(`'${unit.structure_pdf_name ?? "구조도"}' 파일을 삭제할까요?`)) return;
+    setUploadingStructure(true);
+    try {
+      await deleteStructurePdf(unit);
+      setUnit({
+        ...unit,
+        structure_pdf_url: null,
+        structure_pdf_name: null,
+        structure_pdf_uploaded_at: null,
+      });
+      toast({ title: "구조도 삭제됨" });
+    } catch (err) {
+      toast({ title: "삭제 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingStructure(false);
+    }
+  };
+
   const handleExtract = async (p: Passage) => {
     if (extractingCode) return;
     setExtractingCode(p.code);
