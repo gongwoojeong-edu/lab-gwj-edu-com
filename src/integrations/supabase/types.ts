@@ -212,6 +212,39 @@ export type Database = {
         }
         Relationships: []
       }
+      import_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_used_at: string | null
+          revoked: boolean
+          teacher_id: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked?: boolean
+          teacher_id: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked?: boolean
+          teacher_id?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       modifier_relations: {
         Row: {
           created_at: string
