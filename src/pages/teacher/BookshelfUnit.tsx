@@ -39,6 +39,8 @@ import {
   deletePassage,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
+  uploadStructurePdf,
+  deleteStructurePdf,
   type Series,
   type Textbook,
   type Unit,
