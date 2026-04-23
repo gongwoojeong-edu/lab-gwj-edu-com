@@ -17,6 +17,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
   ChevronLeft,
   Loader2,
   BookOpen,
@@ -29,6 +39,7 @@ import {
   Upload,
   FileText,
   X,
+  FileSignature,
 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -37,6 +48,7 @@ import {
   fetchUnit,
   fetchPassagesByUnit,
   deletePassage,
+  updatePassage,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
   type Series,
@@ -76,7 +88,41 @@ const BookshelfUnit = () => {
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [editTarget, setEditTarget] = useState<Passage | null>(null);
+  const [editEnglish, setEditEnglish] = useState("");
+  const [editKorean, setEditKorean] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const openEdit = (p: Passage) => {
+    setEditTarget(p);
+    setEditEnglish(p.english);
+    setEditKorean(p.korean ?? "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    const nextEnglish = editEnglish.trim();
+    if (!nextEnglish) {
+      toast({ title: "본문(영문)을 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const updated = await updatePassage(editTarget.id, {
+        english: nextEnglish,
+        korean: editKorean.trim() ? editKorean.trim() : null,
+      });
+      setPassages((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      await hydrateSentencesFromDb(true);
+      toast({ title: "본문이 수정되었습니다", description: updated.code });
+      setEditTarget(null);
+    } catch (e) {
+      toast({ title: "수정 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handlePdfPick = () => {
     fileInputRef.current?.click();
@@ -463,6 +509,14 @@ const BookshelfUnit = () => {
                           </Button>
                           <Button
                             size="sm"
+                            variant="ghost"
+                            title="본문 수정"
+                            onClick={() => openEdit(p)}
+                          >
+                            <FileSignature className="size-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() =>
                               navigate(
@@ -519,6 +573,64 @@ const BookshelfUnit = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(o) => !o && !savingEdit && setEditTarget(null)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSignature className="size-4 text-primary" /> 본문 수정
+            </DialogTitle>
+            <DialogDescription>
+              <span className="font-mono text-foreground">{editTarget?.code}</span> 의
+              본문을 직접 수정합니다. 본문이 바뀌면 단어추출/분석 답안은 다시 점검해
+              주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-english" className="text-xs">
+                영문 본문 *
+              </Label>
+              <Textarea
+                id="edit-english"
+                value={editEnglish}
+                onChange={(e) => setEditEnglish(e.target.value)}
+                rows={6}
+                className="font-mono text-sm"
+                disabled={savingEdit}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-korean" className="text-xs">
+                한글 해석 (선택)
+              </Label>
+              <Textarea
+                id="edit-korean"
+                value={editKorean}
+                onChange={(e) => setEditKorean(e.target.value)}
+                rows={4}
+                className="text-sm"
+                disabled={savingEdit}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditTarget(null)}
+              disabled={savingEdit}
+            >
+              취소
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="size-3.5 mr-1 animate-spin" />}저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TeacherLayout>
   );
 };
