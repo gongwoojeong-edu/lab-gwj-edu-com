@@ -29,6 +29,7 @@ import {
   Upload,
   FileText,
   X,
+  Eye,
 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -39,8 +40,10 @@ import {
   deletePassage,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
+  getAnalysisPdfSignedUrl,
   uploadStructurePdf,
   deleteStructurePdf,
+  getStructurePdfSignedUrl,
   type Series,
   type Textbook,
   type Unit,
