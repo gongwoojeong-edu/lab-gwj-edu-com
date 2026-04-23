@@ -288,6 +288,8 @@ const StudentHome = () => {
       setBusyFor(`analysis-print:${sentenceId}`, false);
     }
   };
+
+  const handleRequestReview = async (sentenceId: string) => {
     setBusyFor(`review:${sentenceId}`, true);
     try {
       const grade = await gradeAnalysis(sentenceId);
