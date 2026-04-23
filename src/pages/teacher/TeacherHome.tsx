@@ -39,6 +39,14 @@ import {
   fetchAssignmentProgress,
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
+import {
+  fetchLongStalled,
+  fetchImminentIncomplete,
+  STALL_THRESHOLD_DAYS,
+  type StalledStudent,
+  type StalledAssignmentTarget,
+} from "@/lib/stalledStudents";
+import { AlertTriangle } from "lucide-react";
 
 const TILES = [
   { to: "/teacher/requests", title: "선생님분석본보기요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
@@ -75,6 +83,9 @@ const TeacherHome = () => {
   const [upcoming, setUpcoming] = useState<UpcomingAssignment[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
+  const [progressTick, setProgressTick] = useState(0);
+  const [longStalled, setLongStalled] = useState<StalledStudent[]>([]);
+  const [imminent, setImminent] = useState<StalledAssignmentTarget[]>([]);
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -132,7 +143,52 @@ const TeacherHome = () => {
     return () => {
       cancelled = true;
     };
-  }, [upcoming, students]);
+  }, [upcoming, students, progressTick]);
+
+  // 정체 학생 로딩
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [a, b] = await Promise.all([fetchLongStalled(), fetchImminentIncomplete()]);
+      if (cancelled) return;
+      setLongStalled(a);
+      setImminent(b);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [progressTick]);
+
+  // Realtime: 학생이 진척하거나 단어테스트 결과를 저장하면 진척/정체 데이터 재조회
+  useEffect(() => {
+    const sentenceIds = upcoming.map((a) => a.sentence_id).filter(Boolean) as string[];
+    if (sentenceIds.length === 0) return;
+    const channel = supabase
+      .channel("teacher-home-progress")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sentence_progress" },
+        (payload) => {
+          const sid = (payload.new as { sentence_id?: string })?.sentence_id
+            ?? (payload.old as { sentence_id?: string })?.sentence_id;
+          if (sid && sentenceIds.includes(sid)) {
+            setProgressTick((t) => t + 1);
+          } else {
+            // 정체 학생 목록은 다른 sentence에서도 변할 수 있으므로 살짝 갱신
+            setProgressTick((t) => t + 1);
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "word_test_results" },
+        () => setProgressTick((t) => t + 1),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [upcoming]);
 
   const [printedTodayUserIds, setPrintedTodayUserIds] = useState<Set<string>>(new Set());
 
@@ -240,6 +296,56 @@ const TeacherHome = () => {
           })}
         </div>
 
+        {/* 정체 학생 요약 알림 */}
+        {(longStalled.length > 0 || imminent.length > 0) && (
+          <Card className="p-4 border-2 border-amber-500/40 bg-amber-50/40 dark:bg-amber-500/5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="size-5 text-amber-600 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="text-sm font-bold text-foreground">
+                    독려가 필요한 학생이 있어요
+                  </div>
+                  <Link
+                    to="/teacher/stalled"
+                    className="text-xs text-primary hover:underline whitespace-nowrap"
+                  >
+                    전체 보기 →
+                  </Link>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-200 font-bold">
+                    🐢 장기 정체 ({STALL_THRESHOLD_DAYS}일+) {longStalled.length}명
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-destructive/15 text-destructive font-bold">
+                    ⏰ 마감 24h 미완료 {imminent.length}명
+                  </span>
+                </div>
+                {longStalled.slice(0, 5).length > 0 && (
+                  <ul className="text-xs text-muted-foreground space-y-0.5">
+                    {longStalled.slice(0, 5).map((s, i) => (
+                      <li key={`${s.user_id}-${s.sentence_id}-${i}`} className="truncate">
+                        <span className="font-medium text-foreground">
+                          {studentNameMap.get(s.user_id) ?? "—"}
+                        </span>
+                        {" · "}
+                        <span className="font-mono">{s.sentence_id}</span>
+                        {" · "}
+                        {s.word_test_score != null && (
+                          <span className="font-bold">단어 {s.word_test_score}% · </span>
+                        )}
+                        <span className="text-amber-700 dark:text-amber-300">
+                          {Math.floor((Date.now() - new Date(s.last_activity_at).getTime()) / (24 * 3_600_000))}일 정체
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* 마감 임박 특별과제 */}
         <Card className="p-5 space-y-3">
           <div className="flex items-center justify-between">
@@ -248,12 +354,24 @@ const TeacherHome = () => {
               <h2 className="text-sm font-bold">마감 임박 특별과제</h2>
               <span className="text-xs text-muted-foreground">(향후 7일)</span>
             </div>
-            <Link
-              to="/teacher/assignments"
-              className="text-xs text-primary hover:underline"
-            >
-              전체 보기 →
-            </Link>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setProgressTick((t) => t + 1)}
+                title="진척 새로고침"
+              >
+                <RefreshCcw className="size-3 mr-1" />
+                새로고침
+              </Button>
+              <Link
+                to="/teacher/assignments"
+                className="text-xs text-primary hover:underline"
+              >
+                전체 보기 →
+              </Link>
+            </div>
           </div>
           {upcoming.length === 0 ? (
             <div className="text-xs text-muted-foreground py-3">

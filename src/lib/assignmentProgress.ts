@@ -36,7 +36,7 @@ export async function fetchAssignmentProgress(
 
   if (!sentenceId || targetUserIds.length === 0) return map;
 
-  const [preRes, analysisRes, translationRes, wordtestRes] = await Promise.all([
+  const [preRes, analysisRes, translationRes, wordtestRes, progressRes] = await Promise.all([
     supabase
       .from("word_pre_results")
       .select("user_id, completed, known_words, unknown_words, taken_at")
@@ -56,6 +56,12 @@ export async function fetchAssignmentProgress(
     supabase
       .from("word_test_results")
       .select("user_id, passed, score")
+      .eq("sentence_id", sentenceId)
+      .in("user_id", targetUserIds),
+    // sentence_progress: 즉시 저장된 부분 결과 (attempt log 생성 전이라도 활용)
+    supabase
+      .from("sentence_progress")
+      .select("user_id, pre_done, analysis_done, translation_done, word_test_done, analysis_match_rate")
       .eq("sentence_id", sentenceId)
       .in("user_id", targetUserIds),
   ]);
@@ -100,6 +106,29 @@ export async function fetchAssignmentProgress(
         status: v.passed ? "pass" : "fail",
         score: Math.round(v.rate * 100),
       };
+    }
+  });
+
+  // sentence_progress fallback — attempt log이 아직 없어도 즉시 저장된 부분 결과를 활용
+  ((progressRes.data ?? []) as any[]).forEach((row) => {
+    const uid = row.user_id as string | null;
+    if (!uid) return;
+    const cur = map.get(uid);
+    if (!cur) return;
+    // 분석: attempt log가 없어 missing이면 sentence_progress의 즉시 저장 점수로 대체
+    if (cur.analysis.status === "missing" && row.analysis_done) {
+      const rate = row.analysis_match_rate != null ? Number(row.analysis_match_rate) : null;
+      cur.analysis = {
+        status: "done",
+        score: rate != null ? Math.round(rate * 100) : null,
+      };
+    }
+    // pre/wordtest는 progress 플래그도 확인 (일부 row 누락 보완)
+    if (cur.pre.status === "missing" && row.pre_done) {
+      cur.pre = { status: "done", score: null };
+    }
+    if (cur.wordtest.status === "missing" && row.word_test_done) {
+      cur.wordtest = { status: "pass", score: null };
     }
   });
 

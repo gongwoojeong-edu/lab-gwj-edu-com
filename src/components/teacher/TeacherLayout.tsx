@@ -24,6 +24,7 @@ import {
   LogOut,
   Inbox,
   FolderArchive,
+  AlertTriangle,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -188,6 +189,14 @@ const TeacherSidebarInner = () => {
                         {printCount + pendingCount}
                       </span>
                     )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/stalled" className={({ isActive }) => linkCls(isActive)}>
+                    <AlertTriangle className="size-4" />
+                    {!collapsed && <span>정체 학생</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
