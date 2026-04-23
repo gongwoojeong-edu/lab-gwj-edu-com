@@ -132,12 +132,15 @@ const StudentHome = () => {
           setAssignments(activeAssignments);
         }
 
-        // 본인의 pending 시험지 요청 + 각 sentence별 정답대조 요청 상태 로드
+        // 본인의 pending 시험지/분석자료 요청 + 각 sentence별 정답대조 요청 상태 로드
         const sentenceIds = enriched.map((e) => e.sentence.id);
         const pendingPrints = await fetchMyPendingPrintRequests();
         const printMap: Record<string, PrintRequest> = {};
+        const analysisPrintMap: Record<string, PrintRequest> = {};
         pendingPrints.forEach((p) => {
-          if (sentenceIds.includes(p.sentence_id)) printMap[p.sentence_id] = p;
+          if (!sentenceIds.includes(p.sentence_id)) return;
+          if (p.kind === "analysis") analysisPrintMap[p.sentence_id] = p;
+          else printMap[p.sentence_id] = p;
         });
         const reviewPairs = await Promise.all(
           sentenceIds.map(async (sid) => [sid, await fetchOpenRequest(sid, 1)] as const),
@@ -146,9 +149,49 @@ const StudentHome = () => {
         reviewPairs.forEach(([sid, r]) => {
           if (r) reviewMap[sid] = r;
         });
+
+        // Hand out 학습 완료 여부 (handout_results 행 존재)
+        let handoutSet = new Set<string>();
+        if (sentenceIds.length > 0) {
+          const { data: hoRows } = await supabase
+            .from("handout_results")
+            .select("sentence_id")
+            .eq("user_id", user.id)
+            .in("sentence_id", sentenceIds);
+          handoutSet = new Set(
+            ((hoRows ?? []) as { sentence_id: string | null }[])
+              .map((r) => r.sentence_id)
+              .filter((x): x is string => !!x),
+          );
+        }
+
+        // 분석자료 PDF 메타 (지문 코드 = sentence id)
+        const pdfMap: Record<string, { storagePath: string; name: string | null }> = {};
+        if (sentenceIds.length > 0) {
+          const { data: pgRows } = await supabase
+            .from("textbook_passages")
+            .select("code, analysis_pdf_url, analysis_pdf_name")
+            .in("code", sentenceIds);
+          ((pgRows ?? []) as {
+            code: string;
+            analysis_pdf_url: string | null;
+            analysis_pdf_name: string | null;
+          }[]).forEach((row) => {
+            if (row.analysis_pdf_url) {
+              pdfMap[row.code] = {
+                storagePath: row.analysis_pdf_url,
+                name: row.analysis_pdf_name,
+              };
+            }
+          });
+        }
+
         if (mounted) {
           setPrintReqs(printMap);
+          setAnalysisPrintReqs(analysisPrintMap);
           setReviewReqs(reviewMap);
+          setHandoutDoneSet(handoutSet);
+          setAnalysisPdfMap(pdfMap);
         }
       }
       setLoading(false);
