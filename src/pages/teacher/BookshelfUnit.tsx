@@ -39,6 +39,8 @@ import {
   deletePassage,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
+  uploadStructurePdf,
+  deleteStructurePdf,
   type Series,
   type Textbook,
   type Unit,
@@ -76,10 +78,16 @@ const BookshelfUnit = () => {
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingStructure, setUploadingStructure] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const structureInputRef = useRef<HTMLInputElement | null>(null);
 
   const handlePdfPick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleStructurePick = () => {
+    structureInputRef.current?.click();
   };
 
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +127,46 @@ const BookshelfUnit = () => {
       toast({ title: "삭제 실패", description: errMsg(err), variant: "destructive" });
     } finally {
       setUploadingPdf(false);
+    }
+  };
+
+  const handleStructureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !unit) return;
+    if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast({ title: "PDF 파일만 업로드할 수 있어요", variant: "destructive" });
+      return;
+    }
+    setUploadingStructure(true);
+    try {
+      const updated = await uploadStructurePdf(unit.id, file);
+      setUnit(updated);
+      toast({ title: "구조도 업로드 완료", description: file.name });
+    } catch (err) {
+      toast({ title: "업로드 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingStructure(false);
+    }
+  };
+
+  const handleStructureDelete = async () => {
+    if (!unit) return;
+    if (!window.confirm(`'${unit.structure_pdf_name ?? "구조도"}' 파일을 삭제할까요?`)) return;
+    setUploadingStructure(true);
+    try {
+      await deleteStructurePdf(unit);
+      setUnit({
+        ...unit,
+        structure_pdf_url: null,
+        structure_pdf_name: null,
+        structure_pdf_uploaded_at: null,
+      });
+      toast({ title: "구조도 삭제됨" });
+    } catch (err) {
+      toast({ title: "삭제 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingStructure(false);
     }
   };
 
@@ -351,6 +399,86 @@ const BookshelfUnit = () => {
                   <Upload className="size-3 mr-1" />
                 )}
                 {uploadingPdf ? "업로드 중…" : "PDF 업로드"}
+              </Button>
+            </>
+          )}
+        </Card>
+
+        {/* 유닛 단위 구조도(PDF) */}
+        <Card className="p-4 flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <FileText className="size-4 text-primary" />
+            구조도 (PDF)
+          </div>
+          <input
+            ref={structureInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={handleStructureChange}
+          />
+          {unit.structure_pdf_url ? (
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-primary/10 text-primary text-xs font-bold max-w-full truncate"
+                title={unit.structure_pdf_name ?? ""}
+              >
+                <FileText className="size-3.5 shrink-0" />
+                <span className="truncate">{unit.structure_pdf_name ?? "PDF"}</span>
+              </span>
+              {unit.structure_pdf_uploaded_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  업로드: {new Date(unit.structure_pdf_uploaded_at).toLocaleString("ko-KR", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={handleStructurePick}
+                  disabled={uploadingStructure}
+                >
+                  {uploadingStructure ? (
+                    <Loader2 className="size-3 mr-1 animate-spin" />
+                  ) : (
+                    <Upload className="size-3 mr-1" />
+                  )}
+                  교체
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleStructureDelete}
+                  disabled={uploadingStructure}
+                >
+                  <X className="size-3 mr-1" /> 삭제
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <span className="text-xs text-muted-foreground flex-1">
+                구조도 PDF를 올리면 학생이 학습 후 함께 열람할 수 있어요.
+              </span>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleStructurePick}
+                disabled={uploadingStructure}
+              >
+                {uploadingStructure ? (
+                  <Loader2 className="size-3 mr-1 animate-spin" />
+                ) : (
+                  <Upload className="size-3 mr-1" />
+                )}
+                {uploadingStructure ? "업로드 중…" : "PDF 업로드"}
               </Button>
             </>
           )}

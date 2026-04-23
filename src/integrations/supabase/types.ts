@@ -686,6 +686,9 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          structure_pdf_name: string | null
+          structure_pdf_uploaded_at: string | null
+          structure_pdf_url: string | null
           textbook_id: string
           title: string
           unit_no: number
@@ -699,6 +702,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          structure_pdf_name?: string | null
+          structure_pdf_uploaded_at?: string | null
+          structure_pdf_url?: string | null
           textbook_id: string
           title: string
           unit_no: number
@@ -712,6 +718,9 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          structure_pdf_name?: string | null
+          structure_pdf_uploaded_at?: string | null
+          structure_pdf_url?: string | null
           textbook_id?: string
           title?: string
           unit_no?: number
