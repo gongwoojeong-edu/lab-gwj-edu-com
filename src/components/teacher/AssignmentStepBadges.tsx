@@ -26,9 +26,9 @@ type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
 const STEPS: Array<{ key: StepKey; label: string; hasScore: boolean }> = [
   { key: "pre", label: "단어학습", hasScore: false },
+  { key: "wordtest", label: "단어시험", hasScore: true },
   { key: "analysis", label: "구문분석", hasScore: true },
   { key: "translation", label: "한글해석", hasScore: false },
-  { key: "wordtest", label: "단어시험", hasScore: true },
 ];
 
 const statusBadge = (r: StepResult, hasScore: boolean) => {

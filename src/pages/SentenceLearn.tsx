@@ -59,14 +59,16 @@ import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-type Step = "pre" | "analysis" | "translation" | "post";
+type Step = "pre" | "wordtest" | "analysis" | "translation";
 
 const STEP_LABELS: Record<Step, string> = {
   pre: "1. 단어 학습",
-  analysis: "2. 구문 분석",
-  translation: "3. 한글 해석",
-  post: "4. 단어 테스트",
+  wordtest: "2. 단어 테스트",
+  analysis: "3. 구문 분석",
+  translation: "4. 한글 해석",
 };
+
+const STEP_ORDER: Step[] = ["pre", "wordtest", "analysis", "translation"];
 
 const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
@@ -80,6 +82,8 @@ const SentenceLearn = () => {
   const [preDone, setPreDone] = useState(false);
   const [analysisDone, setAnalysisDone] = useState(false);
   const [translationDone, setTranslationDone] = useState(false);
+  const [wordtestDone, setWordtestDone] = useState(false);
+  const [wordTestResult, setWordTestResult] = useState<{ passed: boolean; score: number } | null>(null);
   const [step, setStep] = useState<Step>("pre");
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [previousStatus, setPreviousStatus] = useState<"pending" | "pass" | "fail" | "hold">("pending");
@@ -232,11 +236,21 @@ const SentenceLearn = () => {
       }
       setEntries(built);
 
-      // 초기 step 결정 — OFF 단계는 건너뜀
+      // 초기 step 결정 — OFF 단계는 건너뜀, 새 순서: pre → wordtest → analysis → translation
+      const wordTestPassedRow = await supabase
+        .from("word_test_results")
+        .select("passed, mode")
+        .eq("sentence_id", found.id)
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
+        .eq("passed", true);
+      const passedModes = new Set(((wordTestPassedRow.data ?? []) as { mode: string }[]).map((r) => r.mode));
+      const wordtestAllPassed = passedModes.has("spell") && passedModes.has("meaning") && passedModes.has("mixed");
+      setWordtestDone(wordtestAllPassed);
+
       if (!preDoneEff && flags.pre) setStep("pre");
+      else if (!wordtestAllPassed && flags.wordtest) setStep("wordtest");
       else if (!analysisDoneEff && flags.analysis) setStep("analysis");
-      else if (!translationDoneEff && flags.translation) setStep("translation");
-      else setStep("post");
+      else setStep("translation");
 
       setLoading(false);
     })();
@@ -275,36 +289,47 @@ const SentenceLearn = () => {
   const stepStates = useMemo(
     () => ({
       pre: { done: preDone, locked: false, skipped: !skipFlags.pre },
-      analysis: { done: analysisDone, locked: !preDone || translationDone, skipped: !skipFlags.analysis },
-      translation: { done: translationDone, locked: !analysisDone, skipped: !skipFlags.translation },
-      post: { done: false, locked: !(preDone && analysisDone && translationDone), skipped: !skipFlags.wordtest },
+      wordtest: { done: wordtestDone, locked: skipFlags.pre && !preDone, skipped: !skipFlags.wordtest },
+      analysis: {
+        done: analysisDone,
+        locked: (skipFlags.pre && !preDone) || (skipFlags.wordtest && !wordtestDone) || translationDone,
+        skipped: !skipFlags.analysis,
+      },
+      translation: {
+        done: translationDone,
+        locked:
+          (skipFlags.pre && !preDone) ||
+          (skipFlags.wordtest && !wordtestDone) ||
+          (skipFlags.analysis && !analysisDone),
+        skipped: !skipFlags.translation,
+      },
     }),
-    [preDone, analysisDone, translationDone, skipFlags],
+    [preDone, wordtestDone, analysisDone, translationDone, skipFlags],
   );
 
   /** 다음으로 진입 가능한 OFF가 아닌 단계로 자동 점프 */
   const advanceFrom = (current: Step) => {
-    const order: Step[] = ["pre", "analysis", "translation", "post"];
     const flagOf: Record<Step, boolean> = {
       pre: skipFlags.pre,
+      wordtest: skipFlags.wordtest,
       analysis: skipFlags.analysis,
       translation: skipFlags.translation,
-      post: skipFlags.wordtest,
     };
-    const idx = order.indexOf(current);
-    for (let i = idx + 1; i < order.length; i++) {
-      if (flagOf[order[i]]) {
-        safeSetStep(order[i]);
+    const idx = STEP_ORDER.indexOf(current);
+    for (let i = idx + 1; i < STEP_ORDER.length; i++) {
+      if (flagOf[STEP_ORDER[i]]) {
+        safeSetStep(STEP_ORDER[i]);
         return;
       }
     }
-    safeSetStep("post");
+    // 마지막 단계까지 모두 완료 → translation에 머무름
+    safeSetStep("translation");
   };
 
-  /** 백워드 전이 차단: 한글해석 제출 후에는 분석/단어학습 단계 진입 차단 */
+  /** 백워드 전이 차단: 한글해석 제출 후에는 이전 단계 진입 차단 */
   const safeSetStep = (next: Step) => {
-    if (translationDone && (next === "pre" || next === "analysis")) {
-      setStep("post");
+    if (translationDone && next !== "translation") {
+      setStep("translation");
       return;
     }
     setStep(next);
@@ -409,7 +434,15 @@ const SentenceLearn = () => {
 
   const startRetryNow = () => {
     setShowFailIntro(false);
-    setStep("analysis");
+    // 새 흐름: 미통 재도전 시 단어테스트부터 다시 (단어학습은 이미 했음)
+    if (skipFlags.wordtest) {
+      setWordtestDone(false);
+      setStep("wordtest");
+    } else if (skipFlags.analysis) {
+      setStep("analysis");
+    } else {
+      setStep("translation");
+    }
   };
 
   /** 분석 → translation 전환 (다이얼로그 confirm 시) */
@@ -868,10 +901,48 @@ const SentenceLearn = () => {
           <div>{null}</div>
         )}
 
+        {step === "wordtest" && skipFlags.wordtest && (
+          <WordTestStep
+            sentenceId={sentence.id}
+            entries={entries}
+            onPassed={() => {
+              // 3종 모두 통과 → 다음 단계(분석)로 진행
+              setWordtestDone(true);
+              advanceFrom("wordtest");
+            }}
+            onTestCompleted={(r) => {
+              // 단어테스트 결과는 state에 저장만, attempt log는 한글해석 제출 시 일괄 기록
+              setWordTestResult({ passed: r.passed, score: r.score });
+            }}
+            onSkipToNext={handleSkipToNext}
+          />
+        )}
+
+        {step === "wordtest" && !skipFlags.wordtest && (
+          <Card className="p-6 space-y-4 border-primary/30 bg-primary/5 text-center">
+            <div className="text-sm font-bold text-primary">단어시험 단계가 비활성화된 과제예요</div>
+            <p className="text-xs text-muted-foreground">
+              선생님이 이 과제에서 단어시험 단계를 빼셨어요. 자동으로 통과 처리됩니다.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setWordtestDone(true);
+                  setWordTestResult({ passed: true, score: 1 });
+                  advanceFrom("wordtest");
+                }}
+              >
+                다음 단계로 →
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {step === "translation" && (
           <div className="space-y-3">
             <div className="text-xs text-muted-foreground px-1">
-              ⚠ 이 단계에서는 분석 화면으로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
+              ⚠ 이 단계에서는 이전 단계로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
             </div>
             <TranslationStep
               sentenceId={sentence.id}
@@ -880,7 +951,10 @@ const SentenceLearn = () => {
                 try {
                   await upsertSentenceProgress(sentence.id, { translation_done: true });
                   setTranslationDone(true);
-                  setStep("post");
+                  // 한글해석 제출 시점에 attempt log + status 일괄 기록
+                  const wt = wordTestResult ?? { passed: !skipFlags.wordtest ? true : false, score: 0 };
+                  await recordAttempt({ passed: wt.passed, score: wt.score });
+                  navigate("/learn");
                 } catch (e) {
                   toast({
                     title: "저장 실패",
@@ -891,38 +965,6 @@ const SentenceLearn = () => {
               }}
             />
           </div>
-        )}
-
-        {step === "post" && skipFlags.wordtest && (
-          <WordTestStep
-            sentenceId={sentence.id}
-            entries={entries}
-            onPassed={() => navigate("/learn")}
-            onTestCompleted={(r) => {
-              void recordAttempt({ passed: r.passed, score: r.score });
-            }}
-            onSkipToNext={handleSkipToNext}
-          />
-        )}
-
-        {step === "post" && !skipFlags.wordtest && (
-          <Card className="p-6 space-y-4 border-primary/30 bg-primary/5 text-center">
-            <div className="text-sm font-bold text-primary">단어시험 단계가 비활성화된 과제예요</div>
-            <p className="text-xs text-muted-foreground">
-              선생님이 이 과제에서 단어시험 단계를 빼셨어요. 자동으로 통과 처리됩니다.
-            </p>
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                size="sm"
-                onClick={async () => {
-                  await recordAttempt({ passed: true, score: 1 });
-                  navigate("/learn");
-                }}
-              >
-                통과 처리하고 학습 홈으로
-              </Button>
-            </div>
-          </Card>
         )}
 
         {/* 분석 게이트에 막혀 PASS 처리되지 않은 경우 — 자기 첨삭 요청 + 선생님 PIN 통과 */}

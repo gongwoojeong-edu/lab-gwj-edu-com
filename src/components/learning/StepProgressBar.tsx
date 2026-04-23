@@ -14,9 +14,9 @@ interface Props {
 
 const STEPS: { key: LearningStep; label: string }[] = [
   { key: "pre", label: "1. 단어 학습" },
-  { key: "analysis", label: "2. 구문 분석" },
-  { key: "translation", label: "3. 한글 해석" },
-  { key: "wordtest", label: "4. 단어 테스트" },
+  { key: "wordtest", label: "2. 단어 테스트" },
+  { key: "analysis", label: "3. 구문 분석" },
+  { key: "translation", label: "4. 한글 해석" },
 ];
 
 export const StepProgressBar = ({
@@ -27,22 +27,22 @@ export const StepProgressBar = ({
   wordTestDone,
   onJump,
 }: Props) => {
-  const passed = preDone && analysisDone && translationDone && wordTestDone;
+  const passed = preDone && wordTestDone && analysisDone && translationDone;
   const isDone = (k: LearningStep) =>
     k === "pre"
       ? preDone
-      : k === "analysis"
-        ? analysisDone
-        : k === "translation"
-          ? translationDone
-          : wordTestDone;
+      : k === "wordtest"
+        ? wordTestDone
+        : k === "analysis"
+          ? analysisDone
+          : translationDone;
   const isLocked = (k: LearningStep) =>
-    k === "analysis"
+    k === "wordtest"
       ? !preDone
-      : k === "translation"
-        ? !analysisDone
-        : k === "wordtest"
-          ? !translationDone
+      : k === "analysis"
+        ? !preDone || !wordTestDone
+        : k === "translation"
+          ? !analysisDone
           : false;
 
   return (
