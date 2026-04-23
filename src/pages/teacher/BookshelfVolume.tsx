@@ -43,21 +43,26 @@ import {
   Trash2,
   Sparkles,
   Layers,
+  FileSignature,
 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
   fetchTextbook,
   fetchUnitsByTextbook,
+  fetchPassagesByUnit,
   createUnit,
   updateUnit,
   deleteUnit,
+  updatePassage,
   bulkInsertPassages,
   splitPassageText,
   type Series,
   type Textbook,
   type Unit,
+  type Passage,
 } from "@/lib/textbooks";
+import { errMsg } from "@/lib/errMsg";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -99,6 +104,59 @@ const BookshelfVolume = () => {
   // delete
   const [deleteTarget, setDeleteTarget] = useState<Unit | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // edit passages (본문 수정)
+  const [passagesUnit, setPassagesUnit] = useState<Unit | null>(null);
+  const [unitPassages, setUnitPassages] = useState<Passage[]>([]);
+  const [loadingPassages, setLoadingPassages] = useState(false);
+  const [editPassage, setEditPassage] = useState<Passage | null>(null);
+  const [editPassageEnglish, setEditPassageEnglish] = useState("");
+  const [editPassageKorean, setEditPassageKorean] = useState("");
+  const [savingPassage, setSavingPassage] = useState(false);
+
+  const openPassagesEditor = async (u: Unit) => {
+    setPassagesUnit(u);
+    setLoadingPassages(true);
+    try {
+      const ps = await fetchPassagesByUnit(u.id);
+      setUnitPassages(ps);
+    } catch (e) {
+      toast({ title: "본문 불러오기 실패", description: errMsg(e), variant: "destructive" });
+      setPassagesUnit(null);
+    } finally {
+      setLoadingPassages(false);
+    }
+  };
+
+  const openEditPassage = (p: Passage) => {
+    setEditPassage(p);
+    setEditPassageEnglish(p.english);
+    setEditPassageKorean(p.korean ?? "");
+  };
+
+  const handleSavePassage = async () => {
+    if (!editPassage) return;
+    const nextEnglish = editPassageEnglish.trim();
+    if (!nextEnglish) {
+      toast({ title: "본문(영문)을 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    setSavingPassage(true);
+    try {
+      const updated = await updatePassage(editPassage.id, {
+        english: nextEnglish,
+        korean: editPassageKorean.trim() ? editPassageKorean.trim() : null,
+      });
+      setUnitPassages((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      await hydrateSentencesFromDb(true);
+      toast({ title: "본문이 수정되었습니다", description: updated.code });
+      setEditPassage(null);
+    } catch (e) {
+      toast({ title: "수정 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingPassage(false);
+    }
+  };
 
   const reload = async () => {
     if (!level || !seriesNo || !volumeNo) return;
