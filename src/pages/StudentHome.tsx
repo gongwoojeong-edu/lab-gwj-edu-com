@@ -241,7 +241,53 @@ const StudentHome = () => {
     }
   };
 
-  const handleRequestReview = async (sentenceId: string) => {
+  const handleViewAnalysisPdf = async (sentenceId: string) => {
+    const meta = analysisPdfMap[sentenceId];
+    if (!meta) return;
+    setBusyFor(`analysis:${sentenceId}`, true);
+    try {
+      const url = await getAnalysisPdfSignedUrl(meta.storagePath);
+      if (!url) {
+        toast({ title: "분석자료 열람 실패", variant: "destructive" });
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setBusyFor(`analysis:${sentenceId}`, false);
+    }
+  };
+
+  const handleRequestAnalysisPrint = async (sentenceId: string) => {
+    const meta = analysisPdfMap[sentenceId];
+    if (!meta) return;
+    setBusyFor(`analysis-print:${sentenceId}`, true);
+    try {
+      const row = await createAnalysisPrintRequest(sentenceId, meta.storagePath);
+      setAnalysisPrintReqs((prev) => ({ ...prev, [sentenceId]: row }));
+      toast({ title: "분석자료 인쇄 요청을 보냈어요" });
+    } catch (e) {
+      toast({ title: "요청 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBusyFor(`analysis-print:${sentenceId}`, false);
+    }
+  };
+
+  const handleCancelAnalysisPrint = async (sentenceId: string) => {
+    const cur = analysisPrintReqs[sentenceId];
+    if (!cur) return;
+    setBusyFor(`analysis-print:${sentenceId}`, true);
+    try {
+      await cancelMyPrintRequest(cur.id);
+      setAnalysisPrintReqs((prev) => {
+        const next = { ...prev };
+        delete next[sentenceId];
+        return next;
+      });
+      toast({ title: "요청을 취소했어요" });
+    } finally {
+      setBusyFor(`analysis-print:${sentenceId}`, false);
+    }
+  };
     setBusyFor(`review:${sentenceId}`, true);
     try {
       const grade = await gradeAnalysis(sentenceId);
