@@ -28,7 +28,7 @@ import {
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
 import { gradeAnalysis } from "@/lib/analysisGrading";
-import { fetchPassageByCode, getAnalysisPdfSignedUrl } from "@/lib/textbooks";
+import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
