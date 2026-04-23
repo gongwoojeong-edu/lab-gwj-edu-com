@@ -87,6 +87,39 @@ const BookshelfUnit = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const structureInputRef = useRef<HTMLInputElement | null>(null);
 
+  /**
+   * HTML 파일은 Storage가 잘못된 Content-Type(text/plain 등)으로 응답할 때
+   * 브라우저가 소스 코드를 그대로 보여주거나 한글이 깨지는 문제가 있어,
+   * 직접 fetch 후 Blob URL(text/html;charset=utf-8)로 다시 열어 준다.
+   * PDF/기타 파일은 서명 URL을 그대로 새 탭으로 연다.
+   */
+  const openSignedFile = async (signedUrl: string, storagePath: string) => {
+    const isHtml = /\.html?$/i.test(storagePath);
+    if (!isHtml) {
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    try {
+      const res = await fetch(signedUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // 서버가 보낸 charset이 신뢰할 수 없으므로 ArrayBuffer로 받아 UTF-8로 디코드
+      const buf = await res.arrayBuffer();
+      const text = new TextDecoder("utf-8").decode(buf);
+      const blob = new Blob([text], { type: "text/html;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, "_blank", "noopener,noreferrer");
+      // 새 탭이 닫힐 때까지 URL 유지 — 일정 시간 후 정리
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+      if (!win) {
+        // 팝업 차단 시 폴백
+        window.location.href = blobUrl;
+      }
+    } catch {
+      // 폴백: 그냥 서명 URL로 열기
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const handleViewAnalysis = async () => {
     if (!unit?.analysis_pdf_url || viewingAnalysis) return;
     setViewingAnalysis(true);
@@ -96,7 +129,7 @@ const BookshelfUnit = () => {
         toast({ title: "파일을 열 수 없어요", variant: "destructive" });
         return;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
+      await openSignedFile(url, unit.analysis_pdf_url);
     } catch (err) {
       toast({ title: "열기 실패", description: errMsg(err), variant: "destructive" });
     } finally {
@@ -113,7 +146,7 @@ const BookshelfUnit = () => {
         toast({ title: "파일을 열 수 없어요", variant: "destructive" });
         return;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
+      await openSignedFile(url, unit.structure_pdf_url);
     } catch (err) {
       toast({ title: "열기 실패", description: errMsg(err), variant: "destructive" });
     } finally {
