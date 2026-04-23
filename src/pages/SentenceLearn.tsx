@@ -59,14 +59,16 @@ import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-type Step = "pre" | "analysis" | "translation" | "post";
+type Step = "pre" | "wordtest" | "analysis" | "translation";
 
 const STEP_LABELS: Record<Step, string> = {
   pre: "1. 단어 학습",
-  analysis: "2. 구문 분석",
-  translation: "3. 한글 해석",
-  post: "4. 단어 테스트",
+  wordtest: "2. 단어 테스트",
+  analysis: "3. 구문 분석",
+  translation: "4. 한글 해석",
 };
+
+const STEP_ORDER: Step[] = ["pre", "wordtest", "analysis", "translation"];
 
 const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
