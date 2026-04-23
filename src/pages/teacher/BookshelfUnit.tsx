@@ -85,41 +85,7 @@ const BookshelfUnit = () => {
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [editTarget, setEditTarget] = useState<Passage | null>(null);
-  const [editEnglish, setEditEnglish] = useState("");
-  const [editKorean, setEditKorean] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const openEdit = (p: Passage) => {
-    setEditTarget(p);
-    setEditEnglish(p.english);
-    setEditKorean(p.korean ?? "");
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editTarget) return;
-    const nextEnglish = editEnglish.trim();
-    if (!nextEnglish) {
-      toast({ title: "본문(영문)을 입력해 주세요", variant: "destructive" });
-      return;
-    }
-    setSavingEdit(true);
-    try {
-      const updated = await updatePassage(editTarget.id, {
-        english: nextEnglish,
-        korean: editKorean.trim() ? editKorean.trim() : null,
-      });
-      setPassages((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
-      await hydrateSentencesFromDb(true);
-      toast({ title: "본문이 수정되었습니다", description: updated.code });
-      setEditTarget(null);
-    } catch (e) {
-      toast({ title: "수정 실패", description: errMsg(e), variant: "destructive" });
-    } finally {
-      setSavingEdit(false);
-    }
-  };
 
   const handlePdfPick = () => {
     fileInputRef.current?.click();
