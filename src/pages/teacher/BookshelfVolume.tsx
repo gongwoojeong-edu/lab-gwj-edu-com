@@ -193,7 +193,7 @@ const BookshelfVolume = () => {
   const openInsert = (u: Unit) => {
     setInsertTarget(u);
     setBulkText("");
-    setSplitMode("blank");
+    setSplitMode("sentence");
     setInsertOpen(true);
   };
 
