@@ -449,7 +449,11 @@ const SentenceLearn = () => {
   const proceedToTranslation = async () => {
     if (!sentence) return;
     try {
-      await upsertSentenceProgress(sentence.id, { analysis_done: true });
+      // 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
+      await upsertSentenceProgress(sentence.id, {
+        analysis_done: true,
+        analysis_match_rate: analysisRate,
+      });
     } catch (e) {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
     }
@@ -905,9 +909,14 @@ const SentenceLearn = () => {
           <WordTestStep
             sentenceId={sentence.id}
             entries={entries}
-            onPassed={() => {
-              // 3종 모두 통과 → 다음 단계(분석)로 진행
+            onPassed={async () => {
+              // 3종 모두 통과 → 단어테스트 완료를 즉시 DB에 저장 (선생님 화면 실시간 반영)
               setWordtestDone(true);
+              try {
+                await upsertSentenceProgress(sentence.id, { word_test_done: true });
+              } catch (e) {
+                console.warn("word_test_done upsert failed", e);
+              }
               advanceFrom("wordtest");
             }}
             onTestCompleted={(r) => {

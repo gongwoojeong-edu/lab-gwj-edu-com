@@ -36,7 +36,7 @@ export async function fetchAssignmentProgress(
 
   if (!sentenceId || targetUserIds.length === 0) return map;
 
-  const [preRes, analysisRes, translationRes, wordtestRes] = await Promise.all([
+  const [preRes, analysisRes, translationRes, wordtestRes, progressRes] = await Promise.all([
     supabase
       .from("word_pre_results")
       .select("user_id, completed, known_words, unknown_words, taken_at")
@@ -56,6 +56,12 @@ export async function fetchAssignmentProgress(
     supabase
       .from("word_test_results")
       .select("user_id, passed, score")
+      .eq("sentence_id", sentenceId)
+      .in("user_id", targetUserIds),
+    // sentence_progress: 즉시 저장된 부분 결과 (attempt log 생성 전이라도 활용)
+    supabase
+      .from("sentence_progress")
+      .select("user_id, pre_done, analysis_done, translation_done, word_test_done, analysis_match_rate")
       .eq("sentence_id", sentenceId)
       .in("user_id", targetUserIds),
   ]);
