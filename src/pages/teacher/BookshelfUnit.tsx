@@ -1,3 +1,6 @@
+// ============================================================
+// BookshelfUnit — 유닛(예: 2603모고) 안의 지문 목록.
+// ============================================================
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
@@ -13,28 +16,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, Loader2, BookOpen, FileEdit, FileCheck, Pencil, Printer, Trash2, Sparkles } from "lucide-react";
+import {
+  ChevronLeft,
+  Loader2,
+  BookOpen,
+  FileEdit,
+  FileCheck,
+  Pencil,
+  Printer,
+  Trash2,
+  Sparkles,
+} from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
+  fetchSeries,
   fetchTextbook,
-  fetchPassagesByTextbook,
+  fetchUnit,
+  fetchPassagesByUnit,
   deletePassage,
+  type Series,
   type Textbook,
+  type Unit,
   type Passage,
 } from "@/lib/textbooks";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { launchPrintHtml } from "@/lib/printLauncher";
-import { buildHandoutPrintHtmlFor, printStageMessage, PrintPreloadError } from "@/lib/printPreload";
+import {
+  buildHandoutPrintHtmlFor,
+  printStageMessage,
+  PrintPreloadError,
+} from "@/lib/printPreload";
 import { runExtraction } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const BookshelfUnit = () => {
-  const { level, unitNo } = useParams<{ level: LevelCode; unitNo: string }>();
+  const { level, seriesNo, volumeNo, unitNo } = useParams<{
+    level: LevelCode;
+    seriesNo: string;
+    volumeNo: string;
+    unitNo: string;
+  }>();
   const navigate = useNavigate();
-  const [tb, setTb] = useState<Textbook | null>(null);
+  const [series, setSeries] = useState<Series | null>(null);
+  const [textbook, setTextbook] = useState<Textbook | null>(null);
+  const [unit, setUnit] = useState<Unit | null>(null);
   const [passages, setPassages] = useState<Passage[]>([]);
   const [extractedMap, setExtractedMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -51,7 +79,11 @@ const BookshelfUnit = () => {
       if ("error" in res) {
         const status = res.status;
         if (status === 429) {
-          toast({ title: "잠시 후 다시 시도해 주세요", description: "AI 호출 한도 초과", variant: "destructive" });
+          toast({
+            title: "잠시 후 다시 시도해 주세요",
+            description: "AI 호출 한도 초과",
+            variant: "destructive",
+          });
         } else if (status === 402) {
           toast({ title: "AI 크레딧이 소진되었어요", variant: "destructive" });
         } else if (status === 403) {
@@ -82,39 +114,48 @@ const BookshelfUnit = () => {
     }
   };
 
-  const reload = () => {
-    if (!level || !unitNo) return;
-    const u = parseInt(unitNo, 10);
+  const reload = async () => {
+    if (!level || !seriesNo || !volumeNo || !unitNo) return;
     setLoading(true);
-    fetchTextbook(level, u).then(async (textbook) => {
-      setTb(textbook);
-      if (textbook) {
-        const ps = await fetchPassagesByTextbook(textbook.id);
-        setPassages(ps);
-        const ids = ps.map((p) => p.code);
-        if (ids.length > 0) {
-          const { data } = await supabase
-            .from("sentence_word_extractions")
-            .select("sentence_id, words")
-            .in("sentence_id", ids);
-          const map: Record<string, number> = {};
-          (data ?? []).forEach((row) => {
-            const arr = Array.isArray(row.words) ? row.words : [];
-            map[row.sentence_id as string] = arr.length;
-          });
-          setExtractedMap(map);
-        } else {
-          setExtractedMap({});
-        }
+    try {
+      const sNo = parseInt(seriesNo, 10);
+      const vNo = parseInt(volumeNo, 10);
+      const uNo = parseInt(unitNo, 10);
+      const s = await fetchSeries(level, sNo);
+      setSeries(s);
+      if (!s) return;
+      const tb = await fetchTextbook(s.id, vNo);
+      setTextbook(tb);
+      if (!tb) return;
+      const u = await fetchUnit(tb.id, uNo);
+      setUnit(u);
+      if (!u) return;
+      const ps = await fetchPassagesByUnit(u.id);
+      setPassages(ps);
+      const ids = ps.map((p) => p.code);
+      if (ids.length > 0) {
+        const { data } = await supabase
+          .from("sentence_word_extractions")
+          .select("sentence_id, words")
+          .in("sentence_id", ids);
+        const map: Record<string, number> = {};
+        (data ?? []).forEach((row) => {
+          const arr = Array.isArray(row.words) ? row.words : [];
+          map[row.sentence_id as string] = arr.length;
+        });
+        setExtractedMap(map);
+      } else {
+        setExtractedMap({});
       }
+    } finally {
       setLoading(false);
-    });
+    }
   };
 
   useEffect(() => {
-    reload();
+    void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, unitNo]);
+  }, [level, seriesNo, volumeNo, unitNo]);
 
   const handleDeletePassage = async () => {
     if (!deleteTarget) return;
@@ -124,7 +165,7 @@ const BookshelfUnit = () => {
       await hydrateSentencesFromDb(true);
       toast({ title: `지문 ${deleteTarget.code} 삭제됨` });
       setDeleteTarget(null);
-      reload();
+      void reload();
     } catch (e) {
       toast({
         title: "삭제 실패",
@@ -146,12 +187,12 @@ const BookshelfUnit = () => {
     );
   }
 
-  if (!tb) {
+  if (!series || !textbook || !unit) {
     return (
       <TeacherLayout>
         <div className="p-6 max-w-3xl mx-auto">
           <Card className="p-10 text-center text-sm text-muted-foreground">
-            교재를 찾을 수 없습니다.{" "}
+            유닛을 찾을 수 없습니다.{" "}
             <Link to="/teacher/bookshelf" className="text-primary underline">
               책장으로
             </Link>
@@ -166,19 +207,20 @@ const BookshelfUnit = () => {
       <div className="p-6 max-w-5xl mx-auto space-y-5">
         <div>
           <Link
-            to={`/teacher/bookshelf/${level}`}
+            to={`/teacher/bookshelf/${level}/${series.series_no}/${textbook.volume_no}`}
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
-            <ChevronLeft className="size-3" /> {level && LEVEL_LABEL[level]}
+            <ChevronLeft className="size-3" /> {textbook.title}
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
-            <BookOpen className="size-6 text-primary" /> {tb.title}
+            <BookOpen className="size-6 text-primary" /> {unit.title}
             <span className="text-xs font-mono text-muted-foreground">
-              {level} · U{tb.unit_no}
+              {level && LEVEL_LABEL[level]} · {series.title} · {textbook.title} · U
+              {unit.unit_no}
             </span>
           </h1>
-          {tb.description && (
-            <p className="text-sm text-muted-foreground mt-1">{tb.description}</p>
+          {unit.description && (
+            <p className="text-sm text-muted-foreground mt-1">{unit.description}</p>
           )}
         </div>
 
@@ -188,7 +230,7 @@ const BookshelfUnit = () => {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="py-2 px-3 w-12">#</th>
-                  <th className="py-2 px-3 w-32">코드</th>
+                  <th className="py-2 px-3 w-44">코드</th>
                   <th className="py-2 px-3">본문 (미리보기)</th>
                   <th className="py-2 px-3 w-28">단어추출</th>
                   <th className="py-2 px-3 w-28">분석상태</th>
@@ -198,9 +240,12 @@ const BookshelfUnit = () => {
               <tbody>
                 {passages.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
-                      아직 지문이 없습니다. 이전 화면의 <strong>교재 만들기</strong>로 본문을
-                      삽입하세요.
+                    <td
+                      colSpan={6}
+                      className="py-12 text-center text-sm text-muted-foreground"
+                    >
+                      아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
+                      지문을 추가하세요.
                     </td>
                   </tr>
                 ) : (
@@ -211,7 +256,9 @@ const BookshelfUnit = () => {
                     return (
                       <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
                         <td className="py-2 px-3 font-mono text-xs">{p.passage_no}</td>
-                        <td className="py-2 px-3 font-mono text-xs text-primary">{p.code}</td>
+                        <td className="py-2 px-3 font-mono text-[10px] text-primary truncate">
+                          {p.code}
+                        </td>
                         <td className="py-2 px-3 text-xs text-foreground/80 max-w-xl">
                           <span className="line-clamp-2">{p.english}</span>
                         </td>
@@ -287,7 +334,7 @@ const BookshelfUnit = () => {
                             variant="outline"
                             onClick={() =>
                               navigate(
-                                `/teacher/bookshelf/${level}/${tb.unit_no}/${encodeURIComponent(
+                                `/teacher/bookshelf/${level}/${series.series_no}/${textbook.volume_no}/${unit.unit_no}/${encodeURIComponent(
                                   p.code,
                                 )}/edit`,
                               )
@@ -315,13 +362,17 @@ const BookshelfUnit = () => {
         </Card>
       </div>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>지문을 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-mono text-foreground">{deleteTarget?.code}</span> 지문과
-              관련된 분석/학습 기록은 그대로 남지만, 책장에서는 더 이상 보이지 않습니다.
+              <span className="font-mono text-foreground">{deleteTarget?.code}</span>{" "}
+              지문과 관련된 분석/학습 기록은 그대로 남지만, 책장에서는 더 이상 보이지
+              않습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
