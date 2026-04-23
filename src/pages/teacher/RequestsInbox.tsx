@@ -24,7 +24,9 @@ import {
   XCircle,
   BookOpen,
   ChevronDown,
+  FileText,
 } from "lucide-react";
+import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPendingPrintRequests,
@@ -242,6 +244,60 @@ const RequestsInbox = () => {
 
               if (it.kind === "print") {
                 const req = it.row;
+                if (req.kind === "analysis") {
+                  return (
+                    <Card
+                      key={`p-${req.id}`}
+                      className="p-3 flex items-center gap-3 flex-wrap border-l-4 border-l-primary"
+                    >
+                      <Badge className="bg-primary text-primary-foreground font-bold">
+                        분석자료
+                      </Badge>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-foreground">
+                          {studentName}{" "}
+                          <span className="text-xs font-mono text-muted-foreground">
+                            ({studentNo})
+                          </span>
+                          <span className="ml-2 text-xs font-mono text-muted-foreground">
+                            {req.sentence_id}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{time}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          onClick={async () => {
+                            if (!req.file_url) return;
+                            const url = await getAnalysisPdfSignedUrl(req.file_url);
+                            if (url) window.open(url, "_blank", "noopener,noreferrer");
+                            else toast({ title: "PDF 열람 실패", variant: "destructive" });
+                          }}
+                        >
+                          <FileText className="size-3 mr-1" /> PDF 열기
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={async () => {
+                            try {
+                              await markPrintRequestHandled(req.id);
+                              toast({ title: "처리 완료" });
+                              await refresh();
+                            } catch (e) {
+                              toast({ title: "처리 실패", description: errMsg(e), variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <CheckCircle2 className="size-3 mr-1" /> 인쇄 완료
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                }
                 return (
                   <Card
                     key={`p-${req.id}`}

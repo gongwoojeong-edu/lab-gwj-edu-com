@@ -1,7 +1,7 @@
 // ============================================================
 // BookshelfUnit — 유닛(예: 2603모고) 안의 지문 목록.
 // ============================================================
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
@@ -26,6 +26,9 @@ import {
   Printer,
   Trash2,
   Sparkles,
+  Upload,
+  FileText,
+  X,
 } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -34,6 +37,8 @@ import {
   fetchUnit,
   fetchPassagesByUnit,
   deletePassage,
+  uploadAnalysisPdf,
+  deleteAnalysisPdf,
   type Series,
   type Textbook,
   type Unit,
@@ -70,6 +75,55 @@ const BookshelfUnit = () => {
   const [deleting, setDeleting] = useState(false);
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const handlePdfPick = (passageId: string) => {
+    fileInputRefs.current[passageId]?.click();
+  };
+
+  const handlePdfChange = async (
+    p: Passage,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast({ title: "PDF 파일만 업로드할 수 있어요", variant: "destructive" });
+      return;
+    }
+    setUploadingId(p.id);
+    try {
+      const updated = await uploadAnalysisPdf(p.id, file);
+      setPassages((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
+      toast({ title: "분석자료 업로드 완료", description: file.name });
+    } catch (err) {
+      toast({ title: "업로드 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handlePdfDelete = async (p: Passage) => {
+    if (!window.confirm(`'${p.analysis_pdf_name ?? "분석자료"}' 파일을 삭제할까요?`)) return;
+    setUploadingId(p.id);
+    try {
+      await deleteAnalysisPdf(p);
+      setPassages((prev) =>
+        prev.map((x) =>
+          x.id === p.id
+            ? { ...x, analysis_pdf_url: null, analysis_pdf_name: null, analysis_pdf_uploaded_at: null }
+            : x,
+        ),
+      );
+      toast({ title: "분석자료 삭제됨" });
+    } catch (err) {
+      toast({ title: "삭제 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
+  };
 
   const handleExtract = async (p: Passage) => {
     if (extractingCode) return;
@@ -234,6 +288,7 @@ const BookshelfUnit = () => {
                   <th className="py-2 px-3">본문 (미리보기)</th>
                   <th className="py-2 px-3 w-28">단어추출</th>
                   <th className="py-2 px-3 w-28">분석상태</th>
+                  <th className="py-2 px-3 w-44">분석자료(PDF)</th>
                   <th className="py-2 px-3 w-44 text-right">액션</th>
                 </tr>
               </thead>
@@ -241,7 +296,7 @@ const BookshelfUnit = () => {
                 {passages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="py-12 text-center text-sm text-muted-foreground"
                     >
                       아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
@@ -314,6 +369,62 @@ const BookshelfUnit = () => {
                               </>
                             )}
                           </span>
+                        </td>
+                        <td className="py-2 px-3">
+                          <input
+                            ref={(el) => (fileInputRefs.current[p.id] = el)}
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="hidden"
+                            onChange={(e) => handlePdfChange(p, e)}
+                          />
+                          {p.analysis_pdf_url ? (
+                            <div className="flex items-center gap-1">
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold max-w-[140px] truncate"
+                                title={p.analysis_pdf_name ?? ""}
+                              >
+                                <FileText className="size-3 shrink-0" />
+                                <span className="truncate">{p.analysis_pdf_name ?? "PDF"}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handlePdfPick(p.id)}
+                                disabled={uploadingId === p.id}
+                                title="교체"
+                                className="p-1 rounded hover:bg-muted text-muted-foreground"
+                              >
+                                {uploadingId === p.id ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <Upload className="size-3" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePdfDelete(p)}
+                                disabled={uploadingId === p.id}
+                                title="삭제"
+                                className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                              >
+                                <X className="size-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handlePdfPick(p.id)}
+                              disabled={uploadingId === p.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary transition disabled:opacity-50"
+                            >
+                              {uploadingId === p.id ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Upload className="size-3" />
+                              )}
+                              {uploadingId === p.id ? "업로드 중…" : "PDF 업로드"}
+                            </button>
+                          )}
                         </td>
                         <td className="py-2 px-3 text-right whitespace-nowrap">
                           <Button

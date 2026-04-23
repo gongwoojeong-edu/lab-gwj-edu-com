@@ -305,9 +305,11 @@ export type Database = {
       print_requests: {
         Row: {
           created_at: string
+          file_url: string | null
           handled_at: string | null
           handled_by: string | null
           id: string
+          kind: string
           note: string | null
           requested_at: string
           sentence_id: string
@@ -318,9 +320,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          file_url?: string | null
           handled_at?: string | null
           handled_by?: string | null
           id?: string
+          kind?: string
           note?: string | null
           requested_at?: string
           sentence_id: string
@@ -331,9 +335,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          file_url?: string | null
           handled_at?: string | null
           handled_by?: string | null
           id?: string
+          kind?: string
           note?: string | null
           requested_at?: string
           sentence_id?: string
@@ -577,6 +583,9 @@ export type Database = {
       }
       textbook_passages: {
         Row: {
+          analysis_pdf_name: string | null
+          analysis_pdf_uploaded_at: string | null
+          analysis_pdf_url: string | null
           analysis_status: string
           code: string
           created_at: string
@@ -590,6 +599,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          analysis_pdf_name?: string | null
+          analysis_pdf_uploaded_at?: string | null
+          analysis_pdf_url?: string | null
           analysis_status?: string
           code: string
           created_at?: string
@@ -603,6 +615,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          analysis_pdf_name?: string | null
+          analysis_pdf_uploaded_at?: string | null
+          analysis_pdf_url?: string | null
           analysis_status?: string
           code?: string
           created_at?: string

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText } from "lucide-react";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import { resolveNextSentence } from "@/lib/nextSentence";
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import {
   cancelMyPrintRequest,
   createPrintRequest,
+  createAnalysisPrintRequest,
   fetchMyPendingPrintRequests,
   type PrintRequest,
 } from "@/lib/printRequests";
@@ -27,6 +28,7 @@ import {
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
 import { gradeAnalysis } from "@/lib/analysisGrading";
+import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
@@ -62,7 +64,12 @@ const StudentHome = () => {
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
+  const [analysisPrintReqs, setAnalysisPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [reviewReqs, setReviewReqs] = useState<Record<string, AnalysisReviewRequest>>({});
+  const [handoutDoneSet, setHandoutDoneSet] = useState<Set<string>>(new Set());
+  const [analysisPdfMap, setAnalysisPdfMap] = useState<
+    Record<string, { storagePath: string; name: string | null }>
+  >({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -125,12 +132,15 @@ const StudentHome = () => {
           setAssignments(activeAssignments);
         }
 
-        // 본인의 pending 시험지 요청 + 각 sentence별 정답대조 요청 상태 로드
+        // 본인의 pending 시험지/분석자료 요청 + 각 sentence별 정답대조 요청 상태 로드
         const sentenceIds = enriched.map((e) => e.sentence.id);
         const pendingPrints = await fetchMyPendingPrintRequests();
         const printMap: Record<string, PrintRequest> = {};
+        const analysisPrintMap: Record<string, PrintRequest> = {};
         pendingPrints.forEach((p) => {
-          if (sentenceIds.includes(p.sentence_id)) printMap[p.sentence_id] = p;
+          if (!sentenceIds.includes(p.sentence_id)) return;
+          if (p.kind === "analysis") analysisPrintMap[p.sentence_id] = p;
+          else printMap[p.sentence_id] = p;
         });
         const reviewPairs = await Promise.all(
           sentenceIds.map(async (sid) => [sid, await fetchOpenRequest(sid, 1)] as const),
@@ -139,9 +149,49 @@ const StudentHome = () => {
         reviewPairs.forEach(([sid, r]) => {
           if (r) reviewMap[sid] = r;
         });
+
+        // Hand out 학습 완료 여부 (handout_results 행 존재)
+        let handoutSet = new Set<string>();
+        if (sentenceIds.length > 0) {
+          const { data: hoRows } = await supabase
+            .from("handout_results")
+            .select("sentence_id")
+            .eq("user_id", user.id)
+            .in("sentence_id", sentenceIds);
+          handoutSet = new Set(
+            ((hoRows ?? []) as { sentence_id: string | null }[])
+              .map((r) => r.sentence_id)
+              .filter((x): x is string => !!x),
+          );
+        }
+
+        // 분석자료 PDF 메타 (지문 코드 = sentence id)
+        const pdfMap: Record<string, { storagePath: string; name: string | null }> = {};
+        if (sentenceIds.length > 0) {
+          const { data: pgRows } = await supabase
+            .from("textbook_passages")
+            .select("code, analysis_pdf_url, analysis_pdf_name")
+            .in("code", sentenceIds);
+          ((pgRows ?? []) as {
+            code: string;
+            analysis_pdf_url: string | null;
+            analysis_pdf_name: string | null;
+          }[]).forEach((row) => {
+            if (row.analysis_pdf_url) {
+              pdfMap[row.code] = {
+                storagePath: row.analysis_pdf_url,
+                name: row.analysis_pdf_name,
+              };
+            }
+          });
+        }
+
         if (mounted) {
           setPrintReqs(printMap);
+          setAnalysisPrintReqs(analysisPrintMap);
           setReviewReqs(reviewMap);
+          setHandoutDoneSet(handoutSet);
+          setAnalysisPdfMap(pdfMap);
         }
       }
       setLoading(false);
@@ -188,6 +238,54 @@ const StudentHome = () => {
       toast({ title: "요청을 취소했어요" });
     } finally {
       setBusyFor(`print:${sentenceId}`, false);
+    }
+  };
+
+  const handleViewAnalysisPdf = async (sentenceId: string) => {
+    const meta = analysisPdfMap[sentenceId];
+    if (!meta) return;
+    setBusyFor(`analysis:${sentenceId}`, true);
+    try {
+      const url = await getAnalysisPdfSignedUrl(meta.storagePath);
+      if (!url) {
+        toast({ title: "분석자료 열람 실패", variant: "destructive" });
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setBusyFor(`analysis:${sentenceId}`, false);
+    }
+  };
+
+  const handleRequestAnalysisPrint = async (sentenceId: string) => {
+    const meta = analysisPdfMap[sentenceId];
+    if (!meta) return;
+    setBusyFor(`analysis-print:${sentenceId}`, true);
+    try {
+      const row = await createAnalysisPrintRequest(sentenceId, meta.storagePath);
+      setAnalysisPrintReqs((prev) => ({ ...prev, [sentenceId]: row }));
+      toast({ title: "분석자료 인쇄 요청을 보냈어요" });
+    } catch (e) {
+      toast({ title: "요청 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBusyFor(`analysis-print:${sentenceId}`, false);
+    }
+  };
+
+  const handleCancelAnalysisPrint = async (sentenceId: string) => {
+    const cur = analysisPrintReqs[sentenceId];
+    if (!cur) return;
+    setBusyFor(`analysis-print:${sentenceId}`, true);
+    try {
+      await cancelMyPrintRequest(cur.id);
+      setAnalysisPrintReqs((prev) => {
+        const next = { ...prev };
+        delete next[sentenceId];
+        return next;
+      });
+      toast({ title: "요청을 취소했어요" });
+    } finally {
+      setBusyFor(`analysis-print:${sentenceId}`, false);
     }
   };
 
@@ -606,6 +704,47 @@ const StudentHome = () => {
                                 <Eye className="w-3 h-3 mr-1" />
                                 정답보기 요청
                               </Button>
+                            )}
+
+                            {handoutDoneSet.has(sentence.id) && analysisPdfMap[sentence.id] && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px] px-2 border-primary/40 text-primary"
+                                  onClick={() => handleViewAnalysisPdf(sentence.id)}
+                                  disabled={!!busy[`analysis:${sentence.id}`]}
+                                  title="분석자료 PDF 열람"
+                                >
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  분석자료 보기
+                                </Button>
+                                {analysisPrintReqs[sentence.id] ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-[11px] px-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                                    onClick={() => handleCancelAnalysisPrint(sentence.id)}
+                                    disabled={!!busy[`analysis-print:${sentence.id}`]}
+                                    title="요청 취소"
+                                  >
+                                    <Hourglass className="w-3 h-3 mr-1 animate-pulse" />
+                                    분석 인쇄 요청됨
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-[11px] px-2"
+                                    onClick={() => handleRequestAnalysisPrint(sentence.id)}
+                                    disabled={!!busy[`analysis-print:${sentence.id}`]}
+                                    title="선생님께 분석자료 인쇄 요청"
+                                  >
+                                    <Printer className="w-3 h-3 mr-1" />
+                                    분석 인쇄 요청
+                                  </Button>
+                                )}
+                              </>
                             )}
 
                             {isFail && (
