@@ -583,9 +583,6 @@ export type Database = {
       }
       textbook_passages: {
         Row: {
-          analysis_pdf_name: string | null
-          analysis_pdf_uploaded_at: string | null
-          analysis_pdf_url: string | null
           analysis_status: string
           code: string
           created_at: string
@@ -599,9 +596,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          analysis_pdf_name?: string | null
-          analysis_pdf_uploaded_at?: string | null
-          analysis_pdf_url?: string | null
           analysis_status?: string
           code: string
           created_at?: string
@@ -615,9 +609,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          analysis_pdf_name?: string | null
-          analysis_pdf_uploaded_at?: string | null
-          analysis_pdf_url?: string | null
           analysis_status?: string
           code?: string
           created_at?: string
@@ -682,6 +673,9 @@ export type Database = {
       }
       textbook_units: {
         Row: {
+          analysis_pdf_name: string | null
+          analysis_pdf_uploaded_at: string | null
+          analysis_pdf_url: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -692,6 +686,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          analysis_pdf_name?: string | null
+          analysis_pdf_uploaded_at?: string | null
+          analysis_pdf_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -702,6 +699,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          analysis_pdf_name?: string | null
+          analysis_pdf_uploaded_at?: string | null
+          analysis_pdf_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
