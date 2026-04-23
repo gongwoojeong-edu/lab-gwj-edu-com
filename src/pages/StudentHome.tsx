@@ -165,25 +165,44 @@ const StudentHome = () => {
           );
         }
 
-        // 분석자료 PDF 메타 (지문 코드 = sentence id)
+        // 분석자료 PDF 메타 — 지문(code=sentence id) → 유닛(unit_id) → PDF
         const pdfMap: Record<string, { storagePath: string; name: string | null }> = {};
         if (sentenceIds.length > 0) {
           const { data: pgRows } = await supabase
             .from("textbook_passages")
-            .select("code, analysis_pdf_url, analysis_pdf_name")
+            .select("code, unit_id")
             .in("code", sentenceIds);
-          ((pgRows ?? []) as {
-            code: string;
-            analysis_pdf_url: string | null;
-            analysis_pdf_name: string | null;
-          }[]).forEach((row) => {
-            if (row.analysis_pdf_url) {
-              pdfMap[row.code] = {
-                storagePath: row.analysis_pdf_url,
-                name: row.analysis_pdf_name,
-              };
-            }
+          const codeToUnit = new Map<string, string>();
+          ((pgRows ?? []) as { code: string; unit_id: string }[]).forEach((r) => {
+            if (r.unit_id) codeToUnit.set(r.code, r.unit_id);
           });
+          const unitIds = Array.from(new Set(codeToUnit.values()));
+          if (unitIds.length > 0) {
+            const { data: unitRows } = await supabase
+              .from("textbook_units")
+              .select("id, analysis_pdf_url, analysis_pdf_name")
+              .in("id", unitIds);
+            const unitPdf = new Map<
+              string,
+              { storagePath: string; name: string | null }
+            >();
+            ((unitRows ?? []) as {
+              id: string;
+              analysis_pdf_url: string | null;
+              analysis_pdf_name: string | null;
+            }[]).forEach((u) => {
+              if (u.analysis_pdf_url) {
+                unitPdf.set(u.id, {
+                  storagePath: u.analysis_pdf_url,
+                  name: u.analysis_pdf_name,
+                });
+              }
+            });
+            codeToUnit.forEach((unitId, code) => {
+              const meta = unitPdf.get(unitId);
+              if (meta) pdfMap[code] = meta;
+            });
+          }
         }
 
         if (mounted) {
