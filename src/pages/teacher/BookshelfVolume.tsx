@@ -454,6 +454,14 @@ const BookshelfVolume = () => {
                       <Sparkles className="size-3.5 mr-1" /> 본문 삽입
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openPassagesEditor(u)}
+                      title="본문 수정"
+                    >
+                      <FileSignature className="size-3.5 mr-1" /> 본문 수정
+                    </Button>
+                    <Button
                       size="sm"
                       onClick={() =>
                         navigate(
@@ -648,6 +656,125 @@ const BookshelfVolume = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Passage list editor */}
+      <Dialog
+        open={!!passagesUnit}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPassagesUnit(null);
+            setUnitPassages([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSignature className="size-4 text-primary" />
+              본문 수정 — {passagesUnit?.title} (U{passagesUnit?.unit_no})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto -mx-6 px-6">
+            {loadingPassages ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="animate-spin text-primary" />
+              </div>
+            ) : unitPassages.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                아직 지문이 없습니다.
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {unitPassages.map((p) => (
+                  <li key={p.id} className="py-2 flex items-start gap-3">
+                    <div className="font-mono text-xs text-muted-foreground w-10 shrink-0 pt-0.5">
+                      {String(p.passage_no).padStart(3, "0")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-[10px] text-primary truncate">
+                        {p.code}
+                      </div>
+                      <div className="text-xs text-foreground/80 line-clamp-2">
+                        {p.english}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openEditPassage(p)}
+                      title="본문 수정"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPassagesUnit(null)}>
+              닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit a single passage */}
+      <Dialog
+        open={!!editPassage}
+        onOpenChange={(o) => !o && !savingPassage && setEditPassage(null)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSignature className="size-4 text-primary" /> 본문 수정
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground">
+              <span className="font-mono text-foreground">{editPassage?.code}</span> 의 본문을
+              직접 수정합니다. 본문이 바뀌면 단어추출/분석 답안은 다시 점검해 주세요.
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="passage-english" className="text-xs">
+                영문 본문 *
+              </Label>
+              <Textarea
+                id="passage-english"
+                value={editPassageEnglish}
+                onChange={(e) => setEditPassageEnglish(e.target.value)}
+                rows={6}
+                className="font-mono text-sm"
+                disabled={savingPassage}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="passage-korean" className="text-xs">
+                한글 해석 (선택)
+              </Label>
+              <Textarea
+                id="passage-korean"
+                value={editPassageKorean}
+                onChange={(e) => setEditPassageKorean(e.target.value)}
+                rows={4}
+                className="text-sm"
+                disabled={savingPassage}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditPassage(null)}
+              disabled={savingPassage}
+            >
+              취소
+            </Button>
+            <Button onClick={handleSavePassage} disabled={savingPassage}>
+              {savingPassage && <Loader2 className="size-3.5 mr-1 animate-spin" />}저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TeacherLayout>
   );
 };
