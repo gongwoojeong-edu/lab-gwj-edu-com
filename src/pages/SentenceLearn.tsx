@@ -234,11 +234,21 @@ const SentenceLearn = () => {
       }
       setEntries(built);
 
-      // 초기 step 결정 — OFF 단계는 건너뜀
+      // 초기 step 결정 — OFF 단계는 건너뜀, 새 순서: pre → wordtest → analysis → translation
+      const wordTestPassedRow = await supabase
+        .from("word_test_results")
+        .select("passed, mode")
+        .eq("sentence_id", found.id)
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
+        .eq("passed", true);
+      const passedModes = new Set(((wordTestPassedRow.data ?? []) as { mode: string }[]).map((r) => r.mode));
+      const wordtestAllPassed = passedModes.has("spell") && passedModes.has("meaning") && passedModes.has("mixed");
+      setWordtestDone(wordtestAllPassed);
+
       if (!preDoneEff && flags.pre) setStep("pre");
+      else if (!wordtestAllPassed && flags.wordtest) setStep("wordtest");
       else if (!analysisDoneEff && flags.analysis) setStep("analysis");
-      else if (!translationDoneEff && flags.translation) setStep("translation");
-      else setStep("post");
+      else setStep("translation");
 
       setLoading(false);
     })();
@@ -277,36 +287,47 @@ const SentenceLearn = () => {
   const stepStates = useMemo(
     () => ({
       pre: { done: preDone, locked: false, skipped: !skipFlags.pre },
-      analysis: { done: analysisDone, locked: !preDone || translationDone, skipped: !skipFlags.analysis },
-      translation: { done: translationDone, locked: !analysisDone, skipped: !skipFlags.translation },
-      post: { done: false, locked: !(preDone && analysisDone && translationDone), skipped: !skipFlags.wordtest },
+      wordtest: { done: wordtestDone, locked: skipFlags.pre && !preDone, skipped: !skipFlags.wordtest },
+      analysis: {
+        done: analysisDone,
+        locked: (skipFlags.pre && !preDone) || (skipFlags.wordtest && !wordtestDone) || translationDone,
+        skipped: !skipFlags.analysis,
+      },
+      translation: {
+        done: translationDone,
+        locked:
+          (skipFlags.pre && !preDone) ||
+          (skipFlags.wordtest && !wordtestDone) ||
+          (skipFlags.analysis && !analysisDone),
+        skipped: !skipFlags.translation,
+      },
     }),
-    [preDone, analysisDone, translationDone, skipFlags],
+    [preDone, wordtestDone, analysisDone, translationDone, skipFlags],
   );
 
   /** 다음으로 진입 가능한 OFF가 아닌 단계로 자동 점프 */
   const advanceFrom = (current: Step) => {
-    const order: Step[] = ["pre", "analysis", "translation", "post"];
     const flagOf: Record<Step, boolean> = {
       pre: skipFlags.pre,
+      wordtest: skipFlags.wordtest,
       analysis: skipFlags.analysis,
       translation: skipFlags.translation,
-      post: skipFlags.wordtest,
     };
-    const idx = order.indexOf(current);
-    for (let i = idx + 1; i < order.length; i++) {
-      if (flagOf[order[i]]) {
-        safeSetStep(order[i]);
+    const idx = STEP_ORDER.indexOf(current);
+    for (let i = idx + 1; i < STEP_ORDER.length; i++) {
+      if (flagOf[STEP_ORDER[i]]) {
+        safeSetStep(STEP_ORDER[i]);
         return;
       }
     }
-    safeSetStep("post");
+    // 마지막 단계까지 모두 완료 → translation에 머무름
+    safeSetStep("translation");
   };
 
-  /** 백워드 전이 차단: 한글해석 제출 후에는 분석/단어학습 단계 진입 차단 */
+  /** 백워드 전이 차단: 한글해석 제출 후에는 이전 단계 진입 차단 */
   const safeSetStep = (next: Step) => {
-    if (translationDone && (next === "pre" || next === "analysis")) {
-      setStep("post");
+    if (translationDone && next !== "translation") {
+      setStep("translation");
       return;
     }
     setStep(next);
