@@ -209,7 +209,12 @@ export const updateTextbook = async (
   id: string,
   patch: { title?: string; volume_no?: number; description?: string | null },
 ): Promise<void> => {
-  const updatePayload: Record<string, unknown> = {};
+  const updatePayload: {
+    title?: string;
+    description?: string | null;
+    volume_no?: number;
+    unit_no?: number;
+  } = {};
   if (patch.title !== undefined) updatePayload.title = patch.title;
   if (patch.description !== undefined) updatePayload.description = patch.description;
   if (patch.volume_no !== undefined) {
