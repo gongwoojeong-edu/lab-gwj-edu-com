@@ -155,6 +155,13 @@ const BookshelfVolume = () => {
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // bulk create units (여러 유닛을 한 번에 생성)
+  const [bulkCreateOpen, setBulkCreateOpen] = useState(false);
+  const [bulkNumbers, setBulkNumbers] = useState("");
+  const [titleTemplate, setTitleTemplate] = useState("");
+  const [unitNoTemplate, setUnitNoTemplate] = useState("");
+  const [bulkCreating, setBulkCreating] = useState(false);
+
   // bulk insert
   const [insertOpen, setInsertOpen] = useState(false);
   const [insertTarget, setInsertTarget] = useState<Unit | null>(null);
