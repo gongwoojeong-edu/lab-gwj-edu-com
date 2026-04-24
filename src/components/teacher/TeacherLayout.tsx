@@ -45,6 +45,7 @@ const TeacherSidebarInner = () => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
+  const { display: levelDisplay } = useLevelLabels();
   const pendingCount = usePendingReviewCount();
   const printCount = usePendingPrintCount();
 
