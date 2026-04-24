@@ -301,7 +301,7 @@ const BookshelfSeries = () => {
               to={`/teacher/bookshelf/${level}`}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              <ChevronLeft className="size-3" /> {level && LEVEL_LABEL[level]} 시리즈
+              <ChevronLeft className="size-3" /> {level && levelDisplay(level)} 시리즈
             </Link>
             <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
               <BookOpen className="size-6 text-primary" /> {series.title}
@@ -310,9 +310,24 @@ const BookshelfSeries = () => {
               </span>
             </h1>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4 mr-1" /> 새 권
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size}개 선택됨
+                </span>
+                <Button variant="outline" size="sm" onClick={clearSel}>
+                  선택 해제
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+                  <ArrowRight className="size-4 mr-1" /> 다른 시리즈로 이동
+                </Button>
+              </>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4 mr-1" /> 새 권
+            </Button>
+          </div>
         </div>
 
         {textbooks.length === 0 ? (
