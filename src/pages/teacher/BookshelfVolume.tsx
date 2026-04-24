@@ -603,6 +603,19 @@ const BookshelfVolume = () => {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size}개 선택됨
+                </span>
+                <Button variant="outline" size="sm" onClick={clearSel}>
+                  선택 해제
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+                  <ArrowRight className="size-4 mr-1" /> 다른 권으로 이동
+                </Button>
+              </>
+            )}
             <Button variant="outline" onClick={openBulkCreate}>
               <ListPlus className="size-4 mr-1" /> 여러 유닛 추가
             </Button>
