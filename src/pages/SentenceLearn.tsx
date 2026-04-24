@@ -467,7 +467,7 @@ const SentenceLearn = () => {
     if (!sentence || requesting) return;
     setRequesting(true);
     try {
-      const grade = await gradeAnalysis(sentence.id);
+      const grade = await gradeAnalysis(sentence.id, { fallbackRate: analysisRate });
       const track = decideTrack({
         rate: grade.rate,
         requiredFilled: grade.requiredOwnersFilled,
