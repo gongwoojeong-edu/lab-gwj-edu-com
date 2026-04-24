@@ -1032,12 +1032,17 @@ const Index = ({
         const wp = progressMap[id];
         if (wp && wp.pos) filled += 1;
       });
-      onAnalysisProgress(filled / masterOwnerIds.size, { hasMaster: true });
+      const total = masterOwnerIds.size;
+      onAnalysisProgress(filled / total, { hasMaster: true, filled, total });
       return;
     }
     // fallback: 마스터 미등록 문장 — 학생이 막히지 않도록 단어 분석률 사용
     const total = analyzableIds.length;
-    onAnalysisProgress(total > 0 ? completedCount / total : 0, { hasMaster: false });
+    onAnalysisProgress(total > 0 ? completedCount / total : 0, {
+      hasMaster: false,
+      filled: completedCount,
+      total,
+    });
   }, [completedCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
