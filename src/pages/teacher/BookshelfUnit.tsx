@@ -654,11 +654,38 @@ const BookshelfUnit = () => {
           )}
         </Card>
 
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.size}개 선택됨
+            </span>
+            <Button variant="outline" size="sm" onClick={clearSel}>
+              선택 해제
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+              <ArrowRight className="size-4 mr-1" /> 다른 유닛으로 이동
+            </Button>
+          </div>
+        )}
+
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="py-2 px-3 w-10">
+                    <Checkbox
+                      checked={
+                        passages.length > 0 &&
+                        passages.every((p) => selectedIds.has(p.id))
+                      }
+                      onCheckedChange={(v) => {
+                        if (v) setSelectedIds(new Set(passages.map((p) => p.id)));
+                        else clearSel();
+                      }}
+                      aria-label="전체 선택"
+                    />
+                  </th>
                   <th className="py-2 px-3 w-12">#</th>
                   <th className="py-2 px-3 w-44">코드</th>
                   <th className="py-2 px-3">본문 (미리보기)</th>
