@@ -323,7 +323,75 @@ const BookshelfVolume = () => {
     }
   };
 
-  const openInsert = (u: Unit) => {
+  // -------- Bulk-create units --------
+  const openBulkCreate = () => {
+    // 기존 유닛에서 자동으로 템플릿 추론
+    const titleTmpl = inferTemplate(units.map((u) => u.title));
+    const noTmpl = inferTemplate(units.map((u) => String(u.unit_no)));
+    setTitleTemplate(titleTmpl);
+    setUnitNoTemplate(noTmpl);
+    setBulkNumbers("");
+    setBulkCreateOpen(true);
+  };
+
+  const bulkParsedNumbers = parseNumberList(bulkNumbers);
+  const bulkPreview = bulkParsedNumbers.slice(0, MAX_BULK_UNITS).map((n) => {
+    const title = titleTemplate ? applyTemplate(titleTemplate, n) : "";
+    const noStr = unitNoTemplate ? applyTemplate(unitNoTemplate, n) : "";
+    const unitNo = parseInt(noStr, 10);
+    const exists = units.some((u) => u.unit_no === unitNo);
+    const validNo = Number.isFinite(unitNo) && unitNo > 0;
+    const validTitle = title.trim().length > 0;
+    return { n, title, unitNo, validNo, validTitle, exists };
+  });
+  const bulkToCreate = bulkPreview.filter(
+    (p) => p.validNo && p.validTitle && !p.exists,
+  );
+  const bulkSkipExisting = bulkPreview.filter((p) => p.exists).length;
+  const bulkInvalid = bulkPreview.filter((p) => !p.validNo || !p.validTitle).length;
+  const bulkOverLimit = bulkParsedNumbers.length > MAX_BULK_UNITS;
+
+  const handleBulkCreate = async () => {
+    if (!textbook) return;
+    if (bulkToCreate.length === 0) {
+      toast({ title: "추가할 유닛이 없습니다", variant: "destructive" });
+      return;
+    }
+    setBulkCreating(true);
+    let okCount = 0;
+    let failCount = 0;
+    try {
+      for (const item of bulkToCreate) {
+        try {
+          await createUnit({
+            textbook_id: textbook.id,
+            unit_no: item.unitNo,
+            title: item.title,
+          });
+          okCount += 1;
+        } catch (err) {
+          console.error("createUnit failed", item, err);
+          failCount += 1;
+        }
+      }
+      toast({
+        title: `${okCount}개 유닛이 생성되었습니다`,
+        description: [
+          bulkSkipExisting > 0 ? `이미 있음: ${bulkSkipExisting}개` : null,
+          failCount > 0 ? `실패: ${failCount}개` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
+      });
+      setBulkCreateOpen(false);
+      setBulkNumbers("");
+      void reload();
+    } finally {
+      setBulkCreating(false);
+    }
+  };
+
+
     setInsertTarget(u);
     setBulkText("");
     setSplitMode("sentence");
