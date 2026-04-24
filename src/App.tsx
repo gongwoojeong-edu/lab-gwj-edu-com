@@ -108,7 +108,7 @@ const App = () => (
               path="/teacher/requests"
               element={
                 <RequireAuth requireRole="teacher">
-                  <AnalysisRequests />
+                  <RequestsInbox />
                 </RequireAuth>
               }
             />
