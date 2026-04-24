@@ -34,9 +34,14 @@ function safeSlug(s: string): string {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 60);
+function splitIntoSentences(text: string): string[] {
+  const norm = (text || "").replace(/\s+/g, " ").trim();
+  if (!norm) return [];
+  const parts = norm.split(/(?<=[.!?])\s+(?=[A-Z"'(])/);
+  return parts.map((s) => s.trim()).filter(Boolean);
 }
 
-interface Payload {
+
   // Legacy fields (still supported)
   textbook?: string;
   lesson?: string | number;
