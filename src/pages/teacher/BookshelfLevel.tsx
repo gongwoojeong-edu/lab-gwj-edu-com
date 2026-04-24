@@ -502,6 +502,19 @@ const BookshelfLevel = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MoveItemsDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        itemKindLabel="시리즈"
+        selectedIds={Array.from(selectedIds)}
+        targets={moveTargets}
+        onMove={handleMove}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
     </TeacherLayout>
   );
 };
