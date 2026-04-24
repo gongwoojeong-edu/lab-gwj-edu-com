@@ -1051,14 +1051,14 @@ const Index = ({
       onAnalysisProgress(filled / total, { hasMaster: true, filled, total });
       return;
     }
-    // fallback: 마스터 미등록 문장 — 학생이 막히지 않도록 단어 분석률 사용
+    // fallback: 마스터 미등록 문장 — 단어(token) 기준 분석률 사용
     const total = analyzableIds.length;
-    onAnalysisProgress(total > 0 ? completedCount / total : 0, {
+    onAnalysisProgress(total > 0 ? wordFilledCount / total : 0, {
       hasMaster: false,
-      filled: completedCount,
+      filled: wordFilledCount,
       total,
     });
-  }, [completedCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
+  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
