@@ -96,6 +96,7 @@ const SentenceLearn = () => {
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[]; hasMaster: boolean } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
   const [analysisHasMaster, setAnalysisHasMaster] = useState(false);
+  const [analysisCounts, setAnalysisCounts] = useState<{ filled: number; total: number }>({ filled: 0, total: 0 });
   const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
   const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
