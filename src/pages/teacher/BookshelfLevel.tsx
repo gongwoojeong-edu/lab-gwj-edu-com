@@ -172,8 +172,13 @@ const BookshelfLevel = () => {
 
   useEffect(() => {
     void reload();
+    clearSel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
+
+  const handleMove = async (seriesId: string, targetLevel: string) => {
+    await moveSeriesToLevel(seriesId, targetLevel as LevelCode);
+  };
 
   const handleCreate = async () => {
     if (!level) return;
