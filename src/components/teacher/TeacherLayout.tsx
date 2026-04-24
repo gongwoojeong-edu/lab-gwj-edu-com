@@ -136,7 +136,7 @@ const TeacherSidebarInner = () => {
                             ? "bg-primary text-primary-foreground font-bold"
                             : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground",
                         )}
-                        title={l.label}
+                        title={levelDisplay(l.code)}
                       >
                         {l.code}
                       </NavLink>
