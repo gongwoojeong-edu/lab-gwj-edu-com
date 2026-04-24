@@ -36,6 +36,13 @@ function safeSlug(s: string): string {
     .slice(0, 60);
 }
 
+function splitIntoSentences(text: string): string[] {
+  const norm = (text || "").replace(/\s+/g, " ").trim();
+  if (!norm) return [];
+  const parts = norm.split(/(?<=[.!?])\s+(?=[A-Z"'(])/);
+  return parts.map((s) => s.trim()).filter(Boolean);
+}
+
 interface Payload {
   // Legacy fields (still supported)
   textbook?: string;
@@ -293,51 +300,68 @@ Deno.serve(async (req) => {
   }
 
   // ===== 4) Passage =====
-  // Determine next passage_no for this unit
+  // Split incoming passage into per-sentence rows so word-study / syntax-analysis
+  // can iterate one sentence at a time. A passage that contains a single sentence
+  // is stored as one row; multi-sentence passages produce N rows that share a
+  // common base code with -1, -2, ... suffix.
+  const sentences = splitIntoSentences(p.passage);
+  if (sentences.length === 0)
+    return json({ ok: false, error: "passage에서 문장을 찾지 못했습니다" }, 400);
+
+  // Determine starting passage_no for this unit
   const { data: existing } = await admin
     .from("textbook_passages")
     .select("passage_no")
     .eq("unit_id", unit!.id)
     .order("passage_no", { ascending: false })
     .limit(1);
-  const nextNo = Number.isFinite(Number(p.passage_no))
+  const startNo = Number.isFinite(Number(p.passage_no))
     ? Number(p.passage_no)
     : ((existing?.[0]?.passage_no ?? 0) + 1);
 
   // Build base code: prefer explicit item_code, else derive from unit + passage_no
-  const itemSlug = safeSlug(p.item_code || `${unit!.unit_no}-${nextNo}`);
+  const itemSlug = safeSlug(p.item_code || `${unit!.unit_no}-${startNo}`);
   const baseCode = p.item_code?.trim()
     ? safeSlug(p.item_code)
-    : `${safeSlug(seriesTitle)}-${unit!.unit_no}-${nextNo}`;
+    : `${safeSlug(seriesTitle)}-${unit!.unit_no}-${startNo}`;
 
-  // Ensure code uniqueness — append -N if collision
-  let finalCode = baseCode;
+  // Ensure base code is free — append -alt2/3 if collision (rare)
+  let codeRoot = baseCode;
   for (let i = 2; i < 50; i++) {
+    // Check if any existing code starts with codeRoot (would conflict with -1, -2, ...)
     const { data: clash } = await admin
       .from("textbook_passages")
       .select("id")
-      .eq("code", finalCode)
-      .maybeSingle();
-    if (!clash) break;
-    finalCode = `${baseCode}-${i}`;
+      .or(`code.eq.${codeRoot},code.like.${codeRoot}-%`)
+      .limit(1);
+    if (!clash || clash.length === 0) break;
+    codeRoot = `${baseCode}-alt${i}`;
   }
 
   const koreanParts = [p.title_ko, p.topic_ko].filter(Boolean).join(" / ") || null;
 
-  const { data: passage, error: passErr } = await admin
+  // Build N rows. Single-sentence: code = codeRoot. Multi-sentence: codeRoot-1, -2, ...
+  const isMulti = sentences.length > 1;
+  const rows = sentences.map((sent, i) => ({
+    textbook_id: textbook!.id,
+    unit_id: unit!.id,
+    passage_no: startNo + i,
+    code: isMulti ? `${codeRoot}-${i + 1}` : codeRoot,
+    english: sent,
+    korean: i === 0 ? koreanParts : null,
+    analysis_status: "ready",
+  }));
+
+  const { data: insertedRows, error: passErr } = await admin
     .from("textbook_passages")
-    .insert({
-      textbook_id: textbook!.id,
-      unit_id: unit!.id,
-      passage_no: nextNo,
-      code: finalCode,
-      english: p.passage.trim(),
-      korean: koreanParts,
-      analysis_status: "ready",
-    })
-    .select("id, code")
-    .single();
+    .insert(rows)
+    .select("id, code");
   if (passErr) return json({ ok: false, error: `Passage 생성 실패: ${passErr.message}` }, 500);
+
+  // First row is treated as "the passage" for legacy response/upload paths
+  const passage = insertedRows![0] as { id: string; code: string };
+  const finalCode = passage.code;
+
 
   // ===== 5) Upload HTML files to storage =====
   const uploads: { kind: "analysis" | "structure"; url: string }[] = [];
@@ -402,6 +426,8 @@ Deno.serve(async (req) => {
     series_id: series!.id,
     textbook_id: textbook!.id,
     level,
+    sentences_inserted: insertedRows!.length,
+    sentence_codes: insertedRows!.map((r) => r.code),
     learn_url: `/learn/sentence/${passage.code}`,
     uploads,
   });
