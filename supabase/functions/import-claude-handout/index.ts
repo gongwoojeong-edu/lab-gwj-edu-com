@@ -1,7 +1,7 @@
 // Edge Function: import-claude-handout
 // Receives passage + analysis/structure HTML from external Claude Passage Analyzer
 // Authenticates via Bearer token (hashed in import_tokens table)
-// Auto-creates Series/Textbook/Unit/Passage and stores HTML as PDFs in analysis-materials bucket
+// Auto-creates Series/Textbook(Volume)/Unit/Passage and stores HTML in analysis-materials bucket
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -37,6 +37,7 @@ function safeSlug(s: string): string {
 }
 
 interface Payload {
+  // Legacy fields (still supported)
   textbook?: string;
   lesson?: string | number;
   item_code?: string;
@@ -47,10 +48,15 @@ interface Payload {
   passage: string;
   analysis_html?: string;
   structure_html?: string;
-  level?: string; // optional: e.g., "L01"
+  // New hierarchy fields
+  level?: string;            // "L01"~"L10"
+  series_title?: string;     // e.g. "모의고사"
   series_no?: number;
+  volume_title?: string;     // e.g. "2026년 3월"
   volume_no?: number;
+  unit_title?: string;       // e.g. "263모고32" — different per question to create separate units
   unit_no?: number;
+  passage_no?: number;
 }
 
 function validate(p: any): { ok: true; data: Payload } | { ok: false; error: string } {
@@ -58,7 +64,10 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
   if (!p.passage || typeof p.passage !== "string" || p.passage.trim().length < 5)
     return { ok: false, error: "passage(영문 본문)은 필수입니다 (최소 5자)" };
   if (p.passage.length > 20000) return { ok: false, error: "passage가 너무 깁니다 (20000자 제한)" };
-  for (const k of ["textbook", "item_code", "title_ko", "topic_ko", "topic_en", "expected_title", "level"]) {
+  for (const k of [
+    "textbook", "item_code", "title_ko", "topic_ko", "topic_en",
+    "expected_title", "level", "series_title", "volume_title", "unit_title",
+  ]) {
     if (p[k] != null && typeof p[k] !== "string") return { ok: false, error: `${k} must be string` };
     if (typeof p[k] === "string" && p[k].length > 500) return { ok: false, error: `${k} too long` };
   }
@@ -74,7 +83,6 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
 }
 
 function htmlDocument(title: string, bodyHtml: string): string {
-  // Wrap raw HTML fragment into a printable A4 document
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><title>${title}</title>
 <style>
@@ -116,14 +124,18 @@ Deno.serve(async (req) => {
 
   const teacherId: string = tokenRow.teacher_id;
 
-  // Verify teacher still has role
-  const { data: roleRow } = await admin
+  // Verify teacher still has role — use limit(1) instead of maybeSingle()
+  // because a user may have multiple roles (teacher + admin + student) and
+  // maybeSingle() throws when more than one row matches.
+  const { data: roleRows, error: roleErr } = await admin
     .from("user_roles")
     .select("role")
     .eq("user_id", teacherId)
     .in("role", ["teacher", "admin"])
-    .maybeSingle();
-  if (!roleRow) return json({ ok: false, error: "토큰 소유자가 더 이상 교사가 아닙니다" }, 403);
+    .limit(1);
+  if (roleErr) return json({ ok: false, error: "Role lookup failed" }, 500);
+  if (!roleRows || roleRows.length === 0)
+    return json({ ok: false, error: "토큰 소유자가 더 이상 교사가 아닙니다" }, 403);
 
   // --- Parse + validate body ---
   let body: unknown;
@@ -136,98 +148,167 @@ Deno.serve(async (req) => {
   if (!v.ok) return json({ ok: false, error: v.error }, 400);
   const p = v.data;
 
-  // --- Resolve Series / Textbook / Unit (auto-create if missing) ---
+  // --- Resolve hierarchy parameters ---
   const level = (p.level && /^L\d{2}$/i.test(p.level) ? p.level.toUpperCase() : "L01");
-  const seriesNo = Number.isFinite(Number(p.series_no)) ? Number(p.series_no) : 1;
-  const volumeNo = Number.isFinite(Number(p.volume_no)) ? Number(p.volume_no) : 1;
+
+  const seriesTitle = (p.series_title?.trim()) || (p.textbook?.trim()) || "Claude Import";
+  const seriesNoExplicit = Number.isFinite(Number(p.series_no)) ? Number(p.series_no) : null;
+
+  const volumeTitle = p.volume_title?.trim() || seriesTitle;
+  const volumeNoExplicit = Number.isFinite(Number(p.volume_no)) ? Number(p.volume_no) : null;
+
   const lessonNum = Number(p.lesson);
-  const unitNo = Number.isFinite(Number(p.unit_no))
+  const unitTitleExplicit = p.unit_title?.trim() || null;
+  const unitNoExplicit = Number.isFinite(Number(p.unit_no))
     ? Number(p.unit_no)
     : Number.isFinite(lessonNum)
       ? lessonNum
-      : 1;
+      : null;
 
-  const textbookTitle = p.textbook?.trim() || "Claude Import";
-  const lessonLabel =
-    p.lesson != null && p.lesson !== ""
-      ? `Lesson ${p.lesson}`
-      : `Unit ${unitNo}`;
-
-  // 1) Series
-  let { data: series } = await admin
-    .from("textbook_series")
-    .select("id")
-    .eq("level", level)
-    .eq("series_no", seriesNo)
-    .maybeSingle();
+  // ===== 1) Series resolution: (level + title) → (level + series_no) → create =====
+  let series: { id: string; series_no: number } | null = null;
+  {
+    const { data } = await admin
+      .from("textbook_series")
+      .select("id, series_no")
+      .eq("level", level)
+      .eq("title", seriesTitle)
+      .limit(1);
+    if (data && data.length > 0) series = data[0] as any;
+  }
+  if (!series && seriesNoExplicit !== null) {
+    const { data } = await admin
+      .from("textbook_series")
+      .select("id, series_no")
+      .eq("level", level)
+      .eq("series_no", seriesNoExplicit)
+      .limit(1);
+    if (data && data.length > 0) series = data[0] as any;
+  }
   if (!series) {
+    // Auto-pick next series_no within this level
+    const { data: maxRow } = await admin
+      .from("textbook_series")
+      .select("series_no")
+      .eq("level", level)
+      .order("series_no", { ascending: false })
+      .limit(1);
+    const nextSeriesNo = seriesNoExplicit ?? ((maxRow?.[0]?.series_no ?? 0) + 1);
     const { data: created, error } = await admin
       .from("textbook_series")
-      .insert({ level, series_no: seriesNo, title: textbookTitle, created_by: teacherId })
-      .select("id")
+      .insert({ level, series_no: nextSeriesNo, title: seriesTitle, created_by: teacherId })
+      .select("id, series_no")
       .single();
     if (error) return json({ ok: false, error: `Series 생성 실패: ${error.message}` }, 500);
-    series = created;
+    series = created as any;
   }
 
-  // 2) Textbook (volume)
-  let { data: textbook } = await admin
-    .from("textbooks")
-    .select("id")
-    .eq("series_id", series!.id)
-    .eq("volume_no", volumeNo)
-    .maybeSingle();
+  // ===== 2) Textbook (Volume) resolution: (series + title) → (series + volume_no) → create =====
+  let textbook: { id: string; volume_no: number } | null = null;
+  {
+    const { data } = await admin
+      .from("textbooks")
+      .select("id, volume_no")
+      .eq("series_id", series!.id)
+      .eq("title", volumeTitle)
+      .limit(1);
+    if (data && data.length > 0) textbook = data[0] as any;
+  }
+  if (!textbook && volumeNoExplicit !== null) {
+    const { data } = await admin
+      .from("textbooks")
+      .select("id, volume_no")
+      .eq("series_id", series!.id)
+      .eq("volume_no", volumeNoExplicit)
+      .limit(1);
+    if (data && data.length > 0) textbook = data[0] as any;
+  }
   if (!textbook) {
+    const { data: maxRow } = await admin
+      .from("textbooks")
+      .select("volume_no")
+      .eq("series_id", series!.id)
+      .order("volume_no", { ascending: false })
+      .limit(1);
+    const nextVolumeNo = volumeNoExplicit ?? ((maxRow?.[0]?.volume_no ?? 0) + 1);
     const { data: created, error } = await admin
       .from("textbooks")
       .insert({
         series_id: series!.id,
         level,
-        volume_no: volumeNo,
-        unit_no: unitNo,
-        title: textbookTitle,
+        volume_no: nextVolumeNo,
+        unit_no: unitNoExplicit ?? 1, // legacy column on textbooks
+        title: volumeTitle,
         created_by: teacherId,
       })
-      .select("id")
+      .select("id, volume_no")
       .single();
     if (error) return json({ ok: false, error: `Textbook 생성 실패: ${error.message}` }, 500);
-    textbook = created;
+    textbook = created as any;
   }
 
-  // 3) Unit
-  let { data: unit } = await admin
-    .from("textbook_units")
-    .select("id, analysis_pdf_url, structure_pdf_url")
-    .eq("textbook_id", textbook!.id)
-    .eq("unit_no", unitNo)
-    .maybeSingle();
+  // ===== 3) Unit resolution: (textbook + unit_title) → (textbook + unit_no) → create =====
+  let unit: { id: string; unit_no: number; analysis_pdf_url?: string | null; structure_pdf_url?: string | null } | null = null;
+  if (unitTitleExplicit) {
+    const { data } = await admin
+      .from("textbook_units")
+      .select("id, unit_no, analysis_pdf_url, structure_pdf_url")
+      .eq("textbook_id", textbook!.id)
+      .eq("title", unitTitleExplicit)
+      .limit(1);
+    if (data && data.length > 0) unit = data[0] as any;
+  }
+  if (!unit && unitNoExplicit !== null) {
+    const { data } = await admin
+      .from("textbook_units")
+      .select("id, unit_no, analysis_pdf_url, structure_pdf_url")
+      .eq("textbook_id", textbook!.id)
+      .eq("unit_no", unitNoExplicit)
+      .limit(1);
+    if (data && data.length > 0) unit = data[0] as any;
+  }
   if (!unit) {
+    const { data: maxRow } = await admin
+      .from("textbook_units")
+      .select("unit_no")
+      .eq("textbook_id", textbook!.id)
+      .order("unit_no", { ascending: false })
+      .limit(1);
+    const nextUnitNo = unitNoExplicit ?? ((maxRow?.[0]?.unit_no ?? 0) + 1);
+    const unitTitle = unitTitleExplicit
+      ?? (p.lesson != null && p.lesson !== "" ? `Lesson ${p.lesson}` : `Unit ${nextUnitNo}`);
     const { data: created, error } = await admin
       .from("textbook_units")
       .insert({
         textbook_id: textbook!.id,
-        unit_no: unitNo,
-        title: lessonLabel,
+        unit_no: nextUnitNo,
+        title: unitTitle,
         description: p.title_ko || p.expected_title || null,
         created_by: teacherId,
       })
-      .select("id, analysis_pdf_url, structure_pdf_url")
+      .select("id, unit_no, analysis_pdf_url, structure_pdf_url")
       .single();
     if (error) return json({ ok: false, error: `Unit 생성 실패: ${error.message}` }, 500);
-    unit = created;
+    unit = created as any;
   }
 
-  // 4) Passage
-  const itemSlug = safeSlug(p.item_code || `${Date.now()}`);
-  const baseCode = `${safeSlug(textbookTitle)}-${unitNo}-${itemSlug}`;
+  // ===== 4) Passage =====
   // Determine next passage_no for this unit
   const { data: existing } = await admin
     .from("textbook_passages")
-    .select("passage_no, code")
+    .select("passage_no")
     .eq("unit_id", unit!.id)
     .order("passage_no", { ascending: false })
     .limit(1);
-  const nextNo = (existing?.[0]?.passage_no ?? 0) + 1;
+  const nextNo = Number.isFinite(Number(p.passage_no))
+    ? Number(p.passage_no)
+    : ((existing?.[0]?.passage_no ?? 0) + 1);
+
+  // Build base code: prefer explicit item_code, else derive from unit + passage_no
+  const itemSlug = safeSlug(p.item_code || `${unit!.unit_no}-${nextNo}`);
+  const baseCode = p.item_code?.trim()
+    ? safeSlug(p.item_code)
+    : `${safeSlug(seriesTitle)}-${unit!.unit_no}-${nextNo}`;
 
   // Ensure code uniqueness — append -N if collision
   let finalCode = baseCode;
@@ -258,7 +339,7 @@ Deno.serve(async (req) => {
     .single();
   if (passErr) return json({ ok: false, error: `Passage 생성 실패: ${passErr.message}` }, 500);
 
-  // 5) Upload HTML files to storage (kept as .html — viewable in browser; user can print to PDF)
+  // ===== 5) Upload HTML files to storage =====
   const uploads: { kind: "analysis" | "structure"; url: string }[] = [];
   const ts = Date.now();
 
@@ -294,20 +375,20 @@ Deno.serve(async (req) => {
       await admin.from("textbook_units").update(unitPatch).eq("id", unit!.id);
     }
   } catch (e) {
-    // passage already created — return partial success
     return json(
       {
         ok: true,
         warning: (e as Error).message,
         passage_id: passage.id,
         code: passage.code,
+        unit_id: unit!.id,
         learn_url: `/learn/sentence/${passage.code}`,
       },
       200,
     );
   }
 
-  // 6) Mark token as used
+  // ===== 6) Mark token as used =====
   await admin
     .from("import_tokens")
     .update({ last_used_at: new Date().toISOString() })
@@ -318,6 +399,9 @@ Deno.serve(async (req) => {
     passage_id: passage.id,
     code: passage.code,
     unit_id: unit!.id,
+    series_id: series!.id,
+    textbook_id: textbook!.id,
+    level,
     learn_url: `/learn/sentence/${passage.code}`,
     uploads,
   });
