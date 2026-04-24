@@ -136,6 +136,11 @@ const RequestsInbox = () => {
     return out;
   }, [printRows, reviewRows]);
 
+  const pendingCount = useMemo(
+    () => printRows.length + reviewRows.filter((row) => row.status === "pending").length,
+    [printRows, reviewRows],
+  );
+
   const triggerPrint = async (
     req: PrintRequest,
     kind: "syntax" | "word" | "all",
@@ -211,7 +216,7 @@ const RequestsInbox = () => {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Inbox className="size-6 text-primary" /> 요청확인
               <span className="text-sm font-normal text-muted-foreground">
-                · 대기 {items.length}건
+                · 전체 {items.length}건 / 대기 {pendingCount}건
               </span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
