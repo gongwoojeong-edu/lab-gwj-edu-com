@@ -47,6 +47,8 @@ import {
   ListPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowRight } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -59,11 +61,16 @@ import {
   updatePassage,
   bulkInsertPassages,
   splitPassageText,
+  moveUnitToTextbook,
+  fetchAllSeries,
   type Series,
   type Textbook,
   type Unit,
   type Passage,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
+import { cn } from "@/lib/utils";
 import { errMsg } from "@/lib/errMsg";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
