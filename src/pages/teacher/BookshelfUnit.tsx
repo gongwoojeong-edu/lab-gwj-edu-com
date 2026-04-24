@@ -394,6 +394,7 @@ const BookshelfUnit = () => {
 
   useEffect(() => {
     void reload();
+    clearSel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, seriesNo, volumeNo, unitNo]);
 
