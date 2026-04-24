@@ -44,7 +44,9 @@ import {
   Sparkles,
   Layers,
   FileSignature,
+  ListPlus,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -67,6 +69,72 @@ import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
+// ============================================================
+// Helpers — bulk unit creation
+// ============================================================
+
+/** "18, 19, 40-42\n50" → [18,19,40,41,42,50] (정렬, 중복 제거) */
+const parseNumberList = (input: string): number[] => {
+  const set = new Set<number>();
+  for (const raw of input.split(/[\s,]+/)) {
+    const tok = raw.trim();
+    if (!tok) continue;
+    const m = tok.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (m) {
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        const lo = Math.min(a, b);
+        const hi = Math.max(a, b);
+        for (let i = lo; i <= hi; i++) set.add(i);
+      }
+      continue;
+    }
+    const n = parseInt(tok, 10);
+    if (Number.isFinite(n)) set.add(n);
+  }
+  return Array.from(set).sort((a, b) => a - b);
+};
+
+/**
+ * 기존 값들에서 끝의 1~3자리 숫자를 `{nn}` 으로 치환한 템플릿을 추론.
+ * 예) ["263모고20", "263모고21", "263모고32"] → "263모고{nn}"
+ *    ["260320", "260321"] → "2603{nn}"
+ * 추론 불가 시 빈 문자열.
+ */
+const inferTemplate = (samples: string[]): string => {
+  const candidates = samples
+    .map((s) => {
+      const m = s.match(/^(.*?)(\d{1,3})$/);
+      if (!m) return null;
+      return { prefix: m[1], digits: m[2].length };
+    })
+    .filter((x): x is { prefix: string; digits: number } => !!x);
+  if (candidates.length === 0) return "";
+  // 가장 흔한 prefix 선택
+  const counts = new Map<string, number>();
+  for (const c of candidates) counts.set(c.prefix, (counts.get(c.prefix) ?? 0) + 1);
+  let bestPrefix = "";
+  let bestCount = 0;
+  for (const [p, n] of counts) {
+    if (n > bestCount) {
+      bestPrefix = p;
+      bestCount = n;
+    }
+  }
+  return `${bestPrefix}{nn}`;
+};
+
+/** `{n}` / `{nn}` / `{nnn}` 토큰을 숫자로 치환. */
+const applyTemplate = (tmpl: string, n: number): string => {
+  return tmpl
+    .replace(/\{nnn\}/g, String(n).padStart(3, "0"))
+    .replace(/\{nn\}/g, String(n).padStart(2, "0"))
+    .replace(/\{n\}/g, String(n));
+};
+
+const MAX_BULK_UNITS = 100;
+
 const BookshelfVolume = () => {
   const { level, seriesNo, volumeNo } = useParams<{
     level: LevelCode;
@@ -86,6 +154,13 @@ const BookshelfVolume = () => {
   const [newUnitNo, setNewUnitNo] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // bulk create units (여러 유닛을 한 번에 생성)
+  const [bulkCreateOpen, setBulkCreateOpen] = useState(false);
+  const [bulkNumbers, setBulkNumbers] = useState("");
+  const [titleTemplate, setTitleTemplate] = useState("");
+  const [unitNoTemplate, setUnitNoTemplate] = useState("");
+  const [bulkCreating, setBulkCreating] = useState(false);
 
   // bulk insert
   const [insertOpen, setInsertOpen] = useState(false);
@@ -248,6 +323,74 @@ const BookshelfVolume = () => {
     }
   };
 
+  // -------- Bulk-create units --------
+  const openBulkCreate = () => {
+    // 기존 유닛에서 자동으로 템플릿 추론
+    const titleTmpl = inferTemplate(units.map((u) => u.title));
+    const noTmpl = inferTemplate(units.map((u) => String(u.unit_no)));
+    setTitleTemplate(titleTmpl);
+    setUnitNoTemplate(noTmpl);
+    setBulkNumbers("");
+    setBulkCreateOpen(true);
+  };
+
+  const bulkParsedNumbers = parseNumberList(bulkNumbers);
+  const bulkPreview = bulkParsedNumbers.slice(0, MAX_BULK_UNITS).map((n) => {
+    const title = titleTemplate ? applyTemplate(titleTemplate, n) : "";
+    const noStr = unitNoTemplate ? applyTemplate(unitNoTemplate, n) : "";
+    const unitNo = parseInt(noStr, 10);
+    const exists = units.some((u) => u.unit_no === unitNo);
+    const validNo = Number.isFinite(unitNo) && unitNo > 0;
+    const validTitle = title.trim().length > 0;
+    return { n, title, unitNo, validNo, validTitle, exists };
+  });
+  const bulkToCreate = bulkPreview.filter(
+    (p) => p.validNo && p.validTitle && !p.exists,
+  );
+  const bulkSkipExisting = bulkPreview.filter((p) => p.exists).length;
+  const bulkInvalid = bulkPreview.filter((p) => !p.validNo || !p.validTitle).length;
+  const bulkOverLimit = bulkParsedNumbers.length > MAX_BULK_UNITS;
+
+  const handleBulkCreate = async () => {
+    if (!textbook) return;
+    if (bulkToCreate.length === 0) {
+      toast({ title: "추가할 유닛이 없습니다", variant: "destructive" });
+      return;
+    }
+    setBulkCreating(true);
+    let okCount = 0;
+    let failCount = 0;
+    try {
+      for (const item of bulkToCreate) {
+        try {
+          await createUnit({
+            textbook_id: textbook.id,
+            unit_no: item.unitNo,
+            title: item.title,
+          });
+          okCount += 1;
+        } catch (err) {
+          console.error("createUnit failed", item, err);
+          failCount += 1;
+        }
+      }
+      toast({
+        title: `${okCount}개 유닛이 생성되었습니다`,
+        description: [
+          bulkSkipExisting > 0 ? `이미 있음: ${bulkSkipExisting}개` : null,
+          failCount > 0 ? `실패: ${failCount}개` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
+      });
+      setBulkCreateOpen(false);
+      setBulkNumbers("");
+      void reload();
+    } finally {
+      setBulkCreating(false);
+    }
+  };
+
   const openInsert = (u: Unit) => {
     setInsertTarget(u);
     setBulkText("");
@@ -397,9 +540,14 @@ const BookshelfVolume = () => {
               유닛(예: 2603모고)을 만들고, 그 안에 지문을 일괄 삽입하세요.
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4 mr-1" /> 새 유닛
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" onClick={openBulkCreate}>
+              <ListPlus className="size-4 mr-1" /> 여러 유닛 추가
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4 mr-1" /> 새 유닛
+            </Button>
+          </div>
         </div>
 
         {units.length === 0 ? (
@@ -513,6 +661,130 @@ const BookshelfVolume = () => {
             </Button>
             <Button onClick={handleCreate} disabled={creating}>
               {creating && <Loader2 className="size-3.5 mr-1 animate-spin" />}추가
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk create units */}
+      <Dialog open={bulkCreateOpen} onOpenChange={setBulkCreateOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListPlus className="size-4 text-primary" />
+              여러 유닛 한꺼번에 추가 — {textbook.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-numbers">
+                유닛 번호 목록 <span className="text-muted-foreground">(콤마/공백/범위 허용)</span>
+              </Label>
+              <Textarea
+                id="bulk-numbers"
+                rows={2}
+                value={bulkNumbers}
+                onChange={(e) => setBulkNumbers(e.target.value)}
+                placeholder="예: 18, 19, 40-45"
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="title-tmpl">
+                  제목 템플릿 <span className="text-muted-foreground">{`({nn} 자리)`}</span>
+                </Label>
+                <Input
+                  id="title-tmpl"
+                  value={titleTemplate}
+                  onChange={(e) => setTitleTemplate(e.target.value)}
+                  placeholder="예: 263모고{nn}"
+                  className="font-mono text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="unitno-tmpl">
+                  유닛 번호 템플릿 <span className="text-muted-foreground">{`({nn} 자리)`}</span>
+                </Label>
+                <Input
+                  id="unitno-tmpl"
+                  value={unitNoTemplate}
+                  onChange={(e) => setUnitNoTemplate(e.target.value)}
+                  placeholder="예: 2603{nn}"
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
+            {bulkOverLimit && (
+              <div className="text-xs text-destructive">
+                최대 {MAX_BULK_UNITS}개까지만 처리됩니다. 나머지는 무시됩니다.
+              </div>
+            )}
+            {bulkPreview.length > 0 && (
+              <div className="rounded-md border border-border p-3 bg-muted/30 max-h-64 overflow-auto">
+                <div className="flex items-center gap-2 mb-2 text-xs font-bold">
+                  <span>미리보기 — </span>
+                  <Badge variant="secondary">생성 {bulkToCreate.length}</Badge>
+                  {bulkSkipExisting > 0 && (
+                    <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400">
+                      이미 있음 {bulkSkipExisting}
+                    </Badge>
+                  )}
+                  {bulkInvalid > 0 && (
+                    <Badge variant="destructive">오류 {bulkInvalid}</Badge>
+                  )}
+                </div>
+                <ul className="text-xs space-y-1 font-mono">
+                  {bulkPreview.map((p) => {
+                    const status = !p.validNo || !p.validTitle
+                      ? "invalid"
+                      : p.exists
+                        ? "exists"
+                        : "create";
+                    return (
+                      <li
+                        key={p.n}
+                        className="flex items-center gap-2 py-0.5"
+                      >
+                        <span className="text-muted-foreground w-10">#{p.n}</span>
+                        <span className="text-primary w-20">
+                          {p.validNo ? `U${p.unitNo}` : "U?"}
+                        </span>
+                        <span className="flex-1 truncate text-foreground">
+                          {p.validTitle ? p.title : "(제목 없음)"}
+                        </span>
+                        {status === "create" && (
+                          <Badge variant="secondary" className="text-[10px]">생성</Badge>
+                        )}
+                        {status === "exists" && (
+                          <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600 dark:text-amber-400">
+                            이미 있음
+                          </Badge>
+                        )}
+                        {status === "invalid" && (
+                          <Badge variant="destructive" className="text-[10px]">오류</Badge>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              팁: 빈 유닛만 만들어집니다. 본문은 Claude 분석기에서 같은{" "}
+              <span className="font-mono">unit_title</span>로 전송하면 자동으로 채워집니다.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBulkCreateOpen(false)} disabled={bulkCreating}>
+              취소
+            </Button>
+            <Button
+              onClick={handleBulkCreate}
+              disabled={bulkCreating || bulkToCreate.length === 0}
+            >
+              {bulkCreating && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              {bulkToCreate.length}개 생성
             </Button>
           </DialogFooter>
         </DialogContent>
