@@ -124,6 +124,7 @@ const Integrations = () => {
 localStorage.setItem("GWJ_IMPORT_KEY", "YOUR_TOKEN_HERE");
 
 // ② 라이브러리 카드 footer 등에 아래 함수를 호출하는 버튼 추가
+// ★ 지문이 여러 개면 unit_title을 다르게(263모고32, 263모고33...) 해서 각각 호출하세요.
 async function sendToLearner(id) {
   const rec = library.find(r => r.id === id);
   if (!rec) return alert("기록을 찾을 수 없습니다");
@@ -135,23 +136,45 @@ async function sendToLearner(id) {
   const renderStructure = (typeof renderStructureToString === "function")
     ? renderStructureToString(rec.data) : "";
 
+  const d = rec.data;
   const res = await fetch("${FUNCTION_URL}", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
     body: JSON.stringify({
-      textbook: rec.data.textbook, lesson: rec.data.lesson, item_code: rec.data.item_code,
-      title_ko: rec.data.title_ko, expected_title: rec.data.expected_title,
-      topic_ko: rec.data.topic_ko, topic_en: rec.data.topic_en,
-      passage: rec.data.passage,
-      analysis_html: renderAnalysis,
+      // ─── 계층 구조 (필수 권장) ───────────────────────────
+      level:         d.level         || "L08",          // L01~L10
+      series_title:  d.series_title  || "모의고사",      // 시리즈명
+      volume_title:  d.volume_title  || "2026년 3월",   // 권명
+      unit_title:    d.unit_title    || "263모고32",    // 유닛명 (지문별로 다르게!)
+      unit_no:       d.unit_no       || 260332,        // 정렬용 번호 (선택)
+      item_code:     d.item_code     || "263모고32-1", // 지문 고유 코드 (선택)
+
+      // ─── 본문 ─────────────────────────────────────────
+      passage:        d.passage,
+      analysis_html:  renderAnalysis,
       structure_html: renderStructure,
+
+      // ─── 메타 (선택) ──────────────────────────────────
+      title_ko:       d.title_ko,
+      topic_ko:       d.topic_ko,
+      topic_en:       d.topic_en,
     }),
   });
   const j = await res.json();
-  if (j.ok) alert("📚 학습기 전송 완료\\n코드: " + j.code + "\\n학습 URL: " + j.learn_url);
+  if (j.ok) alert("📚 학습기 전송 완료\\n레벨: " + j.level + "\\n코드: " + j.code + "\\n학습 URL: " + j.learn_url);
   else alert("❌ 전송 실패: " + (j.error || "알 수 없는 오류"));
 }
 `;
+
+  const fieldsDoc = `level         L01~L10  레벨 (예: L08 = 고1)
+series_title  문자열   시리즈명 — 같은 (level + series_title)이면 동일 시리즈 재사용
+volume_title  문자열   권명     — 같은 (series + volume_title)이면 동일 권 재사용
+unit_title    문자열   유닛명   — 다른 값으로 보내면 새 유닛 생성, 같은 값이면 같은 유닛에 지문 누적
+unit_no       숫자     정렬용 번호 (선택)
+item_code     문자열   지문 고유 코드 (선택, 충돌 시 자동 -2/-3 부여)
+passage       문자열   영문 본문 (필수)
+analysis_html 문자열   분석교안 HTML (선택)
+structure_html 문자열  구조도 HTML (선택)`;
 
   return (
     <TeacherLayout>
@@ -308,13 +331,24 @@ async function sendToLearner(id) {
                 </pre>
               </div>
 
+              <div className="space-y-2">
+                <Label>페이로드 필드 안내</Label>
+                <pre className="text-[11px] bg-muted rounded p-3 overflow-x-auto font-mono whitespace-pre max-h-60 overflow-y-auto">
+                  {fieldsDoc}
+                </pre>
+                <p className="text-xs text-muted-foreground">
+                  ★ <b>지문이 여러 개</b>면 같은 시리즈/권 안에서 <code className="bg-background px-1 rounded">unit_title</code> 값을 다르게 해서
+                  여러 번 호출하세요. 같은 값이면 같은 유닛에 누적되고, 다른 값이면 새 유닛이 생성됩니다.
+                </p>
+              </div>
+
               <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
                 <p className="font-semibold">📋 사용 순서</p>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                   <li>위에서 토큰 발급 → 평문 토큰 복사</li>
                   <li>클로드 앱을 브라우저에서 열고 콘솔(F12) → <code className="text-xs bg-background px-1 rounded">localStorage.setItem(...)</code> 실행</li>
                   <li>클로드 앱 코드의 라이브러리 카드 footer에 <code className="text-xs bg-background px-1 rounded">📚 학습기로 전송</code> 버튼 추가 (위 스니펫 참고)</li>
-                  <li>버튼 클릭 → 자동으로 Bookshelf에 등록됨</li>
+                  <li>버튼 클릭 → 책장 → 해당 레벨 → 시리즈 → 권 → 유닛에 자동 등록됨</li>
                 </ol>
               </div>
             </CardContent>
