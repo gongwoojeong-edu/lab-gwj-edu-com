@@ -61,6 +61,7 @@ interface SeriesStat {
 const BookshelfLevel = () => {
   const { level } = useParams<{ level: LevelCode }>();
   const navigate = useNavigate();
+  const { display: levelDisplay } = useLevelLabels();
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [stats, setStats] = useState<Record<string, SeriesStat>>({});
   const [loading, setLoading] = useState(true);
@@ -81,6 +82,29 @@ const BookshelfLevel = () => {
   // delete dialog
   const [deleteTarget, setDeleteTarget] = useState<Series | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // 다중 선택 + 이동
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSel = () => setSelectedIds(new Set());
+
+  const moveTargets: MoveTarget[] = LEVELS.filter((l) => l.code !== level).map(
+    (l) => ({
+      id: l.code,
+      label: levelDisplay(l.code),
+      group: l.code,
+    }),
+  );
 
   const reload = async () => {
     if (!level) return;
