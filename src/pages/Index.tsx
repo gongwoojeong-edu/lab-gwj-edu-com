@@ -987,7 +987,22 @@ const Index = ({
   ).size;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
   const analysisDone = sentenceComplete && Object.keys(pendingPatchMap).length === 0;
-  // 분석 진행률 (0~1) — 마스터키가 있으면 그 비율, 없으면 단어 분석률 fallback
+  // 단어(token) 기준 분석률: analyzable 토큰 중 어떤 owner라도 pos가 채워진 토큰의 비율
+  const wordFilledCount = (() => {
+    if (analyzableIds.length === 0) return 0;
+    const filledTokenIds = new Set<string>();
+    Object.entries(progressMap).forEach(([ownerId, wp]) => {
+      if (!wp || !wp.pos) return;
+      const tid = getOwnerTokenId(ownerId);
+      if (tid) filledTokenIds.add(tid);
+    });
+    let n = 0;
+    analyzableIds.forEach((id) => {
+      if (filledTokenIds.has(id)) n += 1;
+    });
+    return n;
+  })();
+  // 분석 진행률 (0~1) — 마스터키가 있으면 그 비율, 없으면 단어 기준 분석률 fallback
   const analysisRate = (() => {
     if (masterOwnerIds.size > 0) {
       let filled = 0;
@@ -997,7 +1012,7 @@ const Index = ({
       });
       return filled / masterOwnerIds.size;
     }
-    return analyzableIds.length > 0 ? completedCount / analyzableIds.length : 0;
+    return analyzableIds.length > 0 ? wordFilledCount / analyzableIds.length : 0;
   })();
   // 80% 이상 분석하면 다음 단계로 진행 가능 (SentenceLearn과 동일 기준)
   const canAdvanceToTranslation = analysisDone || analysisRate >= 0.8;
