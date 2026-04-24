@@ -698,11 +698,14 @@ const Index = ({
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
       const pre = prog?.pre_done ?? false;
+      const wt = prog?.word_test_done ?? false;
+      const an = prog?.analysis_done ?? false;
       setPreDone(pre);
       setTranslationDone(prog?.translation_done ?? false);
-      setWordTestDone(prog?.word_test_done ?? false);
+      setWordTestDone(wt);
       setPassedAt(prog?.passed_at ?? null);
-      setLearningStep(pre ? "analysis" : "pre");
+      // 새 순서: pre → wordtest → analysis → translation
+      setLearningStep(!pre ? "pre" : !wt ? "wordtest" : !an ? "analysis" : "translation");
       setBadgeOffsets(offs);
       setCustomAnswers(customs);
       setModifierMap(mods);
