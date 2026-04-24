@@ -30,7 +30,9 @@ import {
   FileText,
   X,
   Eye,
+  ArrowRight,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -44,11 +46,16 @@ import {
   uploadStructurePdf,
   deleteStructurePdf,
   getStructurePdfSignedUrl,
+  fetchAllUnits,
+  fetchAllSeries,
+  movePassageToUnit,
   type Series,
   type Textbook,
   type Unit,
   type Passage,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { launchPrintHtml } from "@/lib/printLauncher";
