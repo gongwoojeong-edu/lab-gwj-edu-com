@@ -134,6 +134,29 @@ export const fetchPendingRequests = async (): Promise<AnalysisReviewRequest[]> =
   });
 };
 
+/** 요청확인 통합함용: 취소 제외 전체 요청 목록 (대기 우선, 이후 최신순) */
+export const fetchInboxReviewRequests = async (): Promise<AnalysisReviewRequest[]> => {
+  const { data } = await supabase
+    .from("analysis_review_requests")
+    .select("*")
+    .in("status", ["pending", "approved", "rejected"])
+    .order("requested_at", { ascending: false });
+
+  const rows = (data ?? []) as AnalysisReviewRequest[];
+  const statusWeight: Record<ReviewStatus, number> = {
+    pending: 0,
+    approved: 1,
+    rejected: 2,
+    cancelled: 3,
+  };
+
+  return rows.sort((a, b) => {
+    const byStatus = statusWeight[a.status] - statusWeight[b.status];
+    if (byStatus !== 0) return byStatus;
+    return +new Date(b.requested_at) - +new Date(a.requested_at);
+  });
+};
+
 /** 선생님: 모든 pending 일괄 승인 */
 export const approveAllPending = async (): Promise<number> => {
   const list = await fetchPendingRequests();
