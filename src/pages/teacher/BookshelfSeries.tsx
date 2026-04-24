@@ -37,7 +37,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import { type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
   fetchTextbooksBySeries,
@@ -508,6 +508,19 @@ const BookshelfSeries = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MoveItemsDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        itemKindLabel="권"
+        selectedIds={Array.from(selectedIds)}
+        targets={moveTargets}
+        onMove={handleMove}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
     </TeacherLayout>
   );
 };
