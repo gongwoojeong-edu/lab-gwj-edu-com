@@ -426,6 +426,8 @@ Deno.serve(async (req) => {
     series_id: series!.id,
     textbook_id: textbook!.id,
     level,
+    sentences_inserted: insertedRows!.length,
+    sentence_codes: insertedRows!.map((r) => r.code),
     learn_url: `/learn/sentence/${passage.code}`,
     uploads,
   });
