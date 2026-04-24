@@ -698,7 +698,7 @@ const BookshelfUnit = () => {
                 {passages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="py-12 text-center text-sm text-muted-foreground"
                     >
                       아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
@@ -710,8 +710,22 @@ const BookshelfUnit = () => {
                     const ready = p.analysis_status === "ready";
                     const wordCount = extractedMap[p.code] ?? 0;
                     const hasExtracted = wordCount > 0;
+                    const checked = selectedIds.has(p.id);
                     return (
-                      <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
+                      <tr
+                        key={p.id}
+                        className={cn(
+                          "border-b border-border/50 hover:bg-muted/30",
+                          checked && "bg-primary/5",
+                        )}
+                      >
+                        <td className="py-2 px-3">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleSel(p.id)}
+                            aria-label="지문 선택"
+                          />
+                        </td>
                         <td className="py-2 px-3 font-mono text-xs">{p.passage_no}</td>
                         <td className="py-2 px-3 font-mono text-[10px] text-primary truncate">
                           {p.code}
