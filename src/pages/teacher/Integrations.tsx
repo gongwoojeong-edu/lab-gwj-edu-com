@@ -331,13 +331,24 @@ structure_html 문자열  구조도 HTML (선택)`;
                 </pre>
               </div>
 
+              <div className="space-y-2">
+                <Label>페이로드 필드 안내</Label>
+                <pre className="text-[11px] bg-muted rounded p-3 overflow-x-auto font-mono whitespace-pre max-h-60 overflow-y-auto">
+                  {fieldsDoc}
+                </pre>
+                <p className="text-xs text-muted-foreground">
+                  ★ <b>지문이 여러 개</b>면 같은 시리즈/권 안에서 <code className="bg-background px-1 rounded">unit_title</code> 값을 다르게 해서
+                  여러 번 호출하세요. 같은 값이면 같은 유닛에 누적되고, 다른 값이면 새 유닛이 생성됩니다.
+                </p>
+              </div>
+
               <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
                 <p className="font-semibold">📋 사용 순서</p>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                   <li>위에서 토큰 발급 → 평문 토큰 복사</li>
                   <li>클로드 앱을 브라우저에서 열고 콘솔(F12) → <code className="text-xs bg-background px-1 rounded">localStorage.setItem(...)</code> 실행</li>
                   <li>클로드 앱 코드의 라이브러리 카드 footer에 <code className="text-xs bg-background px-1 rounded">📚 학습기로 전송</code> 버튼 추가 (위 스니펫 참고)</li>
-                  <li>버튼 클릭 → 자동으로 Bookshelf에 등록됨</li>
+                  <li>버튼 클릭 → 책장 → 해당 레벨 → 시리즈 → 권 → 유닛에 자동 등록됨</li>
                 </ol>
               </div>
             </CardContent>
