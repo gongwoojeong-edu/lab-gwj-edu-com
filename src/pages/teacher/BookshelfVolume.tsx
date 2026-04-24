@@ -540,9 +540,14 @@ const BookshelfVolume = () => {
               유닛(예: 2603모고)을 만들고, 그 안에 지문을 일괄 삽입하세요.
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4 mr-1" /> 새 유닛
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" onClick={openBulkCreate}>
+              <ListPlus className="size-4 mr-1" /> 여러 유닛 추가
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4 mr-1" /> 새 유닛
+            </Button>
+          </div>
         </div>
 
         {units.length === 0 ? (
