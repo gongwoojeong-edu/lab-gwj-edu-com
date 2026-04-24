@@ -169,16 +169,28 @@ const isRequiredMaster = (m: AnyProgress): boolean => {
   return false;
 };
 
-/** 일치율 산출: 완전일치 1.0, POS만 같음 0.4, 누락/불일치 0 */
-export const gradeAnalysis = async (sentenceId: string): Promise<AnalysisGradeResult> => {
+/**
+ * 일치율 산출: 완전일치 1.0, POS만 같음 0.4, 누락/불일치 0
+ *
+ * 옵션:
+ *  - fallbackRate: 마스터키가 없을 때 rate로 사용할 값 (0~1).
+ *      예) 학생 화면에서 "전체 분석가능 owner 대비 채워진 owner 비율"을 미리 계산해 전달.
+ *      미전달 시 기존처럼 1.0(=항상 통과처럼 취급되므로 호출부에서 hasMaster를 같이 확인해야 함).
+ */
+export const gradeAnalysis = async (
+  sentenceId: string,
+  opts?: { fallbackRate?: number },
+): Promise<AnalysisGradeResult> => {
   const [master, student] = await Promise.all([
     fetchMasterAnswers(sentenceId),
     fetchStudentAnswers(sentenceId),
   ]);
   const masterIds = Object.keys(master);
   if (masterIds.length === 0) {
+    const fb = opts?.fallbackRate;
+    const safeRate = typeof fb === "number" && Number.isFinite(fb) ? Math.max(0, Math.min(1, fb)) : 1;
     return {
-      rate: 1,
+      rate: safeRate,
       diffs: [],
       masterCount: 0,
       hasMaster: false,
