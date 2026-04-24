@@ -3030,6 +3030,7 @@ const Index = ({
               setLearningStep(s);
             }}
           />
+          {/* 1) 단어 학습 */}
           {learningStep === "pre" && (() => {
             const surfaceMap: Record<string, string> = {};
             Object.keys(progressMap).forEach((oid) => {
@@ -3049,55 +3050,24 @@ const Index = ({
                   onCompleted={() => {
                     setPreDone(true);
                     upsertSentenceProgress(sentence.id, { pre_done: true }).catch(() => {});
+                    setLearningStep("wordtest");
                   }}
                 />
                 <div className="flex justify-end">
                   <button
                     type="button"
                     disabled={!preDone}
-                    onClick={() => setLearningStep("analysis")}
+                    onClick={() => setLearningStep("wordtest")}
                     className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
                   >
-                    다음: 구문 분석 →
+                    다음: 단어 테스트 →
                   </button>
                 </div>
               </>
             );
           })()}
-          {learningStep === "analysis" && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                disabled={!analysisDone}
-                onClick={() => setLearningStep("translation")}
-                className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
-              >
-                다음: 한글 해석 →
-              </button>
-            </div>
-          )}
-          {learningStep === "translation" && (
-            <>
-              <TranslationStep
-                sentenceId={sentence.id}
-                englishSentence={wordUnits.map((w) => w.word).join(" ")}
-                onSubmitted={() => {
-                  setTranslationDone(true);
-                  upsertSentenceProgress(sentence.id, { translation_done: true }).catch(() => {});
-                }}
-              />
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  disabled={!translationDone}
-                  onClick={() => setLearningStep("wordtest")}
-                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
-                >
-                  다음: 단어 테스트 →
-                </button>
-              </div>
-            </>
-          )}
+
+          {/* 2) 단어 테스트 */}
           {learningStep === "wordtest" && (() => {
             const surfaceMap: Record<string, string> = {};
             Object.keys(progressMap).forEach((oid) => {
@@ -3116,21 +3086,65 @@ const Index = ({
                   entries={entries}
                   onPassed={() => {
                     setWordTestDone(true);
-                    const passedAtIso = new Date().toISOString();
-                    setPassedAt(passedAtIso);
                     void upsertSentenceProgress(sentence.id, {
                       word_test_done: true,
-                      status: "pass",
-                      passed_at: passedAtIso,
                     }).catch(() => {});
-                    void import("@/lib/nextSentence").then(({ advanceAfterPass }) =>
-                      advanceAfterPass(sentence),
-                    );
+                    setLearningStep("analysis");
                   }}
                 />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={!wordTestDone}
+                    onClick={() => setLearningStep("analysis")}
+                    className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+                  >
+                    다음: 구문 분석 →
+                  </button>
+                </div>
               </>
             );
           })()}
+
+          {/* 3) 구문 분석 — 80% 이상이면 다음 단계로 진행 가능 */}
+          {learningStep === "analysis" && (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-xs text-muted-foreground">
+                {canAdvanceToTranslation
+                  ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
+                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
+              </div>
+              <button
+                type="button"
+                disabled={!canAdvanceToTranslation}
+                onClick={() => setLearningStep("translation")}
+                className="px-4 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed font-kr"
+              >
+                다음: 한글 해석 →
+              </button>
+            </div>
+          )}
+
+          {/* 4) 한글 해석 */}
+          {learningStep === "translation" && (
+            <TranslationStep
+              sentenceId={sentence.id}
+              englishSentence={wordUnits.map((w) => w.word).join(" ")}
+              onSubmitted={() => {
+                setTranslationDone(true);
+                const passedAtIso = new Date().toISOString();
+                setPassedAt(passedAtIso);
+                void upsertSentenceProgress(sentence.id, {
+                  translation_done: true,
+                  status: "pass",
+                  passed_at: passedAtIso,
+                }).catch(() => {});
+                void import("@/lib/nextSentence").then(({ advanceAfterPass }) =>
+                  advanceAfterPass(sentence),
+                );
+              }}
+            />
+          )}
           {preDone && analysisDone && translationDone && wordTestDone && (
             <div className="flex justify-end pt-2 border-t border-border">
               <button
