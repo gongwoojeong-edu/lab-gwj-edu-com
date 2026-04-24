@@ -697,8 +697,11 @@ const Index = ({
       hydrateReferentTargetsFromCloud(sid, hydrateUserId),
     ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
-      const pre = prog?.pre_done ?? false;
-      const wt = prog?.word_test_done ?? false;
+      // 분석 대상 단어가 없으면 pre/wordtest는 의미가 없으므로 자동 done 처리 →
+      // 진행바가 '구문 분석'에서 시작되도록 보정
+      const hasAnalyzableWords = sentence.tokens.some((t) => t.type === "analyzable");
+      const pre = (prog?.pre_done ?? false) || !hasAnalyzableWords;
+      const wt = (prog?.word_test_done ?? false) || !hasAnalyzableWords;
       const an = prog?.analysis_done ?? false;
       setPreDone(pre);
       setTranslationDone(prog?.translation_done ?? false);

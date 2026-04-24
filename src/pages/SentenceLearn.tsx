@@ -245,10 +245,20 @@ const SentenceLearn = () => {
         .eq("passed", true);
       const passedModes = new Set(((wordTestPassedRow.data ?? []) as { mode: string }[]).map((r) => r.mode));
       const wordtestAllPassed = passedModes.has("spell") && passedModes.has("meaning") && passedModes.has("mixed");
-      setWordtestDone(wordtestAllPassed);
 
-      if (!preDoneEff && flags.pre) setStep("pre");
-      else if (!wordtestAllPassed && flags.wordtest) setStep("wordtest");
+      // 추출된 단어가 없으면 pre/wordtest는 자동 done 처리 → '구문 분석'에서 시작
+      const hasWords = built.length > 0;
+      const preEff = preDoneEff || !hasWords;
+      const wtEff = wordtestAllPassed || !hasWords;
+      if (!hasWords) {
+        setPreDone(true);
+        setWordtestDone(true);
+      } else {
+        setWordtestDone(wordtestAllPassed);
+      }
+
+      if (!preEff && flags.pre) setStep("pre");
+      else if (!wtEff && flags.wordtest) setStep("wordtest");
       else if (!analysisDoneEff && flags.analysis) setStep("analysis");
       else setStep("translation");
 
