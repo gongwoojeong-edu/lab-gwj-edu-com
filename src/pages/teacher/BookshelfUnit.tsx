@@ -30,7 +30,9 @@ import {
   FileText,
   X,
   Eye,
+  ArrowRight,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -44,11 +46,16 @@ import {
   uploadStructurePdf,
   deleteStructurePdf,
   getStructurePdfSignedUrl,
+  fetchAllUnits,
+  fetchAllSeries,
+  movePassageToUnit,
   type Series,
   type Textbook,
   type Unit,
   type Passage,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { launchPrintHtml } from "@/lib/printLauncher";
@@ -86,6 +93,68 @@ const BookshelfUnit = () => {
   const [viewingStructure, setViewingStructure] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const structureInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 다중선택 + 다른 유닛으로 이동
+  const { display: levelDisplay } = useLevelLabels();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [allUnits, setAllUnits] = useState<
+    Array<Unit & { textbook_id: string }>
+  >([]);
+  const [allTextbooks, setAllTextbooks] = useState<
+    Array<{ id: string; title: string; volume_no: number; series_id: string }>
+  >([]);
+  const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSel = () => setSelectedIds(new Set());
+
+  useEffect(() => {
+    void (async () => {
+      const [units, seriesAll, { data: tbs }] = await Promise.all([
+        fetchAllUnits(),
+        fetchAllSeries(),
+        supabase.from("textbooks").select("id, title, volume_no, series_id"),
+      ]);
+      setAllUnits(units);
+      setAllSeriesAll(seriesAll);
+      setAllTextbooks(
+        ((tbs ?? []) as Array<{
+          id: string;
+          title: string;
+          volume_no: number;
+          series_id: string;
+        }>),
+      );
+    })().catch(() => undefined);
+  }, []);
+
+  const moveTargets: MoveTarget[] = allUnits
+    .filter((u) => u.id !== unit?.id)
+    .map((u) => {
+      const tb = allTextbooks.find((t) => t.id === u.textbook_id);
+      const s = tb ? allSeriesAll.find((x) => x.id === tb.series_id) : undefined;
+      const groupParts: string[] = [];
+      if (s) groupParts.push(levelDisplay(s.level));
+      if (s) groupParts.push(s.title);
+      if (tb) groupParts.push(tb.title);
+      return {
+        id: u.id,
+        label: `${u.title} (U${u.unit_no})`,
+        group: groupParts.join(" · ") || `U${u.unit_no}`,
+      };
+    });
+
+  const handleMove = async (passageId: string, targetUnitId: string) => {
+    await movePassageToUnit(passageId, targetUnitId);
+  };
 
   /**
    * HTML 파일은 Storage가 잘못된 Content-Type(text/plain 등)으로 응답할 때
@@ -325,6 +394,7 @@ const BookshelfUnit = () => {
 
   useEffect(() => {
     void reload();
+    clearSel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, seriesNo, volumeNo, unitNo]);
 
@@ -584,11 +654,38 @@ const BookshelfUnit = () => {
           )}
         </Card>
 
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.size}개 선택됨
+            </span>
+            <Button variant="outline" size="sm" onClick={clearSel}>
+              선택 해제
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+              <ArrowRight className="size-4 mr-1" /> 다른 유닛으로 이동
+            </Button>
+          </div>
+        )}
+
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="py-2 px-3 w-10">
+                    <Checkbox
+                      checked={
+                        passages.length > 0 &&
+                        passages.every((p) => selectedIds.has(p.id))
+                      }
+                      onCheckedChange={(v) => {
+                        if (v) setSelectedIds(new Set(passages.map((p) => p.id)));
+                        else clearSel();
+                      }}
+                      aria-label="전체 선택"
+                    />
+                  </th>
                   <th className="py-2 px-3 w-12">#</th>
                   <th className="py-2 px-3 w-44">코드</th>
                   <th className="py-2 px-3">본문 (미리보기)</th>
@@ -601,7 +698,7 @@ const BookshelfUnit = () => {
                 {passages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="py-12 text-center text-sm text-muted-foreground"
                     >
                       아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
@@ -613,8 +710,22 @@ const BookshelfUnit = () => {
                     const ready = p.analysis_status === "ready";
                     const wordCount = extractedMap[p.code] ?? 0;
                     const hasExtracted = wordCount > 0;
+                    const checked = selectedIds.has(p.id);
                     return (
-                      <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
+                      <tr
+                        key={p.id}
+                        className={cn(
+                          "border-b border-border/50 hover:bg-muted/30",
+                          checked && "bg-primary/5",
+                        )}
+                      >
+                        <td className="py-2 px-3">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleSel(p.id)}
+                            aria-label="지문 선택"
+                          />
+                        </td>
                         <td className="py-2 px-3 font-mono text-xs">{p.passage_no}</td>
                         <td className="py-2 px-3 font-mono text-[10px] text-primary truncate">
                           {p.code}
@@ -748,6 +859,18 @@ const BookshelfUnit = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <MoveItemsDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        itemKindLabel="지문"
+        selectedIds={Array.from(selectedIds)}
+        targets={moveTargets}
+        onMove={handleMove}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
     </TeacherLayout>
   );
 };

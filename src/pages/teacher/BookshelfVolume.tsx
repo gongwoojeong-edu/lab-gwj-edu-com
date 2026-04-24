@@ -47,6 +47,8 @@ import {
   ListPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowRight } from "lucide-react";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -59,11 +61,16 @@ import {
   updatePassage,
   bulkInsertPassages,
   splitPassageText,
+  moveUnitToTextbook,
+  fetchAllSeries,
   type Series,
   type Textbook,
   type Unit,
   type Passage,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
+import { cn } from "@/lib/utils";
 import { errMsg } from "@/lib/errMsg";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,6 +187,60 @@ const BookshelfVolume = () => {
   const [deleteTarget, setDeleteTarget] = useState<Unit | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // 다중선택 + 다른 권으로 이동
+  const { display: levelDisplay } = useLevelLabels();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [allTextbooks, setAllTextbooks] = useState<
+    Array<{ id: string; title: string; volume_no: number; series_id: string }>
+  >([]);
+  const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSel = () => setSelectedIds(new Set());
+
+  useEffect(() => {
+    void (async () => {
+      const [seriesAll, { data: tbs }] = await Promise.all([
+        fetchAllSeries(),
+        supabase.from("textbooks").select("id, title, volume_no, series_id"),
+      ]);
+      setAllSeriesAll(seriesAll);
+      setAllTextbooks(
+        ((tbs ?? []) as Array<{
+          id: string;
+          title: string;
+          volume_no: number;
+          series_id: string;
+        }>),
+      );
+    })().catch(() => undefined);
+  }, []);
+
+  const moveTargets: MoveTarget[] = allTextbooks
+    .filter((t) => t.id !== textbook?.id)
+    .map((t) => {
+      const s = allSeriesAll.find((x) => x.id === t.series_id);
+      return {
+        id: t.id,
+        label: t.title,
+        group: s
+          ? `${levelDisplay(s.level)} · ${s.title} · V${t.volume_no}`
+          : `V${t.volume_no}`,
+      };
+    });
+
+  const handleMove = async (unitId: string, targetTextbookId: string) => {
+    await moveUnitToTextbook(unitId, targetTextbookId);
+  };
+
   // edit passages (본문 수정)
   const [passagesUnit, setPassagesUnit] = useState<Unit | null>(null);
   const [unitPassages, setUnitPassages] = useState<Passage[]>([]);
@@ -286,6 +347,7 @@ const BookshelfVolume = () => {
 
   useEffect(() => {
     void reload();
+    clearSel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, seriesNo, volumeNo]);
 
@@ -541,6 +603,19 @@ const BookshelfVolume = () => {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size}개 선택됨
+                </span>
+                <Button variant="outline" size="sm" onClick={clearSel}>
+                  선택 해제
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+                  <ArrowRight className="size-4 mr-1" /> 다른 권으로 이동
+                </Button>
+              </>
+            )}
             <Button variant="outline" onClick={openBulkCreate}>
               <ListPlus className="size-4 mr-1" /> 여러 유닛 추가
             </Button>
@@ -556,73 +631,90 @@ const BookshelfVolume = () => {
           </Card>
         ) : (
           <div className="grid gap-3">
-            {units.map((u) => (
-              <Card key={u.id} className="p-4 hover:border-primary/30 transition-colors">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-muted-foreground font-mono">
-                      U{u.unit_no}
+            {units.map((u) => {
+              const checked = selectedIds.has(u.id);
+              return (
+                <Card
+                  key={u.id}
+                  className={cn(
+                    "p-4 hover:border-primary/30 transition-colors",
+                    checked && "border-primary ring-1 ring-primary/30",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleSel(u.id)}
+                        className="mt-1.5 shrink-0"
+                        aria-label="유닛 선택"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          U{u.unit_no}
+                        </div>
+                        <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
+                          <h2 className="text-base font-bold shrink-0">{u.title}</h2>
+                          {firstSentenceMap[u.id] && (
+                            <span className="text-xs text-muted-foreground italic line-clamp-1 min-w-0">
+                              “{firstSentenceMap[u.id]}”
+                            </span>
+                          )}
+                        </div>
+                        {u.description && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {u.description}
+                          </p>
+                        )}
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          지문 {passageCountMap[u.id] ?? 0}개
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
-                      <h2 className="text-base font-bold shrink-0">{u.title}</h2>
-                      {firstSentenceMap[u.id] && (
-                        <span className="text-xs text-muted-foreground italic line-clamp-1 min-w-0">
-                          “{firstSentenceMap[u.id]}”
-                        </span>
-                      )}
-                    </div>
-                    {u.description && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {u.description}
-                      </p>
-                    )}
-                    <div className="text-[11px] text-muted-foreground mt-1">
-                      지문 {passageCountMap[u.id] ?? 0}개
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(u)}
+                        title="유닛 수정"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteTarget(u)}
+                        title="유닛 삭제"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openInsert(u)}>
+                        <Sparkles className="size-3.5 mr-1" /> 본문 삽입
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openPassagesEditor(u)}
+                        title="본문 수정"
+                      >
+                        <FileSignature className="size-3.5 mr-1" /> 본문 수정
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          navigate(
+                            `/teacher/bookshelf/${level}/${series.series_no}/${textbook.volume_no}/${u.unit_no}`,
+                          )
+                        }
+                      >
+                        <FileText className="size-3.5 mr-1" /> 열기
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEdit(u)}
-                      title="유닛 수정"
-                    >
-                      <Pencil className="size-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteTarget(u)}
-                      title="유닛 삭제"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => openInsert(u)}>
-                      <Sparkles className="size-3.5 mr-1" /> 본문 삽입
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openPassagesEditor(u)}
-                      title="본문 수정"
-                    >
-                      <FileSignature className="size-3.5 mr-1" /> 본문 수정
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        navigate(
-                          `/teacher/bookshelf/${level}/${series.series_no}/${textbook.volume_no}/${u.unit_no}`,
-                        )
-                      }
-                    >
-                      <FileText className="size-3.5 mr-1" /> 열기
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1047,6 +1139,19 @@ const BookshelfVolume = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MoveItemsDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        itemKindLabel="유닛"
+        selectedIds={Array.from(selectedIds)}
+        targets={moveTargets}
+        onMove={handleMove}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
     </TeacherLayout>
   );
 };
