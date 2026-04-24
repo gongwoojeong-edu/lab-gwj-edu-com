@@ -342,7 +342,8 @@ const SentenceLearn = () => {
   ) => {
     if (!sentence) return;
     try {
-      const grade = await gradeAnalysis(sentence.id);
+      // 마스터 미등록 문장은 analysisRate(전체 분석가능 owner 대비 채워진 비율)를 fallback rate로 사용 → 80% 게이트 일관 적용
+      const grade = await gradeAnalysis(sentence.id, { fallbackRate: analysisRate });
       const threshold = profile?.analysis_pass_threshold ?? 0.8;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
