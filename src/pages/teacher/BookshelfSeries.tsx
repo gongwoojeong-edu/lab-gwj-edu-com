@@ -63,6 +63,7 @@ interface VolumeStat {
 const BookshelfSeries = () => {
   const { level, seriesNo } = useParams<{ level: LevelCode; seriesNo: string }>();
   const navigate = useNavigate();
+  const { display: levelDisplay } = useLevelLabels();
   const [series, setSeries] = useState<Series | null>(null);
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
   const [stats, setStats] = useState<Record<string, VolumeStat>>({});
@@ -84,6 +85,37 @@ const BookshelfSeries = () => {
   // delete
   const [deleteTarget, setDeleteTarget] = useState<Textbook | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // 다중 선택 + 이동
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [allSeries, setAllSeries] = useState<Series[]>([]);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSel = () => setSelectedIds(new Set());
+
+  useEffect(() => {
+    fetchAllSeries().then(setAllSeries).catch(() => undefined);
+  }, []);
+
+  const moveTargets: MoveTarget[] = allSeries
+    .filter((s) => s.id !== series?.id)
+    .map((s) => ({
+      id: s.id,
+      label: s.title,
+      group: `${levelDisplay(s.level)} · S${s.series_no}`,
+    }));
+
+  const handleMove = async (textbookId: string, targetSeriesId: string) => {
+    await moveTextbookToSeries(textbookId, targetSeriesId);
+  };
 
   const reload = async () => {
     if (!level || !seriesNo) return;
