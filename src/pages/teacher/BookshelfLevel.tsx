@@ -398,7 +398,7 @@ const BookshelfLevel = () => {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>새 시리즈 — {level && LEVEL_LABEL[level]}</DialogTitle>
+            <DialogTitle>새 시리즈 — {level && levelDisplay(level)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
