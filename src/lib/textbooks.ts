@@ -622,6 +622,152 @@ export const fetchLevelStats = async (): Promise<Map<LevelCode, LevelStats>> => 
 };
 
 // ============================================================
+// 레벨 라벨 (level_labels 테이블 — 표시 이름 오버라이드)
+// ============================================================
+
+export type LevelLabelMap = Record<string, string>;
+
+/** DB에서 모든 레벨 라벨 오버라이드 가져오기 */
+export const fetchLevelLabels = async (): Promise<LevelLabelMap> => {
+  const { data, error } = await supabase
+    .from("level_labels")
+    .select("level, label");
+  if (error) throw error;
+  const map: LevelLabelMap = {};
+  ((data ?? []) as { level: string; label: string }[]).forEach((r) => {
+    map[r.level] = r.label;
+  });
+  return map;
+};
+
+/** 단일 레벨 라벨 upsert */
+export const upsertLevelLabel = async (level: string, label: string): Promise<void> => {
+  const { data: u } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from("level_labels")
+    .upsert(
+      {
+        level,
+        label,
+        updated_by: u.user?.id ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" },
+    );
+  if (error) throw error;
+};
+
+// ============================================================
+// 이동 헬퍼 — 시리즈/권/유닛/지문을 다른 부모로 옮기기
+// ============================================================
+
+/** 시리즈를 다른 레벨로 옮김. (권의 level 컬럼도 같이 갱신) */
+export const moveSeriesToLevel = async (
+  seriesId: string,
+  newLevel: LevelCode,
+): Promise<void> => {
+  const { error: e1 } = await supabase
+    .from("textbook_series")
+    .update({ level: newLevel })
+    .eq("id", seriesId);
+  if (e1) throw e1;
+  // 같은 시리즈에 속한 권의 level 컬럼도 동기화
+  const { error: e2 } = await supabase
+    .from("textbooks")
+    .update({ level: newLevel })
+    .eq("series_id", seriesId);
+  if (e2) throw e2;
+};
+
+/** 권을 다른 시리즈로 옮김. (대상 시리즈의 level로 자동 갱신) */
+export const moveTextbookToSeries = async (
+  textbookId: string,
+  newSeriesId: string,
+): Promise<void> => {
+  const { data: s, error: e0 } = await supabase
+    .from("textbook_series")
+    .select("level")
+    .eq("id", newSeriesId)
+    .maybeSingle();
+  if (e0) throw e0;
+  const lvl = (s?.level ?? null) as LevelCode | null;
+  const patch: { series_id: string; level?: LevelCode } = { series_id: newSeriesId };
+  if (lvl) patch.level = lvl;
+  const { error } = await supabase
+    .from("textbooks")
+    .update(patch)
+    .eq("id", textbookId);
+  if (error) throw error;
+};
+
+/** 유닛을 다른 권으로 옮김. */
+export const moveUnitToTextbook = async (
+  unitId: string,
+  newTextbookId: string,
+): Promise<void> => {
+  const { error } = await supabase
+    .from("textbook_units")
+    .update({ textbook_id: newTextbookId })
+    .eq("id", unitId);
+  if (error) throw error;
+};
+
+/** 지문을 다른 유닛으로 옮김. textbook_id 도 함께 갱신, passage_no 는 대상 유닛 끝번호로 재배정. */
+export const movePassageToUnit = async (
+  passageId: string,
+  newUnitId: string,
+): Promise<void> => {
+  // 대상 유닛의 textbook_id, 다음 passage_no 조회
+  const { data: u, error: e0 } = await supabase
+    .from("textbook_units")
+    .select("textbook_id")
+    .eq("id", newUnitId)
+    .maybeSingle();
+  if (e0) throw e0;
+  if (!u) throw new Error("이동 대상 유닛을 찾을 수 없습니다");
+  const { data: ps, error: e1 } = await supabase
+    .from("textbook_passages")
+    .select("passage_no")
+    .eq("unit_id", newUnitId)
+    .order("passage_no", { ascending: false })
+    .limit(1);
+  if (e1) throw e1;
+  const nextNo = ((ps?.[0]?.passage_no as number | undefined) ?? 0) + 1;
+  const { error } = await supabase
+    .from("textbook_passages")
+    .update({
+      unit_id: newUnitId,
+      textbook_id: (u as { textbook_id: string }).textbook_id,
+      passage_no: nextNo,
+    })
+    .eq("id", passageId);
+  if (error) throw error;
+};
+
+/** 모든 시리즈 가져오기 (이동 대화상자 셀렉터용) */
+export const fetchAllSeries = async (): Promise<Series[]> => {
+  const { data, error } = await supabase
+    .from("textbook_series")
+    .select("*")
+    .order("level")
+    .order("series_no");
+  if (error) throw error;
+  return ((data ?? []) as unknown[]) as Series[];
+};
+
+/** 모든 유닛 가져오기 (이동 대화상자 셀렉터용) */
+export const fetchAllUnits = async (): Promise<
+  Array<Unit & { textbook_id: string }>
+> => {
+  const { data, error } = await supabase
+    .from("textbook_units")
+    .select("*")
+    .order("unit_no");
+  if (error) throw error;
+  return ((data ?? []) as unknown[]) as Array<Unit & { textbook_id: string }>;
+};
+
+// ============================================================
 // 호환 헬퍼 — 외부 호출부에서 점진 마이그레이션 위해 임시 유지
 // ============================================================
 
