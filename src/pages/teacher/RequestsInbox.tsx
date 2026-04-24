@@ -35,7 +35,7 @@ import {
   type PrintRequest,
 } from "@/lib/printRequests";
 import {
-  fetchPendingRequests,
+  fetchInboxReviewRequests,
   subscribeToReviewRequests,
   approveReviewRequest,
   rejectReviewRequest,
@@ -78,7 +78,7 @@ const RequestsInbox = () => {
     try {
       const [pl, rl] = await Promise.all([
         fetchPendingPrintRequests(),
-        fetchPendingRequests(),
+        fetchInboxReviewRequests(),
       ]);
       setPrintRows(pl);
       setReviewRows(rl);
@@ -135,6 +135,11 @@ const RequestsInbox = () => {
     out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     return out;
   }, [printRows, reviewRows]);
+
+  const pendingCount = useMemo(
+    () => printRows.length + reviewRows.filter((row) => row.status === "pending").length,
+    [printRows, reviewRows],
+  );
 
   const triggerPrint = async (
     req: PrintRequest,
@@ -211,7 +216,7 @@ const RequestsInbox = () => {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Inbox className="size-6 text-primary" /> 요청확인
               <span className="text-sm font-normal text-muted-foreground">
-                · 대기 {items.length}건
+                · 전체 {items.length}건 / 대기 {pendingCount}건
               </span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -391,7 +396,13 @@ const RequestsInbox = () => {
                   <Badge
                     className={cn(
                       "font-bold text-white",
-                      req.track === "fail_assist" ? "bg-amber-500" : "bg-emerald-600",
+                      req.status === "rejected"
+                        ? "bg-destructive"
+                        : req.status === "approved"
+                          ? "bg-primary"
+                          : req.track === "fail_assist"
+                            ? "bg-amber-500"
+                            : "bg-emerald-600",
                     )}
                   >
                     정답보기
@@ -411,6 +422,11 @@ const RequestsInbox = () => {
                       {req.track === "fail_assist" && (
                         <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">
                           미통 보조
+                        </span>
+                      )}
+                      {req.status !== "pending" && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px]">
+                          {req.status === "approved" ? "승인됨" : "반려됨"}
                         </span>
                       )}
                       {!masterReady && (
@@ -447,6 +463,7 @@ const RequestsInbox = () => {
                       variant="ghost"
                       className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                       onClick={() => handleReject(req.id)}
+                      disabled={req.status !== "pending"}
                     >
                       <XCircle className="size-3 mr-1" /> 반려
                     </Button>
@@ -454,8 +471,8 @@ const RequestsInbox = () => {
                       size="sm"
                       className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => handleApprove(req.id)}
-                      disabled={!masterReady}
-                      title={!masterReady ? "마스터 등록 후 승인 가능" : undefined}
+                      disabled={!masterReady || req.status !== "pending"}
+                      title={!masterReady ? "마스터 등록 후 승인 가능" : req.status !== "pending" ? "이미 처리된 요청입니다" : undefined}
                     >
                       <CheckCircle2 className="size-3 mr-1" /> 승인
                     </Button>
