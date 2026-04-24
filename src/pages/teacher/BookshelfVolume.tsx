@@ -666,6 +666,130 @@ const BookshelfVolume = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Bulk create units */}
+      <Dialog open={bulkCreateOpen} onOpenChange={setBulkCreateOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListPlus className="size-4 text-primary" />
+              여러 유닛 한꺼번에 추가 — {textbook.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-numbers">
+                유닛 번호 목록 <span className="text-muted-foreground">(콤마/공백/범위 허용)</span>
+              </Label>
+              <Textarea
+                id="bulk-numbers"
+                rows={2}
+                value={bulkNumbers}
+                onChange={(e) => setBulkNumbers(e.target.value)}
+                placeholder="예: 18, 19, 40-45"
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="title-tmpl">
+                  제목 템플릿 <span className="text-muted-foreground">{`({nn} 자리)`}</span>
+                </Label>
+                <Input
+                  id="title-tmpl"
+                  value={titleTemplate}
+                  onChange={(e) => setTitleTemplate(e.target.value)}
+                  placeholder="예: 263모고{nn}"
+                  className="font-mono text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="unitno-tmpl">
+                  유닛 번호 템플릿 <span className="text-muted-foreground">{`({nn} 자리)`}</span>
+                </Label>
+                <Input
+                  id="unitno-tmpl"
+                  value={unitNoTemplate}
+                  onChange={(e) => setUnitNoTemplate(e.target.value)}
+                  placeholder="예: 2603{nn}"
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
+            {bulkOverLimit && (
+              <div className="text-xs text-destructive">
+                최대 {MAX_BULK_UNITS}개까지만 처리됩니다. 나머지는 무시됩니다.
+              </div>
+            )}
+            {bulkPreview.length > 0 && (
+              <div className="rounded-md border border-border p-3 bg-muted/30 max-h-64 overflow-auto">
+                <div className="flex items-center gap-2 mb-2 text-xs font-bold">
+                  <span>미리보기 — </span>
+                  <Badge variant="secondary">생성 {bulkToCreate.length}</Badge>
+                  {bulkSkipExisting > 0 && (
+                    <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400">
+                      이미 있음 {bulkSkipExisting}
+                    </Badge>
+                  )}
+                  {bulkInvalid > 0 && (
+                    <Badge variant="destructive">오류 {bulkInvalid}</Badge>
+                  )}
+                </div>
+                <ul className="text-xs space-y-1 font-mono">
+                  {bulkPreview.map((p) => {
+                    const status = !p.validNo || !p.validTitle
+                      ? "invalid"
+                      : p.exists
+                        ? "exists"
+                        : "create";
+                    return (
+                      <li
+                        key={p.n}
+                        className="flex items-center gap-2 py-0.5"
+                      >
+                        <span className="text-muted-foreground w-10">#{p.n}</span>
+                        <span className="text-primary w-20">
+                          {p.validNo ? `U${p.unitNo}` : "U?"}
+                        </span>
+                        <span className="flex-1 truncate text-foreground">
+                          {p.validTitle ? p.title : "(제목 없음)"}
+                        </span>
+                        {status === "create" && (
+                          <Badge variant="secondary" className="text-[10px]">생성</Badge>
+                        )}
+                        {status === "exists" && (
+                          <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600 dark:text-amber-400">
+                            이미 있음
+                          </Badge>
+                        )}
+                        {status === "invalid" && (
+                          <Badge variant="destructive" className="text-[10px]">오류</Badge>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              팁: 빈 유닛만 만들어집니다. 본문은 Claude 분석기에서 같은{" "}
+              <span className="font-mono">unit_title</span>로 전송하면 자동으로 채워집니다.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBulkCreateOpen(false)} disabled={bulkCreating}>
+              취소
+            </Button>
+            <Button
+              onClick={handleBulkCreate}
+              disabled={bulkCreating || bulkToCreate.length === 0}
+            >
+              {bulkCreating && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              {bulkToCreate.length}개 생성
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Bulk insert */}
       <Dialog open={insertOpen} onOpenChange={setInsertOpen}>
         <DialogContent className="max-w-3xl">
