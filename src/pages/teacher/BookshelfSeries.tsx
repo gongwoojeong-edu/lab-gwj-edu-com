@@ -34,7 +34,9 @@ import {
   Pencil,
   Trash2,
   ChevronRight,
+  ArrowRight,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -42,11 +44,16 @@ import {
   createTextbook,
   updateTextbook,
   deleteTextbook,
+  fetchAllSeries,
+  moveTextbookToSeries,
   type Series,
   type Textbook,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface VolumeStat {
   unitCount: number;
