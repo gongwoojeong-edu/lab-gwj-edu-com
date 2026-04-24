@@ -338,12 +338,22 @@ const BookshelfSeries = () => {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {textbooks.map((t) => {
               const st = stats[t.id];
+              const checked = selectedIds.has(t.id);
               return (
                 <Card
                   key={t.id}
-                  className="p-4 hover:border-primary/40 transition-colors group"
+                  className={cn(
+                    "p-4 hover:border-primary/40 transition-colors group",
+                    checked && "border-primary ring-1 ring-primary/30",
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleSel(t.id)}
+                      className="mt-1.5 shrink-0"
+                      aria-label="권 선택"
+                    />
                     <button
                       type="button"
                       onClick={() =>
