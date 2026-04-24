@@ -96,6 +96,7 @@ const SentenceLearn = () => {
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[]; hasMaster: boolean } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
   const [analysisHasMaster, setAnalysisHasMaster] = useState(false);
+  const [analysisCounts, setAnalysisCounts] = useState<{ filled: number; total: number }>({ filled: 0, total: 0 });
   const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
   const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
@@ -864,6 +865,7 @@ const SentenceLearn = () => {
                   onAnalysisProgress={(rate, meta) => {
                     setAnalysisRate(rate);
                     setAnalysisHasMaster(meta.hasMaster);
+                    setAnalysisCounts({ filled: meta.filled, total: meta.total });
                   }}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
@@ -874,7 +876,7 @@ const SentenceLearn = () => {
               <div className="text-sm text-foreground">
                 {canAdvanceToTranslation
                   ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
+                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride

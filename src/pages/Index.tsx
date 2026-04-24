@@ -386,7 +386,10 @@ interface IndexProps {
    */
   studentMode?: boolean;
   /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용. meta.hasMaster 로 라벨 결정 */
-  onAnalysisProgress?: (rate: number, meta: { hasMaster: boolean }) => void;
+  onAnalysisProgress?: (
+    rate: number,
+    meta: { hasMaster: boolean; filled: number; total: number },
+  ) => void;
   /**
    * Hydrate 대상 user_id를 명시. 미지정 시 현재 로그인 사용자(기존 동작).
    * 비교/첨삭 화면에서 학생 또는 admin(마스터키) 데이터를 표시할 때 사용.
@@ -1029,12 +1032,17 @@ const Index = ({
         const wp = progressMap[id];
         if (wp && wp.pos) filled += 1;
       });
-      onAnalysisProgress(filled / masterOwnerIds.size, { hasMaster: true });
+      const total = masterOwnerIds.size;
+      onAnalysisProgress(filled / total, { hasMaster: true, filled, total });
       return;
     }
     // fallback: 마스터 미등록 문장 — 학생이 막히지 않도록 단어 분석률 사용
     const total = analyzableIds.length;
-    onAnalysisProgress(total > 0 ? completedCount / total : 0, { hasMaster: false });
+    onAnalysisProgress(total > 0 ? completedCount / total : 0, {
+      hasMaster: false,
+      filled: completedCount,
+      total,
+    });
   }, [completedCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
