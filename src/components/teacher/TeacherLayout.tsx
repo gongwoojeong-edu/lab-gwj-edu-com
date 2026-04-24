@@ -31,6 +31,7 @@ import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/hooks/useViewMode";
 import { LEVELS, LEVEL_LABEL } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { cn } from "@/lib/utils";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
