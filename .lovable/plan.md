@@ -1,105 +1,88 @@
-# 클로드 import 통합 개선 (버그 수정 + 계층 구조 확장)
+## 일괄 유닛 생성 기능 (Bulk-create missing units)
 
-## 배경
+권(Volume) 페이지(`/teacher/bookshelf/L08/1/1` 등)에 **빈 유닛을 번호 목록으로 한 번에 만드는** 기능을 추가합니다. 본문(passage)은 비어 있는 상태로 만들어지므로, 이후 Claude 분석기에서 동일한 `unit_title`로 보내면 자동으로 그 유닛에 들어갑니다.
 
-두 가지 문제를 한 번에 해결합니다:
+---
 
-1. **권한 체크 버그** — `gwj0000` 계정은 user_roles에 student/teacher/admin 3행이 있어 `.maybeSingle()`이 에러를 던지고 "토큰 소유자가 더 이상 교사가 아닙니다" 오류 반환. 실제로는 권한 멀쩡함.
-2. **계층 구조 미지원** — 현재 페이로드는 level/series/volume/unit 지정 불가 → 모든 지문이 L01에 한 덩어리로 들어감.
+### 동작 방식
 
-## 변경 사항
+권 페이지 우상단에 **"새 유닛"** 옆에 **"여러 유닛 추가"** 버튼을 추가합니다. 클릭 시 다이얼로그가 열리며 다음 입력을 받습니다:
 
-### 1. `supabase/functions/import-claude-handout/index.ts`
+1. **번호 목록** (텍스트 입력)
+   - 콤마/공백/개행 모두 허용
+   - 범위 지원: `18-19, 40-45`
+   - 예: `18, 19, 40-42` → `[18, 19, 40, 41, 42]`
 
-#### (a) 권한 체크 수정
-`.maybeSingle()` → `.limit(1)`로 변경. 한 사용자가 여러 역할을 가져도 안전하게 통과.
+2. **제목 템플릿** (문자열, `{n}`/`{nn}` 토큰 사용)
+   - 기본값: 가장 최근 유닛에서 자동 추론 (예: 기존이 `263모고20`이면 `263모고{nn}` 자동 채움)
+   - 예: `263모고{nn}` → `263모고18`, `263모고19`
 
-```typescript
-const { data: roleRows } = await admin
-  .from("user_roles")
-  .select("role")
-  .eq("user_id", teacherId)
-  .in("role", ["teacher", "admin"])
-  .limit(1);
-if (!roleRows || roleRows.length === 0)
-  return json({ ok: false, error: "토큰 소유자가 더 이상 교사가 아닙니다" }, 403);
+3. **유닛 번호 템플릿** (정수 패턴, `{n}`/`{nn}` 토큰)
+   - 기본값: 기존 유닛의 unit_no에서 추론 (예: 기존이 `260320`이면 `2603{nn}` → `260318`)
+   - `{nn}` = 2자리 zero-pad, `{n}` = 그대로
+
+4. **미리보기 영역**: 생성될 (unit_no, title) 목록을 표 형태로 보여줌. 이미 존재하는 번호는 빨간 배지로 "이미 있음 — 건너뜀" 표시.
+
+5. **추가 버튼**: 누르면 존재하지 않는 항목만 `createUnit`을 순차 호출하여 생성. 결과 토스트: "N개 생성됨, M개 건너뜀".
+
+---
+
+### UI 자리
+
+```text
+┌─ 2026년 3월 (L08 · S1 · V1) ──────────────────┐
+│                                               │
+│  [+ 새 유닛] [⊕ 여러 유닛 추가] ← 여기 추가 │
+│                                               │
+│  U260320  263모고20  ...                     │
+│  U260321  263모고21  ...                     │
+└───────────────────────────────────────────────┘
 ```
 
-#### (b) 페이로드 확장 — 계층 구조 자동 매칭
+---
 
-새 필드 (모두 옵션, 미지정 시 기존 동작 유지):
+### 자동 추론 로직 (UX 디테일)
 
-| 필드 | 예시 | 설명 |
-|---|---|---|
-| `level` | `"L08"` | L01~L10. 없으면 L01 |
-| `series_title` | `"모의고사"` | 같은 (level, title)이면 재사용 |
-| `series_no` | `1` | 정렬용 (옵션) |
-| `volume_title` | `"2026년 3월"` | 같은 (series_id, title)이면 재사용 |
-| `volume_no` | `1` | 정렬용 (옵션) |
-| `unit_title` | `"263모고32"` | **지문별로 다르게 보내야 별도 유닛 생성** |
-| `unit_no` | `260332` | 정렬용 |
-| `passage_no` | `1` | 유닛 내 지문 번호 (없으면 자동) |
-| `item_code` | `"263모고32-1"` | 지문 고유 코드 |
+다이얼로그를 열 때 현재 유닛 목록을 분석:
+- 기존 unit_title 중 가장 흔한 prefix를 찾아 끝의 숫자 부분을 `{nn}` 으로 치환 → 제목 템플릿 기본값
+- 기존 unit_no에서 동일하게 처리 → unit_no 템플릿 기본값
+- 유닛이 하나도 없으면 사용자가 직접 입력
 
-#### (c) 매칭 로직 (제목 우선, 번호 폴백)
+이 추론 덕분에 사용자는 보통 **번호 목록만** 입력하면 됩니다.
 
-- **Series**: `level + series_title` → 없으면 `level + series_no` → 없으면 신규 생성
-- **Volume(Textbook)**: `series_id + volume_title` → 없으면 `series_id + volume_no` → 없으면 신규 생성
-- **Unit**: `textbook_id + unit_title` → 없으면 `textbook_id + unit_no` → 없으면 신규 생성
+---
 
-같은 `unit_title`로 여러 번 호출하면 **같은 유닛에 지문이 누적**되고, 다른 유닛명이면 **새 유닛 생성**.
+### 변경 파일
 
-#### (d) item_code/passage code 처리 개선
+**`src/pages/teacher/BookshelfVolume.tsx`** (단일 파일 수정)
+- 새 state: `bulkOpen`, `bulkNumbers`, `titleTemplate`, `unitNoTemplate`, `bulkCreating`
+- 새 헬퍼 (파일 내):
+  - `parseNumberList(input: string): number[]` — `"18, 19, 40-42"` 파싱
+  - `inferTemplate(units, field): string` — 기존 유닛에서 템플릿 추론
+  - `applyTemplate(tmpl: string, n: number): string` — `{n}` / `{nn}` 치환
+- 새 핸들러 `handleBulkCreate`: 미리보기 항목 중 기존에 없는 unit_no만 골라 `createUnit` 순차 호출, 부분 실패도 허용 (실패 개수 따로 토스트)
+- 기존 `createUnit` API 그대로 사용 — `src/lib/textbooks.ts` 수정 불필요
 
-`item_code`가 명시되면 그대로 `code`로 사용 (전역 유일 검사 후 충돌 시 -2, -3 자동 부여).
+---
 
-### 2. `src/pages/teacher/Integrations.tsx` — 안내 문서 갱신
+### Edge Cases
+- 번호가 0 이하이거나 정수가 아니면 그 항목만 빨간 표시 + 건너뜀
+- 제목 템플릿에 `{n}` / `{nn}` 토큰이 없으면 모든 유닛이 같은 제목이 되므로 경고 표시
+- unit_no 템플릿 결과가 정수로 변환 불가하면 그 항목 건너뜀
+- 최대 100개로 제한 (실수 방지)
 
-교사가 클로드에 붙여넣을 JS 스니펫을 새 필드 포함 버전으로 교체:
+---
 
-```javascript
-fetch(`${SUPABASE_URL}/functions/v1/import-claude-handout`, {
-  method: "POST",
-  headers: { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-  body: JSON.stringify({
-    level: "L08",                 // L01~L10
-    series_title: "모의고사",       // 시리즈명
-    volume_title: "2026년 3월",    // 권명
-    unit_title: "263모고32",       // 유닛명 (지문별로 다르게!)
-    unit_no: 260332,
-    item_code: "263모고32-1",
-    passage: "...영문 본문...",
-    analysis_html: "...",
-    structure_html: "...",
-  }),
-});
-```
+### 사용 예시
 
-상세 필드 표 + **"지문이 3개면 unit_title을 다르게 해서 3번 호출하세요"** 안내 추가.
+오늘 상황에서 18~19, 40번을 추가하려면:
+1. 권 페이지에서 **여러 유닛 추가** 클릭
+2. 번호: `18, 19, 40` 입력
+3. 자동 채워진 템플릿 확인 (`263모고{nn}` / `2603{nn}`)
+4. **3개 추가** 클릭 → `263모고18`, `263모고19`, `263모고40` 빈 유닛 생성
+5. Claude에서 `unit_title: "263모고18"` 로 본문 전송 → 자동으로 그 유닛에 들어감
 
-### 3. 기존 잘못 들어간 데이터 (L01의 `2026년 고1 모의고사`)
+---
 
-마이그레이션으로 **삭제** 처리 (CASCADE로 권/유닛/지문/스토리지 메타 자동 정리). 사용자가 클로드에서 새 형식으로 다시 전송하면 L08에 정상 누적됨.
-
-```sql
--- L01에 잘못 들어간 시리즈 통째 삭제
-DELETE FROM textbook_series 
-WHERE level = 'L01' AND title = '2026년 고1 모의고사';
-```
-
-(textbook_units에 FK CASCADE가 설정되어 있지 않을 수 있어 마이그레이션에서 단계적으로 삭제)
-
-## 변경 파일 (3개)
-
-1. `supabase/functions/import-claude-handout/index.ts` — 권한 버그 수정 + 계층 매칭 로직 확장
-2. `src/pages/teacher/Integrations.tsx` — 안내 스니펫과 필드 설명 갱신
-3. DB 마이그레이션 1회 — L01 잘못 들어간 데이터 정리
-
-## 검증 방법
-
-배포 후 (엣지 함수는 자동 배포):
-
-1. **버그 수정 확인** — 기존 `GWJ_IMPORT_KEY` 토큰으로 클로드에서 전송 → "토큰 소유자가…" 에러가 사라지는지 확인
-2. **계층 구조 확인** — `level: "L08", series_title: "모의고사", volume_title: "2026년 3월", unit_title: "263모고42"` 로 테스트 → 책장 → L08 → 모의고사 → 2026년 3월에 `263모고42` 유닛이 생기는지
-3. **누적 동작** — 같은 `unit_title`로 두 번째 지문 전송 → 같은 유닛에 누적
-4. **분리 동작** — 다른 `unit_title`(`263모고43`)로 전송 → 새 유닛 생성
+> [!IMPORTANT]
+> 이 플랜은 **제안 단계**이며 아직 실행되지 않았습니다. 승인되면 default 모드에서 `BookshelfVolume.tsx`만 수정하여 적용합니다.

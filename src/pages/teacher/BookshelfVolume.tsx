@@ -44,7 +44,9 @@ import {
   Sparkles,
   Layers,
   FileSignature,
+  ListPlus,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
