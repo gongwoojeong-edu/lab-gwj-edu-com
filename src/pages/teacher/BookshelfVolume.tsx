@@ -69,7 +69,73 @@ import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-const BookshelfVolume = () => {
+// ============================================================
+// Helpers — bulk unit creation
+// ============================================================
+
+/** "18, 19, 40-42\n50" → [18,19,40,41,42,50] (정렬, 중복 제거) */
+const parseNumberList = (input: string): number[] => {
+  const set = new Set<number>();
+  for (const raw of input.split(/[\s,]+/)) {
+    const tok = raw.trim();
+    if (!tok) continue;
+    const m = tok.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (m) {
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        const lo = Math.min(a, b);
+        const hi = Math.max(a, b);
+        for (let i = lo; i <= hi; i++) set.add(i);
+      }
+      continue;
+    }
+    const n = parseInt(tok, 10);
+    if (Number.isFinite(n)) set.add(n);
+  }
+  return Array.from(set).sort((a, b) => a - b);
+};
+
+/**
+ * 기존 값들에서 끝의 1~3자리 숫자를 `{nn}` 으로 치환한 템플릿을 추론.
+ * 예) ["263모고20", "263모고21", "263모고32"] → "263모고{nn}"
+ *    ["260320", "260321"] → "2603{nn}"
+ * 추론 불가 시 빈 문자열.
+ */
+const inferTemplate = (samples: string[]): string => {
+  const candidates = samples
+    .map((s) => {
+      const m = s.match(/^(.*?)(\d{1,3})$/);
+      if (!m) return null;
+      return { prefix: m[1], digits: m[2].length };
+    })
+    .filter((x): x is { prefix: string; digits: number } => !!x);
+  if (candidates.length === 0) return "";
+  // 가장 흔한 prefix 선택
+  const counts = new Map<string, number>();
+  for (const c of candidates) counts.set(c.prefix, (counts.get(c.prefix) ?? 0) + 1);
+  let bestPrefix = "";
+  let bestCount = 0;
+  for (const [p, n] of counts) {
+    if (n > bestCount) {
+      bestPrefix = p;
+      bestCount = n;
+    }
+  }
+  return `${bestPrefix}{nn}`;
+};
+
+/** `{n}` / `{nn}` / `{nnn}` 토큰을 숫자로 치환. */
+const applyTemplate = (tmpl: string, n: number): string => {
+  return tmpl
+    .replace(/\{nnn\}/g, String(n).padStart(3, "0"))
+    .replace(/\{nn\}/g, String(n).padStart(2, "0"))
+    .replace(/\{n\}/g, String(n));
+};
+
+const MAX_BULK_UNITS = 100;
+
+
   const { level, seriesNo, volumeNo } = useParams<{
     level: LevelCode;
     seriesNo: string;
