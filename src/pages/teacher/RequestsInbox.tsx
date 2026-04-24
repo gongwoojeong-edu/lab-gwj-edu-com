@@ -4,7 +4,7 @@
 // 각 행 맨 앞에 종류 배지 [시험지] / [정답보기] 표기.
 // ============================================================
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -482,18 +482,6 @@ const RequestsInbox = () => {
             })}
           </div>
         )}
-
-        <Card className="p-3 text-[11px] text-muted-foreground bg-muted/30">
-          기존 페이지(시험지 요청 / 선생님분석본보기요청)는{" "}
-          <Link to="/teacher/print-queue" className="underline">
-            인쇄 대기열
-          </Link>
-          {" / "}
-          <Link to="/teacher/requests" className="underline">
-            정답 보기 요청
-          </Link>
-          {" "}경로로 계속 사용할 수 있습니다.
-        </Card>
       </div>
     </TeacherLayout>
   );

@@ -1,88 +1,45 @@
-## 일괄 유닛 생성 기능 (Bulk-create missing units)
 
-권(Volume) 페이지(`/teacher/bookshelf/L08/1/1` 등)에 **빈 유닛을 번호 목록으로 한 번에 만드는** 기능을 추가합니다. 본문(passage)은 비어 있는 상태로 만들어지므로, 이후 Claude 분석기에서 동일한 `unit_title`로 보내면 자동으로 그 유닛에 들어갑니다.
+## 변경 내용
 
----
+### 1. `src/pages/teacher/RequestsInbox.tsx`
 
-### 동작 방식
-
-권 페이지 우상단에 **"새 유닛"** 옆에 **"여러 유닛 추가"** 버튼을 추가합니다. 클릭 시 다이얼로그가 열리며 다음 입력을 받습니다:
-
-1. **번호 목록** (텍스트 입력)
-   - 콤마/공백/개행 모두 허용
-   - 범위 지원: `18-19, 40-45`
-   - 예: `18, 19, 40-42` → `[18, 19, 40, 41, 42]`
-
-2. **제목 템플릿** (문자열, `{n}`/`{nn}` 토큰 사용)
-   - 기본값: 가장 최근 유닛에서 자동 추론 (예: 기존이 `263모고20`이면 `263모고{nn}` 자동 채움)
-   - 예: `263모고{nn}` → `263모고18`, `263모고19`
-
-3. **유닛 번호 템플릿** (정수 패턴, `{n}`/`{nn}` 토큰)
-   - 기본값: 기존 유닛의 unit_no에서 추론 (예: 기존이 `260320`이면 `2603{nn}` → `260318`)
-   - `{nn}` = 2자리 zero-pad, `{n}` = 그대로
-
-4. **미리보기 영역**: 생성될 (unit_no, title) 목록을 표 형태로 보여줌. 이미 존재하는 번호는 빨간 배지로 "이미 있음 — 건너뜀" 표시.
-
-5. **추가 버튼**: 누르면 존재하지 않는 항목만 `createUnit`을 순차 호출하여 생성. 결과 토스트: "N개 생성됨, M개 건너뜀".
-
----
-
-### UI 자리
-
-```text
-┌─ 2026년 3월 (L08 · S1 · V1) ──────────────────┐
-│                                               │
-│  [+ 새 유닛] [⊕ 여러 유닛 추가] ← 여기 추가 │
-│                                               │
-│  U260320  263모고20  ...                     │
-│  U260321  263모고21  ...                     │
-└───────────────────────────────────────────────┘
+**(a) 라인 486–496 안내 카드 삭제**
 ```
+<Card className="p-3 text-[11px] text-muted-foreground bg-muted/30">
+  기존 페이지(시험지 요청 / 선생님분석본보기요청)는 ...
+</Card>
+```
+이 안내 카드 블록 전체 제거. (`/teacher/requests`가 이미 자기 자신으로 연결되어 무의미)
 
----
+**(b) 라인 7 import 정리**
+```
+- import { useNavigate, Link } from "react-router-dom";
++ import { useNavigate } from "react-router-dom";
+```
+안내 카드 제거 후 `Link`가 더 이상 사용되지 않으므로 제거.
 
-### 자동 추론 로직 (UX 디테일)
+### 2. `src/App.tsx`
 
-다이얼로그를 열 때 현재 유닛 목록을 분석:
-- 기존 unit_title 중 가장 흔한 prefix를 찾아 끝의 숫자 부분을 `{nn}` 으로 치환 → 제목 템플릿 기본값
-- 기존 unit_no에서 동일하게 처리 → unit_no 템플릿 기본값
-- 유닛이 하나도 없으면 사용자가 직접 입력
+**라인 32 import 제거**
+```
+- import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
+```
+어떤 라우트에서도 더 이상 사용하지 않는 고아(orphan) import.
 
-이 추론 덕분에 사용자는 보통 **번호 목록만** 입력하면 됩니다.
+### 3. 파일 삭제
 
----
+- `src/pages/teacher/AnalysisRequests.tsx` 삭제
+  - 라우트 매핑 없음(`/teacher/requests`는 `RequestsInbox`로 연결됨)
+  - 사이드바/대시보드 어디에서도 참조되지 않음
+  - 통합 인박스가 동일 기능을 모두 포함
 
-### 변경 파일
+## 영향 범위
 
-**`src/pages/teacher/BookshelfVolume.tsx`** (단일 파일 수정)
-- 새 state: `bulkOpen`, `bulkNumbers`, `titleTemplate`, `unitNoTemplate`, `bulkCreating`
-- 새 헬퍼 (파일 내):
-  - `parseNumberList(input: string): number[]` — `"18, 19, 40-42"` 파싱
-  - `inferTemplate(units, field): string` — 기존 유닛에서 템플릿 추론
-  - `applyTemplate(tmpl: string, n: number): string` — `{n}` / `{nn}` 치환
-- 새 핸들러 `handleBulkCreate`: 미리보기 항목 중 기존에 없는 unit_no만 골라 `createUnit` 순차 호출, 부분 실패도 허용 (실패 개수 따로 토스트)
-- 기존 `createUnit` API 그대로 사용 — `src/lib/textbooks.ts` 수정 불필요
+- 사용자 화면 변화: 통합 요청확인 페이지 하단의 호환 안내 작은 카드만 사라짐. 그 외 동작·디자인 변화 없음.
+- `/teacher/requests`, `/teacher/inbox`, `/teacher/print-queue` 모두 기존대로 동작.
+- `PrintQueue`(`/teacher/print-queue`)는 사이드바·대시보드에서 계속 사용 중이므로 유지.
 
----
+## 검증
 
-### Edge Cases
-- 번호가 0 이하이거나 정수가 아니면 그 항목만 빨간 표시 + 건너뜀
-- 제목 템플릿에 `{n}` / `{nn}` 토큰이 없으면 모든 유닛이 같은 제목이 되므로 경고 표시
-- unit_no 템플릿 결과가 정수로 변환 불가하면 그 항목 건너뜀
-- 최대 100개로 제한 (실수 방지)
-
----
-
-### 사용 예시
-
-오늘 상황에서 18~19, 40번을 추가하려면:
-1. 권 페이지에서 **여러 유닛 추가** 클릭
-2. 번호: `18, 19, 40` 입력
-3. 자동 채워진 템플릿 확인 (`263모고{nn}` / `2603{nn}`)
-4. **3개 추가** 클릭 → `263모고18`, `263모고19`, `263모고40` 빈 유닛 생성
-5. Claude에서 `unit_title: "263모고18"` 로 본문 전송 → 자동으로 그 유닛에 들어감
-
----
-
-> [!IMPORTANT]
-> 이 플랜은 **제안 단계**이며 아직 실행되지 않았습니다. 승인되면 default 모드에서 `BookshelfVolume.tsx`만 수정하여 적용합니다.
+- 정리 후 `rg "AnalysisRequests"` 결과가 없어야 함.
+- 정리 후 `rg "Link" src/pages/teacher/RequestsInbox.tsx` 결과가 없어야 함.

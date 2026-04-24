@@ -29,7 +29,7 @@ import HandoutPage from "./pages/Handout.tsx";
 import HandoutWord from "./pages/HandoutWord.tsx";
 import AnalysisReview from "./pages/AnalysisReview.tsx";
 import LearnCompare from "./pages/LearnCompare.tsx";
-import AnalysisRequests from "./pages/teacher/AnalysisRequests.tsx";
+
 import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
 import AnalysisCompare from "./pages/teacher/AnalysisCompare.tsx";
 import AnalysisHandout from "./pages/teacher/AnalysisHandout.tsx";
