@@ -187,6 +187,60 @@ const BookshelfVolume = () => {
   const [deleteTarget, setDeleteTarget] = useState<Unit | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // 다중선택 + 다른 권으로 이동
+  const { display: levelDisplay } = useLevelLabels();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [allTextbooks, setAllTextbooks] = useState<
+    Array<{ id: string; title: string; volume_no: number; series_id: string }>
+  >([]);
+  const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSel = () => setSelectedIds(new Set());
+
+  useEffect(() => {
+    void (async () => {
+      const [seriesAll, { data: tbs }] = await Promise.all([
+        fetchAllSeries(),
+        supabase.from("textbooks").select("id, title, volume_no, series_id"),
+      ]);
+      setAllSeriesAll(seriesAll);
+      setAllTextbooks(
+        ((tbs ?? []) as Array<{
+          id: string;
+          title: string;
+          volume_no: number;
+          series_id: string;
+        }>),
+      );
+    })().catch(() => undefined);
+  }, []);
+
+  const moveTargets: MoveTarget[] = allTextbooks
+    .filter((t) => t.id !== textbook?.id)
+    .map((t) => {
+      const s = allSeriesAll.find((x) => x.id === t.series_id);
+      return {
+        id: t.id,
+        label: t.title,
+        group: s
+          ? `${levelDisplay(s.level)} · ${s.title} · V${t.volume_no}`
+          : `V${t.volume_no}`,
+      };
+    });
+
+  const handleMove = async (unitId: string, targetTextbookId: string) => {
+    await moveUnitToTextbook(unitId, targetTextbookId);
+  };
+
   // edit passages (본문 수정)
   const [passagesUnit, setPassagesUnit] = useState<Unit | null>(null);
   const [unitPassages, setUnitPassages] = useState<Passage[]>([]);
