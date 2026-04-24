@@ -94,6 +94,68 @@ const BookshelfUnit = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const structureInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 다중선택 + 다른 유닛으로 이동
+  const { display: levelDisplay } = useLevelLabels();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [allUnits, setAllUnits] = useState<
+    Array<Unit & { textbook_id: string }>
+  >([]);
+  const [allTextbooks, setAllTextbooks] = useState<
+    Array<{ id: string; title: string; volume_no: number; series_id: string }>
+  >([]);
+  const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSel = () => setSelectedIds(new Set());
+
+  useEffect(() => {
+    void (async () => {
+      const [units, seriesAll, { data: tbs }] = await Promise.all([
+        fetchAllUnits(),
+        fetchAllSeries(),
+        supabase.from("textbooks").select("id, title, volume_no, series_id"),
+      ]);
+      setAllUnits(units);
+      setAllSeriesAll(seriesAll);
+      setAllTextbooks(
+        ((tbs ?? []) as Array<{
+          id: string;
+          title: string;
+          volume_no: number;
+          series_id: string;
+        }>),
+      );
+    })().catch(() => undefined);
+  }, []);
+
+  const moveTargets: MoveTarget[] = allUnits
+    .filter((u) => u.id !== unit?.id)
+    .map((u) => {
+      const tb = allTextbooks.find((t) => t.id === u.textbook_id);
+      const s = tb ? allSeriesAll.find((x) => x.id === tb.series_id) : undefined;
+      const groupParts: string[] = [];
+      if (s) groupParts.push(levelDisplay(s.level));
+      if (s) groupParts.push(s.title);
+      if (tb) groupParts.push(tb.title);
+      return {
+        id: u.id,
+        label: `${u.title} (U${u.unit_no})`,
+        group: groupParts.join(" · ") || `U${u.unit_no}`,
+      };
+    });
+
+  const handleMove = async (passageId: string, targetUnitId: string) => {
+    await movePassageToUnit(passageId, targetUnitId);
+  };
+
   /**
    * HTML 파일은 Storage가 잘못된 Content-Type(text/plain 등)으로 응답할 때
    * 브라우저가 소스 코드를 그대로 보여주거나 한글이 깨지는 문제가 있어,
