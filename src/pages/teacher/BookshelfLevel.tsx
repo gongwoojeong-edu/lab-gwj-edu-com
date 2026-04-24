@@ -281,7 +281,7 @@ const BookshelfLevel = () => {
             </Link>
             <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
               <Layers className="size-6 text-primary" />
-              {level && LEVEL_LABEL[level]}
+              {level && levelDisplay(level)}
               <span className="text-sm font-mono text-muted-foreground">{level}</span>
               <span className="text-xs text-muted-foreground">· 시리즈</span>
             </h1>
@@ -289,9 +289,24 @@ const BookshelfLevel = () => {
               시리즈 → 권(교재) → 유닛 → 지문 순서로 자료를 관리합니다.
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4 mr-1" /> 새 시리즈
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size}개 선택됨
+                </span>
+                <Button variant="outline" size="sm" onClick={clearSel}>
+                  선택 해제
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+                  <ArrowRight className="size-4 mr-1" /> 다른 레벨로 이동
+                </Button>
+              </>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4 mr-1" /> 새 시리즈
+            </Button>
+          </div>
         </div>
 
         {loading ? (
