@@ -876,7 +876,7 @@ const SentenceLearn = () => {
               <div className="text-sm text-foreground">
                 {canAdvanceToTranslation
                   ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
+                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride
