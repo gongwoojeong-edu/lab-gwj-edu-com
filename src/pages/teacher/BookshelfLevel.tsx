@@ -35,15 +35,20 @@ import {
   Pencil,
   Trash2,
   ChevronRight,
+  ArrowRight,
 } from "lucide-react";
-import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeriesByLevel,
   createSeries,
   updateSeries,
   deleteSeries,
+  moveSeriesToLevel,
   type Series,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
