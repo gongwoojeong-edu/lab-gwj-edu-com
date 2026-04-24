@@ -135,7 +135,7 @@ const applyTemplate = (tmpl: string, n: number): string => {
 
 const MAX_BULK_UNITS = 100;
 
-
+const BookshelfVolume = () => {
   const { level, seriesNo, volumeNo } = useParams<{
     level: LevelCode;
     seriesNo: string;
