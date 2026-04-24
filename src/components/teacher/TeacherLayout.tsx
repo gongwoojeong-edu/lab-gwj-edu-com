@@ -31,6 +31,7 @@ import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/hooks/useViewMode";
 import { LEVELS, LEVEL_LABEL } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { cn } from "@/lib/utils";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
@@ -44,6 +45,7 @@ const TeacherSidebarInner = () => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
+  const { display: levelDisplay } = useLevelLabels();
   const pendingCount = usePendingReviewCount();
   const printCount = usePendingPrintCount();
 
@@ -134,7 +136,7 @@ const TeacherSidebarInner = () => {
                             ? "bg-primary text-primary-foreground font-bold"
                             : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground",
                         )}
-                        title={l.label}
+                        title={levelDisplay(l.code)}
                       >
                         {l.code}
                       </NavLink>

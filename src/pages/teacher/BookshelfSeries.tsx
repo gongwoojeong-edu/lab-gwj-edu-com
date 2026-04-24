@@ -34,19 +34,26 @@ import {
   Pencil,
   Trash2,
   ChevronRight,
+  ArrowRight,
 } from "lucide-react";
-import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import { Checkbox } from "@/components/ui/checkbox";
+import { type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
   fetchTextbooksBySeries,
   createTextbook,
   updateTextbook,
   deleteTextbook,
+  fetchAllSeries,
+  moveTextbookToSeries,
   type Series,
   type Textbook,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface VolumeStat {
   unitCount: number;
@@ -56,6 +63,7 @@ interface VolumeStat {
 const BookshelfSeries = () => {
   const { level, seriesNo } = useParams<{ level: LevelCode; seriesNo: string }>();
   const navigate = useNavigate();
+  const { display: levelDisplay } = useLevelLabels();
   const [series, setSeries] = useState<Series | null>(null);
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
   const [stats, setStats] = useState<Record<string, VolumeStat>>({});
@@ -77,6 +85,37 @@ const BookshelfSeries = () => {
   // delete
   const [deleteTarget, setDeleteTarget] = useState<Textbook | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // 다중 선택 + 이동
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [allSeries, setAllSeries] = useState<Series[]>([]);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSel = () => setSelectedIds(new Set());
+
+  useEffect(() => {
+    fetchAllSeries().then(setAllSeries).catch(() => undefined);
+  }, []);
+
+  const moveTargets: MoveTarget[] = allSeries
+    .filter((s) => s.id !== series?.id)
+    .map((s) => ({
+      id: s.id,
+      label: s.title,
+      group: `${levelDisplay(s.level)} · S${s.series_no}`,
+    }));
+
+  const handleMove = async (textbookId: string, targetSeriesId: string) => {
+    await moveTextbookToSeries(textbookId, targetSeriesId);
+  };
 
   const reload = async () => {
     if (!level || !seriesNo) return;
@@ -131,6 +170,7 @@ const BookshelfSeries = () => {
 
   useEffect(() => {
     void reload();
+    clearSel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, seriesNo]);
 
@@ -261,7 +301,7 @@ const BookshelfSeries = () => {
               to={`/teacher/bookshelf/${level}`}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              <ChevronLeft className="size-3" /> {level && LEVEL_LABEL[level]} 시리즈
+              <ChevronLeft className="size-3" /> {level && levelDisplay(level)} 시리즈
             </Link>
             <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
               <BookOpen className="size-6 text-primary" /> {series.title}
@@ -270,9 +310,24 @@ const BookshelfSeries = () => {
               </span>
             </h1>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4 mr-1" /> 새 권
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size}개 선택됨
+                </span>
+                <Button variant="outline" size="sm" onClick={clearSel}>
+                  선택 해제
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+                  <ArrowRight className="size-4 mr-1" /> 다른 시리즈로 이동
+                </Button>
+              </>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4 mr-1" /> 새 권
+            </Button>
+          </div>
         </div>
 
         {textbooks.length === 0 ? (
@@ -283,12 +338,22 @@ const BookshelfSeries = () => {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {textbooks.map((t) => {
               const st = stats[t.id];
+              const checked = selectedIds.has(t.id);
               return (
                 <Card
                   key={t.id}
-                  className="p-4 hover:border-primary/40 transition-colors group"
+                  className={cn(
+                    "p-4 hover:border-primary/40 transition-colors group",
+                    checked && "border-primary ring-1 ring-primary/30",
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleSel(t.id)}
+                      className="mt-1.5 shrink-0"
+                      aria-label="권 선택"
+                    />
                     <button
                       type="button"
                       onClick={() =>
@@ -443,6 +508,19 @@ const BookshelfSeries = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MoveItemsDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        itemKindLabel="권"
+        selectedIds={Array.from(selectedIds)}
+        targets={moveTargets}
+        onMove={handleMove}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
     </TeacherLayout>
   );
 };

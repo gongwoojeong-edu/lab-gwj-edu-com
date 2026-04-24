@@ -35,17 +35,23 @@ import {
   Pencil,
   Trash2,
   ChevronRight,
+  ArrowRight,
 } from "lucide-react";
-import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LEVELS, type LevelCode } from "@/lib/levels";
 import {
   fetchSeriesByLevel,
   createSeries,
   updateSeries,
   deleteSeries,
+  moveSeriesToLevel,
   type Series,
 } from "@/lib/textbooks";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
+import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface SeriesStat {
   textbookCount: number;
@@ -56,6 +62,7 @@ interface SeriesStat {
 const BookshelfLevel = () => {
   const { level } = useParams<{ level: LevelCode }>();
   const navigate = useNavigate();
+  const { display: levelDisplay } = useLevelLabels();
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [stats, setStats] = useState<Record<string, SeriesStat>>({});
   const [loading, setLoading] = useState(true);
@@ -76,6 +83,29 @@ const BookshelfLevel = () => {
   // delete dialog
   const [deleteTarget, setDeleteTarget] = useState<Series | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // 다중 선택 + 이동
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+
+  const toggleSel = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSel = () => setSelectedIds(new Set());
+
+  const moveTargets: MoveTarget[] = LEVELS.filter((l) => l.code !== level).map(
+    (l) => ({
+      id: l.code,
+      label: levelDisplay(l.code),
+      group: l.code,
+    }),
+  );
 
   const reload = async () => {
     if (!level) return;
@@ -143,8 +173,13 @@ const BookshelfLevel = () => {
 
   useEffect(() => {
     void reload();
+    clearSel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
+
+  const handleMove = async (seriesId: string, targetLevel: string) => {
+    await moveSeriesToLevel(seriesId, targetLevel as LevelCode);
+  };
 
   const handleCreate = async () => {
     if (!level) return;
@@ -247,7 +282,7 @@ const BookshelfLevel = () => {
             </Link>
             <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
               <Layers className="size-6 text-primary" />
-              {level && LEVEL_LABEL[level]}
+              {level && levelDisplay(level)}
               <span className="text-sm font-mono text-muted-foreground">{level}</span>
               <span className="text-xs text-muted-foreground">· 시리즈</span>
             </h1>
@@ -255,9 +290,24 @@ const BookshelfLevel = () => {
               시리즈 → 권(교재) → 유닛 → 지문 순서로 자료를 관리합니다.
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4 mr-1" /> 새 시리즈
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size}개 선택됨
+                </span>
+                <Button variant="outline" size="sm" onClick={clearSel}>
+                  선택 해제
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+                  <ArrowRight className="size-4 mr-1" /> 다른 레벨로 이동
+                </Button>
+              </>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4 mr-1" /> 새 시리즈
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -274,12 +324,22 @@ const BookshelfLevel = () => {
           <div className="grid gap-3 sm:grid-cols-2">
             {seriesList.map((s) => {
               const st = stats[s.id];
+              const checked = selectedIds.has(s.id);
               return (
                 <Card
                   key={s.id}
-                  className="p-4 hover:border-primary/40 transition-colors group"
+                  className={cn(
+                    "p-4 hover:border-primary/40 transition-colors group",
+                    checked && "border-primary ring-1 ring-primary/30",
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleSel(s.id)}
+                      className="mt-1.5 shrink-0"
+                      aria-label="시리즈 선택"
+                    />
                     <button
                       type="button"
                       onClick={() =>
@@ -338,7 +398,7 @@ const BookshelfLevel = () => {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>새 시리즈 — {level && LEVEL_LABEL[level]}</DialogTitle>
+            <DialogTitle>새 시리즈 — {level && levelDisplay(level)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -442,6 +502,19 @@ const BookshelfLevel = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MoveItemsDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        itemKindLabel="시리즈"
+        selectedIds={Array.from(selectedIds)}
+        targets={moveTargets}
+        onMove={handleMove}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
     </TeacherLayout>
   );
 };

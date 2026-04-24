@@ -245,6 +245,27 @@ export type Database = {
         }
         Relationships: []
       }
+      level_labels: {
+        Row: {
+          label: string
+          level: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          label: string
+          level: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          label?: string
+          level?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       modifier_relations: {
         Row: {
           created_at: string
