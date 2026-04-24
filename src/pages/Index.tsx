@@ -981,6 +981,20 @@ const Index = ({
   ).size;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
   const analysisDone = sentenceComplete && Object.keys(pendingPatchMap).length === 0;
+  // 분석 진행률 (0~1) — 마스터키가 있으면 그 비율, 없으면 단어 분석률 fallback
+  const analysisRate = (() => {
+    if (masterOwnerIds.size > 0) {
+      let filled = 0;
+      masterOwnerIds.forEach((id) => {
+        const wp = progressMap[id];
+        if (wp && wp.pos) filled += 1;
+      });
+      return filled / masterOwnerIds.size;
+    }
+    return analyzableIds.length > 0 ? completedCount / analyzableIds.length : 0;
+  })();
+  // 80% 이상 분석하면 다음 단계로 진행 가능 (SentenceLearn과 동일 기준)
+  const canAdvanceToTranslation = analysisDone || analysisRate >= 0.8;
 
   // 분석 완료 상태를 Supabase에 동기화 + 임베드 모드면 외부 콜백 호출
   useEffect(() => {
