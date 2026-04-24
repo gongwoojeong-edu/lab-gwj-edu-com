@@ -865,6 +865,7 @@ const SentenceLearn = () => {
                   onAnalysisProgress={(rate, meta) => {
                     setAnalysisRate(rate);
                     setAnalysisHasMaster(meta.hasMaster);
+                    setAnalysisCounts({ filled: meta.filled, total: meta.total });
                   }}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
