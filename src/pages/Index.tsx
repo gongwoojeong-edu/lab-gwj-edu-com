@@ -3009,9 +3009,10 @@ const Index = ({
             translationDone={translationDone}
             wordTestDone={wordTestDone}
             onJump={(s) => {
-              if (s === "analysis" && !preDone) return;
+              // 새 순서: pre → wordtest → analysis → translation
+              if (s === "wordtest" && !preDone) return;
+              if (s === "analysis" && (!preDone || !wordTestDone)) return;
               if (s === "translation" && !analysisDone) return;
-              if (s === "wordtest" && !translationDone) return;
               setLearningStep(s);
             }}
           />
