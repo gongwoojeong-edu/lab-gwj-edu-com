@@ -128,6 +128,15 @@ const SentenceLearn = () => {
   const [requesting, setRequesting] = useState(false);
   const [currentAttemptNo, setCurrentAttemptNo] = useState(1);
 
+  // sentence 변경 시 마스터 로드 게이트 리셋 + 800ms 안전망(외부 fetch가 어떤 이유로 늦거나 실패해도 진행 가능)
+  useEffect(() => {
+    setAnalysisMasterLoaded(false);
+    masterCallbackCountRef.current = 0;
+    if (!sentenceId) return;
+    const t = window.setTimeout(() => setAnalysisMasterLoaded(true), 800);
+    return () => window.clearTimeout(t);
+  }, [sentenceId]);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
