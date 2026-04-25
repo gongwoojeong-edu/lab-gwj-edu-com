@@ -881,7 +881,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     border: 0.5pt solid #000; padding: 1.2mm 2.5mm;
   }
   .cb-prow {
-    display: flex; gap: 1.5mm; padding: 0.6mm 0;
+    display: flex; gap: 1.5mm; padding: 0.3mm 0;
     border-bottom: 0.3pt dashed #bbb;
   }
   .cb-prow:last-child { border-bottom: none; }
@@ -891,13 +891,18 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     font-size: 6.5pt; color: #888; font-family: ui-monospace, "SF Mono", Menlo, monospace;
     margin-bottom: 0.2mm; letter-spacing: -0.02em;
   }
-  .cb-pbody .passage { padding: 0; line-height: 1.55; font-size: 9.3pt; letter-spacing: -0.015em; }
+  .cb-pbody .passage,
+  .cb-pbody .body-text {
+    padding: 0 !important; margin: 0;
+    line-height: 1.4 !important; font-size: 9pt !important;
+    letter-spacing: -0.02em; word-spacing: 0;
+  }
   /* 앞면: 한글해석 통합 박스 */
   .cb-trans-box {
-    border: 0.5pt solid #000; padding: 1.2mm 2.5mm;
-    font-size: 9.3pt; line-height: 1.45; color: #222; letter-spacing: -0.02em;
+    border: 0.5pt solid #000; padding: 1mm 2.5mm;
+    font-size: 9pt; line-height: 1.4; color: #222; letter-spacing: -0.02em;
   }
-  .cb-trow { padding: 0.5mm 0; border-bottom: 0.3pt dashed #ccc; }
+  .cb-trow { padding: 0.3mm 0; border-bottom: 0.3pt dashed #ccc; }
   .cb-trow:last-child { border-bottom: none; }
   .cb-tnum { font-weight: 700; margin-right: 1mm; }
   .cb-tcode {
