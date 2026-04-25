@@ -596,6 +596,7 @@ export type Database = {
           student_no: string
           teacher_id: string | null
           teacher_pin: string | null
+          unit_workbook_mode: string
           updated_at: string
           user_id: string
           word_test_pass_threshold: number
@@ -615,6 +616,7 @@ export type Database = {
           student_no: string
           teacher_id?: string | null
           teacher_pin?: string | null
+          unit_workbook_mode?: string
           updated_at?: string
           user_id: string
           word_test_pass_threshold?: number
@@ -634,6 +636,7 @@ export type Database = {
           student_no?: string
           teacher_id?: string | null
           teacher_pin?: string | null
+          unit_workbook_mode?: string
           updated_at?: string
           user_id?: string
           word_test_pass_threshold?: number
