@@ -1053,11 +1053,62 @@ const Index = ({
   const canAdvanceToTranslation = analysisDone || analysisRate >= 0.8;
 
   // 분석 완료 상태를 Supabase에 동기화 + 임베드 모드면 외부 콜백 호출
+  // ⚠ analysis_done=true 마킹 전에 progressMap의 모든 completed owner를 클라우드에
+  //    강제 backfill 한다. 그렇지 않으면 owner_progress가 0행인 채로 analysis_done만
+  //    true가 되어 매치율 NULL → 한글해석 단계로 못 넘어가는 사고가 재발한다.
   useEffect(() => {
     if (!analysisDone) return;
-    upsertSentenceProgress(sentence.id, { analysis_done: true }).catch(() => {});
-    if (embedMode && onAnalysisDone) onAnalysisDone();
-  }, [analysisDone, sentence.id, embedMode, onAnalysisDone]);
+    if (!studentMode) {
+      upsertSentenceProgress(sentence.id, { analysis_done: true }).catch(() => {});
+      if (embedMode && onAnalysisDone) onAnalysisDone();
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        // 현재 진행 중인 모든 completed owner를 owner_progress에 강제 upsert.
+        // pos 없는 owner(예: clause/bracket span)는 customAnswers에 들어있는
+        // 값을 그대로 보낸다.
+        const tasks: Promise<unknown>[] = [];
+        Object.entries(progressMap).forEach(([ownerId, wp]) => {
+          if (!wp?.completed) return;
+          const cloudPatch = wp.pos ? progressToCloudPatch(wp) : {};
+          const customPatch = (customAnswers[ownerId] ?? {}) as Record<string, unknown>;
+          const merged = { ...customPatch, ...cloudPatch };
+          if (Object.keys(merged).length === 0) return;
+          tasks.push(
+            upsertOwnerProgress({
+              sentence_id: sentence.id,
+              owner_id: ownerId,
+              progress: merged,
+              custom_answer: merged,
+              completed: true,
+            }),
+          );
+        });
+        if (tasks.length > 0) {
+          const results = await Promise.allSettled(tasks);
+          const failed = results.filter((r) => r.status === "rejected");
+          if (failed.length > 0) {
+            console.warn(
+              `[analysisDone] ${failed.length}/${tasks.length} owner_progress upsert 실패 — analysis_done 마킹 보류`,
+              failed,
+            );
+            return; // 실패 시 analysis_done 마킹 안 함 → 다음 useEffect tick에서 재시도
+          }
+        }
+        if (cancelled) return;
+        await upsertSentenceProgress(sentence.id, { analysis_done: true });
+        if (embedMode && onAnalysisDone) onAnalysisDone();
+      } catch (err) {
+        console.warn("[analysisDone] 동기화 실패", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysisDone, sentence.id, embedMode, onAnalysisDone, studentMode]);
 
   // 마스터키 owner_id 집합 hydrate — sentence 변경 시 한 번
   useEffect(() => {
