@@ -240,6 +240,8 @@ const RequestsInbox = () => {
     }
   };
 
+  const items = tab === "pending" ? pendingItems : doneItems;
+
   return (
     <TeacherLayout>
       <div className="p-6 max-w-6xl mx-auto space-y-4">
@@ -247,9 +249,6 @@ const RequestsInbox = () => {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Inbox className="size-6 text-primary" /> 요청확인
-              <span className="text-sm font-normal text-muted-foreground">
-                · 전체 {items.length}건 / 대기 {pendingCount}건
-              </span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               학생들이 보낸 시험지 인쇄 요청과 정답 보기 요청을 한 곳에서 처리합니다.
@@ -257,13 +256,20 @@ const RequestsInbox = () => {
           </div>
         </div>
 
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "pending" | "done")}>
+          <TabsList>
+            <TabsTrigger value="pending">대기 {pendingCount}</TabsTrigger>
+            <TabsTrigger value="done">처리완료함 {doneCount}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {loading ? (
           <Card className="p-10 flex items-center justify-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </Card>
         ) : items.length === 0 ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">
-            현재 대기 중인 요청이 없습니다.
+            {tab === "pending" ? "현재 대기 중인 요청이 없습니다." : "처리완료된 요청이 없습니다."}
           </Card>
         ) : (
           <div className="space-y-2">
