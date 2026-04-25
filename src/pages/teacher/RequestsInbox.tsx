@@ -35,6 +35,7 @@ import {
   fetchHandledPrintRequests,
   subscribeToPrintRequests,
   markPrintRequestHandled,
+  deletePrintRequest,
   type PrintRequest,
 } from "@/lib/printRequests";
 import {
@@ -42,6 +43,7 @@ import {
   subscribeToReviewRequests,
   approveReviewRequest,
   rejectReviewRequest,
+  deleteReviewRequest,
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
 import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
