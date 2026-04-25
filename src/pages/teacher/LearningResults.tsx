@@ -94,6 +94,10 @@ const LearningResults = () => {
   const [translationTextCache, setTranslationTextCache] = useState<
     Record<string, string | null>
   >({});
+  // 단어시험 오답복습(remediation) 시도 횟수: `${userId}::${parentSid}` → count
+  const [remediationCountMap, setRemediationCountMap] = useState<
+    Record<string, number>
+  >({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
