@@ -47,10 +47,16 @@ import { toast } from "@/hooks/use-toast";
 import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
 import {
   fetchAllTextbooks,
-  fetchPassagesByTextbook,
+  fetchSeriesByLevel,
+  fetchTextbooksBySeries,
+  fetchUnitsByTextbook,
+  fetchPassagesByUnit,
   type Textbook,
+  type Series,
+  type Unit,
   type Passage,
 } from "@/lib/textbooks";
+import { LEVELS, type LevelCode } from "@/lib/levels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import {
   fetchAssignmentProgress,
