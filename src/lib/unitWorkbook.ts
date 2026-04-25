@@ -199,12 +199,20 @@ const buildCoverPage = (
   const stamp = nowStamp();
   const sName = ctx.studentName ? escapeHtml(ctx.studentName) : "_______";
   const sNo = ctx.studentNo ? escapeHtml(ctx.studentNo) : "—";
+  // 페이지 추정값: both = 지문당 3섹션, unit_only = 지문당 2섹션
+  const perPassage = ctx.mode === "unit_only" ? 2 : 3;
   const items = completedCodes
     .map(
       (c, i) =>
-        `<div class="item"><span>${i + 1}. ${escapeHtml(c)}</span><span>${i * 3 + 2}p~</span></div>`,
+        `<div class="item"><span>${i + 1}. ${escapeHtml(c)}</span><span>${i * perPassage + 2}p~</span></div>`,
     )
     .join("");
+  const footnote =
+    ctx.mode === "unit_only"
+      ? "각 지문은 [분석 채점본 → 한글해석본] 순으로 구성되어 있어요. (유닛 모드 · 단어 시험지 제외)"
+      : "각 지문은 [분석 채점본 → 단어 시험지 → 한글해석본] 순으로 구성되어 있어요.";
+  const modeBadge =
+    ctx.mode === "unit_only" ? "유닛만 (분석 + 해석)" : "유닛 + 문장 (전체)";
   return `
 <div class="page cover">
   <div class="eyebrow">Gongwoojeong · Unit Workbook</div>
@@ -213,12 +221,13 @@ const buildCoverPage = (
     <div class="k">학생</div><div><b>${sName}</b> (${sNo})</div>
     <div class="k">유닛</div><div>${escapeHtml(ctx.unitCode)}</div>
     <div class="k">완료 지문</div><div>${completedCodes.length}건</div>
+    <div class="k">워크북 모드</div><div>${modeBadge}</div>
     <div class="k">출력 일시</div><div>${stamp}</div>
   </div>
   <div class="toc-title">수록 지문</div>
   <div class="toc">${items || '<div class="item"><span>(없음)</span></div>'}</div>
   <div class="footnote">
-    각 지문은 [분석 채점본 → 단어 시험지 → 한글해석본] 순으로 구성되어 있어요.
+    ${footnote}
   </div>
 </div>
 `;
@@ -229,6 +238,8 @@ export interface BuildUnitWorkbookInput {
   unitTitle: string;
   unitCode: string;
   studentId: string;
+  /** 워크북 인쇄 모드 — 기본 "both" (하위호환) */
+  mode?: UnitWorkbookMode;
 }
 
 /**
@@ -237,7 +248,9 @@ export interface BuildUnitWorkbookInput {
  */
 export const buildUnitWorkbookHtmlFor = async (
   input: BuildUnitWorkbookInput,
-): Promise<{ html: string; completedCount: number }> => {
+): Promise<{ html: string; completedCount: number; mode: UnitWorkbookMode }> => {
+  const mode: UnitWorkbookMode = input.mode === "unit_only" ? "unit_only" : "both";
+
   // 학생 정보
   const { data: sp } = await supabase
     .from("student_profiles")
@@ -258,6 +271,7 @@ export const buildUnitWorkbookHtmlFor = async (
     unitCode: input.unitCode,
     studentName,
     studentNo,
+    mode,
   };
 
   // 표지
@@ -266,7 +280,7 @@ export const buildUnitWorkbookHtmlFor = async (
   // 본문 — 직렬 처리 (병렬은 부하 + AI/DB rate limit 위험)
   const sections: string[] = [];
   for (const code of summary.completedCodes) {
-    const sec = await buildPassageSection(code, input.studentId);
+    const sec = await buildPassageSection(code, input.studentId, mode);
     sections.push(sec);
   }
 
@@ -285,5 +299,5 @@ export const buildUnitWorkbookHtmlFor = async (
   const title = `유닛 워크북 · ${input.unitTitle} · ${studentName ?? ""}`;
   const html = `<!DOCTYPE html><html lang="ko"><head><title>${escapeHtml(title)}</title>${COVER_HEAD}</head><body>${bodyParts}<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script></body></html>`;
 
-  return { html, completedCount: summary.completedCodes.length };
+  return { html, completedCount: summary.completedCodes.length, mode };
 };
