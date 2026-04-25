@@ -784,7 +784,8 @@ const LearningResults = () => {
                       <div className="space-y-2">
                         {groupArr.map((g) => {
                           const groupExpandKey = `${userId}::${g.key}`;
-                          const isOpen = expandedGroups[groupExpandKey] ?? false;
+                          // 기본값: 펼쳐진 상태 (이전 UI처럼 온라인 학습기록/HO 입력란이 바로 보이도록)
+                          const isOpen = expandedGroups[groupExpandKey] ?? true;
                           // 그룹 요약: 인쇄 완료 / 분석 통과 / 단어 통과 카운트
                           let printedCnt = 0, analysisPassCnt = 0, wordPassCnt = 0;
                           g.sids.forEach((sid) => {
