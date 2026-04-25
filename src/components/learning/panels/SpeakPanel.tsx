@@ -237,6 +237,17 @@ export const SpeakPanel = ({ word, onFinish, onTeacherAllPass }: Props) => {
         )}
 
         <TeacherSkipButton onApproved={teacherApprove} />
+
+        {onTeacherAllPass && (
+          <TeacherSkipButton
+            onApproved={() => {
+              if (finishedRef.current) return;
+              finishedRef.current = true;
+              onTeacherAllPass();
+            }}
+            label="🔓 발화 전체 올패스"
+          />
+        )}
       </div>
 
       <p
