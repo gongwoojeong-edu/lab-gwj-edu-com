@@ -108,6 +108,10 @@ const SentenceLearn = () => {
   });
   const ANALYSIS_GATE = 0.8;
   const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
+  const testWordResultForFinalSubmit = () => ({
+    passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
+    score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
+  });
 
   // 분석 제출 확인 다이얼로그
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
@@ -439,6 +443,8 @@ const SentenceLearn = () => {
             : "hold";
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
+          analysis_done: analysisPassed || (opts?.teacherOverride ? true : undefined),
+          analysis_match_rate: grade.rate,
           status: nextStatus,
           passed_at: nextStatus === "pass" ? new Date().toISOString() : null,
         });
