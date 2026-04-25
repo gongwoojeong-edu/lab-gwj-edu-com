@@ -339,24 +339,23 @@ export const buildUnitWorkbookHtmlFor = async (
     mode,
   };
 
-  // 표지
-  const cover = buildCoverPage(ctx, summary.completedCodes);
+  // unit_only 모드: 새 통합 워크북 한 장 (앞=분석+해석, 뒤=구조도). 표지/개별섹션 모두 생략.
+  if (mode === "unit_only") {
+    const combined = await buildUnitOnlyCombined(
+      input.unitId,
+      summary.completedCodes,
+      input.studentId,
+      ctx,
+    );
+    return { html: combined, completedCount: summary.completedCodes.length, mode };
+  }
 
-  // 본문 — 직렬 처리 (병렬은 부하 + AI/DB rate limit 위험)
+  // both 모드: 표지 + 지문별 (분석/단어/해석) 섹션
+  const cover = buildCoverPage(ctx, summary.completedCodes);
   const sections: string[] = [];
   for (const code of summary.completedCodes) {
     const sec = await buildPassageSection(code, input.studentId, mode);
     sections.push(sec);
-  }
-
-  // unit_only: 마지막에 통합 한글해석본 + 유닛 끝 페이지 (1회)
-  if (mode === "unit_only") {
-    try {
-      const tail = await buildUnitOnlyTail(summary.completedCodes, input.studentId, ctx);
-      sections.push(tail);
-    } catch {
-      /* skip */
-    }
   }
 
   // 각 섹션 빌더가 자체 doctype/wrap을 만들어 반환하므로,
