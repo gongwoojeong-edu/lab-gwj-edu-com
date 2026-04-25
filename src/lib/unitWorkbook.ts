@@ -180,29 +180,12 @@ const buildUnitOnlyCombined = async (
     });
   }
 
-  // 구조도 PDF 서명 URL — structure_pdf_url 우선, 없으면 analysis_pdf_url fallback
-  const { data: unitRow } = await supabase
-    .from("textbook_units")
-    .select("structure_pdf_url, analysis_pdf_url")
-    .eq("id", unitId)
-    .maybeSingle();
-  let structurePdfUrl: string | null = null;
-  const path = (unitRow?.structure_pdf_url as string | null) ?? null;
-  const fallback = (unitRow?.analysis_pdf_url as string | null) ?? null;
-  if (path) {
-    structurePdfUrl = await getStructurePdfSignedUrl(path).catch(() => null);
-  }
-  if (!structurePdfUrl && fallback) {
-    structurePdfUrl = await getAnalysisPdfSignedUrl(fallback).catch(() => null);
-  }
-
   return buildUnitCombinedWorkbookHtml({
     unitTitle: ctx.unitTitle,
     unitCode: ctx.unitCode,
     studentName: ctx.studentName,
     studentNo: ctx.studentNo,
     items,
-    structurePdfUrl,
   });
 };
 
