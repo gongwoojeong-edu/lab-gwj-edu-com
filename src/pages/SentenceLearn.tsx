@@ -273,8 +273,8 @@ const SentenceLearn = () => {
 
       // 추출된 단어가 없으면 pre/wordtest는 자동 done 처리 → '구문 분석'에서 시작
       const hasWords = built.length > 0;
-      const preEff = preDoneEff || !hasWords;
-      const wtEff = !!prog?.word_test_done || wordtestAllPassed || !hasWords || !flags.wordtest;
+      const wtEff = !!prog?.word_test_done || wordtestAllPassed || analysisDoneEff || translationDoneEff || !hasWords || !flags.wordtest;
+      const preEff = preDoneEff || wtEff || analysisDoneEff || translationDoneEff || !hasWords;
       setPreDone(preEff);
       setWordtestDone(wtEff);
 
