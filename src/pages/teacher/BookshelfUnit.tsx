@@ -851,7 +851,7 @@ const BookshelfUnit = () => {
             <Button
               size="sm"
               className="h-9"
-              onClick={handlePrintUnitWorkbook}
+              onClick={handleOpenWorkbookPreview}
               disabled={
                 !workbookStudentId ||
                 workbookPrinting ||
@@ -863,9 +863,9 @@ const BookshelfUnit = () => {
               {workbookPrinting ? (
                 <Loader2 className="size-3.5 mr-1 animate-spin" />
               ) : (
-                <Printer className="size-3.5 mr-1" />
+                <Eye className="size-3.5 mr-1" />
               )}
-              {workbookPrinting ? "인쇄 준비 중…" : "워크북 인쇄"}
+              {workbookPrinting ? "인쇄 준비 중…" : "미리보기 & 인쇄"}
             </Button>
           </div>
         </Card>
