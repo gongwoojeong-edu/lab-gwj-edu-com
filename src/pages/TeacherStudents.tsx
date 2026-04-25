@@ -97,6 +97,10 @@ const TeacherStudents = () => {
   const [analysisSaving, setAnalysisSaving] = useState<string | null>(null);
   const [timeLimitByName, setTimeLimitByName] = useState<Record<string, number>>({});
   const [timeLimitSaving, setTimeLimitSaving] = useState<string | null>(null);
+  const [workbookModeByName, setWorkbookModeByName] = useState<
+    Record<string, "unit_only" | "both">
+  >({});
+  const [workbookModeSaving, setWorkbookModeSaving] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
   const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
