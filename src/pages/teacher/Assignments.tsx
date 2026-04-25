@@ -463,6 +463,40 @@ const Assignments = () => {
     void load();
   };
 
+  /** 그룹 전체(같은 유닛의 모든 지문 행)를 일괄 삭제 */
+  const handleDeleteGroup = async (group: AssignmentGroup) => {
+    const ids = group.rows.map((r) => r.id);
+    if (ids.length === 0) return;
+    const ok = window.confirm(
+      `이 유닛 과제(${group.totalCount}개 지문)를 모두 삭제할까요?`,
+    );
+    if (!ok) return;
+    const { error } = await supabase.from("assignments").delete().in("id", ids);
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `🗑️ ${ids.length}개 과제 삭제됨` });
+    void load();
+  };
+
+  /** 그룹 전체 마감일 +1주 일괄 연장 */
+  const handleExtendGroupWeek = async (group: AssignmentGroup) => {
+    const cur = new Date(group.due_at);
+    const next = new Date(cur.getTime() + 7 * 86400000);
+    const ids = group.rows.map((r) => r.id);
+    const { error } = await supabase
+      .from("assignments")
+      .update({ due_at: next.toISOString() })
+      .in("id", ids);
+    if (error) {
+      toast({ title: "연장 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "마감일 +1주 연장됨", description: format(next, "yyyy-MM-dd HH:mm") });
+    void load();
+  };
+
   // +1주 마감일 빠른 연장
   const handleExtendWeek = async (row: AssignmentRow) => {
     const cur = new Date(row.due_at);
