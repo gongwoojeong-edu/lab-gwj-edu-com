@@ -96,7 +96,7 @@ const StudentHome = () => {
   const [next, setNext] = useState<Sentence | null>(null);
   const [done, setDone] = useState(false);
   const [recent, setRecent] = useState<RecentItem[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
+  const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>([]);
   const [assignmentProgress, setAssignmentProgress] = useState<
     Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>
   >(new Map());
