@@ -248,8 +248,138 @@ export const buildHandoutPrintHtml = (p: HandoutPayload): string => {
 };
 
 // ============================================================
-// 단어 HO
+// 유닛 통합 HO (unit_only 모드 전용)
+//   · 통합 한글해석본: 영문 한 줄 + 학생 한글해석 한 줄, 자연 페이지 분할
+//   · 유닛 끝: 구조도 1장 + 지스트/영작 (한 번만)
 // ============================================================
+export interface UnitOnlyHandoutItem {
+  passageCode: string;
+  english: string;
+  /** 학생 제출 한글해석 — 비어 있으면 "(미제출)" */
+  studentTranslation: string;
+}
+export interface UnitOnlyHandoutPayload {
+  unitTitle: string;
+  unitCode: string;
+  studentName: string | null;
+  studentNo: string | null;
+  items: UnitOnlyHandoutItem[];
+}
+
+export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
+  const stamp = nowStamp();
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
+  const headerMeta = `${escapeHtml(p.unitCode)} · 학생: ${sName} ${sNo}`;
+
+  const rows = p.items
+    .map((it, i) => {
+      const en = escapeHtml(it.english);
+      const ko = it.studentTranslation && it.studentTranslation.trim()
+        ? escapeHtml(it.studentTranslation)
+        : '<span class="muted">(미제출)</span>';
+      return `
+        <div class="srow">
+          <div class="srow-head">
+            <span class="num">${i + 1}.</span>
+            <span class="code">${escapeHtml(it.passageCode)}</span>
+          </div>
+          <div class="en">${en}</div>
+          <div class="ko"><b>해석:</b> ${ko}</div>
+        </div>`;
+    })
+    .join("");
+
+  // 스타일 — passage 내 자동 페이지 분할 허용 (.srow 단위 break-inside:avoid)
+  const body = `
+<style>
+  .uo-passage-page { padding: 4mm 5mm; }
+  .srow {
+    padding: 2mm 0 2.5mm; border-bottom: 0.3pt dashed #aaa;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .srow:last-child { border-bottom: none; }
+  .srow-head { font-size: 8.5pt; color: #444; margin-bottom: 1mm; }
+  .srow-head .num { font-weight: 700; margin-right: 1.5mm; }
+  .srow-head .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .srow .en { font-size: 11pt; line-height: 1.7; padding: 0.5mm 0; }
+  .srow .ko {
+    font-size: 10pt; line-height: 1.6; color: #222; padding: 1mm 0 0;
+    min-height: 6mm; border-left: 1.5pt solid #999; padding-left: 2mm; margin-top: 1mm;
+  }
+  .srow .ko .muted { color: #888; }
+  .uo-end-page { padding: 4mm 5mm; }
+  .uo-end-grid {
+    min-height: 90mm;
+    background-image:
+      linear-gradient(#bbb 0.3pt, transparent 0.3pt),
+      linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
+    background-size: 4mm 4mm;
+    border: 0.5pt solid #000;
+  }
+  .uo-end-write { display: flex; flex-direction: column; gap: 6mm; padding-top: 4mm; }
+  .uo-end-write-line { border-bottom: 0.5pt solid #000; height: 0; }
+  .uo-end-grid-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; padding: 0 0 4mm; }
+</style>
+
+<!-- 통합 한글해석본 (1~N 페이지, 자동 분할) -->
+<div class="page uo-passage-page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Unit Hand-out</div>
+      <div class="title">유닛 통합 한글해석본 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>지문 ${p.items.length}건</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">유닛 본문 — 영문 + 학생 제출 한글해석</div>
+    ${rows || '<div class="srow"><div class="ko">(완료 지문 없음)</div></div>'}
+  </div>
+</div>
+
+<!-- 유닛 끝 — 구조도 + 지스트 + 영작 (한 번만) -->
+<div class="page uo-end-page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Unit Hand-out</div>
+      <div class="title">유닛 마무리 · 구조도 · 지스트 · 영작</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>유닛 정리</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">① 구조도</div>
+    <div class="uo-end-grid"></div>
+  </div>
+  <div class="uo-end-grid-cols" style="padding: 0 5mm 4mm;">
+    <div>
+      <div class="section-title">② 지스트 (주제문장)</div>
+      <div class="uo-end-write">
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">③ 영작</div>
+      <div class="uo-end-write">
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+  return wrapDoc(`Unit HO ${p.unitCode}`, body);
+};
+
+
 export type WordMode = "ko" | "en" | "mix";
 
 export interface WordPayload {
