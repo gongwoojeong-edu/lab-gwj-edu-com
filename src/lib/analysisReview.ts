@@ -119,7 +119,11 @@ export const rejectReviewRequest = async (id: string, note?: string): Promise<vo
     .eq("id", id);
 };
 
-/** 선생님: 모든 pending 요청 목록 (오래된 순, 미통 보조 우선) */
+/** 선생님: 요청 행 삭제 (테스트/실수 데이터 정리용) */
+export const deleteReviewRequest = async (id: string): Promise<void> => {
+  const { error } = await supabase.from("analysis_review_requests").delete().eq("id", id);
+  if (error) throw error;
+};
 export const fetchPendingRequests = async (): Promise<AnalysisReviewRequest[]> => {
   const { data } = await supabase
     .from("analysis_review_requests")
