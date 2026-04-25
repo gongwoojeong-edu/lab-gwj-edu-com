@@ -152,13 +152,20 @@ const TeacherStudents = () => {
     }
     setPinSaving(true);
     try {
-      let q = supabase
+      const uid = pinTarget.userId ?? profileUserIdByName[pinTarget.name];
+      if (!uid) {
+        toast({
+          title: "일치하는 학생 계정을 찾지 못했어요",
+          description: `'${pinTarget.name}' 이름의 학생 계정이 등록되어 있어야 PIN이 적용됩니다.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const { data, error } = await supabase
         .from("student_profiles")
         .update({ teacher_pin: pinValue })
+        .eq("user_id", uid)
         .select("user_id");
-      const profileUserId = profileUserIdByName[pinTarget.name];
-      q = profileUserId ? q.eq("user_id", profileUserId) : q.eq("display_name", pinTarget.name);
-      const { data, error } = await q;
       if (error) throw error;
       if (!data || data.length === 0) {
         toast({
