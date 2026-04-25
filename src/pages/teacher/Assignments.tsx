@@ -318,26 +318,49 @@ const Assignments = () => {
       // studentIds 가 비어있으면 [null] (전체학생 1건), 아니면 각 학생별 1건씩
       const targets: (string | null)[] =
         form.studentIds.length === 0 ? [null] : form.studentIds;
-      const rowsToInsert = targets.map((sid) => ({
-        teacher_id: u.user!.id,
-        student_id: sid,
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        sentence_id: form.selectedPassageCode || null,
-        due_at: endOfDay.toISOString(),
-        include_pre: form.includePre,
-        include_analysis: form.includeAnalysis,
-        include_translation: form.includeTranslation,
-        include_wordtest: form.includeWordtest,
-      }));
+
+      // 🆕 유닛 단위 자동 부여: 선택된 유닛의 모든 지문에 대해 과제 생성
+      // (지문 선택은 유닛 확인용으로만 사용; 실제로는 해당 유닛 전체 지문이 부여됨)
+      const unitPassages = form.selectedUnitId
+        ? passagesByUnit[form.selectedUnitId] ?? []
+        : [];
+      const passageCodes: string[] =
+        unitPassages.length > 0
+          ? unitPassages
+              .slice()
+              .sort((a, b) => a.passage_no - b.passage_no)
+              .map((p) => p.code)
+          : form.selectedPassageCode
+          ? [form.selectedPassageCode]
+          : [];
+
+      if (passageCodes.length === 0) {
+        throw new Error("부여할 지문을 찾을 수 없습니다");
+      }
+
+      const rowsToInsert = targets.flatMap((sid) =>
+        passageCodes.map((code) => ({
+          teacher_id: u.user!.id,
+          student_id: sid,
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          sentence_id: code,
+          due_at: endOfDay.toISOString(),
+          include_pre: form.includePre,
+          include_analysis: form.includeAnalysis,
+          include_translation: form.includeTranslation,
+          include_wordtest: form.includeWordtest,
+        })),
+      );
       const { error } = await supabase.from("assignments").insert(rowsToInsert);
       if (error) throw error;
+      const studentMsg =
+        form.studentIds.length === 0
+          ? "전체 학생"
+          : `${form.studentIds.length}명`;
       toast({
         title: "✅ 과제가 생성되었습니다",
-        description:
-          form.studentIds.length === 0
-            ? "전체 학생 대상"
-            : `${form.studentIds.length}명에게 부여됨`,
+        description: `${studentMsg} × 유닛 지문 ${passageCodes.length}개 = ${rowsToInsert.length}건 부여됨`,
       });
       setForm(emptyForm());
       void load();
@@ -675,8 +698,8 @@ const Assignments = () => {
         <div className="sm:col-span-2 space-y-1.5">
           <Label className="flex items-center gap-2">
             연결 지문
-            <span className="text-[10px] font-normal text-muted-foreground">
-              (유닛 선택 시 첫 지문이 자동 선택돼요. 다른 지문으로 바꿀 수 있어요)
+            <span className="text-[10px] font-normal text-primary">
+              (✨ 신규 과제는 선택한 <b>유닛 전체 지문</b>이 자동 부여됩니다. 아래 선택은 확인용)
             </span>
           </Label>
           <Select
