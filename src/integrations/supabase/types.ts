@@ -581,6 +581,36 @@ export type Database = {
         }
         Relationships: []
       }
+      student_passage_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          sentence_id: string
+          skip_pre: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sentence_id: string
+          skip_pre?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sentence_id?: string
+          skip_pre?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       student_profiles: {
         Row: {
           analysis_pass_threshold: number
