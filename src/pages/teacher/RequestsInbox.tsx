@@ -413,6 +413,7 @@ const RequestsInbox = () => {
                       </div>
                       <div className="text-xs text-muted-foreground">{time}</div>
                     </div>
+                    {wbToggle}
                     <div className="flex items-center gap-1.5">
                       <Button
                         size="sm"
@@ -539,6 +540,7 @@ const RequestsInbox = () => {
                       )}
                     </div>
                   </div>
+                  {wbToggle}
                   <div className="flex items-center gap-1.5">
                     <Button
                       size="sm"
