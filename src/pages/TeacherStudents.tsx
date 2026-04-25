@@ -256,21 +256,23 @@ const TeacherStudents = () => {
     (async () => {
       const { data, error } = await supabase
         .from("student_profiles")
-        .select("user_id, student_no, display_name, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+        .select("user_id, student_no, display_name, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, unit_workbook_mode");
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
       const tlMap: Record<string, number> = {};
+      const wbMap: Record<string, "unit_only" | "both"> = {};
       const userMap: Record<string, string> = {};
       const noMap: Record<string, string> = {};
       const dbStudents: Student[] = [];
-      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
+      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null; unit_workbook_mode: string | null }) => {
         const name = row.display_name || row.student_no || row.user_id.slice(0, 8);
         wtMap[name] = Number(row.word_test_pass_threshold ?? 0.8);
         anMap[name] = Number(row.analysis_pass_threshold ?? 0.8);
         tlMap[name] = Number(row.word_test_time_limit_sec ?? 20);
+        wbMap[name] = (row.unit_workbook_mode === "unit_only" ? "unit_only" : "both");
         userMap[name] = row.user_id;
         if (row.student_no) noMap[name] = row.student_no;
         dbStudents.push({
@@ -283,6 +285,7 @@ const TeacherStudents = () => {
       setThresholdByName(wtMap);
       setAnalysisByName(anMap);
       setTimeLimitByName(tlMap);
+      setWorkbookModeByName(wbMap);
       setProfileUserIdByName(userMap);
       setProfileNoByName(noMap);
 
