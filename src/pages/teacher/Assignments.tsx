@@ -1006,26 +1006,34 @@ const Assignments = () => {
                 const allTargetIds = head.student_id
                   ? [head.student_id]
                   : students.map((s) => s.user_id);
-                const mergedProgress: AssignmentProgressMap = {};
+                const mergedProgress: AssignmentProgressMap = new Map();
                 allTargetIds.forEach((uid) => {
-                  // 유닛 안의 모든 sentence가 done이어야 그 학생이 done
+                  // 유닛 안의 모든 sentence가 해당 step을 완료해야 그 학생이 그 step done
+                  const isStepDone = (s: { status: string }) =>
+                    s.status === "pass" || s.status === "done";
                   let allPre = true, allWt = true, allAn = true, allTr = true;
                   let anyData = false;
+                  let preScoreSum = 0, preCnt = 0;
+                  let anScoreSum = 0, anCnt = 0;
+                  let wtScoreSum = 0, wtCnt = 0;
                   g.rows.forEach((r) => {
-                    const p = progressByAsg[r.id]?.[uid];
+                    const p = progressByAsg[r.id]?.get(uid);
                     if (!p) { allPre = allWt = allAn = allTr = false; return; }
                     anyData = true;
-                    if (!p.pre_done) allPre = false;
-                    if (!p.word_test_done) allWt = false;
-                    if (!p.analysis_done) allAn = false;
-                    if (!p.translation_done) allTr = false;
+                    if (!isStepDone(p.pre)) allPre = false;
+                    else if (p.pre.score != null) { preScoreSum += p.pre.score; preCnt++; }
+                    if (!isStepDone(p.wordtest)) allWt = false;
+                    else if (p.wordtest.score != null) { wtScoreSum += p.wordtest.score; wtCnt++; }
+                    if (!isStepDone(p.analysis)) allAn = false;
+                    else if (p.analysis.score != null) { anScoreSum += p.analysis.score; anCnt++; }
+                    if (!isStepDone(p.translation)) allTr = false;
                   });
-                  mergedProgress[uid] = {
-                    pre_done: anyData && allPre,
-                    word_test_done: anyData && allWt,
-                    analysis_done: anyData && allAn,
-                    translation_done: anyData && allTr,
-                  };
+                  mergedProgress.set(uid, {
+                    pre: { status: anyData && allPre ? "done" : "missing", score: preCnt > 0 ? Math.round(preScoreSum / preCnt) : null },
+                    analysis: { status: anyData && allAn ? "pass" : "missing", score: anCnt > 0 ? Math.round(anScoreSum / anCnt) : null },
+                    translation: { status: anyData && allTr ? "done" : "missing", score: null },
+                    wordtest: { status: anyData && allWt ? "pass" : "missing", score: wtCnt > 0 ? Math.round(wtScoreSum / wtCnt) : null },
+                  });
                 });
                 return (
                   <div key={g.key} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", missingSentence ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5" : rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
