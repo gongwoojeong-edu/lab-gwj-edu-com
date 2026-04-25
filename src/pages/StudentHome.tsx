@@ -2,6 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText } from "lucide-react";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
