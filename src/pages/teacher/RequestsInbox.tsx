@@ -102,11 +102,17 @@ const RequestsInbox = () => {
       if (userIds.length > 0) {
         const { data } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no")
+          .select("user_id, display_name, student_no, unit_workbook_mode")
           .in("user_id", userIds);
         const map: Record<string, StudentInfo> = {};
         (data ?? []).forEach((s) => {
-          map[s.user_id] = s as StudentInfo;
+          const row = s as { user_id: string; display_name: string | null; student_no: string; unit_workbook_mode: string | null };
+          map[row.user_id] = {
+            user_id: row.user_id,
+            display_name: row.display_name,
+            student_no: row.student_no,
+            unit_workbook_mode: row.unit_workbook_mode === "unit_only" ? "unit_only" : "both",
+          };
         });
         setStudents(map);
       }
