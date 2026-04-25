@@ -140,6 +140,82 @@ const BookshelfUnit = () => {
   };
   const clearSel = () => setSelectedIds(new Set());
 
+  // 학생 목록 로드 (워크북 인쇄 대상)
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("user_id, display_name, student_no, unit_workbook_mode")
+        .order("student_no", { ascending: true });
+      const list = (data ?? []).map((r) => ({
+        id: r.user_id as string,
+        name: (r.display_name as string | null) ?? (r.student_no as string),
+        no: (r.student_no as string) ?? "",
+        mode:
+          ((r as { unit_workbook_mode?: string }).unit_workbook_mode === "unit_only"
+            ? "unit_only"
+            : "both") as "unit_only" | "both",
+      }));
+      setStudentList(list);
+    })().catch(() => undefined);
+  }, []);
+
+  // 학생 선택 시 진행상황 요약 fetch
+  useEffect(() => {
+    setWorkbookSummary(null);
+    if (!workbookStudentId || !unit) return;
+    let cancelled = false;
+    setWorkbookLoading(true);
+    void summarizeUnitProgress(unit.id, workbookStudentId)
+      .then((s) => {
+        if (cancelled) return;
+        setWorkbookSummary({
+          total: s.totalPassages,
+          completed: s.completedCodes.length,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setWorkbookSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setWorkbookLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workbookStudentId, unit]);
+
+  const handlePrintUnitWorkbook = async () => {
+    if (!unit || !workbookStudentId || workbookPrinting) return;
+    if (!workbookSummary || workbookSummary.completed === 0) {
+      toast({ title: "완료한 지문이 없어요", variant: "destructive" });
+      return;
+    }
+    setWorkbookPrinting(true);
+    try {
+      const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
+      const { html, completedCount } = await buildUnitWorkbookHtmlFor({
+        unitId: unit.id,
+        unitTitle: unit.title,
+        unitCode,
+        studentId: workbookStudentId,
+      });
+      await launchPrintHtml(html, {
+        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}`,
+        loadTimeoutMs: 12000,
+        cleanupAfterMs: 2500,
+      });
+      toast({
+        title: "유닛 워크북 인쇄 시작",
+        description: `${completedCount}개 지문 포함`,
+      });
+    } catch (err) {
+      toast({ title: "인쇄 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setWorkbookPrinting(false);
+    }
+  };
+
   useEffect(() => {
     void (async () => {
       const [units, seriesAll, { data: tbs }] = await Promise.all([
