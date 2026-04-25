@@ -505,6 +505,7 @@ const SentenceLearn = () => {
       });
     } catch (e) {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
+      throw e;
     }
     setWordtestDone(true);
     setAnalysisDone(true);
