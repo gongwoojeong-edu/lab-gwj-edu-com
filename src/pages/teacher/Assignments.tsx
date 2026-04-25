@@ -358,30 +358,50 @@ const Assignments = () => {
 
   const openEdit = async (row: AssignmentRow) => {
     setEditingRow(row);
-    // 해당 sentence_id의 교재를 찾아 미리 셀렉트
+    // sentence_id로부터 level/series/textbook/unit 역추적
+    let level: LevelCode | "" = "";
+    let seriesId = "";
     let tbId = "";
+    let unitId = "";
     if (row.sentence_id) {
-      // 모든 로드된 passages에서 찾기
-      for (const [id, ps] of Object.entries(passagesByTb)) {
-        if (ps.some((p) => p.code === row.sentence_id)) {
-          tbId = id;
-          break;
+      const { data } = await supabase
+        .from("textbook_passages")
+        .select("textbook_id, unit_id")
+        .eq("code", row.sentence_id)
+        .maybeSingle();
+      if (data) {
+        tbId = (data as any).textbook_id as string;
+        unitId = (data as any).unit_id as string;
+        const tb = textbooks.find((t) => t.id === tbId);
+        if (tb) {
+          level = tb.level;
+          seriesId = tb.series_id;
+        } else {
+          // textbooks 목록에 아직 없는 경우 직접 조회
+          const { data: tbRow } = await supabase
+            .from("textbooks")
+            .select("series_id, level")
+            .eq("id", tbId)
+            .maybeSingle();
+          if (tbRow) {
+            seriesId = (tbRow as any).series_id as string;
+            const { data: srRow } = await supabase
+              .from("textbook_series")
+              .select("level")
+              .eq("id", seriesId)
+              .maybeSingle();
+            if (srRow) level = (srRow as any).level as LevelCode;
+          }
         }
-      }
-      if (!tbId) {
-        // DB 조회
-        const { data } = await supabase
-          .from("textbook_passages")
-          .select("textbook_id")
-          .eq("code", row.sentence_id)
-          .maybeSingle();
-        if (data) tbId = (data as any).textbook_id as string;
       }
     }
     setEditForm({
       title: row.title,
       studentId: row.student_id ?? "__all__",
+      selectedLevel: level,
+      selectedSeriesId: seriesId,
       selectedTbId: tbId,
+      selectedUnitId: unitId,
       selectedPassageCode: row.sentence_id ?? "",
       description: row.description ?? "",
       dueDate: new Date(row.due_at),
