@@ -1252,7 +1252,7 @@ const Index = ({
     return false;
   };
 
-  const finalizeCompletedAnalysis = (tokenId: string, options?: { persistClause?: boolean }) => {
+  const finalizeCompletedAnalysis = (tokenId: string, options?: { persistClause?: boolean; progressPatch?: WordProgress }) => {
     const indices = Array.from(new Set(selectedWordIndices)).sort((a, b) => a - b);
 
     if (indices.length > 0) {
@@ -1272,7 +1272,11 @@ const Index = ({
     }
 
     if (options?.persistClause && indices.length > 0) {
+      const studentProgressPatch = studentMode && options.progressPatch
+        ? progressToCloudPatch(options.progressPatch)
+        : {};
       saveCustom(tokenId, {
+        ...studentProgressPatch,
         clauseStart: indices[0],
         clauseEnd: indices[indices.length - 1],
       });
