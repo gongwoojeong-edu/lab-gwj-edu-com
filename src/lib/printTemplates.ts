@@ -10,7 +10,74 @@
 //   - 데이터는 호출자가 미리 fetch 해서 payload 로 넘긴다
 // ============================================================
 import type { ClozeSegment } from "./handoutCloze";
-import type { CompareDetailRow } from "./analysisCompare";
+import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
+
+// ============================================================
+// 학생 owner_progress 라벨 포맷터 (인쇄용)
+//   pos / noun / adj / adv / verb / etc 를 한 줄 라벨로 변환
+// ============================================================
+interface AnyProgressLite {
+  pos?: string | null;
+  noun?: { form?: string | null; element?: string | null; role?: string | null; subrole?: string | null } | null;
+  adj?: { form?: string | null; element?: string | null; role?: string | null } | null;
+  adv?: { form?: string | null; subtype?: string | null; role?: string | null } | null;
+  etc?: { kind?: string | null; role?: string | null } | null;
+  verb?: {
+    number?: string | null;
+    tense?: string | null;
+    aspect?: string | null;
+    voice?: string | null;
+    proverb?: string | null;
+  } | null;
+}
+const POS_KO: Record<string, string> = {
+  noun: "명사",
+  verb: "동사",
+  adj: "형용사",
+  adv: "부사",
+  etc: "기타",
+};
+const formatProgressLabel = (p: AnyProgressLite | undefined | null): string => {
+  if (!p || !p.pos) return "";
+  const head = POS_KO[p.pos] ?? p.pos;
+  const parts: string[] = [];
+  switch (p.pos) {
+    case "noun": {
+      if (p.noun?.form) parts.push(p.noun.form);
+      if (p.noun?.element) parts.push(p.noun.element);
+      if (p.noun?.role) parts.push(p.noun.role);
+      if (p.noun?.subrole) parts.push(p.noun.subrole);
+      break;
+    }
+    case "adj": {
+      if (p.adj?.form) parts.push(p.adj.form);
+      if (p.adj?.element) parts.push(p.adj.element);
+      if (p.adj?.role) parts.push(p.adj.role);
+      break;
+    }
+    case "adv": {
+      if (p.adv?.form) parts.push(p.adv.form);
+      if (p.adv?.subtype) parts.push(p.adv.subtype);
+      if (p.adv?.role) parts.push(p.adv.role);
+      break;
+    }
+    case "etc": {
+      if (p.etc?.kind) parts.push(p.etc.kind);
+      if (p.etc?.role) parts.push(p.etc.role);
+      break;
+    }
+    case "verb": {
+      if (p.verb?.tense) parts.push(p.verb.tense);
+      if (p.verb?.aspect) parts.push(p.verb.aspect);
+      if (p.verb?.voice) parts.push(p.verb.voice);
+      if (p.verb?.number) parts.push(p.verb.number);
+      if (p.verb?.proverb) parts.push(p.verb.proverb);
+      break;
+    }
+  }
+  const tail = parts.filter(Boolean).join("·");
+  return tail ? `${head}·${tail}` : head;
+};
 
 const escapeHtml = (s: string): string =>
   s
@@ -181,8 +248,138 @@ export const buildHandoutPrintHtml = (p: HandoutPayload): string => {
 };
 
 // ============================================================
-// 단어 HO
+// 유닛 통합 HO (unit_only 모드 전용)
+//   · 통합 한글해석본: 영문 한 줄 + 학생 한글해석 한 줄, 자연 페이지 분할
+//   · 유닛 끝: 구조도 1장 + 지스트/영작 (한 번만)
 // ============================================================
+export interface UnitOnlyHandoutItem {
+  passageCode: string;
+  english: string;
+  /** 학생 제출 한글해석 — 비어 있으면 "(미제출)" */
+  studentTranslation: string;
+}
+export interface UnitOnlyHandoutPayload {
+  unitTitle: string;
+  unitCode: string;
+  studentName: string | null;
+  studentNo: string | null;
+  items: UnitOnlyHandoutItem[];
+}
+
+export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
+  const stamp = nowStamp();
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
+  const headerMeta = `${escapeHtml(p.unitCode)} · 학생: ${sName} ${sNo}`;
+
+  const rows = p.items
+    .map((it, i) => {
+      const en = escapeHtml(it.english);
+      const ko = it.studentTranslation && it.studentTranslation.trim()
+        ? escapeHtml(it.studentTranslation)
+        : '<span class="muted">(미제출)</span>';
+      return `
+        <div class="srow">
+          <div class="srow-head">
+            <span class="num">${i + 1}.</span>
+            <span class="code">${escapeHtml(it.passageCode)}</span>
+          </div>
+          <div class="en">${en}</div>
+          <div class="ko"><b>해석:</b> ${ko}</div>
+        </div>`;
+    })
+    .join("");
+
+  // 스타일 — passage 내 자동 페이지 분할 허용 (.srow 단위 break-inside:avoid)
+  const body = `
+<style>
+  .uo-passage-page { padding: 4mm 5mm; }
+  .srow {
+    padding: 2mm 0 2.5mm; border-bottom: 0.3pt dashed #aaa;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .srow:last-child { border-bottom: none; }
+  .srow-head { font-size: 8.5pt; color: #444; margin-bottom: 1mm; }
+  .srow-head .num { font-weight: 700; margin-right: 1.5mm; }
+  .srow-head .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .srow .en { font-size: 11pt; line-height: 1.7; padding: 0.5mm 0; }
+  .srow .ko {
+    font-size: 10pt; line-height: 1.6; color: #222; padding: 1mm 0 0;
+    min-height: 6mm; border-left: 1.5pt solid #999; padding-left: 2mm; margin-top: 1mm;
+  }
+  .srow .ko .muted { color: #888; }
+  .uo-end-page { padding: 4mm 5mm; }
+  .uo-end-grid {
+    min-height: 90mm;
+    background-image:
+      linear-gradient(#bbb 0.3pt, transparent 0.3pt),
+      linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
+    background-size: 4mm 4mm;
+    border: 0.5pt solid #000;
+  }
+  .uo-end-write { display: flex; flex-direction: column; gap: 6mm; padding-top: 4mm; }
+  .uo-end-write-line { border-bottom: 0.5pt solid #000; height: 0; }
+  .uo-end-grid-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; padding: 0 0 4mm; }
+</style>
+
+<!-- 통합 한글해석본 (1~N 페이지, 자동 분할) -->
+<div class="page uo-passage-page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Unit Hand-out</div>
+      <div class="title">유닛 통합 한글해석본 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>지문 ${p.items.length}건</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">유닛 본문 — 영문 + 학생 제출 한글해석</div>
+    ${rows || '<div class="srow"><div class="ko">(완료 지문 없음)</div></div>'}
+  </div>
+</div>
+
+<!-- 유닛 끝 — 구조도 + 지스트 + 영작 (한 번만) -->
+<div class="page uo-end-page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Unit Hand-out</div>
+      <div class="title">유닛 마무리 · 구조도 · 지스트 · 영작</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>유닛 정리</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">① 구조도</div>
+    <div class="uo-end-grid"></div>
+  </div>
+  <div class="uo-end-grid-cols" style="padding: 0 5mm 4mm;">
+    <div>
+      <div class="section-title">② 지스트 (주제문장)</div>
+      <div class="uo-end-write">
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">③ 영작</div>
+      <div class="uo-end-write">
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+        <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+  return wrapDoc(`Unit HO ${p.unitCode}`, body);
+};
+
+
 export type WordMode = "ko" | "en" | "mix";
 
 export interface WordPayload {
@@ -281,7 +478,31 @@ export interface AnalysisPayload {
   details: CompareDetailRow[];
   /** "marked" 는 채점결과 표 포함, "blank" 은 재분석용 빈칸 위주 */
   mode: "marked" | "blank";
+  /** 본문 단어 평탄화 — 학생 분석 라벨을 단어 위에 그릴 때 사용 */
+  units?: FlatWordUnit[];
+  /** 학생 owner_progress: ownerId → progress (품사/역할 라벨 원천) */
+  studentProgress?: Record<string, AnyProgressLite>;
 }
+
+/** owner_id 에서 단어 인덱스 얻기 (단일 토큰 owner: tid::idx) */
+const ownerIdToWordIdxLite = (ownerId: string): number | null => {
+  const SEP = "::";
+  if (ownerId.startsWith("span" + SEP) || ownerId.startsWith("__span__" + SEP)) return null;
+  const parts = ownerId.split(SEP);
+  const last = parts[parts.length - 1];
+  const idx = parseInt(last, 10);
+  return Number.isFinite(idx) ? idx : null;
+};
+/** span owner → [start, end] */
+const ownerIdToSpanRange = (ownerId: string): [number, number] | null => {
+  const SEP = "::";
+  if (!(ownerId.startsWith("span" + SEP) || ownerId.startsWith("__span__" + SEP))) return null;
+  const parts = ownerId.split(SEP);
+  const range = parts[parts.length - 1];
+  const [s, e] = range.split("-").map((n) => parseInt(n, 10));
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
+  return [s, e];
+};
 
 export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
   const stamp = nowStamp();
@@ -289,6 +510,74 @@ export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
   const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
   const trans = p.studentTranslation ? escapeHtml(p.studentTranslation) : "(미제출)";
 
+  // ----- ① 본문: 단어 칩 + 학생 분석 라벨 -----
+  // 1) 단어 인덱스별로 (학생 라벨, 채점 status) 수집
+  const units = p.units ?? [];
+  const studentProgress = p.studentProgress ?? {};
+  // owner_id → status (마스터키와 비교한 결과)
+  const ownerStatus = new Map<string, CompareDetailRow["status"]>();
+  p.details.forEach((d) => ownerStatus.set(d.ownerId, d.status));
+
+  // 단어 인덱스별 라벨 (단일 토큰 우선) + status
+  type WordCell = { label: string; status: CompareDetailRow["status"] | null; ownerId: string | null };
+  const cells: WordCell[] = units.map(() => ({ label: "", status: null, ownerId: null }));
+  // 단일 토큰 progress 매핑
+  Object.entries(studentProgress).forEach(([ownerId, prog]) => {
+    const idx = ownerIdToWordIdxLite(ownerId);
+    if (idx == null) return;
+    if (idx < 0 || idx >= cells.length) return;
+    const lbl = formatProgressLabel(prog);
+    if (!lbl) return;
+    // 우선순위: 더 길고 구체적인 라벨이 이미 있다면 유지
+    if (cells[idx].label.length < lbl.length) {
+      cells[idx].label = lbl;
+      cells[idx].ownerId = ownerId;
+      cells[idx].status = ownerStatus.get(ownerId) ?? null;
+    }
+  });
+  // span progress — 라벨이 비어있는 단어들에만 보조 표기
+  // (인쇄 본문은 단어 단위라 span 라벨 한 줄을 첫 단어에 붙임)
+  Object.entries(studentProgress).forEach(([ownerId, prog]) => {
+    const range = ownerIdToSpanRange(ownerId);
+    if (!range) return;
+    const [s, e] = range;
+    const lbl = formatProgressLabel(prog);
+    if (!lbl) return;
+    if (s < 0 || s >= cells.length) return;
+    // 첫 단어 라벨이 비어있을 때만 'span:' 접두어로 표기
+    if (!cells[s].label) {
+      cells[s].label = `[${lbl}]`;
+      cells[s].ownerId = ownerId;
+      cells[s].status = ownerStatus.get(ownerId) ?? null;
+    }
+    // span 마킹 — 범위 단어들에 status 만 옅게 적용
+    for (let i = s; i <= e && i < cells.length; i++) {
+      if (cells[i].status == null) cells[i].status = ownerStatus.get(ownerId) ?? null;
+    }
+  });
+
+  const renderChip = (u: FlatWordUnit, c: WordCell): string => {
+    const w = escapeHtml(u.word);
+    if (!u.tokenId) {
+      // 분석 불가 토큰 (구두점/괄호 등) — 그냥 텍스트
+      return `<span class="tok static">${w}</span>`;
+    }
+    const cls = ["tok", "chip"];
+    // status 음영
+    if (c.status === "miss" || c.status === "partial") cls.push("s-bad");
+    else if (c.status === "missing") cls.push("s-empty");
+    else if (c.status === "extra") cls.push("s-extra");
+    else if (c.status === "exact") cls.push("s-ok");
+    if (!c.label) cls.push("s-blank");
+    const lbl = c.label ? `<span class="lbl">${escapeHtml(c.label)}</span>` : "";
+    return `<span class="${cls.join(" ")}">${w}${lbl}</span>`;
+  };
+
+  const passageHtml = units.length > 0
+    ? `<div class="passage">${units.map((u, i) => renderChip(u, cells[i])).join(" ")}</div>`
+    : `<div class="body-text">${escapeHtml(p.english)}</div>`;
+
+  // ----- 채점 결과 표 (요약) -----
   const errors = p.details.filter((d) => d.status !== "exact");
   const errorsHtml =
     errors.length === 0
@@ -319,15 +608,33 @@ export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
     <div class="section">
       <div class="section-title">② 채점 결과 — 일치율 ${Math.round(p.rate * 100)}% · 차이 ${errors.length}건</div>
       ${p.hasMaster ? errorsHtml : `<div class="empty">마스터키가 등록되지 않은 문장입니다.</div>`}
-    </div>
-    <div class="section">
-      <div class="section-title">③ 재분석 영역</div>
-      <div class="grid-box small"></div>
     </div>`;
 
   const body = `
 <style>
   .body-text { line-height: 1.9; font-size: 11pt; padding: 2mm 0; }
+  .passage {
+    line-height: 2.2; font-size: 11pt; padding: 3mm 0;
+    word-spacing: 1.5pt;
+  }
+  .tok { display: inline-block; vertical-align: baseline; padding: 0 1pt; }
+  .tok.static { color: #333; }
+  .tok.chip {
+    position: relative; padding: 0.4mm 1.2mm 4.5mm 1.2mm;
+    margin: 1mm 0.4mm 4mm 0.4mm; border-radius: 1mm;
+    border: 0.4pt solid transparent;
+  }
+  .tok.chip .lbl {
+    position: absolute; left: 0; right: 0; bottom: 0.5mm;
+    text-align: center; font-size: 6.5pt; line-height: 1;
+    color: #000; font-weight: 600; white-space: nowrap;
+    overflow: visible;
+  }
+  .tok.s-ok    { background: #f0f7ee; border-color: #c6deba; }
+  .tok.s-bad   { background: #ffe9e9; border-color: #d28a8a; }
+  .tok.s-extra { background: #fff7e6; border-color: #d6b87a; }
+  .tok.s-empty { background: transparent; border-color: #999; border-style: dashed; }
+  .tok.s-blank { color: #555; }
   .trans { font-size: 10pt; color: #333; padding: 2mm 0; white-space: pre-wrap; }
   .grid-box {
     min-height: 90mm;
@@ -345,6 +652,8 @@ export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
   tr.s-missing td { background: #f6f6f6; }
   tr.s-extra td { background: #fff7e6; }
   tr.s-miss td, tr.s-partial td { background: #ffe9e9; }
+  .legend { font-size: 8pt; color: #555; padding: 1mm 0 2mm; }
+  .legend .sw { display: inline-block; width: 4mm; height: 2.5mm; border: 0.4pt solid #888; margin: 0 1mm 0 3mm; vertical-align: middle; border-radius: 0.5mm; }
 </style>
 <div class="page">
   <div class="header">
@@ -359,8 +668,14 @@ export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
     </div>
   </div>
   <div class="section">
-    <div class="section-title">① 본문</div>
-    <div class="body-text">${escapeHtml(p.english)}</div>
+    <div class="section-title">① 학생 분석 본문 (단어 아래: 학생이 분석한 품사·역할)</div>
+    ${passageHtml}
+    <div class="legend">
+      <span class="sw" style="background:#f0f7ee"></span>일치
+      <span class="sw" style="background:#ffe9e9"></span>불일치
+      <span class="sw" style="background:#fff7e6"></span>여분
+      <span class="sw" style="background:transparent;border-style:dashed"></span>미분석
+    </div>
     <div class="trans"><b>학생 한글해석:</b> ${trans}</div>
   </div>
   ${p.mode === "marked" ? markedBody : blankBody}

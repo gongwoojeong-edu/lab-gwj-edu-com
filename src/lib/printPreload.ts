@@ -29,6 +29,7 @@ import {
   ownerIdToSurface,
   type FlatWordUnit,
 } from "./analysisCompare";
+import { fetchStudentAnswersByUserId } from "./analysisGrading";
 
 export type PrintStage =
   | "passage"
@@ -224,11 +225,12 @@ export interface PreloadAnalysisInput {
 export const preloadAnalysisPayload = async (
   input: PreloadAnalysisInput,
 ): Promise<AnalysisPayload> => {
-  const [passage, student, translation, diff] = await Promise.all([
+  const [passage, student, translation, diff, studentProgress] = await Promise.all([
     fetchPassageByCode(input.sentenceId).catch(() => null),
     fetchStudent(input.studentId).catch(() => null),
     fetchTranslation(input.sentenceId, input.studentId).catch(() => ""),
     computeCompareDiff(input.sentenceId, input.studentId).catch(() => null),
+    fetchStudentAnswersByUserId(input.sentenceId, input.studentId).catch(() => ({})),
   ]);
   if (!passage) throw new PrintPreloadError("passage", `지문 없음: ${input.sentenceId}`);
   if (!diff) throw new PrintPreloadError("analysis", "분석 비교 실패");
@@ -252,6 +254,8 @@ export const preloadAnalysisPayload = async (
     hasMaster: diff.hasMaster,
     details: detailsWithSurface,
     mode: input.mode,
+    units,
+    studentProgress: studentProgress ?? {},
   };
 };
 
