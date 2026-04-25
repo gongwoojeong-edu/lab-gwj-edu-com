@@ -63,19 +63,28 @@ export const TeacherAnalysisOverride = ({
     };
   }, []);
 
-  const submit = () => {
+  const submit = async () => {
     if (loading) return;
     setLoading(true);
-    if (!storedPin) {
-      toast({
-        title: "PIN이 설정되지 않았어요",
-        description: "선생님께 패스키 설정을 요청하세요.",
-        variant: "destructive",
-      });
+    let pinToCheck = storedPin;
+    if (!pinToCheck) {
+      const { data: u } = await supabase.auth.getUser();
+      if (u.user) {
+        const { data } = await supabase
+          .from("student_profiles")
+          .select("teacher_pin")
+          .eq("user_id", u.user.id)
+          .maybeSingle();
+        pinToCheck = (data?.teacher_pin as string | null) ?? null;
+        setStoredPin(pinToCheck);
+      }
+    }
+    if (!pinToCheck) {
+      toast({ title: "PIN이 설정되지 않았어요", description: "선생님께 패스키 설정을 요청하세요.", variant: "destructive" });
       setLoading(false);
       return;
     }
-    if (pin.trim() === storedPin.trim()) {
+    if (pin.trim() === pinToCheck.trim()) {
       toast({ title: "선생님 확인 — 통과 처리", description: "다음 단계로 진행합니다" });
       setOpen(false);
       setPin("");
