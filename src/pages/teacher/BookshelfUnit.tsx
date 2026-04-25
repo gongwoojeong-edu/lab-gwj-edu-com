@@ -195,20 +195,24 @@ const BookshelfUnit = () => {
     setWorkbookPrinting(true);
     try {
       const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
+      const selectedStudent = studentList.find((s) => s.id === workbookStudentId);
+      const mode = selectedStudent?.mode ?? "both";
       const { html, completedCount } = await buildUnitWorkbookHtmlFor({
         unitId: unit.id,
         unitTitle: unit.title,
         unitCode,
         studentId: workbookStudentId,
+        mode,
       });
       await launchPrintHtml(html, {
         jobKey: `unit-workbook:${unit.id}:${workbookStudentId}`,
         loadTimeoutMs: 12000,
         cleanupAfterMs: 2500,
       });
+      const modeLabel = mode === "unit_only" ? "유닛만" : "유닛+문장";
       toast({
         title: "유닛 워크북 인쇄 시작",
-        description: `${completedCount}개 지문 포함`,
+        description: `${completedCount}개 지문 포함 · ${modeLabel}`,
       });
     } catch (err) {
       toast({ title: "인쇄 실패", description: errMsg(err), variant: "destructive" });
