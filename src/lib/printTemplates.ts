@@ -830,36 +830,28 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     <div class="section-title">① 구조도</div>
     <div class="cb-grid"></div>
   </div>
-  <div class="cb-cols">
-    <div>
-      <div class="section-title">② 지스트 (주제문장)</div>
-      <div class="cb-write">
-        <div class="cb-line"></div><div class="cb-line"></div>
-        <div class="cb-line"></div><div class="cb-line"></div>
-      </div>
-    </div>
-    <div>
-      <div class="section-title">③ 영작</div>
-      <div class="cb-write">
-        <div class="cb-line"></div><div class="cb-line"></div>
-        <div class="cb-line"></div><div class="cb-line"></div>
-      </div>
+  <div class="section">
+    <div class="section-title">② 지스트 (주제문장)</div>
+    <div class="cb-write cb-write-wide">
+      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
-  <div class="cb-cols">
-    <div>
-      <div class="section-title">④ 정독해석</div>
-      <div class="cb-write">
-        <div class="cb-line"></div><div class="cb-line"></div>
-        <div class="cb-line"></div><div class="cb-line"></div>
-      </div>
+  <div class="section">
+    <div class="section-title">③ 영작</div>
+    <div class="cb-write cb-write-wide">
+      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
     </div>
-    <div>
-      <div class="section-title">⑤ 재영작</div>
-      <div class="cb-write">
-        <div class="cb-line"></div><div class="cb-line"></div>
-        <div class="cb-line"></div><div class="cb-line"></div>
-      </div>
+  </div>
+  <div class="section">
+    <div class="section-title">④ 정독해석</div>
+    <div class="cb-write cb-write-wide">
+      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">⑤ 재영작</div>
+    <div class="cb-write cb-write-wide">
+      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
 </div>`;
