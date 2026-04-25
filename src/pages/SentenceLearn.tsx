@@ -904,10 +904,14 @@ const SentenceLearn = () => {
                   description="의문점이나 오류가 있을 때 선생님 PIN을 확인하면 분석 단계를 스킵하고 한글 해석으로 넘어갑니다."
                   onApproved={async () => {
                     try {
-                      await upsertSentenceProgress(sentence.id, { analysis_done: true });
+                      await upsertSentenceProgress(sentence.id, {
+                        analysis_done: true,
+                        analysis_match_rate: Math.max(analysisRate, 1),
+                      });
                     } catch (e) {
                       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
                     }
+                    setAnalysisRate(1);
                     setAnalysisDone(true);
                     advanceFrom("analysis");
                   }}
