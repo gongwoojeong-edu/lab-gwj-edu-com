@@ -953,6 +953,23 @@ const Index = ({
     return ownerId.split(OWNER_KEY_SEPARATOR)[0] ?? ownerId;
   };
 
+  // 진행률 계산용: span owner는 대표 1단어가 아니라 span 안의 모든 단어를 채운 것으로 본다.
+  const getOwnerTokenIds = (ownerId: string) => {
+    if (isSpanOwnerId(ownerId)) {
+      const range = parseSpanRange(ownerId);
+      if (range) {
+        const ids = new Set<string>();
+        for (let i = range[0]; i <= range[1]; i++) {
+          const tid = wordUnits[i]?.tokenId;
+          if (tid) ids.add(tid);
+        }
+        return Array.from(ids);
+      }
+    }
+    const tid = getOwnerTokenId(ownerId);
+    return tid ? [tid] : [];
+  };
+
   const getTokenById = (tokenId: string | null | undefined): AnalyzableToken | undefined =>
     sentence.tokens.find(
       (t): t is AnalyzableToken => t.type === "analyzable" && t.id === tokenId,
@@ -983,7 +1000,7 @@ const Index = ({
   const completedCount = new Set(
     Object.entries(progressMap)
       .filter(([, value]) => value.completed)
-      .map(([ownerId]) => getOwnerTokenId(ownerId)),
+      .flatMap(([ownerId]) => getOwnerTokenIds(ownerId)),
   ).size;
   const sentenceComplete = completedCount === analyzableIds.length && analyzableIds.length > 0;
   const analysisDone = sentenceComplete && Object.keys(pendingPatchMap).length === 0;
@@ -993,8 +1010,7 @@ const Index = ({
     const filledTokenIds = new Set<string>();
     Object.entries(progressMap).forEach(([ownerId, wp]) => {
       if (!wp || !wp.pos) return;
-      const tid = getOwnerTokenId(ownerId);
-      if (tid) filledTokenIds.add(tid);
+      getOwnerTokenIds(ownerId).forEach((tid) => filledTokenIds.add(tid));
     });
     let n = 0;
     analyzableIds.forEach((id) => {
