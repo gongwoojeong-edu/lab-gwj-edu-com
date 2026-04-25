@@ -566,6 +566,22 @@ const TeacherStudents = () => {
                         <Button size="sm" variant="ghost" onClick={() => openPin(s)}>
                           <KeyRound className="size-3.5" /> PIN
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!profileUserIdByName[s.name]}
+                          onClick={() => {
+                            const uid = profileUserIdByName[s.name];
+                            if (!uid) {
+                              toast({ title: "연결된 학생 계정이 없습니다", variant: "destructive" });
+                              return;
+                            }
+                            setSkipDialog({ userId: uid, name: s.name });
+                          }}
+                          title="지문별 단어학습 스킵 관리"
+                        >
+                          <FastForward className="size-3.5" /> 스킵
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
                           <Pencil className="size-3.5" /> 수정
                         </Button>
