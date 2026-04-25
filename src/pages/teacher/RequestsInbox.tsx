@@ -243,6 +243,24 @@ const RequestsInbox = () => {
     }
   };
 
+  const handleDelete = async (item: InboxItem) => {
+    const ok = window.confirm(
+      "이 요청 기록을 영구 삭제할까요?\n(테스트/실수 데이터 정리용 — 되돌릴 수 없습니다)",
+    );
+    if (!ok) return;
+    try {
+      if (item.kind === "print") {
+        await deletePrintRequest(item.row.id);
+      } else {
+        await deleteReviewRequest(item.row.id);
+      }
+      toast({ title: "삭제 완료" });
+      await refresh();
+    } catch (e) {
+      toast({ title: "삭제 실패", description: errMsg(e), variant: "destructive" });
+    }
+  };
+
   const items = tab === "pending" ? pendingItems : doneItems;
 
   return (
