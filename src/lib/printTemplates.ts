@@ -794,21 +794,32 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
   const headerMeta = `${escapeHtml(p.unitCode)} · 학생: ${sName} ${sNo}`;
 
-  const blocks = p.items
+  // 앞면: 모든 지문을 하나의 박스에 (문장별 줄바꿈만 유지), 한글해석도 한 박스에 모음
+  const passageBlocks = p.items
     .map((it, i) => {
       const passageHtml = buildAnalysisPassageFragment(it.analysis);
+      return `
+        <div class="cb-prow">
+          <div class="cb-pnum">${i + 1}.</div>
+          <div class="cb-pbody">
+            <div class="cb-pcode">${escapeHtml(it.passageCode)}</div>
+            ${passageHtml}
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  const transBlocks = p.items
+    .map((it, i) => {
       const koRaw = it.studentTranslation && it.studentTranslation.trim();
       const ko = koRaw
         ? escapeHtml(it.studentTranslation)
         : '<span class="muted">(미제출)</span>';
       return `
-        <div class="cb-block">
-          <div class="cb-head">
-            <span class="num">${i + 1}.</span>
-            <span class="code">${escapeHtml(it.passageCode)}</span>
-          </div>
-          ${passageHtml}
-          <div class="cb-ko"><b>해석:</b> ${ko}</div>
+        <div class="cb-trow">
+          <span class="cb-tnum">${i + 1}.</span>
+          <span class="cb-tcode">${escapeHtml(it.passageCode)}</span>
+          <span class="cb-ttext">${ko}</span>
         </div>`;
     })
     .join("");
