@@ -129,6 +129,7 @@ import { buildWordTest } from "@/lib/wordTestBuilder";
 import {
   fetchSentenceProgress,
   upsertSentenceProgress,
+  upsertOwnerProgress,
   fetchBadgeOffsets,
   upsertBadgeOffset,
 } from "@/integrations/supabase/storage";
