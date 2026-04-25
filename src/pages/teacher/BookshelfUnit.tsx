@@ -106,6 +106,18 @@ const BookshelfUnit = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const structureInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 유닛 워크북 인쇄용
+  const [studentList, setStudentList] = useState<
+    Array<{ id: string; name: string; no: string; mode: "unit_only" | "both" }>
+  >([]);
+  const [workbookStudentId, setWorkbookStudentId] = useState<string>("");
+  const [workbookSummary, setWorkbookSummary] = useState<{
+    total: number;
+    completed: number;
+  } | null>(null);
+  const [workbookLoading, setWorkbookLoading] = useState(false);
+  const [workbookPrinting, setWorkbookPrinting] = useState(false);
+
   // 다중선택 + 다른 유닛으로 이동
   const { display: levelDisplay } = useLevelLabels();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
