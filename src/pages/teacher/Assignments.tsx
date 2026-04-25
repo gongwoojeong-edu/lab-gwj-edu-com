@@ -55,6 +55,23 @@ import {
 } from "@/lib/assignmentProgress";
 import { isAssignmentDone } from "@/lib/assignmentCompletion";
 
+interface AssignmentGroup {
+  key: string;
+  title: string;
+  description: string | null;
+  student_id: string | null;
+  unit_id: string | null;
+  unit_label: string | null;
+  due_at: string;
+  include_pre: boolean;
+  include_analysis: boolean;
+  include_translation: boolean;
+  include_wordtest: boolean;
+  rows: AssignmentRow[];
+  totalCount: number;
+  doneCount: number;
+}
+
 interface AssignmentRow {
   id: string;
   teacher_id: string;
@@ -116,6 +133,8 @@ const Assignments = () => {
   const [unitsByTb, setUnitsByTb] = useState<Record<string, Unit[]>>({});
   const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
+  /** sentence_id(=passage code) → unit_id 매핑 (그룹핑·라벨용) */
+  const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -228,18 +247,25 @@ const Assignments = () => {
     return m;
   }, [passagesByUnit, unitsByTb, textbooks]);
 
-  // 목록에 보이는 sentence_id의 unit·passage 자동 로드 (라벨용)
+  // 목록에 보이는 sentence_id의 unit·passage 자동 로드 (라벨용 + 그룹핑용)
   useEffect(() => {
     const codes = Array.from(new Set(rows.map((r) => r.sentence_id).filter(Boolean) as string[]));
-    const missing = codes.filter((c) => !codeLabelMap.has(c));
+    const missing = codes.filter((c) => !codeLabelMap.has(c) || !codeToUnit[c]);
     if (missing.length === 0) return;
     void (async () => {
       const { data } = await supabase
         .from("textbook_passages")
-        .select("unit_id, textbook_id")
+        .select("code, unit_id, textbook_id")
         .in("code", missing);
-      const unitIds = Array.from(new Set((data ?? []).map((d: any) => d.unit_id as string)));
-      const tbIds = Array.from(new Set((data ?? []).map((d: any) => d.textbook_id as string)));
+      const rows2 = (data ?? []) as { code: string; unit_id: string; textbook_id: string }[];
+      // codeToUnit 매핑 적재
+      setCodeToUnit((prev) => {
+        const next = { ...prev };
+        rows2.forEach((r) => { if (r.unit_id) next[r.code] = r.unit_id; });
+        return next;
+      });
+      const unitIds = Array.from(new Set(rows2.map((d) => d.unit_id)));
+      const tbIds = Array.from(new Set(rows2.map((d) => d.textbook_id)));
       for (const tbId of tbIds) {
         if (!unitsByTb[tbId]) {
           try {
@@ -256,7 +282,7 @@ const Assignments = () => {
         } catch (e) { console.error(e); }
       }
     })();
-  }, [rows, codeLabelMap, unitsByTb, passagesByUnit]);
+  }, [rows, codeLabelMap, unitsByTb, passagesByUnit, codeToUnit]);
 
 
   // 과제별 진척 데이터 로드 (hover용)
@@ -293,6 +319,62 @@ const Assignments = () => {
     const allIds = students.map((s) => s.user_id);
     return rows.filter((r) => !isAssignmentDone(r, progressByAsg[r.id], allIds));
   }, [rows, students, progressByAsg]);
+
+  // unit_id → 라벨 ([Lxx] 교재명 · Uxxx 유닛명)
+  const unitLabelMap = useMemo(() => {
+    const m = new Map<string, string>();
+    Object.entries(unitsByTb).forEach(([tbId, units]) => {
+      const tb = textbooks.find((t) => t.id === tbId);
+      const tbPrefix = tb ? `[${tb.level}] ${tb.title}` : "";
+      units.forEach((u) => {
+        m.set(u.id, `${tbPrefix} · U${u.unit_no} ${u.title}`);
+      });
+    });
+    return m;
+  }, [unitsByTb, textbooks]);
+
+  // 그룹핑: (title|due_at|student_id|unit_id) — 같은 유닛에 동시에 부여된 지문들을 1장으로 묶음
+  const activeGroups = useMemo<AssignmentGroup[]>(() => {
+    if (activeRows.length === 0) return [];
+    const allIds = students.map((s) => s.user_id);
+    const groupMap = new Map<string, AssignmentRow[]>();
+    activeRows.forEach((r) => {
+      const unitId = r.sentence_id ? codeToUnit[r.sentence_id] ?? null : null;
+      // unit_id를 모르면 sentence_id 단위로 분리(폴백). 알면 유닛으로 묶음.
+      const groupKey = `${r.title}|${r.due_at}|${r.student_id ?? "__all__"}|${unitId ?? `noUnit:${r.sentence_id ?? r.id}`}`;
+      if (!groupMap.has(groupKey)) groupMap.set(groupKey, []);
+      groupMap.get(groupKey)!.push(r);
+    });
+    const out: AssignmentGroup[] = [];
+    groupMap.forEach((grpRows, key) => {
+      const sorted = grpRows
+        .slice()
+        .sort((a, b) => (a.sentence_id ?? "").localeCompare(b.sentence_id ?? ""));
+      const head = sorted[0];
+      const unitId = head.sentence_id ? codeToUnit[head.sentence_id] ?? null : null;
+      const doneCount = sorted.filter((r) => {
+        const targets = r.student_id ? [r.student_id] : allIds;
+        return isAssignmentDone(r, progressByAsg[r.id], targets);
+      }).length;
+      out.push({
+        key,
+        title: head.title,
+        description: head.description,
+        student_id: head.student_id,
+        unit_id: unitId,
+        unit_label: unitId ? unitLabelMap.get(unitId) ?? null : null,
+        due_at: head.due_at,
+        include_pre: head.include_pre,
+        include_analysis: head.include_analysis,
+        include_translation: head.include_translation,
+        include_wordtest: head.include_wordtest,
+        rows: sorted,
+        totalCount: sorted.length,
+        doneCount,
+      });
+    });
+    return out.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
+  }, [activeRows, students, codeToUnit, unitLabelMap, progressByAsg]);
 
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
@@ -378,6 +460,40 @@ const Assignments = () => {
       return;
     }
     toast({ title: "🗑️ 과제 삭제됨" });
+    void load();
+  };
+
+  /** 그룹 전체(같은 유닛의 모든 지문 행)를 일괄 삭제 */
+  const handleDeleteGroup = async (group: AssignmentGroup) => {
+    const ids = group.rows.map((r) => r.id);
+    if (ids.length === 0) return;
+    const ok = window.confirm(
+      `이 유닛 과제(${group.totalCount}개 지문)를 모두 삭제할까요?`,
+    );
+    if (!ok) return;
+    const { error } = await supabase.from("assignments").delete().in("id", ids);
+    if (error) {
+      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `🗑️ ${ids.length}개 과제 삭제됨` });
+    void load();
+  };
+
+  /** 그룹 전체 마감일 +1주 일괄 연장 */
+  const handleExtendGroupWeek = async (group: AssignmentGroup) => {
+    const cur = new Date(group.due_at);
+    const next = new Date(cur.getTime() + 7 * 86400000);
+    const ids = group.rows.map((r) => r.id);
+    const { error } = await supabase
+      .from("assignments")
+      .update({ due_at: next.toISOString() })
+      .in("id", ids);
+    if (error) {
+      toast({ title: "연장 실패", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "마감일 +1주 연장됨", description: format(next, "yyyy-MM-dd HH:mm") });
     void load();
   };
 
@@ -871,20 +987,62 @@ const Assignments = () => {
         </Card>
 
         <Card className="p-5 space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeRows.length})</h2>
-          {activeRows.length === 0 ? (
+          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeGroups.length})</h2>
+          {activeGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">진행중인 과제가 없습니다.</p>
           ) : (
             <div className="space-y-2">
-              {activeRows.map((r) => {
-                const rem = remaining(r.due_at);
-                const passageLabel = r.sentence_id ? codeLabelMap.get(r.sentence_id) ?? r.sentence_id : null;
-                const missingSentence = !r.sentence_id;
+              {activeGroups.map((g) => {
+                const rem = remaining(g.due_at);
+                const head = g.rows[0];
+                const missingSentence = !head.sentence_id;
+                // 라벨: 유닛이 식별되면 유닛 라벨 + 지문 수, 아니면 단일 passage 라벨로 폴백
+                const label = g.unit_label
+                  ? `${g.unit_label} · 지문 ${g.totalCount}개`
+                  : head.sentence_id
+                  ? codeLabelMap.get(head.sentence_id) ?? head.sentence_id
+                  : null;
+                // 그룹 진척: 모든 row의 모든 대상 학생 progress 합산
+                const allTargetIds = head.student_id
+                  ? [head.student_id]
+                  : students.map((s) => s.user_id);
+                const mergedProgress: AssignmentProgressMap = new Map();
+                allTargetIds.forEach((uid) => {
+                  // 유닛 안의 모든 sentence가 해당 step을 완료해야 그 학생이 그 step done
+                  const isStepDone = (s: { status: string }) =>
+                    s.status === "pass" || s.status === "done";
+                  let allPre = true, allWt = true, allAn = true, allTr = true;
+                  let anyData = false;
+                  let preScoreSum = 0, preCnt = 0;
+                  let anScoreSum = 0, anCnt = 0;
+                  let wtScoreSum = 0, wtCnt = 0;
+                  g.rows.forEach((r) => {
+                    const p = progressByAsg[r.id]?.get(uid);
+                    if (!p) { allPre = allWt = allAn = allTr = false; return; }
+                    anyData = true;
+                    if (!isStepDone(p.pre)) allPre = false;
+                    else if (p.pre.score != null) { preScoreSum += p.pre.score; preCnt++; }
+                    if (!isStepDone(p.wordtest)) allWt = false;
+                    else if (p.wordtest.score != null) { wtScoreSum += p.wordtest.score; wtCnt++; }
+                    if (!isStepDone(p.analysis)) allAn = false;
+                    else if (p.analysis.score != null) { anScoreSum += p.analysis.score; anCnt++; }
+                    if (!isStepDone(p.translation)) allTr = false;
+                  });
+                  mergedProgress.set(uid, {
+                    pre: { status: anyData && allPre ? "done" : "missing", score: preCnt > 0 ? Math.round(preScoreSum / preCnt) : null },
+                    analysis: { status: anyData && allAn ? "pass" : "missing", score: anCnt > 0 ? Math.round(anScoreSum / anCnt) : null },
+                    translation: { status: anyData && allTr ? "done" : "missing", score: null },
+                    wordtest: { status: anyData && allWt ? "pass" : "missing", score: wtCnt > 0 ? Math.round(wtScoreSum / wtCnt) : null },
+                  });
+                });
                 return (
-                  <div key={r.id} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", missingSentence ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5" : rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
+                  <div key={g.key} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", missingSentence ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5" : rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
                     <div className="space-y-1.5 min-w-0 flex-1">
                       <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
-                        {r.title}
+                        {g.title}
+                        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-extrabold">
+                          유닛 · 지문 {g.totalCount}개
+                        </span>
                         {missingSentence && (
                           <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-extrabold">
                             ⚠ 지문 미연결 — 편집해서 연결하세요
@@ -892,41 +1050,37 @@ const Assignments = () => {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
-                        <span>대상: {studentName(r.student_id)}</span>
-                        <span>· 마감: {format(new Date(r.due_at), "yyyy-MM-dd HH:mm")}</span>
+                        <span>대상: {studentName(g.student_id)}</span>
+                        <span>· 마감: {format(new Date(g.due_at), "yyyy-MM-dd HH:mm")}</span>
                         <span className={cn("font-bold", rem.urgent ? "text-destructive" : "text-primary")}>· {rem.text}</span>
-                        {passageLabel && <span>· {passageLabel}</span>}
+                        {label && <span>· {label}</span>}
                       </div>
                       <AssignmentStepBadges
-                        includePre={r.include_pre}
-                        includeAnalysis={r.include_analysis}
-                        includeTranslation={r.include_translation}
-                        includeWordtest={r.include_wordtest}
-                        progress={progressByAsg[r.id]}
+                        includePre={g.include_pre}
+                        includeAnalysis={g.include_analysis}
+                        includeTranslation={g.include_translation}
+                        includeWordtest={g.include_wordtest}
+                        progress={mergedProgress}
                         studentNameMap={studentNameMap}
-                        targetUserIds={
-                          r.student_id
-                            ? [r.student_id]
-                            : students.map((s) => s.user_id)
-                        }
+                        targetUserIds={allTargetIds}
                       />
-                      {r.description && <p className="text-xs text-foreground/80 mt-1">{r.description}</p>}
+                      {g.description && <p className="text-xs text-foreground/80 mt-1">{g.description}</p>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-7 text-[11px] px-2 text-primary"
-                        onClick={() => handleExtendWeek(r)}
-                        title="마감일 +1주"
+                        onClick={() => handleExtendGroupWeek(g)}
+                        title="유닛 전체 마감일 +1주"
                       >
                         <Plus className="size-3" />
                         1주
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openEdit(r)} title="수정">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openEdit(head)} title="수정 (대표 지문)">
                         <Pencil className="size-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => handleDelete(r.id)} title="삭제">
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => handleDeleteGroup(g)} title="유닛 전체 삭제">
                         <Trash2 className="size-3.5" />
                       </Button>
                     </div>
