@@ -924,7 +924,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     border: 0.5pt solid #000;
   }
   .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 2mm; }
-  .cb-write-wide { gap: 11mm; padding-top: 3mm; padding-bottom: 1mm; }
+  .cb-write-wide { gap: 9mm; padding-top: 2mm; padding-bottom: 0.5mm; }
   .cb-line { border-bottom: 0.5pt solid #000; height: 0; }
 </style>
 
