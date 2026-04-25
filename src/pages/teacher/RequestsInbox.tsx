@@ -129,27 +129,46 @@ const RequestsInbox = () => {
     };
   }, []);
 
-  const items = useMemo<InboxItem[]>(() => {
+  const pendingItems = useMemo<InboxItem[]>(() => {
     const out: InboxItem[] = [
       ...printRows.map((r): InboxItem => ({
         kind: "print",
         created_at: r.requested_at ?? r.created_at,
         row: r,
       })),
-      ...reviewRows.map((r): InboxItem => ({
-        kind: "review",
-        created_at: r.requested_at ?? r.created_at,
-        row: r,
-      })),
+      ...reviewRows
+        .filter((r) => r.status === "pending")
+        .map((r): InboxItem => ({
+          kind: "review",
+          created_at: r.requested_at ?? r.created_at,
+          row: r,
+        })),
     ];
     out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     return out;
   }, [printRows, reviewRows]);
 
-  const pendingCount = useMemo(
-    () => printRows.length + reviewRows.filter((row) => row.status === "pending").length,
-    [printRows, reviewRows],
-  );
+  const doneItems = useMemo<InboxItem[]>(() => {
+    const out: InboxItem[] = [
+      ...handledPrintRows.map((r): InboxItem => ({
+        kind: "print",
+        created_at: r.handled_at ?? r.requested_at ?? r.created_at,
+        row: r,
+      })),
+      ...reviewRows
+        .filter((r) => r.status !== "pending")
+        .map((r): InboxItem => ({
+          kind: "review",
+          created_at: r.responded_at ?? r.requested_at ?? r.created_at,
+          row: r,
+        })),
+    ];
+    out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    return out;
+  }, [handledPrintRows, reviewRows]);
+
+  const pendingCount = pendingItems.length;
+  const doneCount = doneItems.length;
 
   const triggerPrint = async (
     req: PrintRequest,
