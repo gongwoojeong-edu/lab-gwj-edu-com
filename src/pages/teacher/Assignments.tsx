@@ -698,8 +698,8 @@ const Assignments = () => {
         <div className="sm:col-span-2 space-y-1.5">
           <Label className="flex items-center gap-2">
             연결 지문
-            <span className="text-[10px] font-normal text-muted-foreground">
-              (유닛 선택 시 첫 지문이 자동 선택돼요. 다른 지문으로 바꿀 수 있어요)
+            <span className="text-[10px] font-normal text-primary">
+              (✨ 신규 과제는 선택한 <b>유닛 전체 지문</b>이 자동 부여됩니다. 아래 선택은 확인용)
             </span>
           </Label>
           <Select
