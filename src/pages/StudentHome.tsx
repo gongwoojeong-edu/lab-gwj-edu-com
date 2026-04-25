@@ -114,14 +114,29 @@ const StudentHome = () => {
           .map((a) => a.sentence_id)
           .filter(Boolean) as string[];
         let passedSet = new Set<string>();
+        const progressFlags = new Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>();
         if (assignSentenceIds.length > 0) {
           const { data: progRows } = await supabase
             .from("sentence_progress")
-            .select("sentence_id, status")
+            .select("sentence_id, status, pre_done, word_test_done, analysis_done, translation_done")
             .eq("user_id", user.id)
-            .in("sentence_id", assignSentenceIds)
-            .eq("status", "pass");
-          passedSet = new Set((progRows ?? []).map((r: { sentence_id: string }) => r.sentence_id));
+            .in("sentence_id", assignSentenceIds);
+          ((progRows ?? []) as Array<{
+            sentence_id: string;
+            status: string;
+            pre_done: boolean | null;
+            word_test_done: boolean | null;
+            analysis_done: boolean | null;
+            translation_done: boolean | null;
+          }>).forEach((r) => {
+            if (r.status === "pass") passedSet.add(r.sentence_id);
+            progressFlags.set(r.sentence_id, {
+              pre: !!r.pre_done,
+              wt: !!r.word_test_done,
+              an: !!r.analysis_done,
+              tr: !!r.translation_done,
+            });
+          });
         }
         const activeAssignments = allAssignments.filter(
           (a) => !a.sentence_id || !passedSet.has(a.sentence_id),
@@ -130,6 +145,7 @@ const StudentHome = () => {
         if (mounted) {
           setRecent(enriched);
           setAssignments(activeAssignments);
+          setAssignmentProgress(progressFlags);
         }
 
         // 본인의 pending 시험지/분석자료 요청 + 각 sentence별 정답대조 요청 상태 로드
