@@ -341,7 +341,7 @@ const Assignments = () => {
     activeRows.forEach((r) => {
       const unitId = r.sentence_id ? codeToUnit[r.sentence_id] ?? null : null;
       // unit_id를 모르면 sentence_id 단위로 분리(폴백). 알면 유닛으로 묶음.
-      const groupKey = `${r.title}|${r.due_at}|${r.student_id ?? "__all__"}|${unitId ?? "noUnit:" + r.sentence_id ?? r.id}`;
+      const groupKey = `${r.title}|${r.due_at}|${r.student_id ?? "__all__"}|${unitId ?? `noUnit:${r.sentence_id ?? r.id}`}`;
       if (!groupMap.has(groupKey)) groupMap.set(groupKey, []);
       groupMap.get(groupKey)!.push(r);
     });
