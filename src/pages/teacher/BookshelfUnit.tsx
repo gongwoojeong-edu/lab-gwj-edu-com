@@ -33,6 +33,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
