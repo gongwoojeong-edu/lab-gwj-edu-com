@@ -1147,7 +1147,10 @@ const Index = ({
   };
 
   const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
-    const next = upsertCustomAnswer(ownerId, patch, sentence.id);
+    const studentProgressPatch = studentMode && progressMap[ownerId]
+      ? progressToCloudPatch(progressMap[ownerId])
+      : {};
+    const next = upsertCustomAnswer(ownerId, { ...studentProgressPatch, ...patch }, sentence.id);
     setCustomAnswers(next);
   };
 
