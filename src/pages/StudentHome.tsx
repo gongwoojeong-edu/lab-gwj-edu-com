@@ -561,22 +561,38 @@ const StudentHome = () => {
                             </p>
                           )}
                         </div>
-                        {a.sentence_id && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => navigate(`/learn/sentence/${a.sentence_id}`)}
-                            className="shrink-0"
-                          >
-                            <Play className="w-3 h-3 mr-1" /> 학습 시작
-                          </Button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Card>
-            )}
+                        {a.sentence_id && (() => {
+                          const pf = assignmentProgress.get(a.sentence_id);
+                          const inProgress = !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+                          if (inProgress) {
+                            return (
+                              <div className="flex flex-col sm:flex-row gap-1.5 shrink-0">
+                                <span className="inline-flex items-center justify-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 sm:hidden">
+                                  진행중
+                                </span>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    setResumeTarget({ sentenceId: a.sentence_id!, title: a.title })
+                                  }
+                                  className="shrink-0"
+                                >
+                                  <Play className="w-3 h-3 mr-1" /> 이어하기
+                                </Button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/learn/sentence/${a.sentence_id}`)}
+                              className="shrink-0"
+                            >
+                              <Play className="w-3 h-3 mr-1" /> 학습 시작
+                            </Button>
+                          );
+                        })()}
 
             {/* Hero start card */}
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
