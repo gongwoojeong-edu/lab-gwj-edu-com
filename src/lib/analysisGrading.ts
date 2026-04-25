@@ -186,9 +186,14 @@ export const gradeAnalysis = async (
     fetchStudentAnswers(sentenceId),
   ]);
   const masterIds = Object.keys(master);
+  // 분석율은 항상 "단어(token) 기준"으로 호출부에서 산정한 fallbackRate를 사용한다.
+  // 이유: 교사 정답이 구/절(span) 단위이고 학생이 단어 단위로 분석한 경우 owner_id가
+  // 일치하지 않아 매칭률이 비현실적으로 낮게 나오는 문제(예: 모든 단어 분석 → 48%)를 방지.
+  const fb = opts?.fallbackRate;
+  const safeRate =
+    typeof fb === "number" && Number.isFinite(fb) ? Math.max(0, Math.min(1, fb)) : 1;
+
   if (masterIds.length === 0) {
-    const fb = opts?.fallbackRate;
-    const safeRate = typeof fb === "number" && Number.isFinite(fb) ? Math.max(0, Math.min(1, fb)) : 1;
     return {
       rate: safeRate,
       diffs: [],
@@ -198,8 +203,10 @@ export const gradeAnalysis = async (
       missingRequiredOwnerIds: [],
     };
   }
+
+  // diff/필수 owner 체크는 마스터키 기준으로 수행 (학생 화면 안내·교사 비교용).
+  // 단, rate 자체는 단어 기준 fallbackRate로 통일한다.
   const diffs: OwnerDiffEntry[] = [];
-  let total = 0;
   const missingRequiredOwnerIds: string[] = [];
   for (const ownerId of masterIds) {
     const m = master[ownerId];
@@ -210,20 +217,15 @@ export const gradeAnalysis = async (
       diffs.push({ owner_id: ownerId, status: "missing", master_pos: m.pos, student_pos: null });
       continue;
     }
-    if (detailsEqual(m, s)) {
-      total += 1.0;
-      // exact는 diff에 추가하지 않음(통과한 owner)
-      continue;
-    }
+    if (detailsEqual(m, s)) continue;
     if (norm(m.pos) === norm(s.pos) && m.pos) {
-      total += 0.4;
       diffs.push({ owner_id: ownerId, status: "partial", master_pos: m.pos, student_pos: s.pos });
     } else {
       diffs.push({ owner_id: ownerId, status: "miss", master_pos: m.pos, student_pos: s.pos });
     }
   }
   return {
-    rate: total / masterIds.length,
+    rate: safeRate,
     diffs,
     masterCount: masterIds.length,
     hasMaster: true,
