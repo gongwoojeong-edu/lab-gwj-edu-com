@@ -1002,18 +1002,11 @@ const Index = ({
     });
     return n;
   })();
-  // 분석 진행률 (0~1) — 마스터키가 있으면 그 비율, 없으면 단어 기준 분석률 fallback
-  const analysisRate = (() => {
-    if (masterOwnerIds.size > 0) {
-      let filled = 0;
-      masterOwnerIds.forEach((id) => {
-        const wp = progressMap[id];
-        if (wp && wp.pos) filled += 1;
-      });
-      return filled / masterOwnerIds.size;
-    }
-    return analyzableIds.length > 0 ? wordFilledCount / analyzableIds.length : 0;
-  })();
+  // 분석 진행률 (0~1) — 단어(token) 기준으로 통일.
+  // 마스터키 정답 단위(span/구절)와 학생 분석 단위가 달라도 학생 입장에서는
+  // "모든 단어를 분석했으면 100%"가 되도록 단어 기준으로 분모/분자를 산정한다.
+  const analysisRate =
+    analyzableIds.length > 0 ? wordFilledCount / analyzableIds.length : 0;
   // 80% 이상 분석하면 다음 단계로 진행 가능 (SentenceLearn과 동일 기준)
   const canAdvanceToTranslation = analysisDone || analysisRate >= 0.8;
 
@@ -1038,27 +1031,16 @@ const Index = ({
     };
   }, [sentence.id]);
 
-  // 분석 진행률(0~1) 외부 통지 — 마스터키 정답 owner 대비 (없으면 단어 분석 대비로 fallback)
+  // 분석 진행률(0~1) 외부 통지 — 단어(token) 기준으로 통일
   useEffect(() => {
     if (!onAnalysisProgress) return;
-    if (masterOwnerIds.size > 0) {
-      let filled = 0;
-      masterOwnerIds.forEach((id) => {
-        const wp = progressMap[id];
-        if (wp && wp.pos) filled += 1;
-      });
-      const total = masterOwnerIds.size;
-      onAnalysisProgress(filled / total, { hasMaster: true, filled, total });
-      return;
-    }
-    // fallback: 마스터 미등록 문장 — 단어(token) 기준 분석률 사용
     const total = analyzableIds.length;
     onAnalysisProgress(total > 0 ? wordFilledCount / total : 0, {
-      hasMaster: false,
+      hasMaster: masterOwnerIds.size > 0,
       filled: wordFilledCount,
       total,
     });
-  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
+  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);

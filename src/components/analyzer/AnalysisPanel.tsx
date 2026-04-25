@@ -1854,12 +1854,13 @@ const VerbPanel = ({
     <button
       type="button"
       onClick={onClick}
-      disabled={confirmed}
       className={cn(
-        "px-3 py-1.5 rounded-md text-xs font-bold font-kr border transition-all disabled:opacity-50 min-h-[32px] min-w-[44px]",
+        "px-3 py-1.5 rounded-md text-xs font-bold font-kr border transition-all min-h-[32px] min-w-[44px]",
         selected
           ? "bg-primary/15 text-primary border-primary/40"
           : "bg-card text-foreground border-border hover:border-primary/40 active:bg-primary/10",
+        // 확정된 후에도 다시 눌러 수정할 수 있도록 잠그지 않음 (선택 변경 시 toggleVerb에서 confirmStatus가 idle로 자동 해제됨)
+        confirmed && !selected && "opacity-80",
       )}
     >
       {children}
@@ -1918,15 +1919,14 @@ const VerbPanel = ({
       <button
         type="button"
         onClick={onVerbConfirm}
-        disabled={confirmed}
         className={cn(
           "w-full py-1.5 rounded-lg text-[11px] font-bold font-kr transition-all border",
           confirmed
-            ? "bg-element-o-bg text-element-o border-element-o/40 cursor-default"
+            ? "bg-element-o-bg text-element-o border-element-o/40 hover:opacity-90"
             : "bg-primary text-primary-foreground border-primary hover:opacity-90",
         )}
       >
-        {confirmed ? "✓ 동사 분석 완료" : "✱ 동사 확정"}
+        {confirmed ? "✓ 동사 분석 완료 (다시 확정)" : "✱ 동사 확정"}
       </button>
     </>
   );
