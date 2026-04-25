@@ -131,6 +131,26 @@ const SentenceLearn = () => {
         return;
       }
 
+      // restart=1 쿼리: 진행 플래그 리셋 후 처음부터 시작 (작성 데이터/시도 로그는 보존)
+      const restartParam = new URLSearchParams(window.location.search).get("restart") === "1";
+      if (restartParam) {
+        try {
+          await upsertSentenceProgress(found.id, {
+            pre_done: false,
+            word_test_done: false,
+            analysis_done: false,
+            translation_done: false,
+            status: "pending",
+          });
+        } catch (e) {
+          console.warn("restart reset failed", e);
+        }
+        // URL에서 restart 제거
+        const url = new URL(window.location.href);
+        url.searchParams.delete("restart");
+        window.history.replaceState({}, "", url.toString());
+      }
+
       const [prog, extraction, owners, prof, logs, attemptCnt, assignRes] = await Promise.all([
         fetchSentenceProgress(found.id),
         fetchExtraction(found.id),
