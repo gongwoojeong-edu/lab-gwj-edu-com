@@ -1076,6 +1076,18 @@ const LearningResults = () => {
                                                   {wScore}
                                                 </span>
                                               )}
+                                              {(() => {
+                                                const rc = remediationCountMap[stateKey] ?? 0;
+                                                if (rc <= 0) return null;
+                                                return (
+                                                  <span
+                                                    title={`단어시험 오답 4단계 복습 누적 ${rc}회`}
+                                                    className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold px-1.5 py-0.5 leading-none"
+                                                  >
+                                                    ↻{rc}
+                                                  </span>
+                                                );
+                                              })()}
                                               <button
                                                 type="button"
                                                 title="단어시험 결과 보기"
