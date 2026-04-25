@@ -45,7 +45,7 @@ import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 
 interface RecentItem {
   sentence: Sentence;
-  status: "pass" | "fail" | "hold";
+  status: "pass" | "fail" | "hold" | "pending";
   updated_at: string;
 }
 
