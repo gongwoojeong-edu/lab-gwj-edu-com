@@ -192,7 +192,18 @@ const BookshelfUnit = () => {
     };
   }, [workbookStudentId, unit]);
 
-  const handlePrintUnitWorkbook = async () => {
+  // 워크북 인쇄 버튼 → 미리보기 모달 오픈
+  const handleOpenWorkbookPreview = () => {
+    if (!unit || !workbookStudentId) return;
+    if (!workbookSummary || workbookSummary.completed === 0) {
+      toast({ title: "완료한 지문이 없어요", variant: "destructive" });
+      return;
+    }
+    setPreviewOpen(true);
+  };
+
+  // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행
+  const handleConfirmPrintWorkbook = async () => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
     if (!workbookSummary || workbookSummary.completed === 0) {
       toast({ title: "완료한 지문이 없어요", variant: "destructive" });
@@ -220,6 +231,7 @@ const BookshelfUnit = () => {
         title: "유닛 워크북 인쇄 시작",
         description: `${completedCount}개 지문 포함 · ${modeLabel}`,
       });
+      setPreviewOpen(false);
     } catch (err) {
       toast({ title: "인쇄 실패", description: errMsg(err), variant: "destructive" });
     } finally {
