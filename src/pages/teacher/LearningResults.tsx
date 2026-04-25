@@ -335,6 +335,40 @@ const LearningResults = () => {
         cur.printed_at = r.handled_at;
         aMap[key] = cur;
       });
+      // sentence_progress fallback —
+      //  · attempt_log이 0/F이거나 누락된 경우, 학생이 즉시 저장한 분석 결과로 보정.
+      //  · 화면 집계가 실제 학습량보다 적게 보이는 사고를 막는다.
+      progressRows.forEach((p) => {
+        const key = `${p.user_id}::${p.sentence_id}`;
+        const cur = aMap[key] ?? {
+          best_word_score: null,
+          best_analysis_rate: null,
+          word_passed: false,
+          analysis_passed: false,
+          printed_at: null,
+        };
+        // 분석률 보정: progress의 match_rate가 attempt_log보다 크면 우세
+        if (p.analysis_match_rate != null) {
+          const ar = Number(p.analysis_match_rate);
+          if (
+            cur.best_analysis_rate == null ||
+            ar > cur.best_analysis_rate
+          ) {
+            cur.best_analysis_rate = ar;
+          }
+        }
+        // 통과 여부 보정: progress가 done이고 임계 0.8 이상이면 PASS로 표시
+        if (
+          p.analysis_done &&
+          (cur.best_analysis_rate ?? 0) >= 0.8 &&
+          !cur.analysis_passed
+        ) {
+          cur.analysis_passed = true;
+        }
+        // 단어시험 통과 보정
+        if (p.word_test_done) cur.word_passed = cur.word_passed || true;
+        aMap[key] = cur;
+      });
       setAttemptMap(aMap);
 
       // 학생별 sentence_id 정렬 목록
