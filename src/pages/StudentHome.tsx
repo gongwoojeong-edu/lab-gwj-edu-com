@@ -841,6 +841,40 @@ const StudentHome = () => {
           </>
         )}
       </main>
+
+      <AlertDialog open={!!resumeTarget} onOpenChange={(o) => !o && setResumeTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>학습을 이어서 할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {resumeTarget?.title} — 진행 중인 단계가 있어요. 이어서 하면 마지막 단계부터,
+              처음부터 다시하면 1단계부터 시작합니다. (이전 작성 내용은 유지됩니다)
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!resumeTarget) return;
+                navigate(`/learn/sentence/${resumeTarget.sentenceId}?restart=1`);
+                setResumeTarget(null);
+              }}
+            >
+              처음부터 다시
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                if (!resumeTarget) return;
+                navigate(`/learn/sentence/${resumeTarget.sentenceId}`);
+                setResumeTarget(null);
+              }}
+            >
+              이어하기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
