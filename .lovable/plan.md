@@ -1,94 +1,54 @@
-## 진단 요약
+## 학습결과 "전체인쇄" → 유닛 통합 워크북 (앞면=영어+해석 / 뒷면=구조도)
 
-스크린샷의 김재원 카드에서 **L08-U260339-001~007** 7건은 진짜 지문이고, 그 아래 별도 그룹으로 떠 있는 **`L08-U260339-005__remediation_1`** / **`L08-U260339-006__remediation_1`** 두 개는 **단어시험 오답 복습(remediation) 세션**의 부산물입니다. 학생이 단어시험에서 임계치 미만으로 떨어지면 `WordTestStep`이 "틀린 단어 4단계 복습"을 띄우는데, 이때 내부적으로 `WordPreStep`을 재사용하면서 `sentence_id` 를 `"<원래코드>__remediation_<attemptNo>"` 라는 합성 ID로 `word_pre_results` 에 저장합니다 (소스: `WordTestStep.tsx:473`).
+### 현재 문제
+학습결과 화면에서 학생 카드 우측 상단의 **[전체인쇄]** 버튼은 지금 단순히 학생의 모든 sentence를 돌면서 **개별 핸드아웃 N장을 N개의 인쇄창**으로 띄우고 있습니다 (`handlePrintAll`, line 602). 
+이미 만들어둔 통합 워크북 빌더 `buildUnitWorkbookHtmlFor` 자체는 존재하지만, 학습결과 화면의 "전체인쇄"가 그것을 호출하지 않아 사용자가 원하는 "유닛 한판" 결과물이 나오지 않는 상태입니다.
 
-`학습결과` 화면은 `word_pre_results.sentence_id` 도 활동 소스로 모아 sentence 카드를 만들기 때문에(소스: `LearningResults.tsx:178-180, 219-221`), 이 합성 ID가 "지문 1개"인 것처럼 별도 그룹으로 잘못 노출됩니다. DB 확인 결과, 김재원만이 아니라 16명의 학생/지문에서 동일하게 발생 중입니다.
+또한 사용자가 새로 정의한 양면 레이아웃은 기존 `unitWorkbook.ts` 구성 (지문별 분석 채점본 + 마지막 통합 해석본)과도 다릅니다.
 
-워크북 인쇄 재구성과 학생분석 누락 건도 함께 잡겠습니다.
+### 새 출력 사양
 
----
+**앞면 (영문분석 + 학생해석)**
+유닛 안의 **모든 완료 문장**을 한 흐름으로 이어서 출력. 각 문장 블록:
+1) 학생이 제출한 **분석 채점본** (영어 단어 위/아래 품사·역할 라벨이 컬러로 채점된 형태 — 인쇄 시 컬러 유지, 기존 `buildAnalysisPrintHtml` 스타일 그대로)
+2) 바로 아래 같은 페이지 흐름으로 학생이 제출한 **한글해석** (없으면 "(미제출)")
+- B5 세로, 문장 사이는 점선으로만 구분, 페이지가 부족하면 자동으로 다음 장으로 이어짐.
 
-## 작업 1 — 학습결과: `__remediation_N` 합성카드 제거 + 원래 지문 행에 "오답복습 N회" 표시
+**뒷면 (구조도)**
+- 유닛에 등록된 `textbook_units.structure_pdf_url` 또는 `analysis_pdf_url` (기존 포맷). 
+- PDF가 등록되어 있으면 `<embed>` 또는 새 페이지 안내(브라우저 인쇄 시 별도 첨부 안내). 
+- 등록 PDF가 없으면 "구조도 작성용 빈 페이지" (현재 `uo-end-page` 의 grid 영역) 1장으로 fallback.
 
-**파일:** `src/pages/teacher/LearningResults.tsx`
+**컬러 보존**
+이미 `buildAnalysisPrintHtml` 에서 `-webkit-print-color-adjust: exact` 가 들어가 있어 인쇄 시 채점 컬러(녹/적/주/회)는 그대로 유지됩니다. 새 통합본도 동일 스타일을 그대로 inline 합니다.
 
-1. 활동 소스에서 `(user_id, sentence_id)` 페어를 모으는 단계 (line 205-220 근방) 에서 `/__remediation_\d+$/` 매칭 sid 는 **collect 에서 제외** → 별도 카드 생성 차단.
-2. 동시에 `word_pre_results` 결과를 한 번 더 훑어서 `parentSid = sid.replace(/__remediation_\d+$/, "")` 로 묶어 **`(user_id, parentSid) → 오답복습 시도 수`** 맵을 만든다.
-   - 시도 수 = 해당 학생/원래 지문에 대해 발견된 distinct `__remediation_\d+` suffix 개수.
-3. 화면 표의 `단어시험` 컬럼 옆에 작은 보조 배지 추가:
-   - 예: `100 ↻3` 또는 `오답복습 3회` (Tooltip 으로 "단어시험 오답 4단계 복습 누적 3회")
-   - 시도 수가 0 이면 표시하지 않음.
-4. 카운트 자체는 신뢰할 수 있도록 sid 가 `"^…__remediation_<숫자>$"` 형태인 것만 인정하고, 부모 sid 가 실제 `textbook_passages.code` 또는 `user_sentences.code` 에 존재할 때만 카운트.
+### 구현 변경
 
-> 데이터는 그대로 둡니다 (`word_pre_results` 의 학습 이력은 가치 있음). UI 노출만: 부모 행에 시도 횟수 배지로 흡수.
+#### 1. `src/lib/unitWorkbook.ts` — `buildUnitWorkbookHtmlFor` 의 `unit_only` 본문 재작성
+- 기존: 문장 N개 × (분석 1p + 해석 1p) + 마지막 tail 2p
+- 신규: **표지 1p → 분석+해석 통합 본문(자동 분할) → 구조도 뒷면 1p**
+- 분석 부분은 `preloadAnalysisPayload` + `buildAnalysisPrintHtml` 로 만들지만, 페이지 단위가 아니라 **본문 섹션만** 추출하여 한 흐름에 이어 붙임. 각 문장 블록 끝에 `<div class="ko-block">` 으로 학생 한글해석을 붙임.
+- 구조도 페이지: `textbook_units` 에서 `structure_pdf_url`(우선) 또는 `analysis_pdf_url` 을 fetch → 있으면 `<embed src="..." class="page" type="application/pdf">`, 없으면 빈 grid 페이지.
 
----
+#### 2. `src/lib/printTemplates.ts`
+- `buildAnalysisPrintHtml` 의 본문 영역만 따로 반환할 수 있도록 헬퍼 `buildAnalysisBodyFragment(payload)` 추가 (page wrapper 없이 inner section + 토큰 스타일).
+- 새 함수 `buildUnitCombinedWorkbookHtml({ ctx, items, structurePdfUrl })`:
+  - 표지 + 모든 item 의 (분석 fragment + 학생 한글해석 블록) 을 `.combined-block { break-inside: avoid }` 로 감싸서 한 흐름에 출력
+  - 마지막에 구조도 페이지 (PDF embed 또는 빈 grid)
 
-## 작업 2 — "유닛만" 모드 워크북 레이아웃 재구성
+#### 3. `src/pages/teacher/LearningResults.tsx`
+- `handlePrintAll(userId, sentenceIds)` 를 다음과 같이 변경:
+  - sentence 들을 unit 단위로 그룹핑 (이미 화면에 있는 그룹 로직 재사용)
+  - 각 unit 마다 `buildUnitWorkbookHtmlFor({ unitId, unitTitle, unitCode, studentId: userId, mode: students[userId].unit_workbook_mode })` 호출
+  - 결과 HTML 들을 `launchPrintHtmlMany` 로 순차 인쇄 (유닛 1개면 1번만 뜸 → 사용자가 본 "한 워크북" 경험)
+- 유닛 헤더의 작은 프린터 아이콘(line 936)도 동일하게 단일 유닛용 `buildUnitWorkbookHtmlFor` 호출로 교체.
 
-**파일:** `src/lib/unitWorkbook.ts`, `src/lib/printTemplates.ts`
+### 동작 시나리오
+- 학생 카드 모드 토글이 **유닛만** 인 상태에서 [전체인쇄] 클릭 → 유닛별 1개 워크북, 앞면=영어 분석+학생 해석 통합, 뒷면=구조도. 인쇄창 1개(유닛 1개 시).
+- **유닛+문장** 모드는 기존 동작(지문별 분석/단어/해석) 유지.
+- 컬러 채점 라벨은 컬러 인쇄로 그대로 출력.
 
-현재 `unit_only` 모드는 지문마다 `[분석 채점본 → 한글해석 HO 2장]` 을 N번 반복해서, 같은 구조도/지스트/영작 블록이 N번 출력됩니다. 사용자 요구는:
-
-```text
-[표지]
-─────────────────────────────────
-[분석 채점본 — 지문별 N장]   (작업 3 후 학생 분석 라벨 포함)
-─────────────────────────────────
-[유닛 통합 한글해석본 — 1~2장]
-  · "영문 한 줄 / 학생 한글해석 한 줄" 반복
-  · 자연 흐름 페이지 분할 (B5 11pt line-height 2.0)
-─────────────────────────────────
-[유닛 끝 — 1회만]
-  · 구조도 (큰 grid 1장)
-  · 지스트 (4줄)
-  · 영작 (4줄)
-─────────────────────────────────
-```
-
-구현:
-- `printTemplates.ts` 에 `buildUnitOnlyHandoutHtml(passages, ctx)` 신규 함수 추가
-  - 입력: 한 유닛의 모든 완료 지문 + 학생 번역
-  - 출력 1: 통합 해석본 페이지 (영문 + 학생 해석 줄로 나열)
-  - 출력 2: 유닛 끝 한 페이지 (구조도 grid + 지스트/영작)
-- `unitWorkbook.ts` 의 `buildUnitWorkbookHtmlFor`:
-  - `mode === "unit_only"` 인 경우 지문별 루프 대신 다음 순서로:
-    1. 표지
-    2. 분석 채점본 (지문별 반복)
-    3. 유닛 통합 한글해석본 (1회)
-    4. 유닛 끝 구조도/지스트/영작 (1회)
-  - `mode === "both"` 동작 변경 없음
-- 표지 안내 문구 업데이트.
-
----
-
-## 작업 3 — 분석 채점본에 "학생 분석 결과(품사/역할 라벨)" 출력
-
-**파일:** `src/lib/printPreload.ts`, `src/lib/printTemplates.ts`
-
-현재 `buildAnalysisPrintHtml` 는 `passage.english` 만 검정 텍스트로 찍고, 채점결과는 "차이 표"만 보여줘서 — 학생이 직접 만든 **owner 라벨**(예: `they → 명사·주어`, `disappear → 동사·과거`)이 인쇄본에 안 들어감. 사용자 피드백 그대로 "빈 영어문장만 출력".
-
-구현:
-1. `preloadAnalysisPayload` 에서 `fetchStudentAnswersByUserId(sentenceId, studentId)` (이미 `analysisGrading.ts` 존재) 호출 추가 → `studentProgress: Record<ownerId, AnyProgress>` 를 payload 에 포함.
-2. `buildWordUnitsFromTokens` 결과(이미 사용 중)와 매핑해서 단일 단어 + span owner 모두 라벨 산출.
-3. `printTemplates.ts` 에 `formatProgressLabel(prog)` 헬퍼 추가:
-   - `pos=noun` → `"명사·{form?}·{element?}·{role?}"`
-   - `pos=verb` → `"동사·{tense?}·{aspect?}·{voice?}"`
-   - `pos=adj/adv/etc` → 동일 패턴
-4. `buildAnalysisPrintHtml` ① 본문 블록 교체:
-   - 영문 단어를 칩으로 렌더링하고, 학생이 라벨을 채운 owner 는 그 아래에 작은 라벨 함께 표시
-   - 마스터키 불일치(`status !== "exact"`) owner 는 칩 배경 옅은 빨강 음영
-   - 학생 미입력 owner 는 점선 회색
-5. 수식/지칭 관계선은 이번 라운드 제외 (스코프 큼).
-
-> 인쇄용이라 컬러는 흑백/회색 + 빨강 음영만. `print-color-adjust: exact` 이미 설정됨.
-
----
-
-## 기술 노트 (요약)
-
-- 합성 sid 패턴: `${realCode}__remediation_${attemptNo}` — `/__remediation_\d+$/` 정규식으로 안전 필터.
-- 오답복습 카운트는 `word_pre_results` 의 distinct suffix 기준 (재진입해도 같은 attempt_no 면 1회).
-- `unit_only` 한 페이지 문장 수는 CSS overflow 자연 분할에 맡기고, `page-break-before: always` 는 유닛 끝 구조도 직전에만.
-- 학생 분석 라벨은 `owner_progress.progress` (jsonb) 의 `pos / noun / adj / adv / verb / etc` 구조 그대로 활용. SQL 마이그레이션 불필요.
-- 변경 파일 4개: `LearningResults.tsx`, `unitWorkbook.ts`, `printTemplates.ts`, `printPreload.ts`. 신규 SQL/RLS/마이그레이션 없음.
+### 변경 파일
+- `src/lib/printTemplates.ts` — `buildAnalysisBodyFragment`, `buildUnitCombinedWorkbookHtml` 추가
+- `src/lib/unitWorkbook.ts` — `unit_only` 분기 시 새 통합 빌더 사용 + 구조도 PDF fetch
+- `src/pages/teacher/LearningResults.tsx` — `handlePrintAll` 을 유닛 단위 통합 워크북 호출로 교체

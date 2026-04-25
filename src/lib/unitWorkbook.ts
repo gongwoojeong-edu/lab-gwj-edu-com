@@ -22,10 +22,10 @@ import {
   buildAnalysisPrintHtml,
   buildWordPrintHtml,
   buildHandoutPrintHtml,
-  buildUnitOnlyHandoutHtml,
-  type UnitOnlyHandoutItem,
+  buildUnitCombinedWorkbookHtml,
+  type UnitCombinedItem,
 } from "./printTemplates";
-import { fetchPassagesByUnit, fetchPassageByCode } from "./textbooks";
+import { fetchPassagesByUnit, getStructurePdfSignedUrl, getAnalysisPdfSignedUrl } from "./textbooks";
 
 const escapeHtml = (s: string): string =>
   s
@@ -145,16 +145,26 @@ const buildPassageSection = async (
   return sections.join("\n");
 };
 
-/** unit_only 전용 — 통합 한글해석본 + 유닛 끝 페이지 */
-const buildUnitOnlyTail = async (
+/** unit_only 전용 — 앞면(분석+학생해석 통합) + 뒷면(구조도) */
+const buildUnitOnlyCombined = async (
+  unitId: string,
   sentenceIds: string[],
   studentId: string,
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
-  const items: UnitOnlyHandoutItem[] = [];
+  // 각 문장의 분석 payload + 학생 한글해석 수집
+  const items: UnitCombinedItem[] = [];
   for (const sid of sentenceIds) {
-    const passage = await fetchPassageByCode(sid).catch(() => null);
-    if (!passage) continue;
+    let analysis;
+    try {
+      analysis = await preloadAnalysisPayload({
+        sentenceId: sid,
+        studentId,
+        mode: "marked",
+      });
+    } catch {
+      continue; // 분석 데이터가 없는 문장은 통합본에서 제외
+    }
     const { data: t } = await supabase
       .from("sentence_translations")
       .select("text")
@@ -164,17 +174,35 @@ const buildUnitOnlyTail = async (
       .limit(1)
       .maybeSingle();
     items.push({
-      passageCode: passage.code,
-      english: passage.english,
+      passageCode: sid,
+      analysis,
       studentTranslation: (t?.text as string | undefined) ?? "",
     });
   }
-  return buildUnitOnlyHandoutHtml({
+
+  // 구조도 PDF 서명 URL — structure_pdf_url 우선, 없으면 analysis_pdf_url fallback
+  const { data: unitRow } = await supabase
+    .from("textbook_units")
+    .select("structure_pdf_url, analysis_pdf_url")
+    .eq("id", unitId)
+    .maybeSingle();
+  let structurePdfUrl: string | null = null;
+  const path = (unitRow?.structure_pdf_url as string | null) ?? null;
+  const fallback = (unitRow?.analysis_pdf_url as string | null) ?? null;
+  if (path) {
+    structurePdfUrl = await getStructurePdfSignedUrl(path).catch(() => null);
+  }
+  if (!structurePdfUrl && fallback) {
+    structurePdfUrl = await getAnalysisPdfSignedUrl(fallback).catch(() => null);
+  }
+
+  return buildUnitCombinedWorkbookHtml({
     unitTitle: ctx.unitTitle,
     unitCode: ctx.unitCode,
     studentName: ctx.studentName,
     studentNo: ctx.studentNo,
     items,
+    structurePdfUrl,
   });
 };
 
@@ -311,24 +339,23 @@ export const buildUnitWorkbookHtmlFor = async (
     mode,
   };
 
-  // 표지
-  const cover = buildCoverPage(ctx, summary.completedCodes);
+  // unit_only 모드: 새 통합 워크북 한 장 (앞=분석+해석, 뒤=구조도). 표지/개별섹션 모두 생략.
+  if (mode === "unit_only") {
+    const combined = await buildUnitOnlyCombined(
+      input.unitId,
+      summary.completedCodes,
+      input.studentId,
+      ctx,
+    );
+    return { html: combined, completedCount: summary.completedCodes.length, mode };
+  }
 
-  // 본문 — 직렬 처리 (병렬은 부하 + AI/DB rate limit 위험)
+  // both 모드: 표지 + 지문별 (분석/단어/해석) 섹션
+  const cover = buildCoverPage(ctx, summary.completedCodes);
   const sections: string[] = [];
   for (const code of summary.completedCodes) {
     const sec = await buildPassageSection(code, input.studentId, mode);
     sections.push(sec);
-  }
-
-  // unit_only: 마지막에 통합 한글해석본 + 유닛 끝 페이지 (1회)
-  if (mode === "unit_only") {
-    try {
-      const tail = await buildUnitOnlyTail(summary.completedCodes, input.studentId, ctx);
-      sections.push(tail);
-    } catch {
-      /* skip */
-    }
   }
 
   // 각 섹션 빌더가 자체 doctype/wrap을 만들어 반환하므로,

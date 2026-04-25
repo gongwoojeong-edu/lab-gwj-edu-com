@@ -504,6 +504,92 @@ const ownerIdToSpanRange = (ownerId: string): [number, number] | null => {
   return [s, e];
 };
 
+/**
+ * 분석 채점본의 "본문(단어 칩 + 라벨) HTML"만 페이지 래퍼 없이 반환.
+ * 통합 워크북에서 여러 문장의 분석본을 한 흐름에 붙일 때 사용.
+ */
+export const buildAnalysisPassageFragment = (p: AnalysisPayload): string => {
+  const units = p.units ?? [];
+  const studentProgress = p.studentProgress ?? {};
+  const ownerStatus = new Map<string, CompareDetailRow["status"]>();
+  p.details.forEach((d) => ownerStatus.set(d.ownerId, d.status));
+
+  type WordCell = { label: string; status: CompareDetailRow["status"] | null; ownerId: string | null };
+  const cells: WordCell[] = units.map(() => ({ label: "", status: null, ownerId: null }));
+  Object.entries(studentProgress).forEach(([ownerId, prog]) => {
+    const idx = ownerIdToWordIdxLite(ownerId);
+    if (idx == null) return;
+    if (idx < 0 || idx >= cells.length) return;
+    const lbl = formatProgressLabel(prog);
+    if (!lbl) return;
+    if (cells[idx].label.length < lbl.length) {
+      cells[idx].label = lbl;
+      cells[idx].ownerId = ownerId;
+      cells[idx].status = ownerStatus.get(ownerId) ?? null;
+    }
+  });
+  Object.entries(studentProgress).forEach(([ownerId, prog]) => {
+    const range = ownerIdToSpanRange(ownerId);
+    if (!range) return;
+    const [s, e] = range;
+    const lbl = formatProgressLabel(prog);
+    if (!lbl) return;
+    if (s < 0 || s >= cells.length) return;
+    if (!cells[s].label) {
+      cells[s].label = `[${lbl}]`;
+      cells[s].ownerId = ownerId;
+      cells[s].status = ownerStatus.get(ownerId) ?? null;
+    }
+    for (let i = s; i <= e && i < cells.length; i++) {
+      if (cells[i].status == null) cells[i].status = ownerStatus.get(ownerId) ?? null;
+    }
+  });
+
+  const renderChip = (u: FlatWordUnit, c: WordCell): string => {
+    const w = escapeHtml(u.word);
+    if (!u.tokenId) return `<span class="tok static">${w}</span>`;
+    const cls = ["tok", "chip"];
+    if (c.status === "miss" || c.status === "partial") cls.push("s-bad");
+    else if (c.status === "missing") cls.push("s-empty");
+    else if (c.status === "extra") cls.push("s-extra");
+    else if (c.status === "exact") cls.push("s-ok");
+    if (!c.label) cls.push("s-blank");
+    const lbl = c.label ? `<span class="lbl">${escapeHtml(c.label)}</span>` : "";
+    return `<span class="${cls.join(" ")}">${w}${lbl}</span>`;
+  };
+
+  return units.length > 0
+    ? `<div class="passage">${units.map((u, i) => renderChip(u, cells[i])).join(" ")}</div>`
+    : `<div class="body-text">${escapeHtml(p.english)}</div>`;
+};
+
+/** 분석/단어 칩 공용 스타일 (combined workbook 에서 한 번만 inline) */
+export const ANALYSIS_CHIP_STYLE = `
+  .body-text { line-height: 1.9; font-size: 11pt; padding: 2mm 0; }
+  .passage {
+    line-height: 2.2; font-size: 11pt; padding: 3mm 0;
+    word-spacing: 1.5pt;
+  }
+  .tok { display: inline-block; vertical-align: baseline; padding: 0 1pt; }
+  .tok.static { color: #333; }
+  .tok.chip {
+    position: relative; padding: 0.4mm 1.2mm 4.5mm 1.2mm;
+    margin: 1mm 0.4mm 4mm 0.4mm; border-radius: 1mm;
+    border: 0.4pt solid transparent;
+  }
+  .tok.chip .lbl {
+    position: absolute; left: 0; right: 0; bottom: 0.5mm;
+    text-align: center; font-size: 6.5pt; line-height: 1;
+    color: #000; font-weight: 600; white-space: nowrap;
+    overflow: visible;
+  }
+  .tok.s-ok    { background: #f0f7ee; border-color: #c6deba; }
+  .tok.s-bad   { background: #ffe9e9; border-color: #d28a8a; }
+  .tok.s-extra { background: #fff7e6; border-color: #d6b87a; }
+  .tok.s-empty { background: transparent; border-color: #999; border-style: dashed; }
+  .tok.s-blank { color: #555; }
+`;
+
 export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
   const stamp = nowStamp();
   const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
@@ -683,3 +769,137 @@ export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
 `;
   return wrapDoc(`Analysis ${p.sentenceId}`, body);
 };
+
+// ============================================================
+// 통합 유닛 워크북 (앞면=영문분석+학생해석 / 뒷면=구조도)
+// ============================================================
+export interface UnitCombinedItem {
+  passageCode: string;
+  /** AnalysisPayload — 분석 채점본 데이터(units/studentProgress 포함) */
+  analysis: AnalysisPayload;
+  /** 학생 한글해석 (없으면 빈 문자열) */
+  studentTranslation: string;
+}
+export interface UnitCombinedPayload {
+  unitTitle: string;
+  unitCode: string;
+  studentName: string | null;
+  studentNo: string | null;
+  items: UnitCombinedItem[];
+  /** 구조도 PDF 의 서명 URL (없으면 빈 grid 페이지) */
+  structurePdfUrl: string | null;
+}
+
+export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string => {
+  const stamp = nowStamp();
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
+  const headerMeta = `${escapeHtml(p.unitCode)} · 학생: ${sName} ${sNo}`;
+
+  const blocks = p.items
+    .map((it, i) => {
+      const passageHtml = buildAnalysisPassageFragment(it.analysis);
+      const koRaw = it.studentTranslation && it.studentTranslation.trim();
+      const ko = koRaw
+        ? escapeHtml(it.studentTranslation)
+        : '<span class="muted">(미제출)</span>';
+      return `
+        <div class="cb-block">
+          <div class="cb-head">
+            <span class="num">${i + 1}.</span>
+            <span class="code">${escapeHtml(it.passageCode)}</span>
+          </div>
+          ${passageHtml}
+          <div class="cb-ko"><b>해석:</b> ${ko}</div>
+        </div>`;
+    })
+    .join("");
+
+  const structurePage = p.structurePdfUrl
+    ? `
+<div class="page cb-structure">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Structure</div>
+      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>등록 PDF</div>
+    </div>
+  </div>
+  <embed src="${escapeHtml(p.structurePdfUrl)}" type="application/pdf" class="cb-pdf" />
+</div>`
+    : `
+<div class="page cb-structure">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Structure</div>
+      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>구조도 등록 전</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">구조도 작성란</div>
+    <div class="cb-grid"></div>
+  </div>
+</div>`;
+
+  const body = `
+<style>
+  ${ANALYSIS_CHIP_STYLE}
+  .cb-passage-page { padding: 4mm 5mm; }
+  .cb-block {
+    padding: 2mm 0 3mm; border-bottom: 0.4pt dashed #999;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .cb-block:last-child { border-bottom: none; }
+  .cb-head { font-size: 8.5pt; color: #444; margin-bottom: 1mm; }
+  .cb-head .num { font-weight: 700; margin-right: 1.5mm; }
+  .cb-head .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .cb-ko {
+    font-size: 10pt; line-height: 1.6; color: #222; margin-top: 1mm;
+    border-left: 1.5pt solid #999; padding: 1mm 0 1mm 2mm;
+    min-height: 6mm;
+  }
+  .cb-ko .muted { color: #888; }
+  .cb-structure { padding: 0; }
+  .cb-pdf { width: 100%; height: 230mm; border: 0; display: block; }
+  .cb-grid {
+    min-height: 200mm;
+    background-image:
+      linear-gradient(#bbb 0.3pt, transparent 0.3pt),
+      linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
+    background-size: 4mm 4mm;
+    border: 0.5pt solid #000;
+  }
+</style>
+
+<div class="page cb-passage-page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Unit Workbook</div>
+      <div class="title">유닛 통합 워크북 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>지문 ${p.items.length}건 · 앞면</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">유닛 본문 — 학생 분석 + 학생 한글해석</div>
+    ${blocks || '<div class="cb-block"><div class="cb-ko">(완료 지문 없음)</div></div>'}
+  </div>
+</div>
+
+${structurePage}
+`;
+  return wrapDoc(`UnitWorkbook ${p.unitCode}`, body);
+};
+
