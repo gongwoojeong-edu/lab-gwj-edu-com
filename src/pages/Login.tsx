@@ -24,7 +24,10 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = loginSchema.safeParse({ studentNo, password });
+    // 4자리만 입력해도, 전체(gwj0211)로 입력해도 모두 허용
+    const raw = studentNo.trim().toLowerCase();
+    const normalized = raw.startsWith("gwj") ? raw : `gwj${raw}`;
+    const parsed = loginSchema.safeParse({ studentNo: normalized, password });
     if (!parsed.success) {
       toast({ title: parsed.error.issues[0]?.message ?? "입력 오류", variant: "destructive" });
       return;
@@ -52,14 +55,32 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="studentNo">학번</Label>
-            <Input
-              id="studentNo"
-              value={studentNo}
-              onChange={(e) => setStudentNo(e.target.value)}
-              placeholder="gwj0001"
-              autoComplete="username"
-              autoFocus
-            />
+            <div className="flex items-stretch rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+              <span className="px-3 flex items-center text-sm font-mono font-bold text-muted-foreground bg-muted/60 border-r border-input select-none">
+                gwj
+              </span>
+              <Input
+                id="studentNo"
+                value={studentNo}
+                onChange={(e) => {
+                  // gwj 접두사 자동 제거 + 숫자 4자리까지만 허용
+                  const v = e.target.value
+                    .toLowerCase()
+                    .replace(/^gwj/, "")
+                    .replace(/\D/g, "")
+                    .slice(0, 4);
+                  setStudentNo(v);
+                }}
+                placeholder="0001"
+                inputMode="numeric"
+                pattern="\d{4}"
+                maxLength={4}
+                autoComplete="username"
+                autoFocus
+                className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 font-mono tracking-widest text-base"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">학번 뒷자리 4자리만 입력하세요</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">비밀번호</Label>
