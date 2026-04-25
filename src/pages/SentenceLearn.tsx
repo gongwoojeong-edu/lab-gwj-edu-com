@@ -257,7 +257,7 @@ const SentenceLearn = () => {
       }
       setEntries(built);
 
-      // 초기 step 결정 — OFF 단계는 건너뜀, 새 순서: pre → wordtest → analysis → translation
+      // 초기 step 결정 — 이미 뒤 단계까지 온 학생은 이전 단계로 되돌리지 않음
       const wordTestPassedRow = await supabase
         .from("word_test_results")
         .select("passed, mode")
@@ -270,15 +270,13 @@ const SentenceLearn = () => {
       // 추출된 단어가 없으면 pre/wordtest는 자동 done 처리 → '구문 분석'에서 시작
       const hasWords = built.length > 0;
       const preEff = preDoneEff || !hasWords;
-      const wtEff = wordtestAllPassed || !hasWords;
-      if (!hasWords) {
-        setPreDone(true);
-        setWordtestDone(true);
-      } else {
-        setWordtestDone(wordtestAllPassed);
-      }
+      const wtEff = !!prog?.word_test_done || wordtestAllPassed || !hasWords || !flags.wordtest;
+      setPreDone(preEff);
+      setWordtestDone(wtEff);
 
-      if (!preEff && flags.pre) setStep("pre");
+      if (translationDoneEff) setStep("translation");
+      else if (analysisDoneEff && flags.translation) setStep("translation");
+      else if (!preEff && flags.pre) setStep("pre");
       else if (!wtEff && flags.wordtest) setStep("wordtest");
       else if (!analysisDoneEff && flags.analysis) setStep("analysis");
       else setStep("translation");
