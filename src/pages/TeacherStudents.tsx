@@ -143,11 +143,13 @@ const TeacherStudents = () => {
     }
     setPinSaving(true);
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from("student_profiles")
         .update({ teacher_pin: pinValue })
-        .eq("display_name", pinTarget.name)
         .select("user_id");
+      const profileUserId = profileUserIdByName[pinTarget.name];
+      q = profileUserId ? q.eq("user_id", profileUserId) : q.eq("display_name", pinTarget.name);
+      const { data, error } = await q;
       if (error) throw error;
       if (!data || data.length === 0) {
         toast({
