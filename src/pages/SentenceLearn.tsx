@@ -443,7 +443,7 @@ const SentenceLearn = () => {
             : "hold";
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
-          analysis_done: analysisPassed || (opts?.teacherOverride ? true : undefined),
+          ...(analysisPassed || opts?.teacherOverride ? { analysis_done: true } : {}),
           analysis_match_rate: grade.rate,
           status: nextStatus,
           passed_at: nextStatus === "pass" ? new Date().toISOString() : null,
