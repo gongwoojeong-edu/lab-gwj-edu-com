@@ -22,10 +22,10 @@ import {
   buildAnalysisPrintHtml,
   buildWordPrintHtml,
   buildHandoutPrintHtml,
-  buildUnitOnlyHandoutHtml,
-  type UnitOnlyHandoutItem,
+  buildUnitCombinedWorkbookHtml,
+  type UnitCombinedItem,
 } from "./printTemplates";
-import { fetchPassagesByUnit, fetchPassageByCode } from "./textbooks";
+import { fetchPassagesByUnit, getStructurePdfSignedUrl, getAnalysisPdfSignedUrl } from "./textbooks";
 
 const escapeHtml = (s: string): string =>
   s
