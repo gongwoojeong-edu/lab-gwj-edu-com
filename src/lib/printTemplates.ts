@@ -794,21 +794,32 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
   const headerMeta = `${escapeHtml(p.unitCode)} · 학생: ${sName} ${sNo}`;
 
-  const blocks = p.items
+  // 앞면: 모든 지문을 하나의 박스에 (문장별 줄바꿈만 유지), 한글해석도 한 박스에 모음
+  const passageBlocks = p.items
     .map((it, i) => {
       const passageHtml = buildAnalysisPassageFragment(it.analysis);
+      return `
+        <div class="cb-prow">
+          <div class="cb-pnum">${i + 1}.</div>
+          <div class="cb-pbody">
+            <div class="cb-pcode">${escapeHtml(it.passageCode)}</div>
+            ${passageHtml}
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  const transBlocks = p.items
+    .map((it, i) => {
       const koRaw = it.studentTranslation && it.studentTranslation.trim();
       const ko = koRaw
         ? escapeHtml(it.studentTranslation)
         : '<span class="muted">(미제출)</span>';
       return `
-        <div class="cb-block">
-          <div class="cb-head">
-            <span class="num">${i + 1}.</span>
-            <span class="code">${escapeHtml(it.passageCode)}</span>
-          </div>
-          ${passageHtml}
-          <div class="cb-ko"><b>해석:</b> ${ko}</div>
+        <div class="cb-trow">
+          <span class="cb-tnum">${i + 1}.</span>
+          <span class="cb-tcode">${escapeHtml(it.passageCode)}</span>
+          <span class="cb-ttext">${ko}</span>
         </div>`;
     })
     .join("");
@@ -833,25 +844,25 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   <div class="section">
     <div class="section-title">② 지스트 (주제문장)</div>
     <div class="cb-write cb-write-wide">
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+      <div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
   <div class="section">
     <div class="section-title">③ 영작</div>
     <div class="cb-write cb-write-wide">
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+      <div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
   <div class="section">
     <div class="section-title">④ 정독해석</div>
     <div class="cb-write cb-write-wide">
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+      <div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
   <div class="section">
     <div class="section-title">⑤ 재영작</div>
     <div class="cb-write cb-write-wide">
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+      <div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
 </div>`;
@@ -860,40 +871,59 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
 <style>
   ${ANALYSIS_CHIP_STYLE}
   .cb-passage-page { padding: 4mm 5mm; }
-  .cb-block {
-    padding: 2mm 0 3mm; border-bottom: 0.4pt dashed #999;
-    break-inside: avoid; page-break-inside: avoid;
+  .cb-front .section-title {
+    font-size: 9.5pt; font-weight: 700; margin: 1mm 0 1.5mm;
+    border-left: 2pt solid #000; padding-left: 2mm;
   }
-  .cb-block:last-child { border-bottom: none; }
-  .cb-head { font-size: 8.5pt; color: #444; margin-bottom: 1mm; }
-  .cb-head .num { font-weight: 700; margin-right: 1.5mm; }
-  .cb-head .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-  .cb-ko {
-    font-size: 10pt; line-height: 1.6; color: #222; margin-top: 1mm;
-    border-left: 1.5pt solid #999; padding: 1mm 0 1mm 2mm;
-    min-height: 6mm;
+  /* 앞면: 분석 본문 통합 박스 */
+  .cb-passages {
+    border: 0.5pt solid #000; padding: 2mm 3mm;
   }
-  .cb-ko .muted { color: #888; }
+  .cb-prow {
+    display: flex; gap: 2mm; padding: 1.2mm 0;
+    border-bottom: 0.3pt dashed #bbb;
+  }
+  .cb-prow:last-child { border-bottom: none; }
+  .cb-pnum { font-weight: 700; font-size: 9pt; color: #333; min-width: 6mm; padding-top: 0.5mm; }
+  .cb-pbody { flex: 1; min-width: 0; }
+  .cb-pcode {
+    font-size: 7.5pt; color: #777; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    margin-bottom: 0.5mm;
+  }
+  .cb-pbody .passage { padding: 0; line-height: 1.95; font-size: 10pt; }
+  /* 앞면: 한글해석 통합 박스 */
+  .cb-trans-box {
+    border: 0.5pt solid #000; padding: 2mm 3mm;
+    font-size: 10pt; line-height: 1.55; color: #222;
+  }
+  .cb-trow { padding: 0.8mm 0; border-bottom: 0.3pt dashed #ccc; }
+  .cb-trow:last-child { border-bottom: none; }
+  .cb-tnum { font-weight: 700; margin-right: 1.5mm; }
+  .cb-tcode {
+    font-size: 7.5pt; color: #777; margin-right: 2mm;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .cb-ttext { white-space: pre-wrap; }
+  .cb-ttext .muted { color: #888; }
+  .cb-empty { padding: 4mm; text-align: center; font-size: 10pt; color: #777; }
+
+  /* 뒷면 */
   .cb-back { padding: 0 0 4mm; }
-  .cb-back .section { padding: 3mm 5mm; }
+  .cb-back .section { padding: 2mm 5mm; }
   .cb-back .section-title {
-    font-size: 9.5pt; font-weight: 700; margin-bottom: 1.5mm;
+    font-size: 9.5pt; font-weight: 700; margin-bottom: 1mm;
     border-left: 2pt solid #000; padding-left: 2mm;
   }
   .cb-grid {
-    min-height: 62mm;
+    min-height: 70mm;
     background-image:
       linear-gradient(#bbb 0.3pt, transparent 0.3pt),
       linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
     background-size: 4mm 4mm;
     border: 0.5pt solid #000;
   }
-  .cb-cols {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 4mm;
-    padding: 0 5mm 3mm;
-  }
   .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 2mm; }
-  .cb-write-wide { gap: 9mm; padding-top: 3mm; padding-bottom: 1mm; }
+  .cb-write-wide { gap: 11mm; padding-top: 3mm; padding-bottom: 1mm; }
   .cb-line { border-bottom: 0.5pt solid #000; height: 0; }
 </style>
 
@@ -909,9 +939,17 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
       <div>지문 ${p.items.length}건 · 앞면</div>
     </div>
   </div>
-  <div class="section">
-    <div class="section-title">유닛 본문 — 학생 분석 + 학생 한글해석</div>
-    ${blocks || '<div class="cb-block"><div class="cb-ko">(완료 지문 없음)</div></div>'}
+  <div class="section cb-front">
+    <div class="section-title">① 본문 (학생 분석)</div>
+    <div class="cb-passages">
+      ${passageBlocks || '<div class="cb-empty">(완료 지문 없음)</div>'}
+    </div>
+  </div>
+  <div class="section cb-front">
+    <div class="section-title">② 학생 한글해석</div>
+    <div class="cb-trans-box">
+      ${transBlocks || '<div class="cb-empty">(미제출)</div>'}
+    </div>
   </div>
 </div>
 
