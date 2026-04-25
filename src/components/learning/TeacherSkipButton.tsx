@@ -86,10 +86,10 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
         className="text-[11px] text-muted-foreground hover:text-foreground"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        title="선생님 확인 후 스킵"
+        title={label ?? "선생님 확인 후 스킵"}
       >
         <Lock className="w-3 h-3 mr-1" />
-        선생님 확인 후 스킵
+        {label ?? "선생님 확인 후 스킵"}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
