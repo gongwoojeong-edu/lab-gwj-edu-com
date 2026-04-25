@@ -672,7 +672,12 @@ const Assignments = () => {
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">
-          <Label>연결 지문 <span className="text-destructive">*</span></Label>
+          <Label className="flex items-center gap-2">
+            연결 지문
+            <span className="text-[10px] font-normal text-muted-foreground">
+              (유닛 선택 시 첫 지문이 자동 선택돼요. 다른 지문으로 바꿀 수 있어요)
+            </span>
+          </Label>
           <Select
             value={f.selectedPassageCode || undefined}
             onValueChange={(v) =>
