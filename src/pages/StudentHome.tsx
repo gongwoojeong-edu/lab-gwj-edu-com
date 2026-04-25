@@ -135,7 +135,7 @@ const StudentHome = () => {
             .or(`student_id.eq.${user.id},student_id.is.null`)
             .gte("due_at", new Date().toISOString())
             .order("due_at", { ascending: true })
-            .limit(5),
+            .limit(200),
         ]);
         const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold" | "pending"; updated_at: string; passed_at: string | null }[];
 
