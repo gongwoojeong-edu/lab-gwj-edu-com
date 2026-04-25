@@ -219,37 +219,46 @@ const TeacherStudents = () => {
     }
   };
 
-  useEffect(() => {
-    setStudents(loadStudents());
-  }, []);
-
-  // Load thresholds from DB by display_name
+  // Load students from DB (student_profiles) + merge with localStorage entries
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("student_profiles")
-        .select("user_id, student_no, display_name, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+        .select("user_id, student_no, display_name, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+      if (error) {
+        toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
+      }
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
       const tlMap: Record<string, number> = {};
       const userMap: Record<string, string> = {};
       const noMap: Record<string, string> = {};
-      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
-        if (row.display_name) {
-          wtMap[row.display_name] = Number(row.word_test_pass_threshold ?? 0.8);
-          anMap[row.display_name] = Number(row.analysis_pass_threshold ?? 0.8);
-          tlMap[row.display_name] = Number(row.word_test_time_limit_sec ?? 20);
-          userMap[row.display_name] = row.user_id;
-          if (row.student_no) noMap[row.display_name] = row.student_no;
-        }
+      const dbStudents: Student[] = [];
+      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
+        const name = row.display_name || row.student_no || row.user_id.slice(0, 8);
+        wtMap[name] = Number(row.word_test_pass_threshold ?? 0.8);
+        anMap[name] = Number(row.analysis_pass_threshold ?? 0.8);
+        tlMap[name] = Number(row.word_test_time_limit_sec ?? 20);
+        userMap[name] = row.user_id;
+        if (row.student_no) noMap[name] = row.student_no;
+        dbStudents.push({
+          id: `db-${row.user_id}`,
+          name,
+          level: ((row.current_level as LevelCode) || "L05"),
+          createdAt: row.created_at,
+        });
       });
       setThresholdByName(wtMap);
       setAnalysisByName(anMap);
       setTimeLimitByName(tlMap);
       setProfileUserIdByName(userMap);
       setProfileNoByName(noMap);
+
+      // Merge: DB students first, then any localStorage students whose name doesn't match a DB account
+      const localOnly = loadStudents().filter((s) => !userMap[s.name]);
+      setStudents([...dbStudents, ...localOnly]);
     })();
-  }, [students.length]);
+  }, []);
 
   const sorted = useMemo(
     () => [...students].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
