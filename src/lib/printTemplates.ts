@@ -786,8 +786,6 @@ export interface UnitCombinedPayload {
   studentName: string | null;
   studentNo: string | null;
   items: UnitCombinedItem[];
-  /** 구조도 PDF 의 서명 URL (없으면 빈 grid 페이지) */
-  structurePdfUrl: string | null;
 }
 
 export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string => {
@@ -815,38 +813,54 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     })
     .join("");
 
-  const structurePage = p.structurePdfUrl
-    ? `
-<div class="page cb-structure">
+  const structurePage = `
+<div class="page cb-back">
   <div class="header">
     <div>
-      <div class="eyebrow">Gongwoojeong · Structure</div>
-      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="eyebrow">Gongwoojeong · Unit Wrap-up</div>
+      <div class="title">유닛 마무리 · ${escapeHtml(p.unitTitle)}</div>
       <div class="meta">${headerMeta}</div>
     </div>
     <div class="meta" style="text-align:right">
       <div>출력: ${stamp}</div>
-      <div>등록 PDF</div>
-    </div>
-  </div>
-  <embed src="${escapeHtml(p.structurePdfUrl)}" type="application/pdf" class="cb-pdf" />
-</div>`
-    : `
-<div class="page cb-structure">
-  <div class="header">
-    <div>
-      <div class="eyebrow">Gongwoojeong · Structure</div>
-      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
-      <div class="meta">${headerMeta}</div>
-    </div>
-    <div class="meta" style="text-align:right">
-      <div>출력: ${stamp}</div>
-      <div>구조도 등록 전</div>
+      <div>구조도 · 지스트 · 영작 · 정독해석 · 재영작</div>
     </div>
   </div>
   <div class="section">
-    <div class="section-title">구조도 작성란</div>
+    <div class="section-title">① 구조도</div>
     <div class="cb-grid"></div>
+  </div>
+  <div class="cb-cols">
+    <div>
+      <div class="section-title">② 지스트 (주제문장)</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">③ 영작</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
+  </div>
+  <div class="cb-cols">
+    <div>
+      <div class="section-title">④ 정독해석</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">⑤ 재영작</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
   </div>
 </div>`;
 
@@ -868,16 +882,26 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     min-height: 6mm;
   }
   .cb-ko .muted { color: #888; }
-  .cb-structure { padding: 0; }
-  .cb-pdf { width: 100%; height: 230mm; border: 0; display: block; }
+  .cb-back { padding: 0 0 4mm; }
+  .cb-back .section { padding: 3mm 5mm; }
+  .cb-back .section-title {
+    font-size: 9.5pt; font-weight: 700; margin-bottom: 1.5mm;
+    border-left: 2pt solid #000; padding-left: 2mm;
+  }
   .cb-grid {
-    min-height: 200mm;
+    min-height: 78mm;
     background-image:
       linear-gradient(#bbb 0.3pt, transparent 0.3pt),
       linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
     background-size: 4mm 4mm;
     border: 0.5pt solid #000;
   }
+  .cb-cols {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4mm;
+    padding: 0 5mm 3mm;
+  }
+  .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 2mm; }
+  .cb-line { border-bottom: 0.5pt solid #000; height: 0; }
 </style>
 
 <div class="page cb-passage-page">
