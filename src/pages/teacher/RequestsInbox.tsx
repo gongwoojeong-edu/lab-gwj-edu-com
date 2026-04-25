@@ -26,6 +26,7 @@ import {
   BookOpen,
   ChevronDown,
   FileText,
+  Trash2,
 } from "lucide-react";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +35,7 @@ import {
   fetchHandledPrintRequests,
   subscribeToPrintRequests,
   markPrintRequestHandled,
+  deletePrintRequest,
   type PrintRequest,
 } from "@/lib/printRequests";
 import {
@@ -41,6 +43,7 @@ import {
   subscribeToReviewRequests,
   approveReviewRequest,
   rejectReviewRequest,
+  deleteReviewRequest,
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
 import { ensureHandoutRow, toIsoDate } from "@/lib/handoutResults";
@@ -240,6 +243,24 @@ const RequestsInbox = () => {
     }
   };
 
+  const handleDelete = async (item: InboxItem) => {
+    const ok = window.confirm(
+      "이 요청 기록을 영구 삭제할까요?\n(테스트/실수 데이터 정리용 — 되돌릴 수 없습니다)",
+    );
+    if (!ok) return;
+    try {
+      if (item.kind === "print") {
+        await deletePrintRequest(item.row.id);
+      } else {
+        await deleteReviewRequest(item.row.id);
+      }
+      toast({ title: "삭제 완료" });
+      await refresh();
+    } catch (e) {
+      toast({ title: "삭제 실패", description: errMsg(e), variant: "destructive" });
+    }
+  };
+
   const items = tab === "pending" ? pendingItems : doneItems;
 
   return (
@@ -337,6 +358,17 @@ const RequestsInbox = () => {
                         >
                           <CheckCircle2 className="size-3 mr-1" /> 인쇄 완료
                         </Button>
+                        {tab === "done" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(it)}
+                            title="요청 기록 삭제"
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        )}
                       </div>
                     </Card>
                   );
@@ -412,6 +444,17 @@ const RequestsInbox = () => {
                         <Printer className="size-3 mr-1" />
                         전체
                       </Button>
+                      {tab === "done" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(it)}
+                          title="요청 기록 삭제"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );
@@ -514,6 +557,17 @@ const RequestsInbox = () => {
                     >
                       <CheckCircle2 className="size-3 mr-1" /> 승인
                     </Button>
+                    {tab === "done" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(it)}
+                        title="요청 기록 삭제"
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    )}
                   </div>
                 </Card>
               );

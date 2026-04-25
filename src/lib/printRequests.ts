@@ -122,6 +122,12 @@ export const fetchHandledPrintRequests = async (limit = 100): Promise<PrintReque
   return (data ?? []) as PrintRequest[];
 };
 
+/** 선생님: 요청 삭제 (테스트/실수 데이터 정리용) */
+export const deletePrintRequest = async (id: string): Promise<void> => {
+  const { error } = await supabase.from("print_requests").delete().eq("id", id);
+  if (error) throw error;
+};
+
 /** 선생님: 처리 완료(인쇄됨) */
 export const markPrintRequestHandled = async (id: string): Promise<void> => {
   const { data: u } = await supabase.auth.getUser();
