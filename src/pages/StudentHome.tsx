@@ -2,6 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText } from "lucide-react";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
@@ -63,6 +73,10 @@ const StudentHome = () => {
   const [done, setDone] = useState(false);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
+  const [assignmentProgress, setAssignmentProgress] = useState<
+    Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>
+  >(new Map());
+  const [resumeTarget, setResumeTarget] = useState<{ sentenceId: string; title: string } | null>(null);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [analysisPrintReqs, setAnalysisPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [reviewReqs, setReviewReqs] = useState<Record<string, AnalysisReviewRequest>>({});
@@ -114,14 +128,29 @@ const StudentHome = () => {
           .map((a) => a.sentence_id)
           .filter(Boolean) as string[];
         let passedSet = new Set<string>();
+        const progressFlags = new Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>();
         if (assignSentenceIds.length > 0) {
           const { data: progRows } = await supabase
             .from("sentence_progress")
-            .select("sentence_id, status")
+            .select("sentence_id, status, pre_done, word_test_done, analysis_done, translation_done")
             .eq("user_id", user.id)
-            .in("sentence_id", assignSentenceIds)
-            .eq("status", "pass");
-          passedSet = new Set((progRows ?? []).map((r: { sentence_id: string }) => r.sentence_id));
+            .in("sentence_id", assignSentenceIds);
+          ((progRows ?? []) as Array<{
+            sentence_id: string;
+            status: string;
+            pre_done: boolean | null;
+            word_test_done: boolean | null;
+            analysis_done: boolean | null;
+            translation_done: boolean | null;
+          }>).forEach((r) => {
+            if (r.status === "pass") passedSet.add(r.sentence_id);
+            progressFlags.set(r.sentence_id, {
+              pre: !!r.pre_done,
+              wt: !!r.word_test_done,
+              an: !!r.analysis_done,
+              tr: !!r.translation_done,
+            });
+          });
         }
         const activeAssignments = allAssignments.filter(
           (a) => !a.sentence_id || !passedSet.has(a.sentence_id),
@@ -130,6 +159,7 @@ const StudentHome = () => {
         if (mounted) {
           setRecent(enriched);
           setAssignments(activeAssignments);
+          setAssignmentProgress(progressFlags);
         }
 
         // 본인의 pending 시험지/분석자료 요청 + 각 sentence별 정답대조 요청 상태 로드
@@ -541,16 +571,38 @@ const StudentHome = () => {
                             </p>
                           )}
                         </div>
-                        {a.sentence_id && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => navigate(`/learn/sentence/${a.sentence_id}`)}
-                            className="shrink-0"
-                          >
-                            <Play className="w-3 h-3 mr-1" /> 학습 시작
-                          </Button>
-                        )}
+                        {a.sentence_id && (() => {
+                          const pf = assignmentProgress.get(a.sentence_id);
+                          const inProgress = !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+                          if (inProgress) {
+                            return (
+                              <div className="flex flex-col sm:flex-row gap-1.5 shrink-0">
+                                <span className="inline-flex items-center justify-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 sm:hidden">
+                                  진행중
+                                </span>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    setResumeTarget({ sentenceId: a.sentence_id!, title: a.title })
+                                  }
+                                  className="shrink-0"
+                                >
+                                  <Play className="w-3 h-3 mr-1" /> 이어하기
+                                </Button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/learn/sentence/${a.sentence_id}`)}
+                              className="shrink-0"
+                            >
+                              <Play className="w-3 h-3 mr-1" /> 학습 시작
+                            </Button>
+                          );
+                        })()}
                       </li>
                     );
                   })}
@@ -789,6 +841,40 @@ const StudentHome = () => {
           </>
         )}
       </main>
+
+      <AlertDialog open={!!resumeTarget} onOpenChange={(o) => !o && setResumeTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>학습을 이어서 할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {resumeTarget?.title} — 진행 중인 단계가 있어요. 이어서 하면 마지막 단계부터,
+              처음부터 다시하면 1단계부터 시작합니다. (이전 작성 내용은 유지됩니다)
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!resumeTarget) return;
+                navigate(`/learn/sentence/${resumeTarget.sentenceId}?restart=1`);
+                setResumeTarget(null);
+              }}
+            >
+              처음부터 다시
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                if (!resumeTarget) return;
+                navigate(`/learn/sentence/${resumeTarget.sentenceId}`);
+                setResumeTarget(null);
+              }}
+            >
+              이어하기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
