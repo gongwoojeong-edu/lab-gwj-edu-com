@@ -891,7 +891,12 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     font-size: 6.5pt; color: #888; font-family: ui-monospace, "SF Mono", Menlo, monospace;
     margin-bottom: 0.2mm; letter-spacing: -0.02em;
   }
-  .cb-pbody .passage { padding: 0; line-height: 1.55; font-size: 9.3pt; letter-spacing: -0.015em; }
+  .cb-pbody .passage,
+  .cb-pbody .body-text {
+    padding: 0 !important; margin: 0;
+    line-height: 1.4 !important; font-size: 9pt !important;
+    letter-spacing: -0.02em; word-spacing: 0;
+  }
   /* 앞면: 한글해석 통합 박스 */
   .cb-trans-box {
     border: 0.5pt solid #000; padding: 1.2mm 2.5mm;
