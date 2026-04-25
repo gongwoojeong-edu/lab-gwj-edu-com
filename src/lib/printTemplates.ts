@@ -769,3 +769,137 @@ export const buildAnalysisPrintHtml = (p: AnalysisPayload): string => {
 `;
   return wrapDoc(`Analysis ${p.sentenceId}`, body);
 };
+
+// ============================================================
+// 통합 유닛 워크북 (앞면=영문분석+학생해석 / 뒷면=구조도)
+// ============================================================
+export interface UnitCombinedItem {
+  passageCode: string;
+  /** AnalysisPayload — 분석 채점본 데이터(units/studentProgress 포함) */
+  analysis: AnalysisPayload;
+  /** 학생 한글해석 (없으면 빈 문자열) */
+  studentTranslation: string;
+}
+export interface UnitCombinedPayload {
+  unitTitle: string;
+  unitCode: string;
+  studentName: string | null;
+  studentNo: string | null;
+  items: UnitCombinedItem[];
+  /** 구조도 PDF 의 서명 URL (없으면 빈 grid 페이지) */
+  structurePdfUrl: string | null;
+}
+
+export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string => {
+  const stamp = nowStamp();
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
+  const headerMeta = `${escapeHtml(p.unitCode)} · 학생: ${sName} ${sNo}`;
+
+  const blocks = p.items
+    .map((it, i) => {
+      const passageHtml = buildAnalysisPassageFragment(it.analysis);
+      const koRaw = it.studentTranslation && it.studentTranslation.trim();
+      const ko = koRaw
+        ? escapeHtml(it.studentTranslation)
+        : '<span class="muted">(미제출)</span>';
+      return `
+        <div class="cb-block">
+          <div class="cb-head">
+            <span class="num">${i + 1}.</span>
+            <span class="code">${escapeHtml(it.passageCode)}</span>
+          </div>
+          ${passageHtml}
+          <div class="cb-ko"><b>해석:</b> ${ko}</div>
+        </div>`;
+    })
+    .join("");
+
+  const structurePage = p.structurePdfUrl
+    ? `
+<div class="page cb-structure">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Structure</div>
+      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>등록 PDF</div>
+    </div>
+  </div>
+  <embed src="${escapeHtml(p.structurePdfUrl)}" type="application/pdf" class="cb-pdf" />
+</div>`
+    : `
+<div class="page cb-structure">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Structure</div>
+      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>구조도 등록 전</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">구조도 작성란</div>
+    <div class="cb-grid"></div>
+  </div>
+</div>`;
+
+  const body = `
+<style>
+  ${ANALYSIS_CHIP_STYLE}
+  .cb-passage-page { padding: 4mm 5mm; }
+  .cb-block {
+    padding: 2mm 0 3mm; border-bottom: 0.4pt dashed #999;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .cb-block:last-child { border-bottom: none; }
+  .cb-head { font-size: 8.5pt; color: #444; margin-bottom: 1mm; }
+  .cb-head .num { font-weight: 700; margin-right: 1.5mm; }
+  .cb-head .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .cb-ko {
+    font-size: 10pt; line-height: 1.6; color: #222; margin-top: 1mm;
+    border-left: 1.5pt solid #999; padding: 1mm 0 1mm 2mm;
+    min-height: 6mm;
+  }
+  .cb-ko .muted { color: #888; }
+  .cb-structure { padding: 0; }
+  .cb-pdf { width: 100%; height: 230mm; border: 0; display: block; }
+  .cb-grid {
+    min-height: 200mm;
+    background-image:
+      linear-gradient(#bbb 0.3pt, transparent 0.3pt),
+      linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
+    background-size: 4mm 4mm;
+    border: 0.5pt solid #000;
+  }
+</style>
+
+<div class="page cb-passage-page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Unit Workbook</div>
+      <div class="title">유닛 통합 워크북 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>지문 ${p.items.length}건 · 앞면</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">유닛 본문 — 학생 분석 + 학생 한글해석</div>
+    ${blocks || '<div class="cb-block"><div class="cb-ko">(완료 지문 없음)</div></div>'}
+  </div>
+</div>
+
+${structurePage}
+`;
+  return wrapDoc(`UnitWorkbook ${p.unitCode}`, body);
+};
+
