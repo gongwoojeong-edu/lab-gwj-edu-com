@@ -22,8 +22,10 @@ import {
   buildAnalysisPrintHtml,
   buildWordPrintHtml,
   buildHandoutPrintHtml,
+  buildUnitOnlyHandoutHtml,
+  type UnitOnlyHandoutItem,
 } from "./printTemplates";
-import { fetchPassagesByUnit } from "./textbooks";
+import { fetchPassagesByUnit, fetchPassageByCode } from "./textbooks";
 
 const escapeHtml = (s: string): string =>
   s
