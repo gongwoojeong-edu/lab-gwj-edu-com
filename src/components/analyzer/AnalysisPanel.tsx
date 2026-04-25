@@ -1856,10 +1856,10 @@ const VerbPanel = ({
       onClick={onClick}
       disabled={confirmed}
       className={cn(
-        "px-2 py-0.5 rounded-md text-[11px] font-bold font-kr border transition-all disabled:opacity-50",
+        "px-3 py-1.5 rounded-md text-xs font-bold font-kr border transition-all disabled:opacity-50 min-h-[32px] min-w-[44px]",
         selected
           ? "bg-primary/15 text-primary border-primary/40"
-          : "bg-card text-foreground border-border hover:border-primary/40",
+          : "bg-card text-foreground border-border hover:border-primary/40 active:bg-primary/10",
       )}
     >
       {children}
