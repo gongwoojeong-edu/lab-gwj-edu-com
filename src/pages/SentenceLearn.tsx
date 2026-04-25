@@ -489,6 +489,23 @@ const SentenceLearn = () => {
   /** 분석 → translation 전환 (다이얼로그 confirm 시) */
   const proceedToTranslation = async () => {
     if (!sentence) return;
+    // 세션 만료 사전 체크 — 만료된 상태에서 upsert를 하면 RLS 거부 + RequireAuth 리다이렉트가
+    // 동시에 일어나 학생이 다음 단계로 못 넘어가는 사고가 발생함.
+    try {
+      const { data: ses } = await supabase.auth.getSession();
+      if (!ses?.session) {
+        toast({
+          title: "로그인이 풀렸어요",
+          description: "다시 로그인하면 분석한 내용 그대로 한글 해석부터 이어집니다.",
+          variant: "destructive",
+        });
+        // 분석 작업물은 owner_progress 등으로 이미 저장된 상태이므로, 학생을 로그인 페이지로 보냄
+        navigate("/login");
+        return;
+      }
+    } catch {
+      /* 무시하고 계속 시도 */
+    }
     try {
       // 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
       await upsertSentenceProgress(sentence.id, {
