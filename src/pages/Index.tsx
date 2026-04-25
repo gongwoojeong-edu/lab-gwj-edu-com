@@ -201,6 +201,33 @@ const emptyProgress = (): WordProgress => ({
   completed: false,
 });
 
+  const progressToCloudPatch = (wp: WordProgress): Record<string, unknown> => {
+    const base: Record<string, unknown> = { pos: wp.pos };
+    if (wp.pos === "명사") {
+      if (wp.noun.form) base.form = wp.noun.form;
+      if (wp.noun.element) base.element = wp.noun.element;
+      if (wp.noun.role) base.role = wp.noun.role;
+    } else if (wp.pos === "형용사") {
+      if (wp.adj.form) base.form = wp.adj.form;
+      if (wp.adj.element) base.element = wp.adj.element;
+      if (wp.adj.role) base.role = wp.adj.role;
+    } else if (wp.pos === "부사") {
+      if (wp.adv.form) base.form = wp.adv.form;
+      if (wp.adv.subtype) base.subtype = wp.adv.subtype;
+      if (wp.adv.role) base.role = wp.adv.role;
+    } else if (wp.pos === "기타") {
+      if (wp.etc.kind) base.kind = wp.etc.kind;
+      if (wp.etc.role) base.role = wp.etc.role;
+    } else if (wp.pos === "동사") {
+      if (wp.verb.number) base.number = wp.verb.number;
+      if (wp.verb.tense) base.tense = wp.verb.tense;
+      base.aspect = wp.verb.aspect;
+      base.voice = wp.verb.voice ? "수동" : undefined;
+      base.proVerb = wp.verb.proVerb;
+    }
+    return base;
+  };
+
 const arraysEqualSet = <T,>(a: T[], b: T[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
 
