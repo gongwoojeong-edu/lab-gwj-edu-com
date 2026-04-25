@@ -312,7 +312,62 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
           <SyllablePanel key={panelKey} word={current.word} onFinish={handleStageFinish} />
         )}
         {stage === "speak" && (
-          <SpeakPanel key={panelKey} word={current.word} onFinish={handleStageFinish} />
+          <SpeakPanel
+            key={panelKey}
+            word={current.word}
+            onFinish={handleStageFinish}
+            onTeacherAllPass={() => {
+              // 현재 단어부터 발화 라운드 끝까지 일괄 90점 통과
+              const remaining = entries.slice(wordIdx);
+              let scoresMap = perWordScores;
+              let flagsMap = perWordFlags;
+              let assist = assistEntries;
+              remaining.forEach((e) => {
+                const prevScores = scoresMap[e.word] ?? emptyScores();
+                scoresMap = { ...scoresMap, [e.word]: { ...prevScores, speak: 90 } };
+                const prevFlags = flagsMap[e.word] ?? {};
+                flagsMap = { ...flagsMap, [e.word]: { ...prevFlags, speak: "teacher_skip" } };
+                assist = [
+                  ...assist,
+                  {
+                    word: e.word,
+                    stage: "speak",
+                    type: "teacher_skip",
+                    attempts: 0,
+                  },
+                ];
+              });
+              setPerWordScores(scoresMap);
+              setPerWordFlags(flagsMap);
+              setAssistEntries(assist);
+              const nextPassed = {
+                ...passedPerStage,
+                speak: passedPerStage.speak + remaining.length,
+              };
+              setPassedPerStage(nextPassed);
+              toast({
+                title: "🔓 발화 라운드 일괄 통과",
+                description: `남은 ${remaining.length}개 단어 패스키 통과`,
+              });
+              // 다음 라운드로
+              if (stageIdx + 1 < STAGE_ORDER.length) {
+                const nextStage = STAGE_ORDER[stageIdx + 1];
+                setRoundIntro(nextStage);
+                setTimeout(() => {
+                  setRoundIntro(null);
+                  setStageIdx(stageIdx + 1);
+                  setWordIdx(0);
+                  setAttemptNonce((n) => n + 1);
+                }, 1200);
+              } else {
+                setShowStamp(true);
+                setTimeout(() => {
+                  setShowStamp(false);
+                  void saveResults(scoresMap, flagsMap, assist);
+                }, 1600);
+              }
+            }}
+          />
         )}
         {stage === "spell" && (
           <SpellPanel key={panelKey} word={current.word} onFinish={handleStageFinish} />
