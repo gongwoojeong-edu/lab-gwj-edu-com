@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BarChart3, ChevronDown, ChevronLeft, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronLeft, FastForward, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
+import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 
 interface Student {
   id: string;
@@ -105,6 +106,7 @@ const TeacherStudents = () => {
   const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
   const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
   const [historySheet, setHistorySheet] = useState<{ userId: string; name: string; no: string | null } | null>(null);
+  const [skipDialog, setSkipDialog] = useState<{ userId: string; name: string } | null>(null);
 
   const saveTimeLimit = async (s: Student, seconds: number) => {
     const clamped = Math.max(0, Math.min(120, Math.round(seconds)));
@@ -564,6 +566,22 @@ const TeacherStudents = () => {
                         <Button size="sm" variant="ghost" onClick={() => openPin(s)}>
                           <KeyRound className="size-3.5" /> PIN
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!profileUserIdByName[s.name]}
+                          onClick={() => {
+                            const uid = profileUserIdByName[s.name];
+                            if (!uid) {
+                              toast({ title: "연결된 학생 계정이 없습니다", variant: "destructive" });
+                              return;
+                            }
+                            setSkipDialog({ userId: uid, name: s.name });
+                          }}
+                          title="지문별 단어학습 스킵 관리"
+                        >
+                          <FastForward className="size-3.5" /> 스킵
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
                           <Pencil className="size-3.5" /> 수정
                         </Button>
@@ -635,6 +653,13 @@ const TeacherStudents = () => {
         userId={historySheet?.userId ?? null}
         studentName={historySheet?.name ?? null}
         studentNo={historySheet?.no ?? null}
+      />
+
+      <SkipPreManagerDialog
+        open={skipDialog !== null}
+        onOpenChange={(o) => !o && setSkipDialog(null)}
+        userId={skipDialog?.userId ?? null}
+        studentName={skipDialog?.name ?? null}
       />
     </main>
   );

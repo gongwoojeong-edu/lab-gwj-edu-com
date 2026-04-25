@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
+import { fetchMyOverrideForSentence } from "@/lib/studentPassageOverrides";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
 import { AnalysisSubmitConfirmDialog } from "@/components/learning/AnalysisSubmitConfirmDialog";
@@ -155,7 +156,7 @@ const SentenceLearn = () => {
         window.history.replaceState({}, "", url.toString());
       }
 
-      const [prog, extraction, owners, prof, logs, attemptCnt, assignRes] = await Promise.all([
+      const [prog, extraction, owners, prof, logs, attemptCnt, assignRes, overrideRes] = await Promise.all([
         fetchSentenceProgress(found.id),
         fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
@@ -177,6 +178,8 @@ const SentenceLearn = () => {
             .maybeSingle();
           return data;
         })(),
+        // 학생×지문 단위 학습 옵션 오버라이드 (단어학습 스킵 등)
+        fetchMyOverrideForSentence(found.id),
       ]);
       if (!mounted) return;
       const nextAttemptNo = attemptCnt + 1;
@@ -186,8 +189,10 @@ const SentenceLearn = () => {
       if (mounted) setOpenRequest(openReq);
 
       // 특별과제의 단계 포함 여부 — 없으면 기본(모두 true)
+      // 학생×지문 override (skip_pre)가 켜져 있으면 단어학습(pre)을 OFF로 강제
+      const overrideSkipPre = !!overrideRes?.skip_pre;
       const flags = {
-        pre: assignRes ? !!assignRes.include_pre : true,
+        pre: overrideSkipPre ? false : (assignRes ? !!assignRes.include_pre : true),
         analysis: assignRes ? !!assignRes.include_analysis : true,
         translation: assignRes ? !!assignRes.include_translation : true,
         wordtest: assignRes ? !!assignRes.include_wordtest : true,
