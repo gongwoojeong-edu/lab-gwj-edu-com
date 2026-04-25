@@ -63,6 +63,10 @@ const StudentHome = () => {
   const [done, setDone] = useState(false);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
+  const [assignmentProgress, setAssignmentProgress] = useState<
+    Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>
+  >(new Map());
+  const [resumeTarget, setResumeTarget] = useState<{ sentenceId: string; title: string } | null>(null);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [analysisPrintReqs, setAnalysisPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [reviewReqs, setReviewReqs] = useState<Record<string, AnalysisReviewRequest>>({});
