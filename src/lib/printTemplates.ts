@@ -920,9 +920,17 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
       <div>지문 ${p.items.length}건 · 앞면</div>
     </div>
   </div>
-  <div class="section">
-    <div class="section-title">유닛 본문 — 학생 분석 + 학생 한글해석</div>
-    ${blocks || '<div class="cb-block"><div class="cb-ko">(완료 지문 없음)</div></div>'}
+  <div class="section cb-front">
+    <div class="section-title">① 본문 (학생 분석)</div>
+    <div class="cb-passages">
+      ${passageBlocks || '<div class="cb-empty">(완료 지문 없음)</div>'}
+    </div>
+  </div>
+  <div class="section cb-front">
+    <div class="section-title">② 학생 한글해석</div>
+    <div class="cb-trans-box">
+      ${transBlocks || '<div class="cb-empty">(미제출)</div>'}
+    </div>
   </div>
 </div>
 
