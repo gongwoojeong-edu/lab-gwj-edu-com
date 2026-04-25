@@ -129,6 +129,7 @@ import { buildWordTest } from "@/lib/wordTestBuilder";
 import {
   fetchSentenceProgress,
   upsertSentenceProgress,
+  upsertOwnerProgress,
   fetchBadgeOffsets,
   upsertBadgeOffset,
 } from "@/integrations/supabase/storage";
@@ -199,6 +200,33 @@ const emptyProgress = (): WordProgress => ({
   verb: emptyVerb(),
   completed: false,
 });
+
+  const progressToCloudPatch = (wp: WordProgress): Record<string, unknown> => {
+    const base: Record<string, unknown> = { pos: wp.pos };
+    if (wp.pos === "명사") {
+      if (wp.noun.form) base.form = wp.noun.form;
+      if (wp.noun.element) base.element = wp.noun.element;
+      if (wp.noun.role) base.role = wp.noun.role;
+    } else if (wp.pos === "형용사") {
+      if (wp.adj.form) base.form = wp.adj.form;
+      if (wp.adj.element) base.element = wp.adj.element;
+      if (wp.adj.role) base.role = wp.adj.role;
+    } else if (wp.pos === "부사") {
+      if (wp.adv.form) base.form = wp.adv.form;
+      if (wp.adv.subtype) base.subtype = wp.adv.subtype;
+      if (wp.adv.role) base.role = wp.adv.role;
+    } else if (wp.pos === "기타") {
+      if (wp.etc.kind) base.kind = wp.etc.kind;
+      if (wp.etc.role) base.role = wp.etc.role;
+    } else if (wp.pos === "동사") {
+      if (wp.verb.number) base.number = wp.verb.number;
+      if (wp.verb.tense) base.tense = wp.verb.tense;
+      base.aspect = wp.verb.aspect;
+      base.voice = wp.verb.voice ? "수동" : undefined;
+      base.proVerb = wp.verb.proVerb;
+    }
+    return base;
+  };
 
 const arraysEqualSet = <T,>(a: T[], b: T[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
@@ -782,11 +810,9 @@ const Index = ({
   const finalizedOwnersRef = useRef<Set<string>>(new Set());
 
   // ===== customAnswers → progressMap / completedSelectionMap 자동 복원 =====
-  // 새로고침 후에도 SVOC 배지·부배지·대괄호가 그대로 보이도록.
-  // 현재 sentence 범위의 owner들만 hydrate.
+  // 새로고침 후에도 본인이 저장한 SVOC 배지·부배지·대괄호가 그대로 보이도록.
+  // 현재 sentence 범위의 owner들만 hydrate하며, 학생 모드도 본인 데이터만 복원한다.
   useEffect(() => {
-    // 학생 모드: 정답 라벨/배지가 자동 복원되어 노출되는 것을 차단
-    if (studentMode) return;
     if (!customAnswers || Object.keys(customAnswers).length === 0) return;
 
     const hydratedProgress: Record<string, WordProgress> = {};
@@ -1089,10 +1115,23 @@ const Index = ({
   }, [completedSelectionMap, selectedId, selectedWordIndices]);
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
-    setProgressMap((prev) => ({
-      ...prev,
-      [id]: updater(prev[id] ?? emptyProgress()),
-    }));
+    setProgressMap((prev) => {
+      const nextProgress = updater(prev[id] ?? emptyProgress());
+      if (studentMode && nextProgress.completed && nextProgress.pos) {
+        const patch = progressToCloudPatch(nextProgress);
+        void upsertOwnerProgress({
+          sentence_id: sentence.id,
+          owner_id: id,
+          progress: patch,
+          custom_answer: patch,
+          completed: true,
+        }).catch(() => {});
+      }
+      return {
+        ...prev,
+        [id]: nextProgress,
+      };
+    });
   };
 
   // 정답 입력 모드에서 한 필드를 저장
@@ -1108,7 +1147,10 @@ const Index = ({
   };
 
   const saveCustom = (ownerId: string, patch: Record<string, unknown>) => {
-    const next = upsertCustomAnswer(ownerId, patch, sentence.id);
+    const studentProgressPatch = studentMode && progressMap[ownerId]
+      ? progressToCloudPatch(progressMap[ownerId])
+      : {};
+    const next = upsertCustomAnswer(ownerId, { ...studentProgressPatch, ...patch }, sentence.id);
     setCustomAnswers(next);
   };
 
@@ -1210,7 +1252,7 @@ const Index = ({
     return false;
   };
 
-  const finalizeCompletedAnalysis = (tokenId: string, options?: { persistClause?: boolean }) => {
+  const finalizeCompletedAnalysis = (tokenId: string, options?: { persistClause?: boolean; progressPatch?: WordProgress }) => {
     const indices = Array.from(new Set(selectedWordIndices)).sort((a, b) => a - b);
 
     if (indices.length > 0) {
@@ -1230,7 +1272,11 @@ const Index = ({
     }
 
     if (options?.persistClause && indices.length > 0) {
+      const studentProgressPatch = studentMode && options.progressPatch
+        ? progressToCloudPatch(options.progressPatch)
+        : {};
       saveCustom(tokenId, {
+        ...studentProgressPatch,
         clauseStart: indices[0],
         clauseEnd: indices[indices.length - 1],
       });
@@ -1924,6 +1970,7 @@ const Index = ({
     finalizedOwnersRef.current.add(selectedId);
     finalizeCompletedAnalysis(selectedId, {
       persistClause: shouldPersistClauseSelection(),
+      progressPatch: progress,
     });
   }, [
     selectedId,
