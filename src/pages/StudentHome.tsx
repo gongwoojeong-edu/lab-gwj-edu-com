@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText, RotateCcw } from "lucide-react";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import { resolveNextSentence } from "@/lib/nextSentence";
@@ -824,18 +824,18 @@ const StudentHome = () => {
                               </>
                             )}
 
-                            {isFail && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-[11px] px-2"
-                                onClick={() =>
-                                  navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}`)
-                                }
-                              >
-                                다시 도전
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] px-2"
+                              onClick={() =>
+                                navigate(`/learn/sentence/${encodeURIComponent(sentence.id)}?restart=1`)
+                              }
+                              title="1단계부터 다시 학습"
+                            >
+                              <RotateCcw className="w-3 h-3 mr-1" />
+                              {isFail ? "다시 도전" : "다시 하기"}
+                            </Button>
                           </div>
                         </div>
                       </Card>
