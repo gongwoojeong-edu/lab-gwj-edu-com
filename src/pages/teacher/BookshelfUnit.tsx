@@ -754,7 +754,80 @@ const BookshelfUnit = () => {
           )}
         </Card>
 
-        {selectedIds.size > 0 && (
+        {/* 유닛 워크북 일괄 인쇄 */}
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <ClipboardList className="size-4 text-primary" />
+            유닛 워크북 일괄 인쇄
+            <span className="text-xs font-normal text-muted-foreground">
+              · 학습 완료 지문(단어/번역/분석 모두 통과)을 한 권으로 인쇄
+            </span>
+          </div>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="flex flex-col gap-1 min-w-[220px]">
+              <label className="text-xs text-muted-foreground">학생 선택</label>
+              <Select
+                value={workbookStudentId}
+                onValueChange={(v) => setWorkbookStudentId(v)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="학생을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {studentList.length === 0 ? (
+                    <div className="p-3 text-xs text-muted-foreground">
+                      등록된 학생이 없습니다.
+                    </div>
+                  ) : (
+                    studentList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} ({s.no})
+                        {s.mode === "unit_only" ? " · 유닛만" : ""}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-xs text-muted-foreground min-w-[140px]">
+              {!workbookStudentId ? (
+                <span>학생을 선택하면 진행상황이 표시됩니다.</span>
+              ) : workbookLoading ? (
+                <span className="inline-flex items-center gap-1">
+                  <Loader2 className="size-3 animate-spin" /> 진행상황 조회 중…
+                </span>
+              ) : workbookSummary ? (
+                <span>
+                  완료 <b className="text-foreground">{workbookSummary.completed}</b> /{" "}
+                  {workbookSummary.total} 지문
+                </span>
+              ) : (
+                <span>—</span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              className="h-9"
+              onClick={handlePrintUnitWorkbook}
+              disabled={
+                !workbookStudentId ||
+                workbookPrinting ||
+                workbookLoading ||
+                !workbookSummary ||
+                workbookSummary.completed === 0
+              }
+            >
+              {workbookPrinting ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+              ) : (
+                <Printer className="size-3.5 mr-1" />
+              )}
+              {workbookPrinting ? "인쇄 준비 중…" : "워크북 인쇄"}
+            </Button>
+          </div>
+        </Card>
+
+
           <div className="flex items-center gap-2 px-1">
             <span className="text-xs text-muted-foreground">
               {selectedIds.size}개 선택됨
