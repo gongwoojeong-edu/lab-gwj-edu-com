@@ -872,36 +872,37 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   ${ANALYSIS_CHIP_STYLE}
   .cb-passage-page { padding: 4mm 5mm; }
   .cb-front .section-title {
-    font-size: 9.5pt; font-weight: 700; margin: 1mm 0 1.5mm;
+    font-size: 9pt; font-weight: 700; margin: 0.5mm 0 1mm;
     border-left: 2pt solid #000; padding-left: 2mm;
   }
+  .cb-front { margin-bottom: 2mm; }
   /* 앞면: 분석 본문 통합 박스 */
   .cb-passages {
-    border: 0.5pt solid #000; padding: 2mm 3mm;
+    border: 0.5pt solid #000; padding: 1.2mm 2.5mm;
   }
   .cb-prow {
-    display: flex; gap: 2mm; padding: 1.2mm 0;
+    display: flex; gap: 1.5mm; padding: 0.6mm 0;
     border-bottom: 0.3pt dashed #bbb;
   }
   .cb-prow:last-child { border-bottom: none; }
-  .cb-pnum { font-weight: 700; font-size: 9pt; color: #333; min-width: 6mm; padding-top: 0.5mm; }
+  .cb-pnum { font-weight: 700; font-size: 8.5pt; color: #333; min-width: 4.5mm; padding-top: 0.3mm; }
   .cb-pbody { flex: 1; min-width: 0; }
   .cb-pcode {
-    font-size: 7.5pt; color: #777; font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    margin-bottom: 0.5mm;
+    font-size: 6.5pt; color: #888; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    margin-bottom: 0.2mm; letter-spacing: -0.02em;
   }
-  .cb-pbody .passage { padding: 0; line-height: 1.95; font-size: 10pt; }
+  .cb-pbody .passage { padding: 0; line-height: 1.55; font-size: 9.3pt; letter-spacing: -0.015em; }
   /* 앞면: 한글해석 통합 박스 */
   .cb-trans-box {
-    border: 0.5pt solid #000; padding: 2mm 3mm;
-    font-size: 10pt; line-height: 1.55; color: #222;
+    border: 0.5pt solid #000; padding: 1.2mm 2.5mm;
+    font-size: 9.3pt; line-height: 1.45; color: #222; letter-spacing: -0.02em;
   }
-  .cb-trow { padding: 0.8mm 0; border-bottom: 0.3pt dashed #ccc; }
+  .cb-trow { padding: 0.5mm 0; border-bottom: 0.3pt dashed #ccc; }
   .cb-trow:last-child { border-bottom: none; }
-  .cb-tnum { font-weight: 700; margin-right: 1.5mm; }
+  .cb-tnum { font-weight: 700; margin-right: 1mm; }
   .cb-tcode {
-    font-size: 7.5pt; color: #777; margin-right: 2mm;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 6.5pt; color: #888; margin-right: 1.5mm;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -0.02em;
   }
   .cb-ttext { white-space: pre-wrap; }
   .cb-ttext .muted { color: #888; }
