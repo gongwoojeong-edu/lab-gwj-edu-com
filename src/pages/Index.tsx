@@ -810,11 +810,9 @@ const Index = ({
   const finalizedOwnersRef = useRef<Set<string>>(new Set());
 
   // ===== customAnswers → progressMap / completedSelectionMap 자동 복원 =====
-  // 새로고침 후에도 SVOC 배지·부배지·대괄호가 그대로 보이도록.
-  // 현재 sentence 범위의 owner들만 hydrate.
+  // 새로고침 후에도 본인이 저장한 SVOC 배지·부배지·대괄호가 그대로 보이도록.
+  // 현재 sentence 범위의 owner들만 hydrate하며, 학생 모드도 본인 데이터만 복원한다.
   useEffect(() => {
-    // 학생 모드: 정답 라벨/배지가 자동 복원되어 노출되는 것을 차단
-    if (studentMode) return;
     if (!customAnswers || Object.keys(customAnswers).length === 0) return;
 
     const hydratedProgress: Record<string, WordProgress> = {};
