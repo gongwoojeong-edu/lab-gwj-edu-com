@@ -654,6 +654,13 @@ const TeacherStudents = () => {
         studentName={historySheet?.name ?? null}
         studentNo={historySheet?.no ?? null}
       />
+
+      <SkipPreManagerDialog
+        open={skipDialog !== null}
+        onOpenChange={(o) => !o && setSkipDialog(null)}
+        userId={skipDialog?.userId ?? null}
+        studentName={skipDialog?.name ?? null}
+      />
     </main>
   );
 };
