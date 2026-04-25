@@ -40,6 +40,8 @@ interface Student {
   name: string;
   level: LevelCode;
   createdAt: string;
+  /** student_profiles.user_id (DB 계정에 연결된 학생만 채워짐) */
+  userId?: string;
 }
 
 const STUDENTS_KEY = "gwj.students.v1";
