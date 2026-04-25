@@ -15,14 +15,6 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -34,8 +26,6 @@ import {
   ClipboardList,
   Trash2,
   BookOpen,
-  Check,
-  ChevronsUpDown,
   Pencil,
   Plus,
 } from "lucide-react";
