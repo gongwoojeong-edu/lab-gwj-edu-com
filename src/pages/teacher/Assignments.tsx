@@ -48,6 +48,7 @@ import {
 } from "@/lib/textbooks";
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
+import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import {
   fetchAssignmentProgress,
   type AssignmentProgressMap,
