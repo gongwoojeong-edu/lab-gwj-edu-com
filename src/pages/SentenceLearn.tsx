@@ -512,12 +512,27 @@ const SentenceLearn = () => {
       /* 무시하고 계속 시도 */
     }
     try {
-      // 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
-      await upsertSentenceProgress(sentence.id, {
-        word_test_done: true,
-        analysis_done: true,
-        analysis_match_rate: analysisRate,
-      });
+      if (analysisHasMaster) {
+        // 마스터키 있음: 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
+        await upsertSentenceProgress(sentence.id, {
+          word_test_done: true,
+          analysis_done: true,
+          analysis_match_rate: analysisRate,
+        });
+      } else {
+        // 마스터키 없음: 'hold' 상태로 저장하고 가짜 점수(학생 단어 채움률) 기록 금지.
+        // 선생님이 정답을 등록하면 추후 재채점 로직이 hold + match_rate IS NULL을 인식해 자동 채점.
+        await upsertSentenceProgress(sentence.id, {
+          word_test_done: true,
+          analysis_done: true,
+          analysis_match_rate: null,
+          status: "hold",
+        });
+        toast({
+          title: "선생님 채점 대기 중",
+          description: "정답 등록 후 자동 채점됩니다. 한글 해석을 계속 진행하세요.",
+        });
+      }
     } catch (e) {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
       throw e;
