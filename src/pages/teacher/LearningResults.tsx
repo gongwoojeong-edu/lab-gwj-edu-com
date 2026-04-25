@@ -145,6 +145,7 @@ const LearningResults = () => {
         translationsRes,
         wordTestRes,
         wordPreRes,
+        progressRes,
       ] = await Promise.all([
         supabase
           .from("print_requests")
@@ -178,6 +179,15 @@ const LearningResults = () => {
           .select("user_id, sentence_id, taken_at")
           .gte("taken_at", startIso)
           .lte("taken_at", endIso),
+        // sentence_progress fallback — attempt_log 누락/0점 케이스 보정용
+        // last_activity_at이 오늘인 모든 progress 행을 가져와 화면 집계의 신뢰도를 올린다.
+        supabase
+          .from("sentence_progress")
+          .select(
+            "user_id, sentence_id, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at",
+          )
+          .gte("last_activity_at", startIso)
+          .lte("last_activity_at", endIso),
       ]);
 
       const pairs = new Map<string, Set<string>>(); // userId → Set<sentenceId>
@@ -209,6 +219,19 @@ const LearningResults = () => {
       ((wordPreRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
         (r) => addPair(r.user_id, r.sentence_id),
       );
+      // sentence_progress 도 짝 추가 — attempt_log 미생성 케이스(예: 분석만 끝나고 단어시험 전)도 표에 노출
+      const progressRows = (progressRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        analysis_done: boolean;
+        analysis_match_rate: number | null;
+        translation_done: boolean;
+        word_test_done: boolean;
+      }>;
+      progressRows.forEach((r) => {
+        addPair(r.user_id, r.sentence_id);
+        if (r.translation_done) tSet[`${r.user_id}::${r.sentence_id}`] = true;
+      });
 
       const userIds = Array.from(pairs.keys());
       // handout_results는 user 단독으로도 보여줌 (sentence 없이 점수만 있는 경우)
