@@ -521,6 +521,9 @@ const TeacherStudents = () => {
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground tabular-nums">
+                      {formatDate(s.createdAt)}
+                    </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center gap-1 text-xs text-element-v font-bold">
                         <span className="size-1.5 rounded-full bg-element-v" /> 활성
