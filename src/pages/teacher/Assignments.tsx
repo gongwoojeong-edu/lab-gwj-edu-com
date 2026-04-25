@@ -84,7 +84,11 @@ type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 interface FormState {
   title: string;
   studentId: string; // "__all__" or user_id
+  // 위계 선택 상태 (UI 용)
+  selectedLevel: LevelCode | "";
+  selectedSeriesId: string;
   selectedTbId: string;
+  selectedUnitId: string;
   selectedPassageCode: string;
   description: string;
   dueDate: Date | undefined;
@@ -97,7 +101,10 @@ interface FormState {
 const emptyForm = (): FormState => ({
   title: "",
   studentId: "__all__",
+  selectedLevel: "",
+  selectedSeriesId: "",
   selectedTbId: "",
+  selectedUnitId: "",
   selectedPassageCode: "",
   description: "",
   dueDate: undefined,
