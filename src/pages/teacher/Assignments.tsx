@@ -523,133 +523,170 @@ const Assignments = () => {
     </div>
   );
 
-  // 교재/지문 선택기 (create/edit 공유)
+  // 레벨 → 시리즈 → 권 → 유닛 → 지문 캐스케이딩 선택기 (create/edit 공유)
   const renderTextbookPickers = (
     f: FormState,
     setter: typeof setForm,
-    openTb: boolean,
-    setOpenTb: (b: boolean) => void,
-    openPg: boolean,
-    setOpenPg: (b: boolean) => void,
-    keyPrefix: string,
   ) => {
-    const selectedTb = textbooks.find((t) => t.id === f.selectedTbId) ?? null;
-    const currentPassages = f.selectedTbId ? passagesByTb[f.selectedTbId] ?? [] : [];
-    const selectedPassage = currentPassages.find((p) => p.code === f.selectedPassageCode);
+    const seriesList = f.selectedLevel ? seriesByLevel[f.selectedLevel] ?? [] : [];
+    const tbList = f.selectedSeriesId ? tbsBySeries[f.selectedSeriesId] ?? [] : [];
+    const unitList = f.selectedTbId ? unitsByTb[f.selectedTbId] ?? [] : [];
+    const passageList = f.selectedUnitId ? passagesByUnit[f.selectedUnitId] ?? [] : [];
 
     return (
       <>
         <div className="space-y-1.5">
-          <Label>연결 교재 <span className="text-destructive">*</span></Label>
-          <Popover open={openTb} onOpenChange={setOpenTb}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                className={cn("w-full justify-between text-left font-normal", !selectedTb && "text-muted-foreground")}
-              >
-                <span className="flex items-center gap-2 min-w-0 truncate">
-                  <BookOpen className="size-4 shrink-0" />
-                  <span className="truncate">{selectedTb ? tbLabel(selectedTb) : "교재 검색·선택"}</span>
-                </span>
-                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-popover" align="start">
-              <Command>
-                <CommandInput placeholder="레벨/제목/Unit 검색…" />
-                <CommandList>
-                  <CommandEmpty>일치하는 교재가 없습니다.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value={`${keyPrefix}-none 미지정`}
-                      onSelect={() => {
-                        setter((prev) => ({ ...prev, selectedTbId: "", selectedPassageCode: "" }));
-                        setOpenTb(false);
-                      }}
-                    >
-                      <Check className={cn("mr-2 size-4", !f.selectedTbId ? "opacity-100" : "opacity-0")} />
-                      교재 미지정
-                    </CommandItem>
-                    {textbooks.map((t) => (
-                      <CommandItem
-                        key={t.id}
-                        value={`${t.level} ${t.title} unit ${t.unit_no} u${t.unit_no}`}
-                        onSelect={() => {
-                          setter((prev) => ({ ...prev, selectedTbId: t.id, selectedPassageCode: "" }));
-                          setOpenTb(false);
-                        }}
-                      >
-                        <Check className={cn("mr-2 size-4", f.selectedTbId === t.id ? "opacity-100" : "opacity-0")} />
-                        {tbLabel(t)}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <Label>레벨 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedLevel || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedLevel: v as LevelCode,
+                selectedSeriesId: "",
+                selectedTbId: "",
+                selectedUnitId: "",
+                selectedPassageCode: "",
+              }))
+            }
+          >
+            <SelectTrigger><SelectValue placeholder="레벨 선택" /></SelectTrigger>
+            <SelectContent>
+              {LEVELS.map((l) => (
+                <SelectItem key={l.code} value={l.code}>
+                  [{l.code}] {l.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
         <div className="space-y-1.5">
+          <Label>시리즈 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedSeriesId || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedSeriesId: v,
+                selectedTbId: "",
+                selectedUnitId: "",
+                selectedPassageCode: "",
+              }))
+            }
+            disabled={!f.selectedLevel}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedLevel ? "시리즈 선택" : "레벨을 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {seriesList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">시리즈가 없습니다</div>
+              ) : (
+                seriesList.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    #{s.series_no} {s.title}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>권 / 교재 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedTbId || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedTbId: v,
+                selectedUnitId: "",
+                selectedPassageCode: "",
+              }))
+            }
+            disabled={!f.selectedSeriesId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedSeriesId ? "권/교재 선택" : "시리즈를 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {tbList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">권이 없습니다</div>
+              ) : (
+                tbList.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    Vol.{t.volume_no} · {t.title}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>유닛 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedUnitId || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedUnitId: v,
+                selectedPassageCode: "",
+              }))
+            }
+            disabled={!f.selectedTbId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedTbId ? "유닛 선택" : "권을 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {unitList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">유닛이 없습니다</div>
+              ) : (
+                unitList.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    U{u.unit_no} · {u.title}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="sm:col-span-2 space-y-1.5">
           <Label>연결 지문 <span className="text-destructive">*</span></Label>
-          <Popover open={openPg} onOpenChange={(o) => f.selectedTbId && setOpenPg(o)}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                disabled={!f.selectedTbId}
-                className={cn("w-full justify-between text-left font-normal", !selectedPassage && "text-muted-foreground")}
-              >
-                <span className="truncate min-w-0">
-                  {selectedPassage
-                    ? `#${String(selectedPassage.passage_no).padStart(3, "0")} ${selectedPassage.english.slice(0, 40)}…`
-                    : f.selectedTbId
-                      ? "지문 검색·선택"
-                      : "교재를 먼저 선택하세요"}
-                </span>
-                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-popover" align="start">
-              <Command>
-                <CommandInput placeholder="번호/본문 검색…" />
-                <CommandList>
-                  <CommandEmpty>지문이 없습니다.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value={`${keyPrefix}-no-passage 미지정`}
-                      onSelect={() => {
-                        setter((prev) => ({ ...prev, selectedPassageCode: "" }));
-                        setOpenPg(false);
-                      }}
-                    >
-                      <Check className={cn("mr-2 size-4", !f.selectedPassageCode ? "opacity-100" : "opacity-0")} />
-                      지문 미지정 (교재 전체 안내용)
-                    </CommandItem>
-                    {currentPassages.map((p) => (
-                      <CommandItem
-                        key={p.id}
-                        value={`#${p.passage_no} ${p.english}`}
-                        onSelect={() => {
-                          setter((prev) => ({ ...prev, selectedPassageCode: p.code }));
-                          setOpenPg(false);
-                        }}
-                      >
-                        <Check className={cn("mr-2 size-4", f.selectedPassageCode === p.code ? "opacity-100" : "opacity-0")} />
-                        <span className="truncate">
-                          <span className="font-mono text-xs text-muted-foreground mr-2">
-                            #{String(p.passage_no).padStart(3, "0")}
-                          </span>
-                          {p.english.slice(0, 60)}
-                          {p.english.length > 60 ? "…" : ""}
-                        </span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <Select
+            value={f.selectedPassageCode || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({ ...prev, selectedPassageCode: v }))
+            }
+            disabled={!f.selectedUnitId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedUnitId ? "지문 선택" : "유닛을 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {passageList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">지문이 없습니다</div>
+              ) : (
+                passageList.map((p) => (
+                  <SelectItem key={p.id} value={p.code}>
+                    <span className="flex items-center gap-2">
+                      <BookOpen className="size-3.5 text-muted-foreground" />
+                      <span className="font-mono text-xs text-muted-foreground">
+                        #{String(p.passage_no).padStart(3, "0")}
+                      </span>
+                      <span className="truncate max-w-[28rem]">
+                        {p.english.slice(0, 60)}
+                        {p.english.length > 60 ? "…" : ""}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
       </>
     );
