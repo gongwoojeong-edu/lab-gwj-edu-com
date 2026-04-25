@@ -444,6 +444,17 @@ const RequestsInbox = () => {
                         <Printer className="size-3 mr-1" />
                         전체
                       </Button>
+                      {tab === "done" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(it)}
+                          title="요청 기록 삭제"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );
