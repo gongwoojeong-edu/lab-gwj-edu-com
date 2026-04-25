@@ -97,6 +97,11 @@ const SentenceLearn = () => {
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[]; hasMaster: boolean } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
   const [analysisHasMaster, setAnalysisHasMaster] = useState(false);
+  const [analysisMasterLoaded, setAnalysisMasterLoaded] = useState(false);
+  /** onAnalysisProgress 콜백 도착 횟수 — Index.tsx의 fetchMasterAnswers 비동기 race를 닫기 위한 카운터.
+   * Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.
+   * 따라서 callback ≥ 2회이거나 hasMaster=true가 한 번이라도 관측되면 마스터 정보가 안정된 것으로 간주. */
+  const masterCallbackCountRef = useRef(0);
   const [analysisCounts, setAnalysisCounts] = useState<{ filled: number; total: number }>({ filled: 0, total: 0 });
   const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
   const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
@@ -108,7 +113,8 @@ const SentenceLearn = () => {
     wordtest: true,
   });
   const ANALYSIS_GATE = 0.8;
-  const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
+  const canAdvanceToTranslation =
+    analysisMasterLoaded && (analysisDone || analysisRate >= ANALYSIS_GATE);
   const testWordResultForFinalSubmit = () => ({
     passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
     score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
