@@ -247,18 +247,25 @@ const Assignments = () => {
     return m;
   }, [passagesByUnit, unitsByTb, textbooks]);
 
-  // 목록에 보이는 sentence_id의 unit·passage 자동 로드 (라벨용)
+  // 목록에 보이는 sentence_id의 unit·passage 자동 로드 (라벨용 + 그룹핑용)
   useEffect(() => {
     const codes = Array.from(new Set(rows.map((r) => r.sentence_id).filter(Boolean) as string[]));
-    const missing = codes.filter((c) => !codeLabelMap.has(c));
+    const missing = codes.filter((c) => !codeLabelMap.has(c) || !codeToUnit[c]);
     if (missing.length === 0) return;
     void (async () => {
       const { data } = await supabase
         .from("textbook_passages")
-        .select("unit_id, textbook_id")
+        .select("code, unit_id, textbook_id")
         .in("code", missing);
-      const unitIds = Array.from(new Set((data ?? []).map((d: any) => d.unit_id as string)));
-      const tbIds = Array.from(new Set((data ?? []).map((d: any) => d.textbook_id as string)));
+      const rows2 = (data ?? []) as { code: string; unit_id: string; textbook_id: string }[];
+      // codeToUnit 매핑 적재
+      setCodeToUnit((prev) => {
+        const next = { ...prev };
+        rows2.forEach((r) => { if (r.unit_id) next[r.code] = r.unit_id; });
+        return next;
+      });
+      const unitIds = Array.from(new Set(rows2.map((d) => d.unit_id)));
+      const tbIds = Array.from(new Set(rows2.map((d) => d.textbook_id)));
       for (const tbId of tbIds) {
         if (!unitsByTb[tbId]) {
           try {
@@ -275,7 +282,7 @@ const Assignments = () => {
         } catch (e) { console.error(e); }
       }
     })();
-  }, [rows, codeLabelMap, unitsByTb, passagesByUnit]);
+  }, [rows, codeLabelMap, unitsByTb, passagesByUnit, codeToUnit]);
 
 
   // 과제별 진척 데이터 로드 (hover용)
