@@ -53,6 +53,7 @@ import {
   PrintPreloadError,
 } from "@/lib/printPreload";
 import { errMsg } from "@/lib/errMsg";
+import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
