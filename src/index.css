@@ -131,6 +131,10 @@
     --idiom-border: 145 40% 38%;
     --idiom-fg: 145 50% 80%;
 
+    /* Subject / Verb 강조 토큰 — 다크모드 */
+    --token-subject: 270 80% 72%;
+    --token-verb: 95 60% 65%;
+
     --streak: 35 90% 60%;
     --streak-foreground: 38 95% 80%;
     --streak-bg: 32 50% 18%;
