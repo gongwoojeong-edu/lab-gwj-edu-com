@@ -64,10 +64,22 @@ import {
   printStageMessage,
   PrintPreloadError,
 } from "@/lib/printPreload";
+import {
+  buildUnitWorkbookHtmlFor,
+  summarizeUnitProgress,
+} from "@/lib/unitWorkbook";
 import { runExtraction } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ClipboardList } from "lucide-react";
 
 const BookshelfUnit = () => {
   const { level, seriesNo, volumeNo, unitNo } = useParams<{
