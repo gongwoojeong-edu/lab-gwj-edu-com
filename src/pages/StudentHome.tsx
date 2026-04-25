@@ -127,7 +127,6 @@ const StudentHome = () => {
         const assignSentenceIds = allAssignments
           .map((a) => a.sentence_id)
           .filter(Boolean) as string[];
-        let passedSet = new Set<string>();
         const progressFlags = new Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>();
         if (assignSentenceIds.length > 0) {
           const { data: progRows } = await supabase
@@ -143,7 +142,6 @@ const StudentHome = () => {
             analysis_done: boolean | null;
             translation_done: boolean | null;
           }>).forEach((r) => {
-            if (r.status === "pass") passedSet.add(r.sentence_id);
             progressFlags.set(r.sentence_id, {
               pre: !!r.pre_done,
               wt: !!r.word_test_done,
@@ -152,9 +150,17 @@ const StudentHome = () => {
             });
           });
         }
-        const activeAssignments = allAssignments.filter(
-          (a) => !a.sentence_id || !passedSet.has(a.sentence_id),
-        );
+        // 특별과제는 ON된 모든 단계가 완료되었을 때만 숨김 (이전에 통과한 sentence라도 새 과제는 다시 진행)
+        const activeAssignments = allAssignments.filter((a) => {
+          if (!a.sentence_id) return true;
+          const pf = progressFlags.get(a.sentence_id);
+          if (!pf) return true;
+          const preOk = !a.include_pre || pf.pre;
+          const wtOk = !a.include_wordtest || pf.wt;
+          const anOk = !a.include_analysis || pf.an;
+          const trOk = !a.include_translation || pf.tr;
+          return !(preOk && wtOk && anOk && trOk);
+        });
 
         if (mounted) {
           setRecent(enriched);
