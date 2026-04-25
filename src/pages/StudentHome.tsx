@@ -113,7 +113,7 @@ const StudentHome = () => {
             .order("due_at", { ascending: true })
             .limit(5),
         ]);
-        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold"; updated_at: string; passed_at: string | null }[];
+        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold" | "pending"; updated_at: string; passed_at: string | null }[];
 
         // 정적 SENTENCES에 없는 코드(textbook_passages 기반)는 DB에서 fallback 조회
         const missingIds = rows
