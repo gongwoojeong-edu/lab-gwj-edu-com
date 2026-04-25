@@ -33,6 +33,7 @@ import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
+import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 
 interface Student {
   id: string;
