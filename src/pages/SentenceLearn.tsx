@@ -909,6 +909,7 @@ const SentenceLearn = () => {
                   onApproved={async () => {
                     try {
                       await upsertSentenceProgress(sentence.id, {
+                        word_test_done: true,
                         analysis_done: true,
                         analysis_match_rate: Math.max(analysisRate, 1),
                       });
@@ -916,6 +917,7 @@ const SentenceLearn = () => {
                       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
                     }
                     setAnalysisRate(1);
+                    setWordtestDone(true);
                     setAnalysisDone(true);
                     advanceFrom("analysis");
                   }}
@@ -1002,8 +1004,7 @@ const SentenceLearn = () => {
                   await upsertSentenceProgress(sentence.id, { translation_done: true });
                   setTranslationDone(true);
                   // 한글해석 제출 시점에 attempt log + status 일괄 기록
-                  const wt = wordTestResult ?? { passed: !skipFlags.wordtest ? true : false, score: 0 };
-                  await recordAttempt({ passed: wt.passed, score: wt.score });
+                  await recordAttempt(testWordResultForFinalSubmit());
                   navigate("/learn");
                 } catch (e) {
                   toast({
@@ -1035,7 +1036,7 @@ const SentenceLearn = () => {
                 variant="outline"
                 className="text-xs"
                 onApproved={async () => {
-                  await recordAttempt({ passed: false, score: 0 }, { teacherOverride: true });
+                  await recordAttempt(testWordResultForFinalSubmit(), { teacherOverride: true });
                   navigate("/learn");
                 }}
               />
