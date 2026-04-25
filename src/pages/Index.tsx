@@ -1031,27 +1031,16 @@ const Index = ({
     };
   }, [sentence.id]);
 
-  // 분석 진행률(0~1) 외부 통지 — 마스터키 정답 owner 대비 (없으면 단어 분석 대비로 fallback)
+  // 분석 진행률(0~1) 외부 통지 — 단어(token) 기준으로 통일
   useEffect(() => {
     if (!onAnalysisProgress) return;
-    if (masterOwnerIds.size > 0) {
-      let filled = 0;
-      masterOwnerIds.forEach((id) => {
-        const wp = progressMap[id];
-        if (wp && wp.pos) filled += 1;
-      });
-      const total = masterOwnerIds.size;
-      onAnalysisProgress(filled / total, { hasMaster: true, filled, total });
-      return;
-    }
-    // fallback: 마스터 미등록 문장 — 단어(token) 기준 분석률 사용
     const total = analyzableIds.length;
     onAnalysisProgress(total > 0 ? wordFilledCount / total : 0, {
-      hasMaster: false,
+      hasMaster: masterOwnerIds.size > 0,
       filled: wordFilledCount,
       total,
     });
-  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, progressMap]);
+  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
