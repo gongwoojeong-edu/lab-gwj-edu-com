@@ -25,7 +25,7 @@ import {
   buildUnitCombinedWorkbookHtml,
   type UnitCombinedItem,
 } from "./printTemplates";
-import { fetchPassagesByUnit, getStructurePdfSignedUrl, getAnalysisPdfSignedUrl } from "./textbooks";
+import { fetchPassagesByUnit } from "./textbooks";
 
 const escapeHtml = (s: string): string =>
   s
