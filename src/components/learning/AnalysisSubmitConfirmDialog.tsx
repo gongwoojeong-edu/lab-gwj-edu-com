@@ -57,7 +57,7 @@ export const AnalysisSubmitConfirmDialog = ({
     let mounted = true;
     setLoading(true);
     setShowDiff(false);
-    gradeAnalysis(sentenceId)
+    gradeAnalysis(sentenceId, { fallbackRate: wordAnalysisRate })
       .then((g) => {
         if (mounted) setGrade(g);
       })
@@ -67,7 +67,7 @@ export const AnalysisSubmitConfirmDialog = ({
     return () => {
       mounted = false;
     };
-  }, [open, sentenceId]);
+  }, [open, sentenceId, wordAnalysisRate]);
 
   const hasMaster = !!grade?.hasMaster;
   // hasMaster=true → 마스터 기준 정답률, false → 단어 대비 분석률(외부 props 우선)
