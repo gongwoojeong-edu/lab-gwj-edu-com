@@ -73,7 +73,8 @@ type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
 interface FormState {
   title: string;
-  studentId: string; // "__all__" or user_id
+  /** 빈 배열 = 전체 학생, 1개 이상 = 선택된 학생들 (각각 별도 과제 행 생성) */
+  studentIds: string[];
   // 위계 선택 상태 (UI 용)
   selectedLevel: LevelCode | "";
   selectedSeriesId: string;
@@ -90,7 +91,7 @@ interface FormState {
 
 const emptyForm = (): FormState => ({
   title: "",
-  studentId: "__all__",
+  studentIds: [],
   selectedLevel: "",
   selectedSeriesId: "",
   selectedTbId: "",
