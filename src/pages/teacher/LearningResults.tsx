@@ -910,6 +910,12 @@ const LearningResults = () => {
                                       <th className="text-left px-3 py-2 font-medium">문장 코드</th>
                                       <th className="text-left px-3 py-2 font-medium">분석+해석</th>
                                       <th className="text-left px-3 py-2 font-medium">단어시험</th>
+                                      <th
+                                        className="text-left px-3 py-2 font-medium hidden"
+                                        aria-hidden="true"
+                                      >
+                                        온라인 점수기록
+                                      </th>
                                       <th className="text-left px-3 py-2 font-medium">단어 HO</th>
                                       <th className="text-left px-3 py-2 font-medium">구문 HO</th>
                                       <th className="text-right px-3 py-2 font-medium">재시험</th>
