@@ -118,7 +118,11 @@ const Assignments = () => {
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
-  const [passagesByTb, setPassagesByTb] = useState<Record<string, Passage[]>>({});
+  // 캐스케이딩 캐시
+  const [seriesByLevel, setSeriesByLevel] = useState<Record<string, Series[]>>({});
+  const [tbsBySeries, setTbsBySeries] = useState<Record<string, Textbook[]>>({});
+  const [unitsByTb, setUnitsByTb] = useState<Record<string, Unit[]>>({});
+  const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
 
   const studentNameMap = useMemo(() => {
@@ -131,15 +135,11 @@ const Assignments = () => {
 
   // Create form
   const [form, setForm] = useState<FormState>(emptyForm());
-  const [tbOpen, setTbOpen] = useState(false);
-  const [pgOpen, setPgOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Edit dialog
   const [editingRow, setEditingRow] = useState<AssignmentRow | null>(null);
   const [editForm, setEditForm] = useState<FormState>(emptyForm());
-  const [editTbOpen, setEditTbOpen] = useState(false);
-  const [editPgOpen, setEditPgOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   const load = async () => {
@@ -157,63 +157,99 @@ const Assignments = () => {
     void load();
   }, []);
 
-  const ensurePassagesLoaded = async (tbId: string) => {
-    if (!tbId || passagesByTb[tbId]) return;
+  // ───── 캐스케이딩 로더들 ─────
+  const ensureSeries = async (level: LevelCode | "") => {
+    if (!level || seriesByLevel[level]) return;
     try {
-      const ps = await fetchPassagesByTextbook(tbId);
-      setPassagesByTb((m) => ({ ...m, [tbId]: ps }));
-    } catch (e) {
-      console.error(e);
-    }
+      const list = await fetchSeriesByLevel(level);
+      setSeriesByLevel((m) => ({ ...m, [level]: list }));
+    } catch (e) { console.error(e); }
+  };
+  const ensureTextbooks = async (seriesId: string) => {
+    if (!seriesId || tbsBySeries[seriesId]) return;
+    try {
+      const list = await fetchTextbooksBySeries(seriesId);
+      setTbsBySeries((m) => ({ ...m, [seriesId]: list }));
+    } catch (e) { console.error(e); }
+  };
+  const ensureUnits = async (tbId: string) => {
+    if (!tbId || unitsByTb[tbId]) return;
+    try {
+      const list = await fetchUnitsByTextbook(tbId);
+      setUnitsByTb((m) => ({ ...m, [tbId]: list }));
+    } catch (e) { console.error(e); }
+  };
+  const ensurePassages = async (unitId: string) => {
+    if (!unitId || passagesByUnit[unitId]) return;
+    try {
+      const list = await fetchPassagesByUnit(unitId);
+      setPassagesByUnit((m) => ({ ...m, [unitId]: list }));
+    } catch (e) { console.error(e); }
   };
 
-  // 교재 선택 시 지문 로드 (create form)
-  useEffect(() => {
-    void ensurePassagesLoaded(form.selectedTbId);
-  }, [form.selectedTbId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void ensureSeries(form.selectedLevel); }, [form.selectedLevel]); // eslint-disable-line
+  useEffect(() => { void ensureTextbooks(form.selectedSeriesId); }, [form.selectedSeriesId]); // eslint-disable-line
+  useEffect(() => { void ensureUnits(form.selectedTbId); }, [form.selectedTbId]); // eslint-disable-line
+  useEffect(() => { void ensurePassages(form.selectedUnitId); }, [form.selectedUnitId]); // eslint-disable-line
 
-  // 교재 선택 시 지문 로드 (edit form)
-  useEffect(() => {
-    void ensurePassagesLoaded(editForm.selectedTbId);
-  }, [editForm.selectedTbId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void ensureSeries(editForm.selectedLevel); }, [editForm.selectedLevel]); // eslint-disable-line
+  useEffect(() => { void ensureTextbooks(editForm.selectedSeriesId); }, [editForm.selectedSeriesId]); // eslint-disable-line
+  useEffect(() => { void ensureUnits(editForm.selectedTbId); }, [editForm.selectedTbId]); // eslint-disable-line
+  useEffect(() => { void ensurePassages(editForm.selectedUnitId); }, [editForm.selectedUnitId]); // eslint-disable-line
 
-  const tbLabel = (t: Textbook) => `[${t.level}] ${t.title} · Unit ${t.unit_no}`;
-
-  // sentence_id(=passage code) → 사람이 읽는 라벨 매핑
+  // sentence_id(=passage code) → 사람이 읽는 라벨 매핑 (목록 표시용)
   const codeLabelMap = useMemo(() => {
     const m = new Map<string, string>();
-    Object.entries(passagesByTb).forEach(([tbId, ps]) => {
-      const tb = textbooks.find((t) => t.id === tbId);
-      if (!tb) return;
+    Object.entries(passagesByUnit).forEach(([unitId, ps]) => {
+      // unit → tb 역참조
+      let tb: Textbook | undefined;
+      let unit: Unit | undefined;
+      Object.entries(unitsByTb).forEach(([tbId, units]) => {
+        const found = units.find((u) => u.id === unitId);
+        if (found) {
+          unit = found;
+          tb = textbooks.find((t) => t.id === tbId);
+        }
+      });
       ps.forEach((p) => {
-        m.set(p.code, `[${tb.level}] ${tb.title} · #${String(p.passage_no).padStart(3, "0")}`);
+        const prefix = tb ? `[${tb.level}] ${tb.title}` : "";
+        const unitLabel = unit ? ` · U${unit.unit_no} ${unit.title}` : "";
+        m.set(p.code, `${prefix}${unitLabel} · #${String(p.passage_no).padStart(3, "0")}`);
       });
     });
     return m;
-  }, [passagesByTb, textbooks]);
+  }, [passagesByUnit, unitsByTb, textbooks]);
 
-  // 목록에 보이는 sentence_id의 교재 자동 로드 (라벨용)
+  // 목록에 보이는 sentence_id의 unit·passage 자동 로드 (라벨용)
   useEffect(() => {
     const codes = Array.from(new Set(rows.map((r) => r.sentence_id).filter(Boolean) as string[]));
     const missing = codes.filter((c) => !codeLabelMap.has(c));
-    if (missing.length === 0 || textbooks.length === 0) return;
+    if (missing.length === 0) return;
     void (async () => {
       const { data } = await supabase
         .from("textbook_passages")
-        .select("textbook_id")
+        .select("unit_id, textbook_id")
         .in("code", missing);
+      const unitIds = Array.from(new Set((data ?? []).map((d: any) => d.unit_id as string)));
       const tbIds = Array.from(new Set((data ?? []).map((d: any) => d.textbook_id as string)));
-      for (const id of tbIds) {
-        if (passagesByTb[id]) continue;
-        try {
-          const ps = await fetchPassagesByTextbook(id);
-          setPassagesByTb((m) => ({ ...m, [id]: ps }));
-        } catch (e) {
-          console.error(e);
+      for (const tbId of tbIds) {
+        if (!unitsByTb[tbId]) {
+          try {
+            const us = await fetchUnitsByTextbook(tbId);
+            setUnitsByTb((m) => ({ ...m, [tbId]: us }));
+          } catch (e) { console.error(e); }
         }
       }
+      for (const unitId of unitIds) {
+        if (passagesByUnit[unitId]) continue;
+        try {
+          const ps = await fetchPassagesByUnit(unitId);
+          setPassagesByUnit((m) => ({ ...m, [unitId]: ps }));
+        } catch (e) { console.error(e); }
+      }
     })();
-  }, [rows, codeLabelMap, textbooks, passagesByTb]);
+  }, [rows, codeLabelMap, unitsByTb, passagesByUnit]);
+
 
   // 과제별 진척 데이터 로드 (hover용)
   useEffect(() => {
