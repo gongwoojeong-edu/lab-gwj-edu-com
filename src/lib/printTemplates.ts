@@ -881,7 +881,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     border: 0.5pt solid #000; padding: 1.2mm 2.5mm;
   }
   .cb-prow {
-    display: flex; gap: 1.5mm; padding: 0.6mm 0;
+    display: flex; gap: 1.5mm; padding: 0.3mm 0;
     border-bottom: 0.3pt dashed #bbb;
   }
   .cb-prow:last-child { border-bottom: none; }
