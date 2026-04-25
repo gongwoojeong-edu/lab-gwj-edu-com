@@ -10,7 +10,74 @@
 //   - 데이터는 호출자가 미리 fetch 해서 payload 로 넘긴다
 // ============================================================
 import type { ClozeSegment } from "./handoutCloze";
-import type { CompareDetailRow } from "./analysisCompare";
+import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
+
+// ============================================================
+// 학생 owner_progress 라벨 포맷터 (인쇄용)
+//   pos / noun / adj / adv / verb / etc 를 한 줄 라벨로 변환
+// ============================================================
+interface AnyProgressLite {
+  pos?: string | null;
+  noun?: { form?: string | null; element?: string | null; role?: string | null; subrole?: string | null } | null;
+  adj?: { form?: string | null; element?: string | null; role?: string | null } | null;
+  adv?: { form?: string | null; subtype?: string | null; role?: string | null } | null;
+  etc?: { kind?: string | null; role?: string | null } | null;
+  verb?: {
+    number?: string | null;
+    tense?: string | null;
+    aspect?: string | null;
+    voice?: string | null;
+    proverb?: string | null;
+  } | null;
+}
+const POS_KO: Record<string, string> = {
+  noun: "명사",
+  verb: "동사",
+  adj: "형용사",
+  adv: "부사",
+  etc: "기타",
+};
+const formatProgressLabel = (p: AnyProgressLite | undefined | null): string => {
+  if (!p || !p.pos) return "";
+  const head = POS_KO[p.pos] ?? p.pos;
+  const parts: string[] = [];
+  switch (p.pos) {
+    case "noun": {
+      if (p.noun?.form) parts.push(p.noun.form);
+      if (p.noun?.element) parts.push(p.noun.element);
+      if (p.noun?.role) parts.push(p.noun.role);
+      if (p.noun?.subrole) parts.push(p.noun.subrole);
+      break;
+    }
+    case "adj": {
+      if (p.adj?.form) parts.push(p.adj.form);
+      if (p.adj?.element) parts.push(p.adj.element);
+      if (p.adj?.role) parts.push(p.adj.role);
+      break;
+    }
+    case "adv": {
+      if (p.adv?.form) parts.push(p.adv.form);
+      if (p.adv?.subtype) parts.push(p.adv.subtype);
+      if (p.adv?.role) parts.push(p.adv.role);
+      break;
+    }
+    case "etc": {
+      if (p.etc?.kind) parts.push(p.etc.kind);
+      if (p.etc?.role) parts.push(p.etc.role);
+      break;
+    }
+    case "verb": {
+      if (p.verb?.tense) parts.push(p.verb.tense);
+      if (p.verb?.aspect) parts.push(p.verb.aspect);
+      if (p.verb?.voice) parts.push(p.verb.voice);
+      if (p.verb?.number) parts.push(p.verb.number);
+      if (p.verb?.proverb) parts.push(p.verb.proverb);
+      break;
+    }
+  }
+  const tail = parts.filter(Boolean).join("·");
+  return tail ? `${head}·${tail}` : head;
+};
 
 const escapeHtml = (s: string): string =>
   s
