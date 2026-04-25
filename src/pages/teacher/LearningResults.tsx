@@ -322,6 +322,55 @@ const LearningResults = () => {
       setStudentSentences(ssMap);
       setTranslationSet(tSet);
 
+      // 4) sentence_id → unit_id, unit_id → 라벨 로드
+      const allSids = Array.from(new Set(Object.values(ssMap).flat()));
+      if (allSids.length > 0) {
+        const { data: pgRows } = await supabase
+          .from("textbook_passages")
+          .select("code, unit_id, textbook_id")
+          .in("code", allSids);
+        const c2u: Record<string, string> = {};
+        const unitIds = new Set<string>();
+        const tbIds = new Set<string>();
+        ((pgRows ?? []) as { code: string; unit_id: string; textbook_id: string }[]).forEach(
+          (p) => {
+            if (p.unit_id) {
+              c2u[p.code] = p.unit_id;
+              unitIds.add(p.unit_id);
+              if (p.textbook_id) tbIds.add(p.textbook_id);
+            }
+          },
+        );
+        setCodeToUnit(c2u);
+
+        // 라벨 (textbook level/title + unit_no/title)
+        if (unitIds.size > 0) {
+          const { data: uRows } = await supabase
+            .from("textbook_units")
+            .select("id, unit_no, title, textbook_id")
+            .in("id", Array.from(unitIds));
+          let tbMap = new Map<string, { level: string; title: string }>();
+          if (tbIds.size > 0) {
+            const { data: tbRows } = await supabase
+              .from("textbooks")
+              .select("id, level, title")
+              .in("id", Array.from(tbIds));
+            ((tbRows ?? []) as { id: string; level: string; title: string }[]).forEach(
+              (t) => tbMap.set(t.id, { level: t.level, title: t.title }),
+            );
+          }
+          const lblMap: Record<string, string> = {};
+          ((uRows ?? []) as {
+            id: string; unit_no: number; title: string; textbook_id: string;
+          }[]).forEach((u) => {
+            const tb = tbMap.get(u.textbook_id);
+            const tbPrefix = tb ? `[${tb.level}] ${tb.title}` : "";
+            lblMap[u.id] = `${tbPrefix} · U${u.unit_no} ${u.title}`.trim();
+          });
+          setUnitLabel(lblMap);
+        }
+      }
+
       // === pre-warm: 풀 iframe 만 살려둠 (HTML 직주입 방식이라 별도 prefetch 불필요) ===
       prewarmPrintDocument();
     } finally {
