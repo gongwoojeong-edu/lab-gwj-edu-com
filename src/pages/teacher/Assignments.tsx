@@ -861,7 +861,7 @@ const Assignments = () => {
                 </Popover>
               </div>
               <div>{renderStepCheckboxes(editForm, setEditForm)}</div>
-              {renderTextbookPickers(editForm, setEditForm, editTbOpen, setEditTbOpen, editPgOpen, setEditPgOpen, "edit")}
+              {renderTextbookPickers(editForm, setEditForm)}
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>설명 (선택)</Label>
                 <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
