@@ -132,15 +132,50 @@ const buildPassageSection = async (
     }
   }
 
-  // 3) 한글해석 HO
-  try {
-    const handout = await preloadHandoutPayload({ sentenceId, studentId });
-    sections.push(buildHandoutPrintHtml(handout));
-  } catch {
-    /* skip */
+  // 3) 한글해석 HO — both 모드에서만 지문별 출력. unit_only 는 마지막에 통합본으로 한 번만.
+  if (mode === "both") {
+    try {
+      const handout = await preloadHandoutPayload({ sentenceId, studentId });
+      sections.push(buildHandoutPrintHtml(handout));
+    } catch {
+      /* skip */
+    }
   }
 
   return sections.join("\n");
+};
+
+/** unit_only 전용 — 통합 한글해석본 + 유닛 끝 페이지 */
+const buildUnitOnlyTail = async (
+  sentenceIds: string[],
+  studentId: string,
+  ctx: UnitWorkbookContext,
+): Promise<string> => {
+  const items: UnitOnlyHandoutItem[] = [];
+  for (const sid of sentenceIds) {
+    const passage = await fetchPassageByCode(sid).catch(() => null);
+    if (!passage) continue;
+    const { data: t } = await supabase
+      .from("sentence_translations")
+      .select("text")
+      .eq("user_id", studentId)
+      .eq("sentence_id", sid)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    items.push({
+      passageCode: passage.code,
+      english: passage.english,
+      studentTranslation: (t?.text as string | undefined) ?? "",
+    });
+  }
+  return buildUnitOnlyHandoutHtml({
+    unitTitle: ctx.unitTitle,
+    unitCode: ctx.unitCode,
+    studentName: ctx.studentName,
+    studentNo: ctx.studentNo,
+    items,
+  });
 };
 
 const COVER_HEAD = `
