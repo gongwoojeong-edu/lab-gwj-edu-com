@@ -106,6 +106,7 @@ const TeacherStudents = () => {
   const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
   const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
   const [historySheet, setHistorySheet] = useState<{ userId: string; name: string; no: string | null } | null>(null);
+  const [skipDialog, setSkipDialog] = useState<{ userId: string; name: string } | null>(null);
 
   const saveTimeLimit = async (s: Student, seconds: number) => {
     const clamped = Math.max(0, Math.min(120, Math.round(seconds)));
