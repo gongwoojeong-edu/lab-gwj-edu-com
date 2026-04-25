@@ -587,22 +587,59 @@ const Assignments = () => {
       ) {
         endOfDay.setHours(23, 59, 59, 999);
       }
-      const { error } = await supabase
+
+      // 🆕 같은 유닛 그룹의 모든 행을 찾아 메타(제목/설명/마감/대상/단계)를 일괄 적용.
+      // (sentence_id가 같은 그룹에 속한 형제 행들이라면 동일 유닛 = 같은 unit_id)
+      const editingUnitId = editingRow.sentence_id
+        ? codeToUnit[editingRow.sentence_id] ?? null
+        : null;
+      const groupRowIds = rows
+        .filter(
+          (r) =>
+            r.title === editingRow.title &&
+            r.due_at === editingRow.due_at &&
+            (r.student_id ?? null) === (editingRow.student_id ?? null) &&
+            (editingUnitId
+              ? r.sentence_id && codeToUnit[r.sentence_id] === editingUnitId
+              : r.id === editingRow.id),
+        )
+        .map((r) => r.id);
+      const targetIds = groupRowIds.length > 0 ? groupRowIds : [editingRow.id];
+
+      // 1) 그룹 전체에 메타 적용 (sentence_id는 건드리지 않음 — 각 행 보존)
+      const { error: metaErr } = await supabase
         .from("assignments")
         .update({
           title: editForm.title.trim(),
           student_id: editForm.studentIds.length === 0 ? null : editForm.studentIds[0],
           description: editForm.description.trim() || null,
-          sentence_id: editForm.selectedPassageCode || null,
           due_at: endOfDay.toISOString(),
           include_pre: editForm.includePre,
           include_analysis: editForm.includeAnalysis,
           include_translation: editForm.includeTranslation,
           include_wordtest: editForm.includeWordtest,
         })
-        .eq("id", editingRow.id);
-      if (error) throw error;
-      toast({ title: "✅ 수정 완료" });
+        .in("id", targetIds);
+      if (metaErr) throw metaErr;
+
+      // 2) 대표 행에 한해 sentence_id 변경분 반영 (필요 시)
+      if (
+        editForm.selectedPassageCode &&
+        editForm.selectedPassageCode !== editingRow.sentence_id
+      ) {
+        await supabase
+          .from("assignments")
+          .update({ sentence_id: editForm.selectedPassageCode })
+          .eq("id", editingRow.id);
+      }
+
+      toast({
+        title: "✅ 수정 완료",
+        description:
+          targetIds.length > 1
+            ? `유닛 전체 ${targetIds.length}개 지문에 일괄 적용됨`
+            : undefined,
+      });
       setEditingRow(null);
       void load();
     } catch (e) {
