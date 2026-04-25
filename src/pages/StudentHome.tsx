@@ -202,21 +202,69 @@ const StudentHome = () => {
             });
           });
         }
-        // 특별과제는 ON된 모든 단계가 완료되었을 때만 숨김 (이전에 통과한 sentence라도 새 과제는 다시 진행)
-        const activeAssignments = allAssignments.filter((a) => {
-          if (!a.sentence_id) return true;
+        // 한 sentence가 "완료"인지 판정 (그 과제의 ON 단계 전부 완료)
+        const isSentenceDone = (a: AssignmentRow): boolean => {
+          if (!a.sentence_id) return false;
           const pf = progressFlags.get(a.sentence_id);
-          if (!pf) return true;
+          if (!pf) return false;
           const preOk = !a.include_pre || pf.pre;
           const wtOk = !a.include_wordtest || pf.wt;
           const anOk = !a.include_analysis || pf.an;
           const trOk = !a.include_translation || pf.tr;
-          return !(preOk && wtOk && anOk && trOk);
+          return preOk && wtOk && anOk && trOk;
+        };
+        const isSentenceStarted = (a: AssignmentRow): boolean => {
+          if (!a.sentence_id) return false;
+          const pf = progressFlags.get(a.sentence_id);
+          return !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+        };
+
+        // 같은 title|due_at|unit_prefix 로 그룹핑
+        const groupMap = new Map<string, AssignmentRow[]>();
+        allAssignments.forEach((a) => {
+          const prefix = extractUnitPrefix(a.sentence_id);
+          const key = `${a.title}|${a.due_at}|${prefix ?? a.sentence_id ?? a.id}`;
+          if (!groupMap.has(key)) groupMap.set(key, []);
+          groupMap.get(key)!.push(a);
         });
+
+        const groups: AssignmentGroup[] = Array.from(groupMap.entries())
+          .map(([key, rows]) => {
+            // sentence_id 오름차순으로 정렬
+            const sorted = rows
+              .slice()
+              .sort((x, y) => (x.sentence_id ?? "").localeCompare(y.sentence_id ?? ""));
+            const head = sorted[0];
+            const doneList = sorted.filter(isSentenceDone);
+            const startedList = sorted.filter(
+              (a) => !isSentenceDone(a) && isSentenceStarted(a),
+            );
+            const nextRow = sorted.find((a) => !isSentenceDone(a));
+            return {
+              key,
+              title: head.title,
+              description: head.description,
+              due_at: head.due_at,
+              unit_prefix: extractUnitPrefix(head.sentence_id),
+              include_pre: head.include_pre,
+              include_analysis: head.include_analysis,
+              include_translation: head.include_translation,
+              include_wordtest: head.include_wordtest,
+              rows: sorted,
+              totalCount: sorted.length,
+              doneCount: doneList.length,
+              inProgressCount: startedList.length,
+              nextSentenceId: nextRow?.sentence_id ?? null,
+            } as AssignmentGroup;
+          })
+          // 모든 sentence 완료된 그룹은 숨김
+          .filter((g) => g.doneCount < g.totalCount)
+          // 마감일 가까운 순
+          .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
 
         if (mounted) {
           setRecent(enriched);
-          setAssignments(activeAssignments);
+          setAssignmentGroups(groups);
           setAssignmentProgress(progressFlags);
         }
 
