@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
+import { UnitWorkbookPreviewDialog } from "@/components/teacher/UnitWorkbookPreviewDialog";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -115,9 +116,12 @@ const BookshelfUnit = () => {
   const [workbookSummary, setWorkbookSummary] = useState<{
     total: number;
     completed: number;
+    completedCodes: string[];
+    pendingCodes: string[];
   } | null>(null);
   const [workbookLoading, setWorkbookLoading] = useState(false);
   const [workbookPrinting, setWorkbookPrinting] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // 다중선택 + 다른 유닛으로 이동
   const { display: levelDisplay } = useLevelLabels();
@@ -173,6 +177,8 @@ const BookshelfUnit = () => {
         setWorkbookSummary({
           total: s.totalPassages,
           completed: s.completedCodes.length,
+          completedCodes: s.completedCodes,
+          pendingCodes: s.pendingCodes,
         });
       })
       .catch(() => {
@@ -186,7 +192,18 @@ const BookshelfUnit = () => {
     };
   }, [workbookStudentId, unit]);
 
-  const handlePrintUnitWorkbook = async () => {
+  // 워크북 인쇄 버튼 → 미리보기 모달 오픈
+  const handleOpenWorkbookPreview = () => {
+    if (!unit || !workbookStudentId) return;
+    if (!workbookSummary || workbookSummary.completed === 0) {
+      toast({ title: "완료한 지문이 없어요", variant: "destructive" });
+      return;
+    }
+    setPreviewOpen(true);
+  };
+
+  // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행
+  const handleConfirmPrintWorkbook = async () => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
     if (!workbookSummary || workbookSummary.completed === 0) {
       toast({ title: "완료한 지문이 없어요", variant: "destructive" });
@@ -214,6 +231,7 @@ const BookshelfUnit = () => {
         title: "유닛 워크북 인쇄 시작",
         description: `${completedCount}개 지문 포함 · ${modeLabel}`,
       });
+      setPreviewOpen(false);
     } catch (err) {
       toast({ title: "인쇄 실패", description: errMsg(err), variant: "destructive" });
     } finally {
@@ -833,7 +851,7 @@ const BookshelfUnit = () => {
             <Button
               size="sm"
               className="h-9"
-              onClick={handlePrintUnitWorkbook}
+              onClick={handleOpenWorkbookPreview}
               disabled={
                 !workbookStudentId ||
                 workbookPrinting ||
@@ -845,12 +863,36 @@ const BookshelfUnit = () => {
               {workbookPrinting ? (
                 <Loader2 className="size-3.5 mr-1 animate-spin" />
               ) : (
-                <Printer className="size-3.5 mr-1" />
+                <Eye className="size-3.5 mr-1" />
               )}
-              {workbookPrinting ? "인쇄 준비 중…" : "워크북 인쇄"}
+              {workbookPrinting ? "인쇄 준비 중…" : "미리보기 & 인쇄"}
             </Button>
           </div>
         </Card>
+
+        {/* 유닛 워크북 인쇄 미리보기 모달 */}
+        {workbookStudentId && workbookSummary && unit && (() => {
+          const sel = studentList.find((s) => s.id === workbookStudentId);
+          if (!sel) return null;
+          const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
+          return (
+            <UnitWorkbookPreviewDialog
+              open={previewOpen}
+              onOpenChange={(o) => {
+                if (!workbookPrinting) setPreviewOpen(o);
+              }}
+              studentName={sel.name}
+              studentNo={sel.no}
+              unitTitle={unit.title}
+              unitCode={unitCode}
+              mode={sel.mode}
+              completedCodes={workbookSummary.completedCodes}
+              pendingCodes={workbookSummary.pendingCodes}
+              printing={workbookPrinting}
+              onConfirmPrint={handleConfirmPrintWorkbook}
+            />
+          );
+        })()}
 
         {selectedIds.size > 0 && (
           <div className="flex items-center gap-2 px-1">
