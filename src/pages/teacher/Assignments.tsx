@@ -789,10 +789,24 @@ const Assignments = () => {
                               }))
                             }
                           />
-                          <span className="truncate">
+                          <span className="truncate flex-1">
                             {s.display_name ?? s.student_no}{" "}
                             <span className="text-xs text-muted-foreground">({s.student_no})</span>
                           </span>
+                          <div onClick={(e) => e.preventDefault()}>
+                            <WorkbookModeToggle
+                              userId={s.user_id}
+                              value={s.unit_workbook_mode ?? "both"}
+                              studentLabel={s.display_name ?? s.student_no}
+                              onChange={(m) =>
+                                setStudents((prev) =>
+                                  prev.map((x) =>
+                                    x.user_id === s.user_id ? { ...x, unit_workbook_mode: m } : x,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
                         </label>
                       );
                     })}
