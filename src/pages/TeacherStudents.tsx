@@ -223,6 +223,34 @@ const TeacherStudents = () => {
     }
   };
 
+  const saveWorkbookMode = async (s: Student, mode: "unit_only" | "both") => {
+    setWorkbookModeByName((p) => ({ ...p, [s.name]: mode }));
+    setWorkbookModeSaving(s.name);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .update({ unit_workbook_mode: mode })
+        .eq("display_name", s.name)
+        .select("user_id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: "계정 매칭 실패",
+          description: `'${s.name}' 이름 계정이 없습니다.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: `📘 ${s.name} 워크북 모드 ${mode === "unit_only" ? "유닛만" : "유닛+문장"} 저장`,
+        });
+      }
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setWorkbookModeSaving(null);
+    }
+  };
+
   // Load students from DB (student_profiles) + merge with localStorage entries
   useEffect(() => {
     (async () => {
