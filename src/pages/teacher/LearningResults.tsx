@@ -195,8 +195,31 @@ const LearningResults = () => {
       ]);
 
       const pairs = new Map<string, Set<string>>(); // userId → Set<sentenceId>
+      // 단어시험 오답복습 sid 패턴: "<원래코드>__remediation_<숫자>"
+      const REMEDIATION_RE = /__remediation_\d+$/;
+      const isRemediationSid = (sid: string | null | undefined): boolean =>
+        !!sid && REMEDIATION_RE.test(sid);
+      const parentOfRemediation = (sid: string): string =>
+        sid.replace(REMEDIATION_RE, "");
+      // (userId, parentSid) → Set<remediation_attempt_no> (distinct 카운트용)
+      const remediationAttempts = new Map<string, Set<string>>();
+      const noteRemediation = (uid: string | null | undefined, sid: string | null | undefined) => {
+        if (!uid || !sid) return;
+        if (!isRemediationSid(sid)) return;
+        const parent = parentOfRemediation(sid);
+        const suffix = sid.slice(parent.length); // "__remediation_3"
+        const k = `${uid}::${parent}`;
+        const set = remediationAttempts.get(k) ?? new Set<string>();
+        set.add(suffix);
+        remediationAttempts.set(k, set);
+      };
       const addPair = (uid: string | null | undefined, sid: string | null | undefined) => {
         if (!uid || !sid) return;
+        // 합성 remediation sid 는 별도 카드로 띄우지 않고 카운트만 잡는다
+        if (isRemediationSid(sid)) {
+          noteRemediation(uid, sid);
+          return;
+        }
         const set = pairs.get(uid) ?? new Set<string>();
         set.add(sid);
         pairs.set(uid, set);
@@ -214,7 +237,9 @@ const LearningResults = () => {
       ((translationsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
         (r) => {
           addPair(r.user_id, r.sentence_id);
-          tSet[`${r.user_id}::${r.sentence_id}`] = true;
+          if (!isRemediationSid(r.sentence_id)) {
+            tSet[`${r.user_id}::${r.sentence_id}`] = true;
+          }
         },
       );
       ((wordTestRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
@@ -234,8 +259,18 @@ const LearningResults = () => {
       }>;
       progressRows.forEach((r) => {
         addPair(r.user_id, r.sentence_id);
-        if (r.translation_done) tSet[`${r.user_id}::${r.sentence_id}`] = true;
+        if (r.translation_done && !isRemediationSid(r.sentence_id)) {
+          tSet[`${r.user_id}::${r.sentence_id}`] = true;
+        }
       });
+
+      // 오답복습 카운트 맵 — 부모 sid 가 실제 카드로 등장하는 경우만 노출
+      const rcMap: Record<string, number> = {};
+      remediationAttempts.forEach((set, k) => {
+        rcMap[k] = set.size;
+      });
+      setRemediationCountMap(rcMap);
+
 
       const userIds = Array.from(pairs.keys());
       // handout_results는 user 단독으로도 보여줌 (sentence 없이 점수만 있는 경우)
