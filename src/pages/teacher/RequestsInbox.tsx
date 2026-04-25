@@ -69,23 +69,31 @@ type InboxItem =
 const RequestsInbox = () => {
   const navigate = useNavigate();
   const [printRows, setPrintRows] = useState<PrintRequest[]>([]);
+  const [handledPrintRows, setHandledPrintRows] = useState<PrintRequest[]>([]);
   const [reviewRows, setReviewRows] = useState<AnalysisReviewRequest[]>([]);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
   const [masterMap, setMasterMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [tab, setTab] = useState<"pending" | "done">("pending");
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const [pl, rl] = await Promise.all([
+      const [pl, hp, rl] = await Promise.all([
         fetchPendingPrintRequests(),
+        fetchHandledPrintRequests(100),
         fetchInboxReviewRequests(),
       ]);
       setPrintRows(pl);
+      setHandledPrintRows(hp);
       setReviewRows(rl);
       const userIds = Array.from(
-        new Set([...pl.map((r) => r.user_id), ...rl.map((r) => r.user_id)]),
+        new Set([
+          ...pl.map((r) => r.user_id),
+          ...hp.map((r) => r.user_id),
+          ...rl.map((r) => r.user_id),
+        ]),
       );
       if (userIds.length > 0) {
         const { data } = await supabase
