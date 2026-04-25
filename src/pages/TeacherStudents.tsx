@@ -313,6 +313,7 @@ const TeacherStudents = () => {
           name,
           level: ((row.current_level as LevelCode) || "L05"),
           createdAt: row.created_at,
+          userId: row.user_id,
         });
       });
       setThresholdByName(wtMap);
