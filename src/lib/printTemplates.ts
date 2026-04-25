@@ -881,7 +881,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     border-left: 2pt solid #000; padding-left: 2mm;
   }
   .cb-grid {
-    min-height: 78mm;
+    min-height: 62mm;
     background-image:
       linear-gradient(#bbb 0.3pt, transparent 0.3pt),
       linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
@@ -893,6 +893,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     padding: 0 5mm 3mm;
   }
   .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 2mm; }
+  .cb-write-wide { gap: 9mm; padding-top: 3mm; padding-bottom: 1mm; }
   .cb-line { border-bottom: 0.5pt solid #000; height: 0; }
 </style>
 
