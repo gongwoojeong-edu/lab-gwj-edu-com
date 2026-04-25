@@ -1970,6 +1970,7 @@ const Index = ({
     finalizedOwnersRef.current.add(selectedId);
     finalizeCompletedAnalysis(selectedId, {
       persistClause: shouldPersistClauseSelection(),
+      progressPatch: progress,
     });
   }, [
     selectedId,
