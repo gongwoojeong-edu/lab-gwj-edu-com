@@ -920,6 +920,12 @@ const SentenceLearn = () => {
                     setAnalysisRate(rate);
                     setAnalysisHasMaster(meta.hasMaster);
                     setAnalysisCounts({ filled: meta.filled, total: meta.total });
+                    // 마스터 정보 안정 판정: hasMaster=true가 한 번이라도 관측되거나, 콜백이 2회 이상 도착하면 잠금 해제.
+                    // (Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.)
+                    masterCallbackCountRef.current += 1;
+                    if (meta.hasMaster || masterCallbackCountRef.current >= 2) {
+                      setAnalysisMasterLoaded(true);
+                    }
                   }}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
