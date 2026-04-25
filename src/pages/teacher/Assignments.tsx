@@ -745,7 +745,7 @@ const Assignments = () => {
             <div className="sm:col-span-1">
               {renderStepCheckboxes(form, setForm)}
             </div>
-            {renderTextbookPickers(form, setForm, tbOpen, setTbOpen, pgOpen, setPgOpen, "create")}
+            {renderTextbookPickers(form, setForm)}
             <div className="sm:col-span-2 space-y-1.5">
               <Label>설명 (선택)</Label>
               <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
