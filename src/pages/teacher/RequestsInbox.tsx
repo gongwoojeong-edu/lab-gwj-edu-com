@@ -63,6 +63,7 @@ interface StudentInfo {
   user_id: string;
   display_name: string | null;
   student_no: string;
+  unit_workbook_mode: "unit_only" | "both";
 }
 
 type InboxItem =
