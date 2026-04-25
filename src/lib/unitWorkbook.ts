@@ -145,16 +145,26 @@ const buildPassageSection = async (
   return sections.join("\n");
 };
 
-/** unit_only 전용 — 통합 한글해석본 + 유닛 끝 페이지 */
-const buildUnitOnlyTail = async (
+/** unit_only 전용 — 앞면(분석+학생해석 통합) + 뒷면(구조도) */
+const buildUnitOnlyCombined = async (
+  unitId: string,
   sentenceIds: string[],
   studentId: string,
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
-  const items: UnitOnlyHandoutItem[] = [];
+  // 각 문장의 분석 payload + 학생 한글해석 수집
+  const items: UnitCombinedItem[] = [];
   for (const sid of sentenceIds) {
-    const passage = await fetchPassageByCode(sid).catch(() => null);
-    if (!passage) continue;
+    let analysis;
+    try {
+      analysis = await preloadAnalysisPayload({
+        sentenceId: sid,
+        studentId,
+        mode: "marked",
+      });
+    } catch {
+      continue; // 분석 데이터가 없는 문장은 통합본에서 제외
+    }
     const { data: t } = await supabase
       .from("sentence_translations")
       .select("text")
@@ -164,17 +174,35 @@ const buildUnitOnlyTail = async (
       .limit(1)
       .maybeSingle();
     items.push({
-      passageCode: passage.code,
-      english: passage.english,
+      passageCode: sid,
+      analysis,
       studentTranslation: (t?.text as string | undefined) ?? "",
     });
   }
-  return buildUnitOnlyHandoutHtml({
+
+  // 구조도 PDF 서명 URL — structure_pdf_url 우선, 없으면 analysis_pdf_url fallback
+  const { data: unitRow } = await supabase
+    .from("textbook_units")
+    .select("structure_pdf_url, analysis_pdf_url")
+    .eq("id", unitId)
+    .maybeSingle();
+  let structurePdfUrl: string | null = null;
+  const path = (unitRow?.structure_pdf_url as string | null) ?? null;
+  const fallback = (unitRow?.analysis_pdf_url as string | null) ?? null;
+  if (path) {
+    structurePdfUrl = await getStructurePdfSignedUrl(path).catch(() => null);
+  }
+  if (!structurePdfUrl && fallback) {
+    structurePdfUrl = await getAnalysisPdfSignedUrl(fallback).catch(() => null);
+  }
+
+  return buildUnitCombinedWorkbookHtml({
     unitTitle: ctx.unitTitle,
     unitCode: ctx.unitCode,
     studentName: ctx.studentName,
     studentNo: ctx.studentNo,
     items,
+    structurePdfUrl,
   });
 };
 
