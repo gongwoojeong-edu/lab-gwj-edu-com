@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
+import { fetchMyOverrideForSentence } from "@/lib/studentPassageOverrides";
 import { resolveNextSentence } from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
 import { AnalysisSubmitConfirmDialog } from "@/components/learning/AnalysisSubmitConfirmDialog";
