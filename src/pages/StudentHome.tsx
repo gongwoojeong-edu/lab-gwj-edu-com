@@ -219,11 +219,25 @@ const StudentHome = () => {
           return !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
         };
 
-        // 같은 title|due_at|unit_prefix 로 그룹핑
+        // sentence_id → unit_id 매핑 조회 (DB 기반 정확한 그룹핑)
+        const codeToUnit = new Map<string, string>();
+        if (assignSentenceIds.length > 0) {
+          const { data: passageRows } = await supabase
+            .from("textbook_passages")
+            .select("code, unit_id")
+            .in("code", assignSentenceIds);
+          ((passageRows ?? []) as { code: string; unit_id: string | null }[]).forEach((p) => {
+            if (p.unit_id) codeToUnit.set(p.code, p.unit_id);
+          });
+        }
+
+        // 같은 title|due_at|unit_id (또는 정규식 prefix 폴백) 로 그룹핑
         const groupMap = new Map<string, AssignmentRow[]>();
         allAssignments.forEach((a) => {
-          const prefix = extractUnitPrefix(a.sentence_id);
-          const key = `${a.title}|${a.due_at}|${prefix ?? a.sentence_id ?? a.id}`;
+          const unitId = a.sentence_id ? codeToUnit.get(a.sentence_id) ?? null : null;
+          const fallbackPrefix = extractUnitPrefix(a.sentence_id);
+          const groupId = unitId ?? fallbackPrefix ?? a.sentence_id ?? a.id;
+          const key = `${a.title}|${a.due_at}|${groupId}`;
           if (!groupMap.has(key)) groupMap.set(key, []);
           groupMap.get(key)!.push(a);
         });
