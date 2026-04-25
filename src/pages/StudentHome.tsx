@@ -45,7 +45,7 @@ import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 
 interface RecentItem {
   sentence: Sentence;
-  status: "pass" | "fail" | "hold";
+  status: "pass" | "fail" | "hold" | "pending";
   updated_at: string;
 }
 
@@ -103,9 +103,8 @@ const StudentHome = () => {
             .from("sentence_progress")
             .select("sentence_id, status, updated_at, passed_at")
             .eq("user_id", user.id)
-            .in("status", ["pass", "fail", "hold"])
-            .order("updated_at", { ascending: false })
-            .limit(6),
+            .in("status", ["pass", "fail", "hold", "pending"])
+            .order("updated_at", { ascending: false }),
           supabase
             .from("assignments")
             .select("id, title, description, sentence_id, due_at, include_pre, include_analysis, include_translation, include_wordtest")
@@ -114,7 +113,7 @@ const StudentHome = () => {
             .order("due_at", { ascending: true })
             .limit(5),
         ]);
-        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold"; updated_at: string; passed_at: string | null }[];
+        const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold" | "pending"; updated_at: string; passed_at: string | null }[];
 
         // 정적 SENTENCES에 없는 코드(textbook_passages 기반)는 DB에서 fallback 조회
         const missingIds = rows
@@ -684,7 +683,7 @@ const StudentHome = () => {
             {/* Recent */}
             <section className="space-y-3">
               <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
-                최근 학습 Passage
+                내 학습 카드 ({recent.length})
               </h2>
               {recent.length === 0 ? (
                 <Card className="p-6 text-center text-sm text-muted-foreground">
@@ -695,16 +694,19 @@ const StudentHome = () => {
                   {recent.map(({ sentence, status, updated_at }) => {
                     const isFail = status === "fail";
                     const isHold = status === "hold";
+                    const isPending = status === "pending";
                     return (
                       <Card
                         key={sentence.id}
                         className={cn(
                           "p-4 space-y-2 transition-colors",
-                          isHold
-                            ? "border-muted hover:border-muted-foreground/40"
-                            : isFail
-                              ? "border-amber-500/40 hover:border-amber-500/60"
-                              : "border-primary/20 hover:border-primary/40",
+                          isPending
+                            ? "border-sky-500/40 hover:border-sky-500/60"
+                            : isHold
+                              ? "border-muted hover:border-muted-foreground/40"
+                              : isFail
+                                ? "border-amber-500/40 hover:border-amber-500/60"
+                                : "border-primary/20 hover:border-primary/40",
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -712,14 +714,16 @@ const StudentHome = () => {
                           <span
                             className={cn(
                               "px-2 py-0.5 rounded-full text-[10px] font-extrabold",
-                              isHold
-                                ? "bg-muted text-muted-foreground"
-                                : isFail
-                                  ? "bg-amber-500 text-white"
-                                  : "bg-emerald-500 text-white",
+                              isPending
+                                ? "bg-sky-500 text-white"
+                                : isHold
+                                  ? "bg-muted text-muted-foreground"
+                                  : isFail
+                                    ? "bg-amber-500 text-white"
+                                    : "bg-emerald-500 text-white",
                             )}
                           >
-                            {isHold ? "보류" : isFail ? "미통" : "PASS"}
+                            {isPending ? "채점전" : isHold ? "보류" : isFail ? "미통" : "PASS"}
                           </span>
                         </div>
                         <p className="text-xs text-foreground/80 line-clamp-2 min-h-[2.5em]">
