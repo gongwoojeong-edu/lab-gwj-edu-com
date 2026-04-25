@@ -348,14 +348,40 @@ const TeacherStudents = () => {
     setOpen(true);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim()) {
       toast({ title: "이름을 입력해주세요" });
       return;
     }
     if (editing) {
+      const trimmed = name.trim();
+      const oldName = editing.name;
+      const uid = editing.userId ?? profileUserIdByName[oldName];
+      // DB 계정에 연결된 학생이면 display_name 도 함께 update
+      if (uid && trimmed !== oldName) {
+        const { error } = await supabase
+          .from("student_profiles")
+          .update({ display_name: trimmed })
+          .eq("user_id", uid);
+        if (error) {
+          toast({ title: "이름 저장 실패", description: error.message, variant: "destructive" });
+          return;
+        }
+        // 이름이 키로 쓰이는 보조 맵들도 새 이름으로 마이그레이트
+        const moveKey = <T,>(m: Record<string, T>): Record<string, T> => {
+          if (!(oldName in m)) return m;
+          const { [oldName]: v, ...rest } = m;
+          return { ...rest, [trimmed]: v };
+        };
+        setProfileUserIdByName((p) => moveKey(p));
+        setProfileNoByName((p) => moveKey(p));
+        setThresholdByName((p) => moveKey(p));
+        setAnalysisByName((p) => moveKey(p));
+        setTimeLimitByName((p) => moveKey(p));
+        setWorkbookModeByName((p) => moveKey(p));
+      }
       const next = students.map((s) =>
-        s.id === editing.id ? { ...s, name: name.trim(), level } : s,
+        s.id === editing.id ? { ...s, name: trimmed, level } : s,
       );
       setStudents(next);
       persist(next);
