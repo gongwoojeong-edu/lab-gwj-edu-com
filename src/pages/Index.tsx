@@ -1117,10 +1117,23 @@ const Index = ({
   }, [completedSelectionMap, selectedId, selectedWordIndices]);
 
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
-    setProgressMap((prev) => ({
-      ...prev,
-      [id]: updater(prev[id] ?? emptyProgress()),
-    }));
+    setProgressMap((prev) => {
+      const nextProgress = updater(prev[id] ?? emptyProgress());
+      if (studentMode && nextProgress.completed && nextProgress.pos) {
+        const patch = progressToCloudPatch(nextProgress);
+        void upsertOwnerProgress({
+          sentence_id: sentence.id,
+          owner_id: id,
+          progress: patch,
+          custom_answer: patch,
+          completed: true,
+        }).catch(() => {});
+      }
+      return {
+        ...prev,
+        [id]: nextProgress,
+      };
+    });
   };
 
   // 정답 입력 모드에서 한 필드를 저장
