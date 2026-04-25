@@ -133,6 +133,8 @@ const Assignments = () => {
   const [unitsByTb, setUnitsByTb] = useState<Record<string, Unit[]>>({});
   const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
+  /** sentence_id(=passage code) → unit_id 매핑 (그룹핑·라벨용) */
+  const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
