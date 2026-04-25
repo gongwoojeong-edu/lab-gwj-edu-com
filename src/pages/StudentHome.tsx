@@ -103,9 +103,8 @@ const StudentHome = () => {
             .from("sentence_progress")
             .select("sentence_id, status, updated_at, passed_at")
             .eq("user_id", user.id)
-            .in("status", ["pass", "fail", "hold"])
-            .order("updated_at", { ascending: false })
-            .limit(6),
+            .in("status", ["pass", "fail", "hold", "pending"])
+            .order("updated_at", { ascending: false }),
           supabase
             .from("assignments")
             .select("id, title, description, sentence_id, due_at, include_pre, include_analysis, include_translation, include_wordtest")
