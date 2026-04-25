@@ -882,16 +882,26 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     min-height: 6mm;
   }
   .cb-ko .muted { color: #888; }
-  .cb-structure { padding: 0; }
-  .cb-pdf { width: 100%; height: 230mm; border: 0; display: block; }
+  .cb-back { padding: 0 0 4mm; }
+  .cb-back .section { padding: 3mm 5mm; }
+  .cb-back .section-title {
+    font-size: 9.5pt; font-weight: 700; margin-bottom: 1.5mm;
+    border-left: 2pt solid #000; padding-left: 2mm;
+  }
   .cb-grid {
-    min-height: 200mm;
+    min-height: 78mm;
     background-image:
       linear-gradient(#bbb 0.3pt, transparent 0.3pt),
       linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
     background-size: 4mm 4mm;
     border: 0.5pt solid #000;
   }
+  .cb-cols {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4mm;
+    padding: 0 5mm 3mm;
+  }
+  .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 2mm; }
+  .cb-line { border-bottom: 0.5pt solid #000; height: 0; }
 </style>
 
 <div class="page cb-passage-page">
