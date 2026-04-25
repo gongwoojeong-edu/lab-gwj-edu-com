@@ -62,6 +62,10 @@
     --idiom-border: 145 55% 55%;
     --idiom-fg: 145 60% 25%;
 
+    /* Subject / Verb 강조 토큰 — 문장의 핵심 주어·동사 표시용 (인쇄/화면 공통) */
+    --token-subject: 270 80% 38%;   /* 진한 보라 (주어) */
+    --token-verb: 95 65% 38%;       /* 연두 (동사) */
+
     /* Reward tokens — streak (warm) & points (brand) */
     --streak: 32 95% 50%;
     --streak-foreground: 28 80% 30%;
