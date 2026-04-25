@@ -78,17 +78,23 @@ export const summarizeUnitProgress = async (
   return { totalPassages: codes.length, completedCodes: completed, pendingCodes: pending };
 };
 
+export type UnitWorkbookMode = "unit_only" | "both";
+
 interface UnitWorkbookContext {
   unitTitle: string;
   unitCode: string; // ex) "L05 · 시리즈 · 권 · U3"
   studentName: string | null;
   studentNo: string | null;
+  mode: UnitWorkbookMode;
 }
 
-/** 한 지문에 대한 워크북 섹션(분석/단어/해석) 빌드 — 실패 섹션은 스킵 */
+/** 한 지문에 대한 워크북 섹션(분석/단어/해석) 빌드 — 실패 섹션은 스킵
+ *  mode === "unit_only" 인 경우 단어 시험지 섹션은 스킵한다.
+ */
 const buildPassageSection = async (
   sentenceId: string,
   studentId: string,
+  mode: UnitWorkbookMode,
 ): Promise<string> => {
   const sections: string[] = [];
 
@@ -109,17 +115,19 @@ const buildPassageSection = async (
     );
   }
 
-  // 2) 단어 시험지 (오답 위주 → 없으면 전체)
-  try {
-    const word = await preloadWordPayload({
-      sentenceId,
-      studentId,
-      scope: "wrong",
-      mode: "mix",
-    });
-    sections.push(buildWordPrintHtml(word));
-  } catch {
-    /* skip */
+  // 2) 단어 시험지 (오답 위주 → 없으면 전체) — unit_only 모드에서는 스킵
+  if (mode === "both") {
+    try {
+      const word = await preloadWordPayload({
+        sentenceId,
+        studentId,
+        scope: "wrong",
+        mode: "mix",
+      });
+      sections.push(buildWordPrintHtml(word));
+    } catch {
+      /* skip */
+    }
   }
 
   // 3) 한글해석 HO
