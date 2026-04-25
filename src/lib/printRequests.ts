@@ -111,6 +111,17 @@ export const fetchPendingPrintRequests = async (): Promise<PrintRequest[]> => {
   return (data ?? []) as PrintRequest[];
 };
 
+/** 선생님: 처리완료(printed) 목록 (최신순, 최근 N건) */
+export const fetchHandledPrintRequests = async (limit = 100): Promise<PrintRequest[]> => {
+  const { data } = await supabase
+    .from("print_requests")
+    .select("*")
+    .eq("status", "printed")
+    .order("handled_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as PrintRequest[];
+};
+
 /** 선생님: 처리 완료(인쇄됨) */
 export const markPrintRequestHandled = async (id: string): Promise<void> => {
   const { data: u } = await supabase.auth.getUser();

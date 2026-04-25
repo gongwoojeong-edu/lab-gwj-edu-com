@@ -9,6 +9,7 @@ import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,7 @@ import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPendingPrintRequests,
+  fetchHandledPrintRequests,
   subscribeToPrintRequests,
   markPrintRequestHandled,
   type PrintRequest,
@@ -67,23 +69,31 @@ type InboxItem =
 const RequestsInbox = () => {
   const navigate = useNavigate();
   const [printRows, setPrintRows] = useState<PrintRequest[]>([]);
+  const [handledPrintRows, setHandledPrintRows] = useState<PrintRequest[]>([]);
   const [reviewRows, setReviewRows] = useState<AnalysisReviewRequest[]>([]);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
   const [masterMap, setMasterMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [tab, setTab] = useState<"pending" | "done">("pending");
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const [pl, rl] = await Promise.all([
+      const [pl, hp, rl] = await Promise.all([
         fetchPendingPrintRequests(),
+        fetchHandledPrintRequests(100),
         fetchInboxReviewRequests(),
       ]);
       setPrintRows(pl);
+      setHandledPrintRows(hp);
       setReviewRows(rl);
       const userIds = Array.from(
-        new Set([...pl.map((r) => r.user_id), ...rl.map((r) => r.user_id)]),
+        new Set([
+          ...pl.map((r) => r.user_id),
+          ...hp.map((r) => r.user_id),
+          ...rl.map((r) => r.user_id),
+        ]),
       );
       if (userIds.length > 0) {
         const { data } = await supabase
@@ -119,27 +129,46 @@ const RequestsInbox = () => {
     };
   }, []);
 
-  const items = useMemo<InboxItem[]>(() => {
+  const pendingItems = useMemo<InboxItem[]>(() => {
     const out: InboxItem[] = [
       ...printRows.map((r): InboxItem => ({
         kind: "print",
         created_at: r.requested_at ?? r.created_at,
         row: r,
       })),
-      ...reviewRows.map((r): InboxItem => ({
-        kind: "review",
-        created_at: r.requested_at ?? r.created_at,
-        row: r,
-      })),
+      ...reviewRows
+        .filter((r) => r.status === "pending")
+        .map((r): InboxItem => ({
+          kind: "review",
+          created_at: r.requested_at ?? r.created_at,
+          row: r,
+        })),
     ];
     out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     return out;
   }, [printRows, reviewRows]);
 
-  const pendingCount = useMemo(
-    () => printRows.length + reviewRows.filter((row) => row.status === "pending").length,
-    [printRows, reviewRows],
-  );
+  const doneItems = useMemo<InboxItem[]>(() => {
+    const out: InboxItem[] = [
+      ...handledPrintRows.map((r): InboxItem => ({
+        kind: "print",
+        created_at: r.handled_at ?? r.requested_at ?? r.created_at,
+        row: r,
+      })),
+      ...reviewRows
+        .filter((r) => r.status !== "pending")
+        .map((r): InboxItem => ({
+          kind: "review",
+          created_at: r.responded_at ?? r.requested_at ?? r.created_at,
+          row: r,
+        })),
+    ];
+    out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    return out;
+  }, [handledPrintRows, reviewRows]);
+
+  const pendingCount = pendingItems.length;
+  const doneCount = doneItems.length;
 
   const triggerPrint = async (
     req: PrintRequest,
@@ -182,6 +211,7 @@ const RequestsInbox = () => {
       await markPrintRequestHandled(req.id);
       await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()), req.sentence_id);
       toast({ title: "인쇄창 준비 완료" });
+      setTab("done");
     } catch (e) {
       console.warn("[RequestsInbox] markHandled/ensureRow failed", e);
     } finally {
@@ -193,6 +223,7 @@ const RequestsInbox = () => {
     try {
       await approveReviewRequest(id);
       toast({ title: "승인 완료" });
+      setTab("done");
     } catch (e) {
       toast({ title: "승인 실패", description: errMsg(e), variant: "destructive" });
     }
@@ -203,10 +234,13 @@ const RequestsInbox = () => {
     try {
       await rejectReviewRequest(id, note);
       toast({ title: "반려 처리됨" });
+      setTab("done");
     } catch (e) {
       toast({ title: "반려 실패", description: errMsg(e), variant: "destructive" });
     }
   };
+
+  const items = tab === "pending" ? pendingItems : doneItems;
 
   return (
     <TeacherLayout>
@@ -215,9 +249,6 @@ const RequestsInbox = () => {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Inbox className="size-6 text-primary" /> 요청확인
-              <span className="text-sm font-normal text-muted-foreground">
-                · 전체 {items.length}건 / 대기 {pendingCount}건
-              </span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               학생들이 보낸 시험지 인쇄 요청과 정답 보기 요청을 한 곳에서 처리합니다.
@@ -225,13 +256,20 @@ const RequestsInbox = () => {
           </div>
         </div>
 
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "pending" | "done")}>
+          <TabsList>
+            <TabsTrigger value="pending">대기 {pendingCount}</TabsTrigger>
+            <TabsTrigger value="done">처리완료함 {doneCount}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {loading ? (
           <Card className="p-10 flex items-center justify-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </Card>
         ) : items.length === 0 ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">
-            현재 대기 중인 요청이 없습니다.
+            {tab === "pending" ? "현재 대기 중인 요청이 없습니다." : "처리완료된 요청이 없습니다."}
           </Card>
         ) : (
           <div className="space-y-2">

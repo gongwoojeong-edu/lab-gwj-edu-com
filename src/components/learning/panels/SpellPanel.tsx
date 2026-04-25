@@ -10,8 +10,10 @@ interface Props {
   onFinish: (score: number) => void;
 }
 
-const isMatch = (a: string, b: string) =>
-  a.trim().toLowerCase() === b.trim().toLowerCase();
+// 공백/구두점 무시 + 소문자 비교
+const normSpell = (s: string) =>
+  s.trim().replace(/\s+/g, "").replace(/[.,~!?·…/()'"-]/g, "").toLowerCase();
+const isMatch = (a: string, b: string) => normSpell(a) === normSpell(b);
 
 /** 3단계 — 스펠링. 1트 100, 1오답+정답 90, 2오답+정답공개+재입력 80 */
 export const SpellPanel = ({ word, onFinish }: Props) => {

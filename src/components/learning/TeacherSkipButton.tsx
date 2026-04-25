@@ -17,6 +17,8 @@ interface Props {
   /** PIN 일치 시 호출. 호출 측에서 onFinish(90, { teacherSkipped: true }) 처리. */
   onApproved: () => void;
   disabled?: boolean;
+  /** 버튼 라벨 (기본: "선생님 확인 후 스킵") */
+  label?: string;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * 즉시 통과 처리할 수 있는 안전망 버튼.
  * PIN 은 student_profiles.teacher_pin 에 저장됨.
  */
-export const TeacherSkipButton = ({ onApproved, disabled }: Props) => {
+export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [storedPin, setStoredPin] = useState<string | null>(null);
@@ -84,10 +86,10 @@ export const TeacherSkipButton = ({ onApproved, disabled }: Props) => {
         className="text-[11px] text-muted-foreground hover:text-foreground"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        title="선생님 확인 후 스킵"
+        title={label ?? "선생님 확인 후 스킵"}
       >
         <Lock className="w-3 h-3 mr-1" />
-        선생님 확인 후 스킵
+        {label ?? "선생님 확인 후 스킵"}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
