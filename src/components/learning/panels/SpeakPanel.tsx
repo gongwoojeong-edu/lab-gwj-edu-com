@@ -24,7 +24,7 @@ type RecInstance = NonNullable<ReturnType<typeof getSpeechRecognition>> extends 
 const STUCK_LIMIT = 10;
 
 /** 2단계 — 영어 STT 발화. 1회 100, 2회 90, 3+ 80, 10회 안전망 70(stuck), 선생님 스킵 90(teacherSkipped) */
-export const SpeakPanel = ({ word, onFinish }: Props) => {
+export const SpeakPanel = ({ word, onFinish, onTeacherAllPass }: Props) => {
   const supported = speechSupported();
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState<string>("");
