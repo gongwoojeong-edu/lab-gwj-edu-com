@@ -108,6 +108,10 @@ const SentenceLearn = () => {
   });
   const ANALYSIS_GATE = 0.8;
   const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
+  const testWordResultForFinalSubmit = () => ({
+    passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
+    score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
+  });
 
   // 분석 제출 확인 다이얼로그
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
@@ -257,7 +261,7 @@ const SentenceLearn = () => {
       }
       setEntries(built);
 
-      // 초기 step 결정 — OFF 단계는 건너뜀, 새 순서: pre → wordtest → analysis → translation
+      // 초기 step 결정 — 이미 뒤 단계까지 온 학생은 이전 단계로 되돌리지 않음
       const wordTestPassedRow = await supabase
         .from("word_test_results")
         .select("passed, mode")
@@ -269,16 +273,14 @@ const SentenceLearn = () => {
 
       // 추출된 단어가 없으면 pre/wordtest는 자동 done 처리 → '구문 분석'에서 시작
       const hasWords = built.length > 0;
-      const preEff = preDoneEff || !hasWords;
-      const wtEff = wordtestAllPassed || !hasWords;
-      if (!hasWords) {
-        setPreDone(true);
-        setWordtestDone(true);
-      } else {
-        setWordtestDone(wordtestAllPassed);
-      }
+      const wtEff = !!prog?.word_test_done || wordtestAllPassed || analysisDoneEff || translationDoneEff || !hasWords || !flags.wordtest;
+      const preEff = preDoneEff || wtEff || analysisDoneEff || translationDoneEff || !hasWords;
+      setPreDone(preEff);
+      setWordtestDone(wtEff);
 
-      if (!preEff && flags.pre) setStep("pre");
+      if (translationDoneEff) setStep("translation");
+      else if (analysisDoneEff && flags.translation) setStep("translation");
+      else if (!preEff && flags.pre) setStep("pre");
       else if (!wtEff && flags.wordtest) setStep("wordtest");
       else if (!analysisDoneEff && flags.analysis) setStep("analysis");
       else setStep("translation");
@@ -319,7 +321,7 @@ const SentenceLearn = () => {
 
   const stepStates = useMemo(
     () => ({
-      pre: { done: preDone, locked: false, skipped: !skipFlags.pre },
+      pre: { done: preDone, locked: analysisDone || translationDone, skipped: !skipFlags.pre },
       wordtest: { done: wordtestDone, locked: skipFlags.pre && !preDone, skipped: !skipFlags.wordtest },
       analysis: {
         done: analysisDone,
@@ -441,6 +443,8 @@ const SentenceLearn = () => {
             : "hold";
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
+          ...(analysisPassed || opts?.teacherOverride ? { analysis_done: true } : {}),
+          analysis_match_rate: grade.rate,
           status: nextStatus,
           passed_at: nextStatus === "pass" ? new Date().toISOString() : null,
         });
@@ -483,12 +487,14 @@ const SentenceLearn = () => {
     try {
       // 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
       await upsertSentenceProgress(sentence.id, {
+        word_test_done: true,
         analysis_done: true,
         analysis_match_rate: analysisRate,
       });
     } catch (e) {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
     }
+    setWordtestDone(true);
     setAnalysisDone(true);
     advanceFrom("analysis");
   };
@@ -905,6 +911,7 @@ const SentenceLearn = () => {
                   onApproved={async () => {
                     try {
                       await upsertSentenceProgress(sentence.id, {
+                        word_test_done: true,
                         analysis_done: true,
                         analysis_match_rate: Math.max(analysisRate, 1),
                       });
@@ -912,6 +919,7 @@ const SentenceLearn = () => {
                       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
                     }
                     setAnalysisRate(1);
+                    setWordtestDone(true);
                     setAnalysisDone(true);
                     advanceFrom("analysis");
                   }}
@@ -998,8 +1006,7 @@ const SentenceLearn = () => {
                   await upsertSentenceProgress(sentence.id, { translation_done: true });
                   setTranslationDone(true);
                   // 한글해석 제출 시점에 attempt log + status 일괄 기록
-                  const wt = wordTestResult ?? { passed: !skipFlags.wordtest ? true : false, score: 0 };
-                  await recordAttempt({ passed: wt.passed, score: wt.score });
+                  await recordAttempt(testWordResultForFinalSubmit());
                   navigate("/learn");
                 } catch (e) {
                   toast({
@@ -1031,7 +1038,7 @@ const SentenceLearn = () => {
                 variant="outline"
                 className="text-xs"
                 onApproved={async () => {
-                  await recordAttempt({ passed: false, score: 0 }, { teacherOverride: true });
+                  await recordAttempt(testWordResultForFinalSubmit(), { teacherOverride: true });
                   navigate("/learn");
                 }}
               />
