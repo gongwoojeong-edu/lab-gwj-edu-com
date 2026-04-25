@@ -683,7 +683,7 @@ const StudentHome = () => {
             {/* Recent */}
             <section className="space-y-3">
               <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
-                최근 학습 Passage
+                내 학습 카드 ({recent.length})
               </h2>
               {recent.length === 0 ? (
                 <Card className="p-6 text-center text-sm text-muted-foreground">
