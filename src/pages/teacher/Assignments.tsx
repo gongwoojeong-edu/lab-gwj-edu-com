@@ -435,7 +435,7 @@ const Assignments = () => {
         .from("assignments")
         .update({
           title: editForm.title.trim(),
-          student_id: editForm.studentId === "__all__" ? null : editForm.studentId,
+          student_id: editForm.studentIds.length === 0 ? null : editForm.studentIds[0],
           description: editForm.description.trim() || null,
           sentence_id: editForm.selectedPassageCode || null,
           due_at: endOfDay.toISOString(),
