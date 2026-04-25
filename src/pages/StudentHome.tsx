@@ -61,6 +61,30 @@ interface AssignmentRow {
   include_wordtest: boolean;
 }
 
+interface AssignmentGroup {
+  key: string;
+  title: string;
+  description: string | null;
+  due_at: string;
+  unit_prefix: string | null;
+  include_pre: boolean;
+  include_analysis: boolean;
+  include_translation: boolean;
+  include_wordtest: boolean;
+  rows: AssignmentRow[];
+  totalCount: number;
+  doneCount: number;
+  inProgressCount: number;
+  nextSentenceId: string | null;
+}
+
+/** sentence_id에서 유닛 prefix 추출. 'L08-U260338-001' → 'L08-U260338'. 매칭 안 되면 null. */
+const extractUnitPrefix = (sentenceId: string | null): string | null => {
+  if (!sentenceId) return null;
+  const m = sentenceId.match(/^(.*)-\d{3}$/);
+  return m ? m[1] : null;
+};
+
 const StudentHome = () => {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
@@ -72,7 +96,7 @@ const StudentHome = () => {
   const [next, setNext] = useState<Sentence | null>(null);
   const [done, setDone] = useState(false);
   const [recent, setRecent] = useState<RecentItem[]>([]);
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
+  const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>([]);
   const [assignmentProgress, setAssignmentProgress] = useState<
     Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>
   >(new Map());
@@ -178,21 +202,69 @@ const StudentHome = () => {
             });
           });
         }
-        // 특별과제는 ON된 모든 단계가 완료되었을 때만 숨김 (이전에 통과한 sentence라도 새 과제는 다시 진행)
-        const activeAssignments = allAssignments.filter((a) => {
-          if (!a.sentence_id) return true;
+        // 한 sentence가 "완료"인지 판정 (그 과제의 ON 단계 전부 완료)
+        const isSentenceDone = (a: AssignmentRow): boolean => {
+          if (!a.sentence_id) return false;
           const pf = progressFlags.get(a.sentence_id);
-          if (!pf) return true;
+          if (!pf) return false;
           const preOk = !a.include_pre || pf.pre;
           const wtOk = !a.include_wordtest || pf.wt;
           const anOk = !a.include_analysis || pf.an;
           const trOk = !a.include_translation || pf.tr;
-          return !(preOk && wtOk && anOk && trOk);
+          return preOk && wtOk && anOk && trOk;
+        };
+        const isSentenceStarted = (a: AssignmentRow): boolean => {
+          if (!a.sentence_id) return false;
+          const pf = progressFlags.get(a.sentence_id);
+          return !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+        };
+
+        // 같은 title|due_at|unit_prefix 로 그룹핑
+        const groupMap = new Map<string, AssignmentRow[]>();
+        allAssignments.forEach((a) => {
+          const prefix = extractUnitPrefix(a.sentence_id);
+          const key = `${a.title}|${a.due_at}|${prefix ?? a.sentence_id ?? a.id}`;
+          if (!groupMap.has(key)) groupMap.set(key, []);
+          groupMap.get(key)!.push(a);
         });
+
+        const groups: AssignmentGroup[] = Array.from(groupMap.entries())
+          .map(([key, rows]) => {
+            // sentence_id 오름차순으로 정렬
+            const sorted = rows
+              .slice()
+              .sort((x, y) => (x.sentence_id ?? "").localeCompare(y.sentence_id ?? ""));
+            const head = sorted[0];
+            const doneList = sorted.filter(isSentenceDone);
+            const startedList = sorted.filter(
+              (a) => !isSentenceDone(a) && isSentenceStarted(a),
+            );
+            const nextRow = sorted.find((a) => !isSentenceDone(a));
+            return {
+              key,
+              title: head.title,
+              description: head.description,
+              due_at: head.due_at,
+              unit_prefix: extractUnitPrefix(head.sentence_id),
+              include_pre: head.include_pre,
+              include_analysis: head.include_analysis,
+              include_translation: head.include_translation,
+              include_wordtest: head.include_wordtest,
+              rows: sorted,
+              totalCount: sorted.length,
+              doneCount: doneList.length,
+              inProgressCount: startedList.length,
+              nextSentenceId: nextRow?.sentence_id ?? null,
+            } as AssignmentGroup;
+          })
+          // 모든 sentence 완료된 그룹은 숨김
+          .filter((g) => g.doneCount < g.totalCount)
+          // 마감일 가까운 순
+          .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
 
         if (mounted) {
           setRecent(enriched);
-          setAssignments(activeAssignments);
+          setAssignmentGroups(groups);
           setAssignmentProgress(progressFlags);
         }
 
@@ -551,8 +623,8 @@ const StudentHome = () => {
               </Card>
             )}
 
-            {/* 특별과제 */}
-            {assignments.length > 0 && (
+            {/* 특별과제 (유닛 단위로 그룹핑) */}
+            {assignmentGroups.length > 0 && (
               <Card className="p-5 sm:p-6 space-y-4 border-amber-500/40 bg-gradient-to-br from-amber-500/5 to-transparent">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
@@ -561,26 +633,38 @@ const StudentHome = () => {
                       특별과제
                     </h2>
                     <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold">
-                      {assignments.length}
+                      {assignmentGroups.length}
                     </span>
                   </div>
                 </div>
                 <ul className="space-y-3">
-                  {assignments.map((a) => {
-                    const dueMs = new Date(a.due_at).getTime() - Date.now();
+                  {assignmentGroups.map((g) => {
+                    const dueMs = new Date(g.due_at).getTime() - Date.now();
                     const totalH = Math.max(0, Math.floor(dueMs / 3_600_000));
                     const days = Math.floor(totalH / 24);
                     const hours = totalH % 24;
                     const urgent = dueMs < 24 * 3_600_000;
                     const remainText = days > 0 ? `${days}일 ${hours}시간 남음` : `${hours}시간 남음`;
+                    const isInProgress = g.inProgressCount > 0 || g.doneCount > 0;
+                    const progressPct = g.totalCount > 0 ? Math.round((g.doneCount / g.totalCount) * 100) : 0;
                     return (
                       <li
-                        key={a.id}
+                        key={g.key}
                         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border border-border bg-card"
                       >
-                        <div className="min-w-0 flex-1 space-y-1">
+                        <div className="min-w-0 flex-1 space-y-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold truncate">{a.title}</span>
+                            <span className="text-sm font-bold truncate">{g.title}</span>
+                            {g.totalCount > 1 && (
+                              <span className="inline-flex items-center text-[11px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                                완료 {g.doneCount}/{g.totalCount}
+                              </span>
+                            )}
+                            {isInProgress && g.doneCount < g.totalCount && (
+                              <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                                진행중
+                              </span>
+                            )}
                             <span
                               className={cn(
                                 "inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded",
@@ -593,47 +677,55 @@ const StudentHome = () => {
                               {remainText}
                             </span>
                           </div>
+                          {g.totalCount > 1 && (
+                            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          )}
                           <AssignmentStepBadges
-                            includePre={a.include_pre}
-                            includeAnalysis={a.include_analysis}
-                            includeTranslation={a.include_translation}
-                            includeWordtest={a.include_wordtest}
+                            includePre={g.include_pre}
+                            includeAnalysis={g.include_analysis}
+                            includeTranslation={g.include_translation}
+                            includeWordtest={g.include_wordtest}
                           />
-                          {a.description && (
+                          {g.description && (
                             <p className="text-xs text-muted-foreground line-clamp-2">
-                              {a.description}
+                              {g.description}
                             </p>
                           )}
                         </div>
-                        {a.sentence_id && (() => {
-                          const pf = assignmentProgress.get(a.sentence_id);
-                          const inProgress = !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
-                          if (inProgress) {
+                        {g.nextSentenceId && (() => {
+                          const nextSid = g.nextSentenceId;
+                          const pf = assignmentProgress.get(nextSid);
+                          const startedNext = !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+                          if (startedNext) {
                             return (
-                              <div className="flex flex-col sm:flex-row gap-1.5 shrink-0">
-                                <span className="inline-flex items-center justify-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 sm:hidden">
-                                  진행중
-                                </span>
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    setResumeTarget({ sentenceId: a.sentence_id!, title: a.title })
-                                  }
-                                  className="shrink-0"
-                                >
-                                  <Play className="w-3 h-3 mr-1" /> 이어하기
-                                </Button>
-                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  setResumeTarget({ sentenceId: nextSid, title: g.title })
+                                }
+                                className="shrink-0"
+                              >
+                                <Play className="w-3 h-3 mr-1" />
+                                {g.totalCount > 1 ? `이어하기 (${g.doneCount + 1}/${g.totalCount})` : "이어하기"}
+                              </Button>
                             );
                           }
                           return (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => navigate(`/learn/sentence/${a.sentence_id}`)}
+                              onClick={() => navigate(`/learn/sentence/${nextSid}`)}
                               className="shrink-0"
                             >
-                              <Play className="w-3 h-3 mr-1" /> 학습 시작
+                              <Play className="w-3 h-3 mr-1" />
+                              {g.doneCount > 0 && g.totalCount > 1
+                                ? `다음 학습 (${g.doneCount + 1}/${g.totalCount})`
+                                : "학습 시작"}
                             </Button>
                           );
                         })()}
