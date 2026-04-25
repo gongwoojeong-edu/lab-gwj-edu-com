@@ -776,24 +776,31 @@ const Assignments = () => {
                       return (
                         <label
                           key={s.user_id}
-                          className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+                          className="flex items-stretch rounded hover:bg-muted cursor-pointer text-sm overflow-x-auto"
                         >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) =>
-                              setForm((p) => ({
-                                ...p,
-                                studentIds: v
-                                  ? [...p.studentIds, s.user_id]
-                                  : p.studentIds.filter((id) => id !== s.user_id),
-                              }))
-                            }
-                          />
-                          <span className="truncate flex-1">
-                            {s.display_name ?? s.student_no}{" "}
-                            <span className="text-xs text-muted-foreground">({s.student_no})</span>
-                          </span>
-                          <div onClick={(e) => e.preventDefault()}>
+                          {/* 좌측 고정: 체크박스 + 이름 + 학번 */}
+                          <div className="sticky left-0 z-10 bg-popover flex items-center gap-2 px-2 py-1 min-w-[12rem] pr-3 border-r border-border/40">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) =>
+                                setForm((p) => ({
+                                  ...p,
+                                  studentIds: v
+                                    ? [...p.studentIds, s.user_id]
+                                    : p.studentIds.filter((id) => id !== s.user_id),
+                                }))
+                              }
+                            />
+                            <span className="truncate">
+                              {s.display_name ?? s.student_no}{" "}
+                              <span className="text-xs text-muted-foreground">({s.student_no})</span>
+                            </span>
+                          </div>
+                          {/* 우측 가로 스크롤 영역: 워크북 모드 토글 */}
+                          <div
+                            className="flex items-center pl-2 pr-1 py-1"
+                            onClick={(e) => e.preventDefault()}
+                          >
                             <WorkbookModeToggle
                               userId={s.user_id}
                               value={s.unit_workbook_mode ?? "both"}
