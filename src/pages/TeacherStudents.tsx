@@ -40,6 +40,8 @@ interface Student {
   name: string;
   level: LevelCode;
   createdAt: string;
+  /** student_profiles.user_id (DB 계정에 연결된 학생만 채워짐) */
+  userId?: string;
 }
 
 const STUDENTS_KEY = "gwj.students.v1";
@@ -113,10 +115,15 @@ const TeacherStudents = () => {
     setTimeLimitByName((p) => ({ ...p, [s.name]: clamped }));
     setTimeLimitSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ word_test_time_limit_sec: clamped })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -145,13 +152,20 @@ const TeacherStudents = () => {
     }
     setPinSaving(true);
     try {
-      let q = supabase
+      const uid = pinTarget.userId ?? profileUserIdByName[pinTarget.name];
+      if (!uid) {
+        toast({
+          title: "일치하는 학생 계정을 찾지 못했어요",
+          description: `'${pinTarget.name}' 이름의 학생 계정이 등록되어 있어야 PIN이 적용됩니다.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const { data, error } = await supabase
         .from("student_profiles")
         .update({ teacher_pin: pinValue })
+        .eq("user_id", uid)
         .select("user_id");
-      const profileUserId = profileUserIdByName[pinTarget.name];
-      q = profileUserId ? q.eq("user_id", profileUserId) : q.eq("display_name", pinTarget.name);
-      const { data, error } = await q;
       if (error) throw error;
       if (!data || data.length === 0) {
         toast({
@@ -178,10 +192,15 @@ const TeacherStudents = () => {
     setThresholdByName((p) => ({ ...p, [s.name]: clamped / 100 }));
     setThresholdSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ word_test_pass_threshold: clamped / 100 })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -205,10 +224,15 @@ const TeacherStudents = () => {
     setAnalysisByName((p) => ({ ...p, [s.name]: clamped / 100 }));
     setAnalysisSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ analysis_pass_threshold: clamped / 100 })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -231,10 +255,15 @@ const TeacherStudents = () => {
     setWorkbookModeByName((p) => ({ ...p, [s.name]: mode }));
     setWorkbookModeSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ unit_workbook_mode: mode })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -284,6 +313,7 @@ const TeacherStudents = () => {
           name,
           level: ((row.current_level as LevelCode) || "L05"),
           createdAt: row.created_at,
+          userId: row.user_id,
         });
       });
       setThresholdByName(wtMap);
@@ -318,14 +348,40 @@ const TeacherStudents = () => {
     setOpen(true);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim()) {
       toast({ title: "이름을 입력해주세요" });
       return;
     }
     if (editing) {
+      const trimmed = name.trim();
+      const oldName = editing.name;
+      const uid = editing.userId ?? profileUserIdByName[oldName];
+      // DB 계정에 연결된 학생이면 display_name 도 함께 update
+      if (uid && trimmed !== oldName) {
+        const { error } = await supabase
+          .from("student_profiles")
+          .update({ display_name: trimmed })
+          .eq("user_id", uid);
+        if (error) {
+          toast({ title: "이름 저장 실패", description: error.message, variant: "destructive" });
+          return;
+        }
+        // 이름이 키로 쓰이는 보조 맵들도 새 이름으로 마이그레이트
+        const moveKey = <T,>(m: Record<string, T>): Record<string, T> => {
+          if (!(oldName in m)) return m;
+          const { [oldName]: v, ...rest } = m;
+          return { ...rest, [trimmed]: v };
+        };
+        setProfileUserIdByName((p) => moveKey(p));
+        setProfileNoByName((p) => moveKey(p));
+        setThresholdByName((p) => moveKey(p));
+        setAnalysisByName((p) => moveKey(p));
+        setTimeLimitByName((p) => moveKey(p));
+        setWorkbookModeByName((p) => moveKey(p));
+      }
       const next = students.map((s) =>
-        s.id === editing.id ? { ...s, name: name.trim(), level } : s,
+        s.id === editing.id ? { ...s, name: trimmed, level } : s,
       );
       setStudents(next);
       persist(next);
