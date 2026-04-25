@@ -320,6 +320,62 @@ const Assignments = () => {
     return rows.filter((r) => !isAssignmentDone(r, progressByAsg[r.id], allIds));
   }, [rows, students, progressByAsg]);
 
+  // unit_id → 라벨 ([Lxx] 교재명 · Uxxx 유닛명)
+  const unitLabelMap = useMemo(() => {
+    const m = new Map<string, string>();
+    Object.entries(unitsByTb).forEach(([tbId, units]) => {
+      const tb = textbooks.find((t) => t.id === tbId);
+      const tbPrefix = tb ? `[${tb.level}] ${tb.title}` : "";
+      units.forEach((u) => {
+        m.set(u.id, `${tbPrefix} · U${u.unit_no} ${u.title}`);
+      });
+    });
+    return m;
+  }, [unitsByTb, textbooks]);
+
+  // 그룹핑: (title|due_at|student_id|unit_id) — 같은 유닛에 동시에 부여된 지문들을 1장으로 묶음
+  const activeGroups = useMemo<AssignmentGroup[]>(() => {
+    if (activeRows.length === 0) return [];
+    const allIds = students.map((s) => s.user_id);
+    const groupMap = new Map<string, AssignmentRow[]>();
+    activeRows.forEach((r) => {
+      const unitId = r.sentence_id ? codeToUnit[r.sentence_id] ?? null : null;
+      // unit_id를 모르면 sentence_id 단위로 분리(폴백). 알면 유닛으로 묶음.
+      const groupKey = `${r.title}|${r.due_at}|${r.student_id ?? "__all__"}|${unitId ?? "noUnit:" + r.sentence_id ?? r.id}`;
+      if (!groupMap.has(groupKey)) groupMap.set(groupKey, []);
+      groupMap.get(groupKey)!.push(r);
+    });
+    const out: AssignmentGroup[] = [];
+    groupMap.forEach((grpRows, key) => {
+      const sorted = grpRows
+        .slice()
+        .sort((a, b) => (a.sentence_id ?? "").localeCompare(b.sentence_id ?? ""));
+      const head = sorted[0];
+      const unitId = head.sentence_id ? codeToUnit[head.sentence_id] ?? null : null;
+      const doneCount = sorted.filter((r) => {
+        const targets = r.student_id ? [r.student_id] : allIds;
+        return isAssignmentDone(r, progressByAsg[r.id], targets);
+      }).length;
+      out.push({
+        key,
+        title: head.title,
+        description: head.description,
+        student_id: head.student_id,
+        unit_id: unitId,
+        unit_label: unitId ? unitLabelMap.get(unitId) ?? null : null,
+        due_at: head.due_at,
+        include_pre: head.include_pre,
+        include_analysis: head.include_analysis,
+        include_translation: head.include_translation,
+        include_wordtest: head.include_wordtest,
+        rows: sorted,
+        totalCount: sorted.length,
+        doneCount,
+      });
+    });
+    return out.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
+  }, [activeRows, students, codeToUnit, unitLabelMap, progressByAsg]);
+
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
