@@ -32,7 +32,8 @@ export const fetchSentenceProgress = async (sentenceId: string): Promise<Sentenc
   const userId = await getUserId();
   let q = supabase.from("sentence_progress").select("*").eq("sentence_id", sentenceId);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
-  const { data } = await q.maybeSingle();
+  const { data, error } = await q.maybeSingle();
+  if (error) throw error;
   return (data as SentenceProgressRow) ?? null;
 };
 
@@ -67,7 +68,8 @@ export const upsertSentenceProgress = async (
   if (isProgressPatch) {
     next.last_activity_at = new Date().toISOString();
   }
-  await supabase.from("sentence_progress").upsert(next as never, { onConflict: "user_id,sentence_id" });
+  const { error } = await supabase.from("sentence_progress").upsert(next as never, { onConflict: "user_id,sentence_id" });
+  if (error) throw error;
 };
 
 // ---------- sentence_attempt_logs ----------
@@ -120,7 +122,8 @@ export const insertAttemptLog = async (input: AttemptLogInput): Promise<void> =>
     completed_at: input.completed_at ?? new Date().toISOString(),
     attempt_source: input.attempt_source ?? "regular",
   };
-  await supabase.from("sentence_attempt_logs").insert(payload);
+  const { error } = await supabase.from("sentence_attempt_logs").insert(payload);
+  if (error) throw error;
 };
 
 export const fetchAttemptLogs = async (sentenceId: string, userId?: string): Promise<AttemptLogRow[]> => {
@@ -169,14 +172,16 @@ export const fetchOwnerProgressForSentence = async (
 export const upsertOwnerProgress = async (row: OwnerProgressRow): Promise<void> => {
   const userId = await getUserId();
   const payload = { user_id: userId, ...row } as never;
-  await supabase.from("owner_progress").upsert(payload, { onConflict: "user_id,sentence_id,owner_id" });
+  const { error } = await supabase.from("owner_progress").upsert(payload, { onConflict: "user_id,sentence_id,owner_id" });
+  if (error) throw error;
 };
 
 export const deleteOwnerProgress = async (sentenceId: string, ownerId: string): Promise<void> => {
   const userId = await getUserId();
   let q = supabase.from("owner_progress").delete().eq("sentence_id", sentenceId).eq("owner_id", ownerId);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
-  await q;
+  const { error } = await q;
+  if (error) throw error;
 };
 
 // ---------- sentence_translations ----------
@@ -190,10 +195,11 @@ export const fetchTranslation = async (sentenceId: string): Promise<string | nul
 
 export const upsertTranslation = async (sentenceId: string, text: string): Promise<void> => {
   const userId = await getUserId();
-  await supabase.from("sentence_translations").upsert(
+  const { error } = await supabase.from("sentence_translations").upsert(
     { user_id: userId, sentence_id: sentenceId, text, submitted_at: new Date().toISOString() },
     { onConflict: "user_id,sentence_id" },
   );
+  if (error) throw error;
 };
 
 // ---------- word_test_results ----------
