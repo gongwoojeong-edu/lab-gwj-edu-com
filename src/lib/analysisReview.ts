@@ -124,6 +124,8 @@ export const deleteReviewRequest = async (id: string): Promise<void> => {
   const { error } = await supabase.from("analysis_review_requests").delete().eq("id", id);
   if (error) throw error;
 };
+
+/** 선생님: 모든 pending 요청 목록 (오래된 순, 미통 보조 우선) */
 export const fetchPendingRequests = async (): Promise<AnalysisReviewRequest[]> => {
   const { data } = await supabase
     .from("analysis_review_requests")
