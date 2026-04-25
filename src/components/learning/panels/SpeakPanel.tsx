@@ -13,6 +13,8 @@ interface Props {
     score: number,
     meta?: { stuck?: boolean; teacherSkipped?: boolean; lastHeard?: string },
   ) => void;
+  /** (선택) 발화 단계 전체 일괄 통과 — 선생님 패스키 확인 후 호출됨 */
+  onTeacherAllPass?: () => void;
 }
 
 type RecInstance = NonNullable<ReturnType<typeof getSpeechRecognition>> extends new () => infer R
