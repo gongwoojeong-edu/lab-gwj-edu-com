@@ -29,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
+import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPendingPrintRequests,
@@ -63,6 +64,7 @@ interface StudentInfo {
   user_id: string;
   display_name: string | null;
   student_no: string;
+  unit_workbook_mode: "unit_only" | "both";
 }
 
 type InboxItem =
@@ -101,11 +103,17 @@ const RequestsInbox = () => {
       if (userIds.length > 0) {
         const { data } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no")
+          .select("user_id, display_name, student_no, unit_workbook_mode")
           .in("user_id", userIds);
         const map: Record<string, StudentInfo> = {};
         (data ?? []).forEach((s) => {
-          map[s.user_id] = s as StudentInfo;
+          const row = s as { user_id: string; display_name: string | null; student_no: string; unit_workbook_mode: string | null };
+          map[row.user_id] = {
+            user_id: row.user_id,
+            display_name: row.display_name,
+            student_no: row.student_no,
+            unit_workbook_mode: row.unit_workbook_mode === "unit_only" ? "unit_only" : "both",
+          };
         });
         setStudents(map);
       }
@@ -305,6 +313,19 @@ const RequestsInbox = () => {
                 hour: "2-digit",
                 minute: "2-digit",
               });
+              const wbToggle = s ? (
+                <WorkbookModeToggle
+                  userId={s.user_id}
+                  value={s.unit_workbook_mode}
+                  studentLabel={studentName}
+                  onChange={(m) =>
+                    setStudents((prev) => ({
+                      ...prev,
+                      [s.user_id]: { ...prev[s.user_id], unit_workbook_mode: m },
+                    }))
+                  }
+                />
+              ) : null;
 
               if (it.kind === "print") {
                 const req = it.row;
@@ -329,6 +350,7 @@ const RequestsInbox = () => {
                         </div>
                         <div className="text-xs text-muted-foreground">{time}</div>
                       </div>
+                      {wbToggle}
                       <div className="flex items-center gap-1.5">
                         <Button
                           size="sm"
@@ -391,6 +413,7 @@ const RequestsInbox = () => {
                       </div>
                       <div className="text-xs text-muted-foreground">{time}</div>
                     </div>
+                    {wbToggle}
                     <div className="flex items-center gap-1.5">
                       <Button
                         size="sm"
@@ -517,6 +540,7 @@ const RequestsInbox = () => {
                       )}
                     </div>
                   </div>
+                  {wbToggle}
                   <div className="flex items-center gap-1.5">
                     <Button
                       size="sm"

@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
+import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
 import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/lib/printLauncher";
 import {
@@ -58,6 +59,7 @@ interface StudentInfo {
   user_id: string;
   display_name: string | null;
   student_no: string;
+  unit_workbook_mode: "unit_only" | "both";
 }
 interface AttemptStat {
   best_word_score: number | null;
@@ -219,9 +221,17 @@ const LearningResults = () => {
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no")
+          .select("user_id, display_name, student_no, unit_workbook_mode")
           .in("user_id", allUserIds);
-        (sp ?? []).forEach((s) => (sMap[s.user_id] = s as StudentInfo));
+        (sp ?? []).forEach((s) => {
+          const row = s as { user_id: string; display_name: string | null; student_no: string; unit_workbook_mode: string | null };
+          sMap[row.user_id] = {
+            user_id: row.user_id,
+            display_name: row.display_name,
+            student_no: row.student_no,
+            unit_workbook_mode: row.unit_workbook_mode === "unit_only" ? "unit_only" : "both",
+          };
+        });
       }
 
       setStudents(sMap);
@@ -670,6 +680,21 @@ const LearningResults = () => {
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
+                    {s && (
+                      <div className="ml-2">
+                        <WorkbookModeToggle
+                          userId={s.user_id}
+                          value={s.unit_workbook_mode}
+                          studentLabel={s.display_name ?? s.student_no}
+                          onChange={(m) =>
+                            setStudents((prev) => ({
+                              ...prev,
+                              [s.user_id]: { ...prev[s.user_id], unit_workbook_mode: m },
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"

@@ -33,6 +33,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -789,6 +790,26 @@ const BookshelfUnit = () => {
                 </SelectContent>
               </Select>
             </div>
+            {workbookStudentId && (() => {
+              const sel = studentList.find((s) => s.id === workbookStudentId);
+              if (!sel) return null;
+              return (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-muted-foreground">워크북 모드</label>
+                  <WorkbookModeToggle
+                    userId={sel.id}
+                    value={sel.mode}
+                    studentLabel={sel.name}
+                    size="md"
+                    onChange={(m) =>
+                      setStudentList((prev) =>
+                        prev.map((x) => (x.id === sel.id ? { ...x, mode: m } : x)),
+                      )
+                    }
+                  />
+                </div>
+              );
+            })()}
             <div className="text-xs text-muted-foreground min-w-[140px]">
               {!workbookStudentId ? (
                 <span>학생을 선택하면 진행상황이 표시됩니다.</span>
