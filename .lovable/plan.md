@@ -1,37 +1,32 @@
-## 변경 사항
+# 전체 특별과제 초기화
 
-### 1. 로그인 화면 — 학번 입력 개선
-- `gwj` 접두사를 회색 prefix 박스로 항상 표시 (입력 불가, 시각적 고정)
-- 입력란은 **숫자 4자리만** 받음 (자동 숫자 필터, 최대 4자)
-- placeholder: `0001`
-- 모바일 키보드 자동 숫자 패드(`inputMode="numeric"`)
+## 목적
+중복 부여된 특별과제를 전부 정리하고 새로 출제할 수 있도록 클린업합니다.
 
-### 2. 회원가입 화면 — 동일하게 적용
-- 같은 prefix 박스 + 4자리 숫자만 입력
-- 안내문구 "학번 형식: gwj + 숫자 4자리"는 유지
-
-### 3. 제출 시 자동 처리
-- 사용자가 `0211`만 입력 → 내부적으로 `gwj0211`로 자동 합쳐 검증/로그인
-- 호환성: 혹시라도 `gwj0211`처럼 전체 입력해도 정상 처리 (방어 로직)
-- 패스키 패스워드와 무관 — 학번 영역만 변경
-
-### 4. 함께 처리할 작업 (이전 답변에서 보류된 패스키 정비)
-선생님 패스키가 비어 있는 학생 7명에게 일괄 `0999` 부여하고, 신규 가입자도 자동으로 `0999`가 부여되도록 가입 처리 함수 갱신.
-
+## 실행할 SQL (마이그레이션)
 ```sql
-UPDATE student_profiles SET teacher_pin='0999'
-WHERE teacher_pin IS NULL OR teacher_pin='';
+DELETE FROM public.assignments;
 ```
-그리고 `handle_new_user()` 함수에 `teacher_pin = '0999'` 기본값 추가.
 
-## 변경 파일
+## 삭제 대상
+- `assignments` 테이블 전체 행 (현재 48건, 7명 학생, 10개 title)
 
-- `src/pages/Login.tsx` — 학번 입력 prefix UI + 정규화 로직
-- `src/pages/Signup.tsx` — 동일 적용
-- DB 마이그레이션 — 패스키 일괄 정비 + 신규가입 트리거 갱신
+## 보존되는 데이터 (영향 없음)
+- `sentence_progress` — PASS/FAIL/HOLD/PENDING 학습 상태
+- `sentence_attempt_logs` — 시도 기록
+- `sentence_translations` — 한글 해석 제출본
+- `word_test_results`, `word_pre_results` — 단어테스트 결과
+- `owner_progress` — 구문분석 진행
+- `points_log` — 포인트 적립 내역
+- `handout_results` — 시험지 채점 결과
 
-## 영향
+## 실행 후 효과
+- 학생 대시보드의 모든 "특별과제" 카드 사라짐
+- 새로 부여한 특별과제는 정상 노출
+- 기존에 PASS한 sentence를 새 과제로 재부여하면 → 학생은 새 과제로 다시 진행 (이전 PASS 기록은 "내 학습 카드"에 그대로 보임)
+- 코드 변경은 없음 (DB 데이터만 정리)
 
-- 학생 학습 데이터 / 기존 계정 영향 없음
-- 기존 비밀번호 그대로 사용
-- 시각적으로도 "내 학번은 gwj+4자리"가 명확해짐
+## 승인 후 절차
+1. Default 모드 전환 즉시 마이그레이션 도구로 `DELETE FROM public.assignments;` 발행
+2. Lovable이 마이그레이션 승인 다이얼로그를 띄움 → "Apply" 클릭
+3. 삭제 후 카운트(0건) 검증
