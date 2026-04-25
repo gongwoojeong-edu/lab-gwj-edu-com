@@ -73,7 +73,8 @@ type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
 interface FormState {
   title: string;
-  studentId: string; // "__all__" or user_id
+  /** 빈 배열 = 전체 학생, 1개 이상 = 선택된 학생들 (각각 별도 과제 행 생성) */
+  studentIds: string[];
   // 위계 선택 상태 (UI 용)
   selectedLevel: LevelCode | "";
   selectedSeriesId: string;
@@ -90,7 +91,7 @@ interface FormState {
 
 const emptyForm = (): FormState => ({
   title: "",
-  studentId: "__all__",
+  studentIds: [],
   selectedLevel: "",
   selectedSeriesId: "",
   selectedTbId: "",
@@ -297,9 +298,12 @@ const Assignments = () => {
       if (!u.user) throw new Error("로그인이 필요합니다");
       const endOfDay = new Date(form.dueDate!);
       endOfDay.setHours(23, 59, 59, 999);
-      const { error } = await supabase.from("assignments").insert({
-        teacher_id: u.user.id,
-        student_id: form.studentId === "__all__" ? null : form.studentId,
+      // studentIds 가 비어있으면 [null] (전체학생 1건), 아니면 각 학생별 1건씩
+      const targets: (string | null)[] =
+        form.studentIds.length === 0 ? [null] : form.studentIds;
+      const rowsToInsert = targets.map((sid) => ({
+        teacher_id: u.user!.id,
+        student_id: sid,
         title: form.title.trim(),
         description: form.description.trim() || null,
         sentence_id: form.selectedPassageCode || null,
@@ -308,9 +312,16 @@ const Assignments = () => {
         include_analysis: form.includeAnalysis,
         include_translation: form.includeTranslation,
         include_wordtest: form.includeWordtest,
-      });
+      }));
+      const { error } = await supabase.from("assignments").insert(rowsToInsert);
       if (error) throw error;
-      toast({ title: "✅ 과제가 생성되었습니다" });
+      toast({
+        title: "✅ 과제가 생성되었습니다",
+        description:
+          form.studentIds.length === 0
+            ? "전체 학생 대상"
+            : `${form.studentIds.length}명에게 부여됨`,
+      });
       setForm(emptyForm());
       void load();
     } catch (e) {
@@ -387,7 +398,7 @@ const Assignments = () => {
     }
     setEditForm({
       title: row.title,
-      studentId: row.student_id ?? "__all__",
+      studentIds: row.student_id ? [row.student_id] : [],
       selectedLevel: level,
       selectedSeriesId: seriesId,
       selectedTbId: tbId,
@@ -424,7 +435,7 @@ const Assignments = () => {
         .from("assignments")
         .update({
           title: editForm.title.trim(),
-          student_id: editForm.studentId === "__all__" ? null : editForm.studentId,
+          student_id: editForm.studentIds.length === 0 ? null : editForm.studentIds[0],
           description: editForm.description.trim() || null,
           sentence_id: editForm.selectedPassageCode || null,
           due_at: endOfDay.toISOString(),
