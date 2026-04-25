@@ -987,20 +987,54 @@ const Assignments = () => {
         </Card>
 
         <Card className="p-5 space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeRows.length})</h2>
-          {activeRows.length === 0 ? (
+          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeGroups.length})</h2>
+          {activeGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">진행중인 과제가 없습니다.</p>
           ) : (
             <div className="space-y-2">
-              {activeRows.map((r) => {
-                const rem = remaining(r.due_at);
-                const passageLabel = r.sentence_id ? codeLabelMap.get(r.sentence_id) ?? r.sentence_id : null;
-                const missingSentence = !r.sentence_id;
+              {activeGroups.map((g) => {
+                const rem = remaining(g.due_at);
+                const head = g.rows[0];
+                const missingSentence = !head.sentence_id;
+                // 라벨: 유닛이 식별되면 유닛 라벨 + 지문 수, 아니면 단일 passage 라벨로 폴백
+                const label = g.unit_label
+                  ? `${g.unit_label} · 지문 ${g.totalCount}개`
+                  : head.sentence_id
+                  ? codeLabelMap.get(head.sentence_id) ?? head.sentence_id
+                  : null;
+                // 그룹 진척: 모든 row의 모든 대상 학생 progress 합산
+                const allTargetIds = head.student_id
+                  ? [head.student_id]
+                  : students.map((s) => s.user_id);
+                const mergedProgress: AssignmentProgressMap = {};
+                allTargetIds.forEach((uid) => {
+                  // 유닛 안의 모든 sentence가 done이어야 그 학생이 done
+                  let allPre = true, allWt = true, allAn = true, allTr = true;
+                  let anyData = false;
+                  g.rows.forEach((r) => {
+                    const p = progressByAsg[r.id]?.[uid];
+                    if (!p) { allPre = allWt = allAn = allTr = false; return; }
+                    anyData = true;
+                    if (!p.pre_done) allPre = false;
+                    if (!p.word_test_done) allWt = false;
+                    if (!p.analysis_done) allAn = false;
+                    if (!p.translation_done) allTr = false;
+                  });
+                  mergedProgress[uid] = {
+                    pre_done: anyData && allPre,
+                    word_test_done: anyData && allWt,
+                    analysis_done: anyData && allAn,
+                    translation_done: anyData && allTr,
+                  };
+                });
                 return (
-                  <div key={r.id} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", missingSentence ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5" : rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
+                  <div key={g.key} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", missingSentence ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5" : rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
                     <div className="space-y-1.5 min-w-0 flex-1">
                       <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
-                        {r.title}
+                        {g.title}
+                        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-extrabold">
+                          유닛 · 지문 {g.totalCount}개
+                        </span>
                         {missingSentence && (
                           <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-extrabold">
                             ⚠ 지문 미연결 — 편집해서 연결하세요
@@ -1008,41 +1042,37 @@ const Assignments = () => {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
-                        <span>대상: {studentName(r.student_id)}</span>
-                        <span>· 마감: {format(new Date(r.due_at), "yyyy-MM-dd HH:mm")}</span>
+                        <span>대상: {studentName(g.student_id)}</span>
+                        <span>· 마감: {format(new Date(g.due_at), "yyyy-MM-dd HH:mm")}</span>
                         <span className={cn("font-bold", rem.urgent ? "text-destructive" : "text-primary")}>· {rem.text}</span>
-                        {passageLabel && <span>· {passageLabel}</span>}
+                        {label && <span>· {label}</span>}
                       </div>
                       <AssignmentStepBadges
-                        includePre={r.include_pre}
-                        includeAnalysis={r.include_analysis}
-                        includeTranslation={r.include_translation}
-                        includeWordtest={r.include_wordtest}
-                        progress={progressByAsg[r.id]}
+                        includePre={g.include_pre}
+                        includeAnalysis={g.include_analysis}
+                        includeTranslation={g.include_translation}
+                        includeWordtest={g.include_wordtest}
+                        progress={mergedProgress}
                         studentNameMap={studentNameMap}
-                        targetUserIds={
-                          r.student_id
-                            ? [r.student_id]
-                            : students.map((s) => s.user_id)
-                        }
+                        targetUserIds={allTargetIds}
                       />
-                      {r.description && <p className="text-xs text-foreground/80 mt-1">{r.description}</p>}
+                      {g.description && <p className="text-xs text-foreground/80 mt-1">{g.description}</p>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Button
                         size="sm"
                         variant="ghost"
                         className="h-7 text-[11px] px-2 text-primary"
-                        onClick={() => handleExtendWeek(r)}
-                        title="마감일 +1주"
+                        onClick={() => handleExtendGroupWeek(g)}
+                        title="유닛 전체 마감일 +1주"
                       >
                         <Plus className="size-3" />
                         1주
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openEdit(r)} title="수정">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openEdit(head)} title="수정 (대표 지문)">
                         <Pencil className="size-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => handleDelete(r.id)} title="삭제">
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => handleDeleteGroup(g)} title="유닛 전체 삭제">
                         <Trash2 className="size-3.5" />
                       </Button>
                     </div>
