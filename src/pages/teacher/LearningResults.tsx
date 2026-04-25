@@ -220,9 +220,17 @@ const LearningResults = () => {
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no")
+          .select("user_id, display_name, student_no, unit_workbook_mode")
           .in("user_id", allUserIds);
-        (sp ?? []).forEach((s) => (sMap[s.user_id] = s as StudentInfo));
+        (sp ?? []).forEach((s) => {
+          const row = s as { user_id: string; display_name: string | null; student_no: string; unit_workbook_mode: string | null };
+          sMap[row.user_id] = {
+            user_id: row.user_id,
+            display_name: row.display_name,
+            student_no: row.student_no,
+            unit_workbook_mode: row.unit_workbook_mode === "unit_only" ? "unit_only" : "both",
+          };
+        });
       }
 
       setStudents(sMap);
