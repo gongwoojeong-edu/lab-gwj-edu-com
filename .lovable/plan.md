@@ -1,89 +1,94 @@
-문제 확인했습니다. 선생님 말씀이 맞습니다.
+## 진단 요약
 
-현재 `학습결과` 화면은 최근 수정으로 유닛 카드/접힘 구조가 들어가면서, 기존처럼 문장별 온라인 점수기록과 HO 입력칸이 바로 보이는 화면이 깨졌습니다. 또한 김재원처럼 6문장을 학습했는데도 화면 집계가 `분석 5/6` 또는 일부 문장만 보이는 문제는 학생 학습 자체보다 `학습결과` 화면의 집계 기준이 불안정한 것이 핵심입니다.
+스크린샷의 김재원 카드에서 **L08-U260339-001~007** 7건은 진짜 지문이고, 그 아래 별도 그룹으로 떠 있는 **`L08-U260339-005__remediation_1`** / **`L08-U260339-006__remediation_1`** 두 개는 **단어시험 오답 복습(remediation) 세션**의 부산물입니다. 학생이 단어시험에서 임계치 미만으로 떨어지면 `WordTestStep`이 "틀린 단어 4단계 복습"을 띄우는데, 이때 내부적으로 `WordPreStep`을 재사용하면서 `sentence_id` 를 `"<원래코드>__remediation_<attemptNo>"` 라는 합성 ID로 `word_pre_results` 에 저장합니다 (소스: `WordTestStep.tsx:473`).
 
-Do I know what the issue is? 예. 문제는 두 가지입니다.
+`학습결과` 화면은 `word_pre_results.sentence_id` 도 활동 소스로 모아 sentence 카드를 만들기 때문에(소스: `LearningResults.tsx:178-180, 219-221`), 이 합성 ID가 "지문 1개"인 것처럼 별도 그룹으로 잘못 노출됩니다. DB 확인 결과, 김재원만이 아니라 16명의 학생/지문에서 동일하게 발생 중입니다.
 
-1. UI 문제
-   - 유닛 카드가 기본 접힘/요약 중심으로 바뀌면서 기존의 문장별 표가 숨겨졌습니다.
-   - 그래서 `온라인 점수기록`, `단어 HO 입력`, `구문 HO 입력`이 사라진 것처럼 보입니다.
-   - 실제 컴포넌트는 코드에 남아 있지만, 현재 카드 구조 안쪽에 들어가 있어 사용 흐름이 바뀌었습니다.
+워크북 인쇄 재구성과 학생분석 누락 건도 함께 잡겠습니다.
 
-2. 집계 문제
-   - `LearningResults.tsx`는 온라인 분석 점수를 주로 `sentence_attempt_logs`에서 읽습니다.
-   - 그런데 김재원 6번처럼 `sentence_progress`에는 학습 완료 흔적이 있는데 `sentence_attempt_logs`의 분석 결과가 0/F로 남거나, 일부 로그가 불완전하면 학습결과 화면이 실제 학습 수와 다르게 보입니다.
-   - 이 문제는 김재원만이 아니라 다른 학생에게도 생길 수 있어, 화면 집계에서 `sentence_progress`, `sentence_translations`, `word_test_results`, `sentence_attempt_logs`를 함께 합쳐야 합니다.
+---
 
-수정 계획
+## 작업 1 — 학습결과: `__remediation_N` 합성카드 제거 + 원래 지문 행에 "오답복습 N회" 표시
 
-1. 학습결과 UI를 기존 방식으로 복구
-   - 학생 카드 안에서 문장별 표가 바로 보이도록 되돌립니다.
-   - 유닛 제목은 유지하되, 접어 숨기는 구조가 아니라 아래처럼 항상 문장 목록을 보여주겠습니다.
+**파일:** `src/pages/teacher/LearningResults.tsx`
+
+1. 활동 소스에서 `(user_id, sentence_id)` 페어를 모으는 단계 (line 205-220 근방) 에서 `/__remediation_\d+$/` 매칭 sid 는 **collect 에서 제외** → 별도 카드 생성 차단.
+2. 동시에 `word_pre_results` 결과를 한 번 더 훑어서 `parentSid = sid.replace(/__remediation_\d+$/, "")` 로 묶어 **`(user_id, parentSid) → 오답복습 시도 수`** 맵을 만든다.
+   - 시도 수 = 해당 학생/원래 지문에 대해 발견된 distinct `__remediation_\d+` suffix 개수.
+3. 화면 표의 `단어시험` 컬럼 옆에 작은 보조 배지 추가:
+   - 예: `100 ↻3` 또는 `오답복습 3회` (Tooltip 으로 "단어시험 오답 4단계 복습 누적 3회")
+   - 시도 수가 0 이면 표시하지 않음.
+4. 카운트 자체는 신뢰할 수 있도록 sid 가 `"^…__remediation_<숫자>$"` 형태인 것만 인정하고, 부모 sid 가 실제 `textbook_passages.code` 또는 `user_sentences.code` 에 존재할 때만 카운트.
+
+> 데이터는 그대로 둡니다 (`word_pre_results` 의 학습 이력은 가치 있음). UI 노출만: 부모 행에 시도 횟수 배지로 흡수.
+
+---
+
+## 작업 2 — "유닛만" 모드 워크북 레이아웃 재구성
+
+**파일:** `src/lib/unitWorkbook.ts`, `src/lib/printTemplates.ts`
+
+현재 `unit_only` 모드는 지문마다 `[분석 채점본 → 한글해석 HO 2장]` 을 N번 반복해서, 같은 구조도/지스트/영작 블록이 N번 출력됩니다. 사용자 요구는:
 
 ```text
-김재원 (gwj3033) · 활동 6건
-[L08] 3월 · U260339 39번 · 지문 6개
----------------------------------------------------------
-문장코드              온라인 점수기록        단어 HO     구문 HO    재시험
-L08-U260339-001       분석 P 100% · 단어 95   [입력칸]    [P/F]     [버튼]
-L08-U260339-002       분석 P 80%  · 단어 ...  [입력칸]    [P/F]     [버튼]
-...
-L08-U260339-006       분석/해석/단어 상태     [입력칸]    [P/F]     [버튼]
+[표지]
+─────────────────────────────────
+[분석 채점본 — 지문별 N장]   (작업 3 후 학생 분석 라벨 포함)
+─────────────────────────────────
+[유닛 통합 한글해석본 — 1~2장]
+  · "영문 한 줄 / 학생 한글해석 한 줄" 반복
+  · 자연 흐름 페이지 분할 (B5 11pt line-height 2.0)
+─────────────────────────────────
+[유닛 끝 — 1회만]
+  · 구조도 (큰 grid 1장)
+  · 지스트 (4줄)
+  · 영작 (4줄)
+─────────────────────────────────
 ```
 
-2. `온라인 점수기록` 컬럼을 명확히 복원
-   - 현재 `분석+해석`, `단어시험`으로 나뉘어 있는 표시를 선생님이 쓰던 의미에 맞게 `온라인 점수기록`으로 묶어 보이게 합니다.
-   - 표시 내용:
-     - 구문분석 점수/통과 여부
-     - 한글해석 제출 여부
-     - 단어시험 점수/통과 여부
-     - 분석 비교/해석 미리보기 링크
+구현:
+- `printTemplates.ts` 에 `buildUnitOnlyHandoutHtml(passages, ctx)` 신규 함수 추가
+  - 입력: 한 유닛의 모든 완료 지문 + 학생 번역
+  - 출력 1: 통합 해석본 페이지 (영문 + 학생 해석 줄로 나열)
+  - 출력 2: 유닛 끝 한 페이지 (구조도 grid + 지스트/영작)
+- `unitWorkbook.ts` 의 `buildUnitWorkbookHtmlFor`:
+  - `mode === "unit_only"` 인 경우 지문별 루프 대신 다음 순서로:
+    1. 표지
+    2. 분석 채점본 (지문별 반복)
+    3. 유닛 통합 한글해석본 (1회)
+    4. 유닛 끝 구조도/지스트/영작 (1회)
+  - `mode === "both"` 동작 변경 없음
+- 표지 안내 문구 업데이트.
 
-3. HO 입력칸 항상 표시
-   - `단어 HO` 입력칸과 `구문 HO` P/F 토글은 문장 행마다 다시 바로 보이게 합니다.
-   - 인쇄 전이면 비활성화하되, 칸 자체는 사라지지 않게 합니다.
-   - 인쇄 후에는 바로 입력 가능하게 유지합니다.
+---
 
-4. 6문장 집계 기준 보강
-   - 현재 화면의 문장 목록은 여러 테이블에서 모으고 있지만, 점수 판정은 `attempt_logs`에 치우쳐 있습니다.
-   - 다음 fallback 규칙을 추가합니다.
-     - `sentence_attempt_logs`에 점수가 있으면 우선 사용
-     - 없거나 0/F인데 `sentence_progress.analysis_done=true`이고 `analysis_match_rate`가 있으면 그 값을 사용
-     - 단어시험은 `sentence_attempt_logs` 외에도 `word_test_results`의 최고 점수를 사용
-     - 한글해석은 `sentence_translations`와 `sentence_progress.translation_done`을 함께 확인
-   - 이렇게 하면 김재원처럼 실제로 6문장을 완료했는데 화면에서 3개/5개처럼 보이는 일이 줄어듭니다.
+## 작업 3 — 분석 채점본에 "학생 분석 결과(품사/역할 라벨)" 출력
 
-5. 김재원 및 다른 학생 점검 배치 반영
-   - 학습결과 화면에서 누락 의심 케이스를 찾는 기준을 추가로 점검합니다.
-   - 기준:
-     - `sentence_progress`에는 완료 흔적이 있는데 `attempt_logs`가 없거나 0/F인 경우
-     - `word_test_results`는 있는데 화면 점수에 반영되지 않는 경우
-     - `translation_done=true`인데 해석 표시가 안 되는 경우
-   - 김재원 6문장뿐 아니라 같은 날짜 다른 학생들도 동일 기준으로 확인합니다.
+**파일:** `src/lib/printPreload.ts`, `src/lib/printTemplates.ts`
 
-6. 김재원 6번 문장 보정
-   - 김재원 `L08-U260339-006`은 현재 단어시험은 완료됐지만 분석 로그가 0/F로 남은 상태입니다.
-   - 화면 집계 fallback으로 우선 실제 완료 상태가 보이게 하고, 필요하면 `sentence_progress` 기준으로 분석 상태가 반영되도록 보정합니다.
+현재 `buildAnalysisPrintHtml` 는 `passage.english` 만 검정 텍스트로 찍고, 채점결과는 "차이 표"만 보여줘서 — 학생이 직접 만든 **owner 라벨**(예: `they → 명사·주어`, `disappear → 동사·과거`)이 인쇄본에 안 들어감. 사용자 피드백 그대로 "빈 영어문장만 출력".
 
-기술 작업 범위
+구현:
+1. `preloadAnalysisPayload` 에서 `fetchStudentAnswersByUserId(sentenceId, studentId)` (이미 `analysisGrading.ts` 존재) 호출 추가 → `studentProgress: Record<ownerId, AnyProgress>` 를 payload 에 포함.
+2. `buildWordUnitsFromTokens` 결과(이미 사용 중)와 매핑해서 단일 단어 + span owner 모두 라벨 산출.
+3. `printTemplates.ts` 에 `formatProgressLabel(prog)` 헬퍼 추가:
+   - `pos=noun` → `"명사·{form?}·{element?}·{role?}"`
+   - `pos=verb` → `"동사·{tense?}·{aspect?}·{voice?}"`
+   - `pos=adj/adv/etc` → 동일 패턴
+4. `buildAnalysisPrintHtml` ① 본문 블록 교체:
+   - 영문 단어를 칩으로 렌더링하고, 학생이 라벨을 채운 owner 는 그 아래에 작은 라벨 함께 표시
+   - 마스터키 불일치(`status !== "exact"`) owner 는 칩 배경 옅은 빨강 음영
+   - 학생 미입력 owner 는 점선 회색
+5. 수식/지칭 관계선은 이번 라운드 제외 (스코프 큼).
 
-- 수정 파일:
-  - `src/pages/teacher/LearningResults.tsx`
-- 필요 시 보조 확인:
-  - `src/lib/dailyTest.ts`
-  - `src/lib/handoutResults.ts`
-- 데이터 정책:
-  - RLS는 현재 교사/관리자 조회 정책이 있어 데이터가 아예 안 보이는 권한 문제라기보다는 화면 집계/표시 문제로 판단됩니다.
-  - 개인정보 노출 범위는 기존 선생님 화면 권한 내에서 유지합니다.
+> 인쇄용이라 컬러는 흑백/회색 + 빨강 음영만. `print-color-adjust: exact` 이미 설정됨.
 
-완료 후 확인할 것
+---
 
-- 김재원 카드에서 6개 문장이 모두 표에 바로 표시되는지 확인
-- `온라인 점수기록`이 다시 보이는지 확인
-- 각 문장별 `단어 HO`, `구문 HO` 입력칸이 다시 보이는지 확인
-- 김재원 외 누락 의심 학생도 같은 기준으로 표시되는지 확인
+## 기술 노트 (요약)
 
-<lov-actions>
-<lov-open-history>View History</lov-open-history>
-<lov-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</lov-link>
-</lov-actions>
+- 합성 sid 패턴: `${realCode}__remediation_${attemptNo}` — `/__remediation_\d+$/` 정규식으로 안전 필터.
+- 오답복습 카운트는 `word_pre_results` 의 distinct suffix 기준 (재진입해도 같은 attempt_no 면 1회).
+- `unit_only` 한 페이지 문장 수는 CSS overflow 자연 분할에 맡기고, `page-break-before: always` 는 유닛 끝 구조도 직전에만.
+- 학생 분석 라벨은 `owner_progress.progress` (jsonb) 의 `pos / noun / adj / adv / verb / etc` 구조 그대로 활용. SQL 마이그레이션 불필요.
+- 변경 파일 4개: `LearningResults.tsx`, `unitWorkbook.ts`, `printTemplates.ts`, `printPreload.ts`. 신규 SQL/RLS/마이그레이션 없음.
