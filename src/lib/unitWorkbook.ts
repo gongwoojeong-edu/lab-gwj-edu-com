@@ -321,6 +321,16 @@ export const buildUnitWorkbookHtmlFor = async (
     sections.push(sec);
   }
 
+  // unit_only: 마지막에 통합 한글해석본 + 유닛 끝 페이지 (1회)
+  if (mode === "unit_only") {
+    try {
+      const tail = await buildUnitOnlyTail(summary.completedCodes, input.studentId, ctx);
+      sections.push(tail);
+    } catch {
+      /* skip */
+    }
+  }
+
   // 각 섹션 빌더가 자체 doctype/wrap을 만들어 반환하므로,
   // 통합 워크북에서는 body 만 추출해서 합쳐야 한다.
   const stripDoc = (full: string): string => {
