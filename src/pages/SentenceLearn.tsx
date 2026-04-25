@@ -934,9 +934,13 @@ const SentenceLearn = () => {
 
             <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm text-foreground">
-                {canAdvanceToTranslation
-                  ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
+                {!analysisMasterLoaded
+                  ? "정답 정보를 불러오는 중…"
+                  : canAdvanceToTranslation
+                    ? analysisHasMaster
+                      ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
+                      : "분석을 80% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
+                    : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride
