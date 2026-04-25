@@ -400,8 +400,9 @@ const SentenceLearn = () => {
       const threshold = profile?.analysis_pass_threshold ?? 0.8;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
-      // 마스터 미등록 문장은 학생 분석률(단어 기준)로 판정해 제출 흐름이 보류에 갇히지 않게 한다.
-      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : rateOk;
+      // 마스터 미등록 문장은 attempt log에서 분석 통과로 잡지 않는다(가짜 점수 누적 방지).
+      // 진행 자체는 proceedToTranslation의 'hold' 분기로 차단 없이 이어짐.
+      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : false;
       const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
       // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
       const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
@@ -425,13 +426,20 @@ const SentenceLearn = () => {
       else if (sp.get("test") === "1") attemptSource = "test";
 
       const attemptCount = await fetchAttemptCount(sentence.id);
-      const ownerDiffPayload = opts?.teacherOverride
-        ? ([{ owner_id: "__teacher_override__", teacherOverride: true } as unknown as OwnerDiffEntry, ...grade.diffs])
-        : grade.diffs;
+      // 마스터 부재 시 owner_diff 맨 앞에 마커를 끼워 후속 재채점/통계 로직에서 식별 가능하게 한다.
+      const noMasterMarker = !grade.hasMaster
+        ? [{ owner_id: "__no_master__", noMaster: true } as unknown as OwnerDiffEntry]
+        : [];
+      const teacherMarker = opts?.teacherOverride
+        ? [{ owner_id: "__teacher_override__", teacherOverride: true } as unknown as OwnerDiffEntry]
+        : [];
+      const ownerDiffPayload = [...teacherMarker, ...noMasterMarker, ...grade.diffs];
+      // attempt_log.analysis_match_rate는 NOT NULL 컬럼이므로 마스터 부재 시 0으로 기록 (NULL 저장은 스키마 변경 필요 → 별도 작업).
+      const attemptRate = grade.hasMaster ? grade.rate : 0;
       await insertAttemptLog({
         sentence_id: sentence.id,
         attempt_no: attemptCount + 1,
-        analysis_match_rate: grade.rate,
+        analysis_match_rate: attemptRate,
         analysis_passed: analysisPassed,
         word_test_score: wordTest.score,
         word_test_passed: wordTestPassed,
@@ -451,10 +459,12 @@ const SentenceLearn = () => {
         });
       } else {
         const nextStatus: "pass" | "fail" = overallPass ? "pass" : "fail";
+        // 마스터 부재 시 sentence_progress.analysis_match_rate는 건드리지 않음
+        // (proceedToTranslation에서 status='hold' + match_rate=NULL로 최종 정리됨).
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
           ...(analysisPassed || opts?.teacherOverride ? { analysis_done: true } : {}),
-          analysis_match_rate: grade.rate,
+          ...(grade.hasMaster ? { analysis_match_rate: grade.rate } : {}),
           status: nextStatus,
           passed_at: nextStatus === "pass" ? new Date().toISOString() : null,
         });
