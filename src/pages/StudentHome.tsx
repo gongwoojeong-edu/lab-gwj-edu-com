@@ -593,6 +593,12 @@ const StudentHome = () => {
                             </Button>
                           );
                         })()}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            )}
 
             {/* Hero start card */}
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
