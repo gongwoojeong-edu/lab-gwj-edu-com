@@ -786,8 +786,6 @@ export interface UnitCombinedPayload {
   studentName: string | null;
   studentNo: string | null;
   items: UnitCombinedItem[];
-  /** 구조도 PDF 의 서명 URL (없으면 빈 grid 페이지) */
-  structurePdfUrl: string | null;
 }
 
 export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string => {
