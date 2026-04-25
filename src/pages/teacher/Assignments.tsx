@@ -55,6 +55,23 @@ import {
 } from "@/lib/assignmentProgress";
 import { isAssignmentDone } from "@/lib/assignmentCompletion";
 
+interface AssignmentGroup {
+  key: string;
+  title: string;
+  description: string | null;
+  student_id: string | null;
+  unit_id: string | null;
+  unit_label: string | null;
+  due_at: string;
+  include_pre: boolean;
+  include_analysis: boolean;
+  include_translation: boolean;
+  include_wordtest: boolean;
+  rows: AssignmentRow[];
+  totalCount: number;
+  doneCount: number;
+}
+
 interface AssignmentRow {
   id: string;
   teacher_id: string;
