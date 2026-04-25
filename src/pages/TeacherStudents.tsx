@@ -115,10 +115,15 @@ const TeacherStudents = () => {
     setTimeLimitByName((p) => ({ ...p, [s.name]: clamped }));
     setTimeLimitSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ word_test_time_limit_sec: clamped })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
