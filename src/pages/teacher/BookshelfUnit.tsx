@@ -827,7 +827,7 @@ const BookshelfUnit = () => {
           </div>
         </Card>
 
-
+        {selectedIds.size > 0 && (
           <div className="flex items-center gap-2 px-1">
             <span className="text-xs text-muted-foreground">
               {selectedIds.size}개 선택됨
