@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
+import { UnitWorkbookPreviewDialog } from "@/components/teacher/UnitWorkbookPreviewDialog";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
   fetchSeries,
@@ -115,9 +116,12 @@ const BookshelfUnit = () => {
   const [workbookSummary, setWorkbookSummary] = useState<{
     total: number;
     completed: number;
+    completedCodes: string[];
+    pendingCodes: string[];
   } | null>(null);
   const [workbookLoading, setWorkbookLoading] = useState(false);
   const [workbookPrinting, setWorkbookPrinting] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // 다중선택 + 다른 유닛으로 이동
   const { display: levelDisplay } = useLevelLabels();
@@ -173,6 +177,8 @@ const BookshelfUnit = () => {
         setWorkbookSummary({
           total: s.totalPassages,
           completed: s.completedCodes.length,
+          completedCodes: s.completedCodes,
+          pendingCodes: s.pendingCodes,
         });
       })
       .catch(() => {
