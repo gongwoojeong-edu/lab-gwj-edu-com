@@ -61,6 +61,30 @@ interface AssignmentRow {
   include_wordtest: boolean;
 }
 
+interface AssignmentGroup {
+  key: string;
+  title: string;
+  description: string | null;
+  due_at: string;
+  unit_prefix: string | null;
+  include_pre: boolean;
+  include_analysis: boolean;
+  include_translation: boolean;
+  include_wordtest: boolean;
+  rows: AssignmentRow[];
+  totalCount: number;
+  doneCount: number;
+  inProgressCount: number;
+  nextSentenceId: string | null;
+}
+
+/** sentence_id에서 유닛 prefix 추출. 'L08-U260338-001' → 'L08-U260338'. 매칭 안 되면 null. */
+const extractUnitPrefix = (sentenceId: string | null): string | null => {
+  if (!sentenceId) return null;
+  const m = sentenceId.match(/^(.*)-\d{3}$/);
+  return m ? m[1] : null;
+};
+
 const StudentHome = () => {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
