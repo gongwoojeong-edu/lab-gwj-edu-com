@@ -37,6 +37,31 @@ export interface AnalysisGradeResult {
 }
 
 const norm = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
+const OWNER_KEY_SEPARATOR = "::";
+const SPAN_PREFIX = "span";
+
+const isSpanOwnerId = (ownerId: string) => ownerId.startsWith(`${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}`);
+
+const parseSpanTokenIds = (ownerId: string): string[] => {
+  if (!isSpanOwnerId(ownerId)) return [];
+  const parts = ownerId.split(OWNER_KEY_SEPARATOR);
+  const range = parts[2];
+  if (!range) return [];
+  const [s, e] = range.split("-").map((n) => Number(n));
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return [];
+  const ids: string[] = [];
+  for (let i = s; i <= e; i++) ids.push(`w${i}`);
+  return ids;
+};
+
+const ownerToTokenIds = (ownerId: string): string[] => {
+  const spanIds = parseSpanTokenIds(ownerId);
+  if (spanIds.length > 0) return spanIds;
+  const tokenId = ownerId.includes(OWNER_KEY_SEPARATOR)
+    ? ownerId.split(OWNER_KEY_SEPARATOR)[0]
+    : ownerId;
+  return tokenId ? [tokenId] : [];
+};
 
 /** 마스터키 유무에 따라 표기 라벨을 결정 — 모든 화면 공통 사용 */
 export const rateLabel = (hasMaster: boolean): "정답률" | "분석률" =>
@@ -186,6 +211,11 @@ export const gradeAnalysis = async (
     fetchStudentAnswers(sentenceId),
   ]);
   const masterIds = Object.keys(master);
+  const filledStudentTokenIds = new Set<string>();
+  Object.entries(student).forEach(([ownerId, answer]) => {
+    if (!answer?.pos) return;
+    ownerToTokenIds(ownerId).forEach((tokenId) => filledStudentTokenIds.add(tokenId));
+  });
   // 분석율은 항상 "단어(token) 기준"으로 호출부에서 산정한 fallbackRate를 사용한다.
   // 이유: 교사 정답이 구/절(span) 단위이고 학생이 단어 단위로 분석한 경우 owner_id가
   // 일치하지 않아 매칭률이 비현실적으로 낮게 나오는 문제(예: 모든 단어 분석 → 48%)를 방지.
@@ -212,9 +242,15 @@ export const gradeAnalysis = async (
     const m = master[ownerId];
     const s = student[ownerId];
     const required = isRequiredMaster(m);
-    if (!s || !s.pos) {
+    const spanCoveredByStudentTokens = ownerToTokenIds(ownerId).some((tokenId) =>
+      filledStudentTokenIds.has(tokenId),
+    );
+    if ((!s || !s.pos) && !spanCoveredByStudentTokens) {
       if (required) missingRequiredOwnerIds.push(ownerId);
       diffs.push({ owner_id: ownerId, status: "missing", master_pos: m.pos, student_pos: null });
+      continue;
+    }
+    if (!s || !s.pos) {
       continue;
     }
     if (detailsEqual(m, s)) continue;
