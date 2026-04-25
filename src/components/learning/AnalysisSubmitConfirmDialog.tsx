@@ -23,7 +23,7 @@ interface Props {
   /** 현재 sentence_progress.status (이미 미통이면 fail_assist 트랙 안내) */
   currentStatus: "pending" | "pass" | "fail" | "hold";
   /** "제출 →" 클릭 시 */
-  onConfirmSubmit: () => void;
+  onConfirmSubmit: () => void | Promise<void>;
   /** 마스터 없을 때 fallback 표기에 쓰는 단어 분석률 (0~1) */
   wordAnalysisRate?: number;
   /** 분석 가능한 owner 총 개수 (마스터 없을 때 표기용) */
@@ -49,6 +49,7 @@ export const AnalysisSubmitConfirmDialog = ({
   analyzedFilled,
 }: Props) => {
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [grade, setGrade] = useState<AnalysisGradeResult | null>(null);
   const [showDiff, setShowDiff] = useState(false);
 
@@ -225,13 +226,18 @@ export const AnalysisSubmitConfirmDialog = ({
             ← 더 분석하기
           </Button>
           <Button
-            onClick={() => {
-              onOpenChange(false);
-              onConfirmSubmit();
+            onClick={async () => {
+              setSubmitting(true);
+              try {
+                await onConfirmSubmit();
+                onOpenChange(false);
+              } finally {
+                setSubmitting(false);
+              }
             }}
-            disabled={loading}
+            disabled={loading || submitting}
           >
-            제출 →
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "제출 →"}
           </Button>
         </DialogFooter>
       </DialogContent>
