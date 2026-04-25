@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
+import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
 import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/lib/printLauncher";
 import {
