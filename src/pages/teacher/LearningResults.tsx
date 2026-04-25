@@ -601,17 +601,48 @@ const LearningResults = () => {
   };
 
   const handlePrintAll = async (userId: string, sentenceIds: string[]) => {
-    // 직렬 인쇄 큐 — 한 건씩 OS 인쇄창이 순차로 뜸 (화면전환 없음)
+    // sentence_id → unit_id 로 그룹핑 후 유닛별 통합 워크북 1장씩 인쇄
     try {
-      const htmls = await Promise.all(
-        sentenceIds.map((sid) =>
-          buildHandoutPrintHtmlFor({ sentenceId: sid, studentId: userId }),
-        ),
-      );
+      const groups = new Map<string, string[]>();
+      sentenceIds.forEach((sid) => {
+        const uid = codeToUnit[sid];
+        if (!uid) return; // unit 매핑이 없는 문장은 스킵 (사용자 문장 등)
+        if (!groups.has(uid)) groups.set(uid, []);
+        groups.get(uid)!.push(sid);
+      });
+      if (groups.size === 0) {
+        toast({ title: "유닛에 속한 완료 지문이 없어요", variant: "destructive" });
+        return;
+      }
+      const mode = students[userId]?.unit_workbook_mode ?? "both";
+      const htmls: string[] = [];
+      for (const [unitId] of groups) {
+        const label = unitLabel[unitId] ?? "Unit";
+        try {
+          const { html } = await buildUnitWorkbookHtmlFor({
+            unitId,
+            unitTitle: label,
+            unitCode: label,
+            studentId: userId,
+            mode,
+          });
+          htmls.push(html);
+        } catch (e) {
+          console.warn("[LearningResults] unit workbook build failed", unitId, e);
+        }
+      }
+      if (htmls.length === 0) {
+        toast({ title: "인쇄할 워크북 생성에 실패했어요", variant: "destructive" });
+        return;
+      }
       launchPrintHtmlMany(htmls, { jobKey: `printAll:${userId}` }).catch((e) =>
         console.warn("[LearningResults] launchPrintHtmlMany failed", e),
       );
-      toast({ title: `${sentenceIds.length}개 인쇄창이 순차로 열립니다` });
+      const modeLabel = mode === "unit_only" ? "유닛 통합 워크북" : "유닛+문장 워크북";
+      toast({
+        title: `${modeLabel} ${htmls.length}건 인쇄 시작`,
+        description: mode === "unit_only" ? "앞면=영어분석+학생해석, 뒷면=구조도" : undefined,
+      });
     } catch (e) {
       const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
       toast({ title: "인쇄 준비 실패", description: msg, variant: "destructive" });
