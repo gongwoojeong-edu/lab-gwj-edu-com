@@ -145,6 +145,7 @@ const LearningResults = () => {
         translationsRes,
         wordTestRes,
         wordPreRes,
+        progressRes,
       ] = await Promise.all([
         supabase
           .from("print_requests")
@@ -178,6 +179,15 @@ const LearningResults = () => {
           .select("user_id, sentence_id, taken_at")
           .gte("taken_at", startIso)
           .lte("taken_at", endIso),
+        // sentence_progress fallback — attempt_log 누락/0점 케이스 보정용
+        // last_activity_at이 오늘인 모든 progress 행을 가져와 화면 집계의 신뢰도를 올린다.
+        supabase
+          .from("sentence_progress")
+          .select(
+            "user_id, sentence_id, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at",
+          )
+          .gte("last_activity_at", startIso)
+          .lte("last_activity_at", endIso),
       ]);
 
       const pairs = new Map<string, Set<string>>(); // userId → Set<sentenceId>
@@ -209,6 +219,19 @@ const LearningResults = () => {
       ((wordPreRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
         (r) => addPair(r.user_id, r.sentence_id),
       );
+      // sentence_progress 도 짝 추가 — attempt_log 미생성 케이스(예: 분석만 끝나고 단어시험 전)도 표에 노출
+      const progressRows = (progressRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        analysis_done: boolean;
+        analysis_match_rate: number | null;
+        translation_done: boolean;
+        word_test_done: boolean;
+      }>;
+      progressRows.forEach((r) => {
+        addPair(r.user_id, r.sentence_id);
+        if (r.translation_done) tSet[`${r.user_id}::${r.sentence_id}`] = true;
+      });
 
       const userIds = Array.from(pairs.keys());
       // handout_results는 user 단독으로도 보여줌 (sentence 없이 점수만 있는 경우)
@@ -310,6 +333,40 @@ const LearningResults = () => {
           printed_at: null,
         };
         cur.printed_at = r.handled_at;
+        aMap[key] = cur;
+      });
+      // sentence_progress fallback —
+      //  · attempt_log이 0/F이거나 누락된 경우, 학생이 즉시 저장한 분석 결과로 보정.
+      //  · 화면 집계가 실제 학습량보다 적게 보이는 사고를 막는다.
+      progressRows.forEach((p) => {
+        const key = `${p.user_id}::${p.sentence_id}`;
+        const cur = aMap[key] ?? {
+          best_word_score: null,
+          best_analysis_rate: null,
+          word_passed: false,
+          analysis_passed: false,
+          printed_at: null,
+        };
+        // 분석률 보정: progress의 match_rate가 attempt_log보다 크면 우세
+        if (p.analysis_match_rate != null) {
+          const ar = Number(p.analysis_match_rate);
+          if (
+            cur.best_analysis_rate == null ||
+            ar > cur.best_analysis_rate
+          ) {
+            cur.best_analysis_rate = ar;
+          }
+        }
+        // 통과 여부 보정: progress가 done이고 임계 0.8 이상이면 PASS로 표시
+        if (
+          p.analysis_done &&
+          (cur.best_analysis_rate ?? 0) >= 0.8 &&
+          !cur.analysis_passed
+        ) {
+          cur.analysis_passed = true;
+        }
+        // 단어시험 통과 보정
+        if (p.word_test_done) cur.word_passed = cur.word_passed || true;
         aMap[key] = cur;
       });
       setAttemptMap(aMap);
@@ -851,8 +908,8 @@ const LearningResults = () => {
                                   <thead className="bg-muted/20 text-[11px] text-muted-foreground">
                                     <tr>
                                       <th className="text-left px-3 py-2 font-medium">문장 코드</th>
-                                      <th className="text-left px-3 py-2 font-medium">분석+해석</th>
-                                      <th className="text-left px-3 py-2 font-medium">단어시험</th>
+                                      <th className="text-left px-3 py-2 font-medium">온라인 · 분석+해석</th>
+                                      <th className="text-left px-3 py-2 font-medium">온라인 · 단어시험</th>
                                       <th className="text-left px-3 py-2 font-medium">단어 HO</th>
                                       <th className="text-left px-3 py-2 font-medium">구문 HO</th>
                                       <th className="text-right px-3 py-2 font-medium">재시험</th>

@@ -1,46 +1,89 @@
-# 특별과제 유닛 단위 카드 그룹핑
+문제 확인했습니다. 선생님 말씀이 맞습니다.
 
-## 목표
-선생님이 유닛 단위로 출제한 특별과제(예: "모고38" → 7문장)를 학생 대시보드에서 **카드 1개**로 묶어서 보여주고, 진척도(N/M 완료) 및 "다음 미완료 문장으로 이어하기"를 제공합니다.
+현재 `학습결과` 화면은 최근 수정으로 유닛 카드/접힘 구조가 들어가면서, 기존처럼 문장별 온라인 점수기록과 HO 입력칸이 바로 보이는 화면이 깨졌습니다. 또한 김재원처럼 6문장을 학습했는데도 화면 집계가 `분석 5/6` 또는 일부 문장만 보이는 문제는 학생 학습 자체보다 `학습결과` 화면의 집계 기준이 불안정한 것이 핵심입니다.
 
-## 접근 방식
-스키마 변경 없이 **클라이언트 그룹핑**으로 처리합니다 (가장 안전·즉시 적용 가능).
+Do I know what the issue is? 예. 문제는 두 가지입니다.
 
-- 그룹 키: `title | due_at | student_id | unit_prefix(sentence_id)`
-- `unit_prefix` 추출 규칙: `L08-U260338-001` → `L08-U260338` (정규식 `^(.*)-\d{3}$`)
-- 매칭 안 되는 sentence_id(레거시)는 단일 카드로 fallback
+1. UI 문제
+   - 유닛 카드가 기본 접힘/요약 중심으로 바뀌면서 기존의 문장별 표가 숨겨졌습니다.
+   - 그래서 `온라인 점수기록`, `단어 HO 입력`, `구문 HO 입력`이 사라진 것처럼 보입니다.
+   - 실제 컴포넌트는 코드에 남아 있지만, 현재 카드 구조 안쪽에 들어가 있어 사용 흐름이 바뀌었습니다.
 
-## 변경 파일
+2. 집계 문제
+   - `LearningResults.tsx`는 온라인 분석 점수를 주로 `sentence_attempt_logs`에서 읽습니다.
+   - 그런데 김재원 6번처럼 `sentence_progress`에는 학습 완료 흔적이 있는데 `sentence_attempt_logs`의 분석 결과가 0/F로 남거나, 일부 로그가 불완전하면 학습결과 화면이 실제 학습 수와 다르게 보입니다.
+   - 이 문제는 김재원만이 아니라 다른 학생에게도 생길 수 있어, 화면 집계에서 `sentence_progress`, `sentence_translations`, `word_test_results`, `sentence_attempt_logs`를 함께 합쳐야 합니다.
 
-### `src/pages/StudentHome.tsx`
+수정 계획
 
-1. `AssignmentGroup` 인터페이스 추가 + `extractUnitPrefix()` 헬퍼 함수
-2. assignments 로드 후 그룹 빌더 실행:
-   - 같은 그룹 키로 묶기
-   - 각 행의 `progressFlags`로 sentence별 완료 여부 계산
-   - `totalCount` / `doneCount` / `inProgressCount` / `nextSentenceId` 산출
-   - 모든 sentence가 완료된 그룹은 숨김(현재 단일 행 숨김 로직과 동일 정책)
-3. 상태: `assignments: AssignmentRow[]` → `assignmentGroups: AssignmentGroup[]`
-4. UI 변경 (특별과제 섹션, 555-645행):
-   - 카드 1개 = 1유닛 그룹
-   - 제목: `{title}` (예: "모고38")
-   - 진척도 뱃지: `완료 N/M` (예: "완료 2/7")
-   - 진행중 표시: 일부 sentence 시작했으면 "진행중" 뱃지
-   - 버튼:
-     - 다음 미완료 문장이 있으면 → `이어하기` (다음 sentence로 이동)
-     - 모두 완료면 → 숨김
-   - 마감 남은시간, AssignmentStepBadges, description은 유지
+1. 학습결과 UI를 기존 방식으로 복구
+   - 학생 카드 안에서 문장별 표가 바로 보이도록 되돌립니다.
+   - 유닛 제목은 유지하되, 접어 숨기는 구조가 아니라 아래처럼 항상 문장 목록을 보여주겠습니다.
 
-## 진척도 계산 규칙
-- sentence 1개의 "완료" = 그 과제의 ON된 단계(pre/wt/analysis/translation) 모두 완료
-- `nextSentenceId`: 같은 유닛 sentence들을 sentence_id 오름차순으로 정렬했을 때 첫 번째 미완료 문장
+```text
+김재원 (gwj3033) · 활동 6건
+[L08] 3월 · U260339 39번 · 지문 6개
+---------------------------------------------------------
+문장코드              온라인 점수기록        단어 HO     구문 HO    재시험
+L08-U260339-001       분석 P 100% · 단어 95   [입력칸]    [P/F]     [버튼]
+L08-U260339-002       분석 P 80%  · 단어 ...  [입력칸]    [P/F]     [버튼]
+...
+L08-U260339-006       분석/해석/단어 상태     [입력칸]    [P/F]     [버튼]
+```
 
-## 다음 단계 (이번 작업 외)
-- DB에 `assignments.unit_id` 컬럼 추가 (다음 마이그레이션 사이클)
-- 선생님 화면(`Assignments.tsx`)도 유닛 단위로 묶어 표시
-- `AssignmentsPast.tsx` 동일 처리
+2. `온라인 점수기록` 컬럼을 명확히 복원
+   - 현재 `분석+해석`, `단어시험`으로 나뉘어 있는 표시를 선생님이 쓰던 의미에 맞게 `온라인 점수기록`으로 묶어 보이게 합니다.
+   - 표시 내용:
+     - 구문분석 점수/통과 여부
+     - 한글해석 제출 여부
+     - 단어시험 점수/통과 여부
+     - 분석 비교/해석 미리보기 링크
 
-## 영향 없음
-- DB 스키마 변경 없음
-- 선생님 출제 UI 변경 없음 (이미 유닛 전체를 자동 부여하도록 되어 있음)
-- 진행 중인 학습 데이터 보존
+3. HO 입력칸 항상 표시
+   - `단어 HO` 입력칸과 `구문 HO` P/F 토글은 문장 행마다 다시 바로 보이게 합니다.
+   - 인쇄 전이면 비활성화하되, 칸 자체는 사라지지 않게 합니다.
+   - 인쇄 후에는 바로 입력 가능하게 유지합니다.
+
+4. 6문장 집계 기준 보강
+   - 현재 화면의 문장 목록은 여러 테이블에서 모으고 있지만, 점수 판정은 `attempt_logs`에 치우쳐 있습니다.
+   - 다음 fallback 규칙을 추가합니다.
+     - `sentence_attempt_logs`에 점수가 있으면 우선 사용
+     - 없거나 0/F인데 `sentence_progress.analysis_done=true`이고 `analysis_match_rate`가 있으면 그 값을 사용
+     - 단어시험은 `sentence_attempt_logs` 외에도 `word_test_results`의 최고 점수를 사용
+     - 한글해석은 `sentence_translations`와 `sentence_progress.translation_done`을 함께 확인
+   - 이렇게 하면 김재원처럼 실제로 6문장을 완료했는데 화면에서 3개/5개처럼 보이는 일이 줄어듭니다.
+
+5. 김재원 및 다른 학생 점검 배치 반영
+   - 학습결과 화면에서 누락 의심 케이스를 찾는 기준을 추가로 점검합니다.
+   - 기준:
+     - `sentence_progress`에는 완료 흔적이 있는데 `attempt_logs`가 없거나 0/F인 경우
+     - `word_test_results`는 있는데 화면 점수에 반영되지 않는 경우
+     - `translation_done=true`인데 해석 표시가 안 되는 경우
+   - 김재원 6문장뿐 아니라 같은 날짜 다른 학생들도 동일 기준으로 확인합니다.
+
+6. 김재원 6번 문장 보정
+   - 김재원 `L08-U260339-006`은 현재 단어시험은 완료됐지만 분석 로그가 0/F로 남은 상태입니다.
+   - 화면 집계 fallback으로 우선 실제 완료 상태가 보이게 하고, 필요하면 `sentence_progress` 기준으로 분석 상태가 반영되도록 보정합니다.
+
+기술 작업 범위
+
+- 수정 파일:
+  - `src/pages/teacher/LearningResults.tsx`
+- 필요 시 보조 확인:
+  - `src/lib/dailyTest.ts`
+  - `src/lib/handoutResults.ts`
+- 데이터 정책:
+  - RLS는 현재 교사/관리자 조회 정책이 있어 데이터가 아예 안 보이는 권한 문제라기보다는 화면 집계/표시 문제로 판단됩니다.
+  - 개인정보 노출 범위는 기존 선생님 화면 권한 내에서 유지합니다.
+
+완료 후 확인할 것
+
+- 김재원 카드에서 6개 문장이 모두 표에 바로 표시되는지 확인
+- `온라인 점수기록`이 다시 보이는지 확인
+- 각 문장별 `단어 HO`, `구문 HO` 입력칸이 다시 보이는지 확인
+- 김재원 외 누락 의심 학생도 같은 기준으로 표시되는지 확인
+
+<lov-actions>
+<lov-open-history>View History</lov-open-history>
+<lov-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</lov-link>
+</lov-actions>
