@@ -8,6 +8,15 @@ import { SENTENCES, type Sentence, type SentenceToken, type WordAnswer } from "@
 import type { LevelCode } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
 
+export const stripKoreanFromEnglishSource = (value: string): string =>
+  value
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[가-힣ㄱ-ㅎㅏ-ㅣ].*$/g, "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 /**
  * 영문 본문을 클릭 가능한 analyzable 토큰으로 자동 분리.
  * - 단어 → analyzable (빈 answer)
@@ -69,13 +78,14 @@ let hydrating: Promise<void> | null = null;
 /** DB → Sentence 변환. tokens 가 비어있으면 영문에서 자동 토큰화. */
 const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => {
   const dbTokens = row.tokens ?? [];
+  const english = stripKoreanFromEnglishSource(row.english);
   const tokens =
-    dbTokens.length > 0 ? dbTokens : buildTokensFromEnglish(row.english);
+    dbTokens.length > 0 ? dbTokens : buildTokensFromEnglish(english);
   return {
     id: row.code,
     no: row.passage_no,
     level,
-    english: row.english,
+    english,
     korean: row.korean ?? "",
     structureTags: [],
     tokens,
