@@ -97,6 +97,10 @@ const TeacherStudents = () => {
   const [analysisSaving, setAnalysisSaving] = useState<string | null>(null);
   const [timeLimitByName, setTimeLimitByName] = useState<Record<string, number>>({});
   const [timeLimitSaving, setTimeLimitSaving] = useState<string | null>(null);
+  const [workbookModeByName, setWorkbookModeByName] = useState<
+    Record<string, "unit_only" | "both">
+  >({});
+  const [workbookModeSaving, setWorkbookModeSaving] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
   const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
@@ -219,26 +223,56 @@ const TeacherStudents = () => {
     }
   };
 
+  const saveWorkbookMode = async (s: Student, mode: "unit_only" | "both") => {
+    setWorkbookModeByName((p) => ({ ...p, [s.name]: mode }));
+    setWorkbookModeSaving(s.name);
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .update({ unit_workbook_mode: mode })
+        .eq("display_name", s.name)
+        .select("user_id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: "계정 매칭 실패",
+          description: `'${s.name}' 이름 계정이 없습니다.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: `📘 ${s.name} 워크북 모드 ${mode === "unit_only" ? "유닛만" : "유닛+문장"} 저장`,
+        });
+      }
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setWorkbookModeSaving(null);
+    }
+  };
+
   // Load students from DB (student_profiles) + merge with localStorage entries
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
         .from("student_profiles")
-        .select("user_id, student_no, display_name, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+        .select("user_id, student_no, display_name, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, unit_workbook_mode");
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
       const tlMap: Record<string, number> = {};
+      const wbMap: Record<string, "unit_only" | "both"> = {};
       const userMap: Record<string, string> = {};
       const noMap: Record<string, string> = {};
       const dbStudents: Student[] = [];
-      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
+      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null; unit_workbook_mode: string | null }) => {
         const name = row.display_name || row.student_no || row.user_id.slice(0, 8);
         wtMap[name] = Number(row.word_test_pass_threshold ?? 0.8);
         anMap[name] = Number(row.analysis_pass_threshold ?? 0.8);
         tlMap[name] = Number(row.word_test_time_limit_sec ?? 20);
+        wbMap[name] = (row.unit_workbook_mode === "unit_only" ? "unit_only" : "both");
         userMap[name] = row.user_id;
         if (row.student_no) noMap[name] = row.student_no;
         dbStudents.push({
@@ -251,6 +285,7 @@ const TeacherStudents = () => {
       setThresholdByName(wtMap);
       setAnalysisByName(anMap);
       setTimeLimitByName(tlMap);
+      setWorkbookModeByName(wbMap);
       setProfileUserIdByName(userMap);
       setProfileNoByName(noMap);
 
@@ -387,6 +422,7 @@ const TeacherStudents = () => {
               <TableHead>단어 통과%</TableHead>
               <TableHead>분석 통과%</TableHead>
               <TableHead>단어시험 제한(초)</TableHead>
+              <TableHead>워크북 모드</TableHead>
               <TableHead>등록일</TableHead>
               <TableHead>상태</TableHead>
               <TableHead className="text-right">작업</TableHead>
@@ -395,7 +431,7 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
@@ -468,6 +504,23 @@ const TeacherStudents = () => {
                         <span className="text-xs text-muted-foreground">{tlSec === 0 ? "OFF" : "초"}</span>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <Select
+                        value={workbookModeByName[s.name] ?? "both"}
+                        onValueChange={(v) =>
+                          saveWorkbookMode(s, v as "unit_only" | "both")
+                        }
+                        disabled={workbookModeSaving === s.name}
+                      >
+                        <SelectTrigger className="h-8 w-28 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="both">유닛+문장</SelectItem>
+                          <SelectItem value="unit_only">유닛만</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground tabular-nums">
                       {formatDate(s.createdAt)}
                     </TableCell>
@@ -525,7 +578,7 @@ const TeacherStudents = () => {
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={8} className="bg-muted/20 py-5">
+                      <TableCell colSpan={9} className="bg-muted/20 py-5">
                         {profileUserIdByName[s.name] ? (
                           <DailyTestSummary userId={profileUserIdByName[s.name]} days={14} />
                         ) : (

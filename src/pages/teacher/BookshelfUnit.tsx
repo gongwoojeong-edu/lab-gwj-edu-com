@@ -64,10 +64,22 @@ import {
   printStageMessage,
   PrintPreloadError,
 } from "@/lib/printPreload";
+import {
+  buildUnitWorkbookHtmlFor,
+  summarizeUnitProgress,
+} from "@/lib/unitWorkbook";
 import { runExtraction } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ClipboardList } from "lucide-react";
 
 const BookshelfUnit = () => {
   const { level, seriesNo, volumeNo, unitNo } = useParams<{
@@ -94,6 +106,18 @@ const BookshelfUnit = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const structureInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 유닛 워크북 인쇄용
+  const [studentList, setStudentList] = useState<
+    Array<{ id: string; name: string; no: string; mode: "unit_only" | "both" }>
+  >([]);
+  const [workbookStudentId, setWorkbookStudentId] = useState<string>("");
+  const [workbookSummary, setWorkbookSummary] = useState<{
+    total: number;
+    completed: number;
+  } | null>(null);
+  const [workbookLoading, setWorkbookLoading] = useState(false);
+  const [workbookPrinting, setWorkbookPrinting] = useState(false);
+
   // 다중선택 + 다른 유닛으로 이동
   const { display: levelDisplay } = useLevelLabels();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -115,6 +139,82 @@ const BookshelfUnit = () => {
     });
   };
   const clearSel = () => setSelectedIds(new Set());
+
+  // 학생 목록 로드 (워크북 인쇄 대상)
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("user_id, display_name, student_no, unit_workbook_mode")
+        .order("student_no", { ascending: true });
+      const list = (data ?? []).map((r) => ({
+        id: r.user_id as string,
+        name: (r.display_name as string | null) ?? (r.student_no as string),
+        no: (r.student_no as string) ?? "",
+        mode:
+          ((r as { unit_workbook_mode?: string }).unit_workbook_mode === "unit_only"
+            ? "unit_only"
+            : "both") as "unit_only" | "both",
+      }));
+      setStudentList(list);
+    })().catch(() => undefined);
+  }, []);
+
+  // 학생 선택 시 진행상황 요약 fetch
+  useEffect(() => {
+    setWorkbookSummary(null);
+    if (!workbookStudentId || !unit) return;
+    let cancelled = false;
+    setWorkbookLoading(true);
+    void summarizeUnitProgress(unit.id, workbookStudentId)
+      .then((s) => {
+        if (cancelled) return;
+        setWorkbookSummary({
+          total: s.totalPassages,
+          completed: s.completedCodes.length,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setWorkbookSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setWorkbookLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workbookStudentId, unit]);
+
+  const handlePrintUnitWorkbook = async () => {
+    if (!unit || !workbookStudentId || workbookPrinting) return;
+    if (!workbookSummary || workbookSummary.completed === 0) {
+      toast({ title: "완료한 지문이 없어요", variant: "destructive" });
+      return;
+    }
+    setWorkbookPrinting(true);
+    try {
+      const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
+      const { html, completedCount } = await buildUnitWorkbookHtmlFor({
+        unitId: unit.id,
+        unitTitle: unit.title,
+        unitCode,
+        studentId: workbookStudentId,
+      });
+      await launchPrintHtml(html, {
+        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}`,
+        loadTimeoutMs: 12000,
+        cleanupAfterMs: 2500,
+      });
+      toast({
+        title: "유닛 워크북 인쇄 시작",
+        description: `${completedCount}개 지문 포함`,
+      });
+    } catch (err) {
+      toast({ title: "인쇄 실패", description: errMsg(err), variant: "destructive" });
+    } finally {
+      setWorkbookPrinting(false);
+    }
+  };
 
   useEffect(() => {
     void (async () => {
@@ -652,6 +752,79 @@ const BookshelfUnit = () => {
               </Button>
             </>
           )}
+        </Card>
+
+        {/* 유닛 워크북 일괄 인쇄 */}
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <ClipboardList className="size-4 text-primary" />
+            유닛 워크북 일괄 인쇄
+            <span className="text-xs font-normal text-muted-foreground">
+              · 학습 완료 지문(단어/번역/분석 모두 통과)을 한 권으로 인쇄
+            </span>
+          </div>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="flex flex-col gap-1 min-w-[220px]">
+              <label className="text-xs text-muted-foreground">학생 선택</label>
+              <Select
+                value={workbookStudentId}
+                onValueChange={(v) => setWorkbookStudentId(v)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="학생을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {studentList.length === 0 ? (
+                    <div className="p-3 text-xs text-muted-foreground">
+                      등록된 학생이 없습니다.
+                    </div>
+                  ) : (
+                    studentList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} ({s.no})
+                        {s.mode === "unit_only" ? " · 유닛만" : ""}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-xs text-muted-foreground min-w-[140px]">
+              {!workbookStudentId ? (
+                <span>학생을 선택하면 진행상황이 표시됩니다.</span>
+              ) : workbookLoading ? (
+                <span className="inline-flex items-center gap-1">
+                  <Loader2 className="size-3 animate-spin" /> 진행상황 조회 중…
+                </span>
+              ) : workbookSummary ? (
+                <span>
+                  완료 <b className="text-foreground">{workbookSummary.completed}</b> /{" "}
+                  {workbookSummary.total} 지문
+                </span>
+              ) : (
+                <span>—</span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              className="h-9"
+              onClick={handlePrintUnitWorkbook}
+              disabled={
+                !workbookStudentId ||
+                workbookPrinting ||
+                workbookLoading ||
+                !workbookSummary ||
+                workbookSummary.completed === 0
+              }
+            >
+              {workbookPrinting ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+              ) : (
+                <Printer className="size-3.5 mr-1" />
+              )}
+              {workbookPrinting ? "인쇄 준비 중…" : "워크북 인쇄"}
+            </Button>
+          </div>
         </Card>
 
         {selectedIds.size > 0 && (
