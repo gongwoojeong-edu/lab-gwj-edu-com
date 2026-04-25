@@ -192,10 +192,15 @@ const TeacherStudents = () => {
     setThresholdByName((p) => ({ ...p, [s.name]: clamped / 100 }));
     setThresholdSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ word_test_pass_threshold: clamped / 100 })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -219,10 +224,15 @@ const TeacherStudents = () => {
     setAnalysisByName((p) => ({ ...p, [s.name]: clamped / 100 }));
     setAnalysisSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ analysis_pass_threshold: clamped / 100 })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -245,10 +255,15 @@ const TeacherStudents = () => {
     setWorkbookModeByName((p) => ({ ...p, [s.name]: mode }));
     setWorkbookModeSaving(s.name);
     try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
       const { data, error } = await supabase
         .from("student_profiles")
         .update({ unit_workbook_mode: mode })
-        .eq("display_name", s.name)
+        .eq("user_id", uid)
         .select("user_id");
       if (error) throw error;
       if (!data || data.length === 0) {
