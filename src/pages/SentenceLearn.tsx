@@ -385,17 +385,12 @@ const SentenceLearn = () => {
       const threshold = profile?.analysis_pass_threshold ?? 0.8;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
-      // 마스터 없으면 분석 통과/미통 판정 자체를 보류 (단어시험만 반영)
-      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : false;
+      // 마스터 미등록 문장은 학생 분석률(단어 기준)로 판정해 제출 흐름이 보류에 갇히지 않게 한다.
+      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : rateOk;
       const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
       // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
       const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
-      // 마스터 없으면 overallPass=false → status 'hold'로 저장
-      const overallPass = grade.hasMaster
-        ? analysisPassed && wordTestPassed
-        : opts?.teacherOverride
-          ? wordTestPassed
-          : false;
+      const overallPass = analysisPassed && wordTestPassed;
       setAnalysisGrade({ rate: grade.rate, passed: analysisPassed, diffs: grade.diffs, hasMaster: grade.hasMaster });
 
       // 필수 owner 누락 안내 (학생에게) — override 시에는 생략
@@ -440,12 +435,7 @@ const SentenceLearn = () => {
           word_test_done: wordTestPassed,
         });
       } else {
-        // 마스터 없으면 → status 'hold', passed_at null (보상/streak 미부여)
-        const nextStatus: "pass" | "fail" | "hold" = grade.hasMaster
-          ? overallPass ? "pass" : "fail"
-          : opts?.teacherOverride
-            ? overallPass ? "pass" : "hold"
-            : "hold";
+        const nextStatus: "pass" | "fail" = overallPass ? "pass" : "fail";
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
           ...(analysisPassed || opts?.teacherOverride ? { analysis_done: true } : {}),
