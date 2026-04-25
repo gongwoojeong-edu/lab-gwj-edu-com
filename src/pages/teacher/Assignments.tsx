@@ -716,18 +716,67 @@ const Assignments = () => {
               <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="예: L05 Unit 3 마감 과제" />
             </div>
             <div className="space-y-1.5">
-              <Label>대상 학생</Label>
-              <Select value={form.studentId} onValueChange={(v) => setForm((p) => ({ ...p, studentId: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">전체 학생</SelectItem>
-                  {students.map((s) => (
-                    <SelectItem key={s.user_id} value={s.user_id}>
-                      {s.display_name ?? s.student_no} ({s.student_no})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>대상 학생 (복수 선택 가능)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between text-left font-normal"
+                  >
+                    <span className="truncate">
+                      {form.studentIds.length === 0
+                        ? "전체 학생"
+                        : `${form.studentIds.length}명 선택됨`}
+                    </span>
+                    <CalendarIcon className="ml-2 size-4 opacity-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-2 max-h-72 overflow-y-auto bg-popover" align="start">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b">
+                    <button
+                      type="button"
+                      className="text-xs font-bold text-primary hover:underline"
+                      onClick={() => setForm((p) => ({ ...p, studentIds: [] }))}
+                    >
+                      전체 학생 (모두 해제)
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:underline"
+                      onClick={() => setForm((p) => ({ ...p, studentIds: students.map((s) => s.user_id) }))}
+                    >
+                      모두 선택
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {students.map((s) => {
+                      const checked = form.studentIds.includes(s.user_id);
+                      return (
+                        <label
+                          key={s.user_id}
+                          className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(v) =>
+                              setForm((p) => ({
+                                ...p,
+                                studentIds: v
+                                  ? [...p.studentIds, s.user_id]
+                                  : p.studentIds.filter((id) => id !== s.user_id),
+                              }))
+                            }
+                          />
+                          <span className="truncate">
+                            {s.display_name ?? s.student_no}{" "}
+                            <span className="text-xs text-muted-foreground">({s.student_no})</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-1.5">
               <Label>마감일 *</Label>
@@ -835,7 +884,12 @@ const Assignments = () => {
               </div>
               <div className="space-y-1.5">
                 <Label>대상 학생</Label>
-                <Select value={editForm.studentId} onValueChange={(v) => setEditForm((p) => ({ ...p, studentId: v }))}>
+                <Select
+                  value={editForm.studentIds[0] ?? "__all__"}
+                  onValueChange={(v) =>
+                    setEditForm((p) => ({ ...p, studentIds: v === "__all__" ? [] : [v] }))
+                  }
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">전체 학생</SelectItem>
