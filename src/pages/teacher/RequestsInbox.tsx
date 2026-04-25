@@ -9,6 +9,7 @@ import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,7 @@ import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPendingPrintRequests,
+  fetchHandledPrintRequests,
   subscribeToPrintRequests,
   markPrintRequestHandled,
   type PrintRequest,
