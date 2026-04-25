@@ -29,6 +29,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
+import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPendingPrintRequests,
