@@ -813,38 +813,54 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     })
     .join("");
 
-  const structurePage = p.structurePdfUrl
-    ? `
-<div class="page cb-structure">
+  const structurePage = `
+<div class="page cb-back">
   <div class="header">
     <div>
-      <div class="eyebrow">Gongwoojeong · Structure</div>
-      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
+      <div class="eyebrow">Gongwoojeong · Unit Wrap-up</div>
+      <div class="title">유닛 마무리 · ${escapeHtml(p.unitTitle)}</div>
       <div class="meta">${headerMeta}</div>
     </div>
     <div class="meta" style="text-align:right">
       <div>출력: ${stamp}</div>
-      <div>등록 PDF</div>
-    </div>
-  </div>
-  <embed src="${escapeHtml(p.structurePdfUrl)}" type="application/pdf" class="cb-pdf" />
-</div>`
-    : `
-<div class="page cb-structure">
-  <div class="header">
-    <div>
-      <div class="eyebrow">Gongwoojeong · Structure</div>
-      <div class="title">유닛 구조도 · ${escapeHtml(p.unitTitle)}</div>
-      <div class="meta">${headerMeta}</div>
-    </div>
-    <div class="meta" style="text-align:right">
-      <div>출력: ${stamp}</div>
-      <div>구조도 등록 전</div>
+      <div>구조도 · 지스트 · 영작 · 정독해석 · 재영작</div>
     </div>
   </div>
   <div class="section">
-    <div class="section-title">구조도 작성란</div>
+    <div class="section-title">① 구조도</div>
     <div class="cb-grid"></div>
+  </div>
+  <div class="cb-cols">
+    <div>
+      <div class="section-title">② 지스트 (주제문장)</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">③ 영작</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
+  </div>
+  <div class="cb-cols">
+    <div>
+      <div class="section-title">④ 정독해석</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">⑤ 재영작</div>
+      <div class="cb-write">
+        <div class="cb-line"></div><div class="cb-line"></div>
+        <div class="cb-line"></div><div class="cb-line"></div>
+      </div>
+    </div>
   </div>
 </div>`;
 
