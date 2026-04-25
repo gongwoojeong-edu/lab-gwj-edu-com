@@ -188,6 +188,22 @@ const Assignments = () => {
   useEffect(() => { void ensureUnits(editForm.selectedTbId); }, [editForm.selectedTbId]); // eslint-disable-line
   useEffect(() => { void ensurePassages(editForm.selectedUnitId); }, [editForm.selectedUnitId]); // eslint-disable-line
 
+  // 유닛 선택 시 첫 지문 자동 연결 (사용자가 명시적으로 변경하지 않았다면)
+  useEffect(() => {
+    if (!form.selectedUnitId) return;
+    const ps = passagesByUnit[form.selectedUnitId];
+    if (!ps || ps.length === 0) return;
+    if (form.selectedPassageCode) return; // 이미 선택됨
+    setForm((p) => ({ ...p, selectedPassageCode: ps[0].code }));
+  }, [form.selectedUnitId, passagesByUnit]); // eslint-disable-line
+  useEffect(() => {
+    if (!editForm.selectedUnitId) return;
+    const ps = passagesByUnit[editForm.selectedUnitId];
+    if (!ps || ps.length === 0) return;
+    if (editForm.selectedPassageCode) return;
+    setEditForm((p) => ({ ...p, selectedPassageCode: ps[0].code }));
+  }, [editForm.selectedUnitId, passagesByUnit]); // eslint-disable-line
+
   // sentence_id(=passage code) → 사람이 읽는 라벨 매핑 (목록 표시용)
   const codeLabelMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -656,7 +672,12 @@ const Assignments = () => {
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">
-          <Label>연결 지문 <span className="text-destructive">*</span></Label>
+          <Label className="flex items-center gap-2">
+            연결 지문
+            <span className="text-[10px] font-normal text-muted-foreground">
+              (유닛 선택 시 첫 지문이 자동 선택돼요. 다른 지문으로 바꿀 수 있어요)
+            </span>
+          </Label>
           <Select
             value={f.selectedPassageCode || undefined}
             onValueChange={(v) =>

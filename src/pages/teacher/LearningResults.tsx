@@ -576,7 +576,7 @@ const LearningResults = () => {
     }>;
     setViewDialog({
       kind: "wordTest",
-      title: `단어시험 — ${sentenceId} · ${data.passed ? "통과" : "재시도"} (${Math.round(Number(data.score))}점)`,
+      title: `단어시험 — ${sentenceId} · ${data.passed ? "통과" : "재시도"} (${Math.round(Number(data.score) * 100)}점)`,
       body: (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
@@ -697,7 +697,9 @@ const LearningResults = () => {
                         {sentenceIds.map((sid) => {
                           const a = attemptMap[`${userId}::${sid}`];
                           const wScore =
-                            a?.best_word_score != null ? Math.round(a.best_word_score) : null;
+                            a?.best_word_score != null
+                              ? Math.round(a.best_word_score * 100)
+                              : null;
                           const aScore =
                             a?.best_analysis_rate != null
                               ? Math.round(a.best_analysis_rate * 100)

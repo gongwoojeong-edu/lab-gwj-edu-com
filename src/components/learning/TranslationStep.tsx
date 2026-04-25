@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { Check, Eye, EyeOff } from "lucide-react";
 import { fetchTranslation, upsertTranslation } from "@/integrations/supabase/storage";
 import { toast } from "@/hooks/use-toast";
 
@@ -12,8 +12,16 @@ interface Props {
   onSubmitted: () => void;
 }
 
+/**
+ * 한글 해석 단계.
+ * 정책: 학생이 화면에 들어왔을 때 이전 제출한 한글이 자동으로 보이지 않는다.
+ *  - 이전 제출이 있으면 "제출됨" 뱃지만 표시하고, [이전 제출 보기/숨기기] 버튼으로만 노출.
+ *  - textarea 는 항상 빈 상태로 시작 → 학생이 새로 작성.
+ */
 export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Props) => {
   const [text, setText] = useState("");
+  const [previousText, setPreviousText] = useState<string | null>(null);
+  const [showPrevious, setShowPrevious] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -21,13 +29,15 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
   useEffect(() => {
     let mounted = true;
     setLoading(true);
+    setText("");
+    setShowPrevious(false);
     fetchTranslation(sentenceId).then((t) => {
       if (!mounted) return;
       if (t) {
-        setText(t);
+        setPreviousText(t);
         setSubmitted(true);
       } else {
-        setText("");
+        setPreviousText(null);
         setSubmitted(false);
       }
       setLoading(false);
@@ -45,6 +55,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
     setSaving(true);
     try {
       await upsertTranslation(sentenceId, text.trim());
+      setPreviousText(text.trim());
       setSubmitted(true);
       toast({ title: "해석 저장 완료" });
       onSubmitted();
@@ -62,13 +73,36 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
         <div className="text-base font-medium leading-relaxed">{englishSentence}</div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-semibold">정독 기준 한글 해석</label>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <label className="text-sm font-semibold">정독 기준 한글 해석</label>
+          {previousText && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[11px]"
+              onClick={() => setShowPrevious((v) => !v)}
+            >
+              {showPrevious ? (
+                <>
+                  <EyeOff className="w-3 h-3 mr-1" /> 이전 제출 숨기기
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3 h-3 mr-1" /> 이전 제출 보기
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        {showPrevious && previousText && (
+          <div className="text-xs p-2 rounded-md bg-muted/40 border border-border whitespace-pre-wrap">
+            <span className="text-muted-foreground font-bold">이전 제출:</span> {previousText}
+          </div>
+        )}
         <Textarea
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (submitted) setSubmitted(false);
-          }}
+          onChange={(e) => setText(e.target.value)}
           placeholder="문장의 의미를 한국어로 정확하게 적어주세요."
           rows={3}
           disabled={loading}
