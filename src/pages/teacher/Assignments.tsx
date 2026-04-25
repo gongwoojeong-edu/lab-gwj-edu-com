@@ -398,7 +398,7 @@ const Assignments = () => {
     }
     setEditForm({
       title: row.title,
-      studentId: row.student_id ?? "__all__",
+      studentIds: row.student_id ? [row.student_id] : [],
       selectedLevel: level,
       selectedSeriesId: seriesId,
       selectedTbId: tbId,
