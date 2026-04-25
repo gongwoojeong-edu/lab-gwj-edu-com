@@ -313,6 +313,19 @@ const RequestsInbox = () => {
                 hour: "2-digit",
                 minute: "2-digit",
               });
+              const wbToggle = s ? (
+                <WorkbookModeToggle
+                  userId={s.user_id}
+                  value={s.unit_workbook_mode}
+                  studentLabel={studentName}
+                  onChange={(m) =>
+                    setStudents((prev) => ({
+                      ...prev,
+                      [s.user_id]: { ...prev[s.user_id], unit_workbook_mode: m },
+                    }))
+                  }
+                />
+              ) : null;
 
               if (it.kind === "print") {
                 const req = it.row;
