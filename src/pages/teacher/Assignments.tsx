@@ -15,14 +15,6 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -34,8 +26,6 @@ import {
   ClipboardList,
   Trash2,
   BookOpen,
-  Check,
-  ChevronsUpDown,
   Pencil,
   Plus,
 } from "lucide-react";
@@ -47,10 +37,16 @@ import { toast } from "@/hooks/use-toast";
 import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
 import {
   fetchAllTextbooks,
-  fetchPassagesByTextbook,
+  fetchSeriesByLevel,
+  fetchTextbooksBySeries,
+  fetchUnitsByTextbook,
+  fetchPassagesByUnit,
   type Textbook,
+  type Series,
+  type Unit,
   type Passage,
 } from "@/lib/textbooks";
+import { LEVELS, type LevelCode } from "@/lib/levels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import {
   fetchAssignmentProgress,
@@ -78,7 +74,11 @@ type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 interface FormState {
   title: string;
   studentId: string; // "__all__" or user_id
+  // 위계 선택 상태 (UI 용)
+  selectedLevel: LevelCode | "";
+  selectedSeriesId: string;
   selectedTbId: string;
+  selectedUnitId: string;
   selectedPassageCode: string;
   description: string;
   dueDate: Date | undefined;
@@ -91,7 +91,10 @@ interface FormState {
 const emptyForm = (): FormState => ({
   title: "",
   studentId: "__all__",
+  selectedLevel: "",
+  selectedSeriesId: "",
   selectedTbId: "",
+  selectedUnitId: "",
   selectedPassageCode: "",
   description: "",
   dueDate: undefined,
@@ -105,7 +108,11 @@ const Assignments = () => {
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
-  const [passagesByTb, setPassagesByTb] = useState<Record<string, Passage[]>>({});
+  // 캐스케이딩 캐시
+  const [seriesByLevel, setSeriesByLevel] = useState<Record<string, Series[]>>({});
+  const [tbsBySeries, setTbsBySeries] = useState<Record<string, Textbook[]>>({});
+  const [unitsByTb, setUnitsByTb] = useState<Record<string, Unit[]>>({});
+  const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
 
   const studentNameMap = useMemo(() => {
@@ -118,15 +125,11 @@ const Assignments = () => {
 
   // Create form
   const [form, setForm] = useState<FormState>(emptyForm());
-  const [tbOpen, setTbOpen] = useState(false);
-  const [pgOpen, setPgOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Edit dialog
   const [editingRow, setEditingRow] = useState<AssignmentRow | null>(null);
   const [editForm, setEditForm] = useState<FormState>(emptyForm());
-  const [editTbOpen, setEditTbOpen] = useState(false);
-  const [editPgOpen, setEditPgOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   const load = async () => {
@@ -144,63 +147,99 @@ const Assignments = () => {
     void load();
   }, []);
 
-  const ensurePassagesLoaded = async (tbId: string) => {
-    if (!tbId || passagesByTb[tbId]) return;
+  // ───── 캐스케이딩 로더들 ─────
+  const ensureSeries = async (level: LevelCode | "") => {
+    if (!level || seriesByLevel[level]) return;
     try {
-      const ps = await fetchPassagesByTextbook(tbId);
-      setPassagesByTb((m) => ({ ...m, [tbId]: ps }));
-    } catch (e) {
-      console.error(e);
-    }
+      const list = await fetchSeriesByLevel(level);
+      setSeriesByLevel((m) => ({ ...m, [level]: list }));
+    } catch (e) { console.error(e); }
+  };
+  const ensureTextbooks = async (seriesId: string) => {
+    if (!seriesId || tbsBySeries[seriesId]) return;
+    try {
+      const list = await fetchTextbooksBySeries(seriesId);
+      setTbsBySeries((m) => ({ ...m, [seriesId]: list }));
+    } catch (e) { console.error(e); }
+  };
+  const ensureUnits = async (tbId: string) => {
+    if (!tbId || unitsByTb[tbId]) return;
+    try {
+      const list = await fetchUnitsByTextbook(tbId);
+      setUnitsByTb((m) => ({ ...m, [tbId]: list }));
+    } catch (e) { console.error(e); }
+  };
+  const ensurePassages = async (unitId: string) => {
+    if (!unitId || passagesByUnit[unitId]) return;
+    try {
+      const list = await fetchPassagesByUnit(unitId);
+      setPassagesByUnit((m) => ({ ...m, [unitId]: list }));
+    } catch (e) { console.error(e); }
   };
 
-  // 교재 선택 시 지문 로드 (create form)
-  useEffect(() => {
-    void ensurePassagesLoaded(form.selectedTbId);
-  }, [form.selectedTbId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void ensureSeries(form.selectedLevel); }, [form.selectedLevel]); // eslint-disable-line
+  useEffect(() => { void ensureTextbooks(form.selectedSeriesId); }, [form.selectedSeriesId]); // eslint-disable-line
+  useEffect(() => { void ensureUnits(form.selectedTbId); }, [form.selectedTbId]); // eslint-disable-line
+  useEffect(() => { void ensurePassages(form.selectedUnitId); }, [form.selectedUnitId]); // eslint-disable-line
 
-  // 교재 선택 시 지문 로드 (edit form)
-  useEffect(() => {
-    void ensurePassagesLoaded(editForm.selectedTbId);
-  }, [editForm.selectedTbId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void ensureSeries(editForm.selectedLevel); }, [editForm.selectedLevel]); // eslint-disable-line
+  useEffect(() => { void ensureTextbooks(editForm.selectedSeriesId); }, [editForm.selectedSeriesId]); // eslint-disable-line
+  useEffect(() => { void ensureUnits(editForm.selectedTbId); }, [editForm.selectedTbId]); // eslint-disable-line
+  useEffect(() => { void ensurePassages(editForm.selectedUnitId); }, [editForm.selectedUnitId]); // eslint-disable-line
 
-  const tbLabel = (t: Textbook) => `[${t.level}] ${t.title} · Unit ${t.unit_no}`;
-
-  // sentence_id(=passage code) → 사람이 읽는 라벨 매핑
+  // sentence_id(=passage code) → 사람이 읽는 라벨 매핑 (목록 표시용)
   const codeLabelMap = useMemo(() => {
     const m = new Map<string, string>();
-    Object.entries(passagesByTb).forEach(([tbId, ps]) => {
-      const tb = textbooks.find((t) => t.id === tbId);
-      if (!tb) return;
+    Object.entries(passagesByUnit).forEach(([unitId, ps]) => {
+      // unit → tb 역참조
+      let tb: Textbook | undefined;
+      let unit: Unit | undefined;
+      Object.entries(unitsByTb).forEach(([tbId, units]) => {
+        const found = units.find((u) => u.id === unitId);
+        if (found) {
+          unit = found;
+          tb = textbooks.find((t) => t.id === tbId);
+        }
+      });
       ps.forEach((p) => {
-        m.set(p.code, `[${tb.level}] ${tb.title} · #${String(p.passage_no).padStart(3, "0")}`);
+        const prefix = tb ? `[${tb.level}] ${tb.title}` : "";
+        const unitLabel = unit ? ` · U${unit.unit_no} ${unit.title}` : "";
+        m.set(p.code, `${prefix}${unitLabel} · #${String(p.passage_no).padStart(3, "0")}`);
       });
     });
     return m;
-  }, [passagesByTb, textbooks]);
+  }, [passagesByUnit, unitsByTb, textbooks]);
 
-  // 목록에 보이는 sentence_id의 교재 자동 로드 (라벨용)
+  // 목록에 보이는 sentence_id의 unit·passage 자동 로드 (라벨용)
   useEffect(() => {
     const codes = Array.from(new Set(rows.map((r) => r.sentence_id).filter(Boolean) as string[]));
     const missing = codes.filter((c) => !codeLabelMap.has(c));
-    if (missing.length === 0 || textbooks.length === 0) return;
+    if (missing.length === 0) return;
     void (async () => {
       const { data } = await supabase
         .from("textbook_passages")
-        .select("textbook_id")
+        .select("unit_id, textbook_id")
         .in("code", missing);
+      const unitIds = Array.from(new Set((data ?? []).map((d: any) => d.unit_id as string)));
       const tbIds = Array.from(new Set((data ?? []).map((d: any) => d.textbook_id as string)));
-      for (const id of tbIds) {
-        if (passagesByTb[id]) continue;
-        try {
-          const ps = await fetchPassagesByTextbook(id);
-          setPassagesByTb((m) => ({ ...m, [id]: ps }));
-        } catch (e) {
-          console.error(e);
+      for (const tbId of tbIds) {
+        if (!unitsByTb[tbId]) {
+          try {
+            const us = await fetchUnitsByTextbook(tbId);
+            setUnitsByTb((m) => ({ ...m, [tbId]: us }));
+          } catch (e) { console.error(e); }
         }
       }
+      for (const unitId of unitIds) {
+        if (passagesByUnit[unitId]) continue;
+        try {
+          const ps = await fetchPassagesByUnit(unitId);
+          setPassagesByUnit((m) => ({ ...m, [unitId]: ps }));
+        } catch (e) { console.error(e); }
+      }
     })();
-  }, [rows, codeLabelMap, textbooks, passagesByTb]);
+  }, [rows, codeLabelMap, unitsByTb, passagesByUnit]);
+
 
   // 과제별 진척 데이터 로드 (hover용)
   useEffect(() => {
@@ -309,30 +348,50 @@ const Assignments = () => {
 
   const openEdit = async (row: AssignmentRow) => {
     setEditingRow(row);
-    // 해당 sentence_id의 교재를 찾아 미리 셀렉트
+    // sentence_id로부터 level/series/textbook/unit 역추적
+    let level: LevelCode | "" = "";
+    let seriesId = "";
     let tbId = "";
+    let unitId = "";
     if (row.sentence_id) {
-      // 모든 로드된 passages에서 찾기
-      for (const [id, ps] of Object.entries(passagesByTb)) {
-        if (ps.some((p) => p.code === row.sentence_id)) {
-          tbId = id;
-          break;
+      const { data } = await supabase
+        .from("textbook_passages")
+        .select("textbook_id, unit_id")
+        .eq("code", row.sentence_id)
+        .maybeSingle();
+      if (data) {
+        tbId = (data as any).textbook_id as string;
+        unitId = (data as any).unit_id as string;
+        const tb = textbooks.find((t) => t.id === tbId);
+        if (tb) {
+          level = tb.level;
+          seriesId = tb.series_id;
+        } else {
+          // textbooks 목록에 아직 없는 경우 직접 조회
+          const { data: tbRow } = await supabase
+            .from("textbooks")
+            .select("series_id, level")
+            .eq("id", tbId)
+            .maybeSingle();
+          if (tbRow) {
+            seriesId = (tbRow as any).series_id as string;
+            const { data: srRow } = await supabase
+              .from("textbook_series")
+              .select("level")
+              .eq("id", seriesId)
+              .maybeSingle();
+            if (srRow) level = (srRow as any).level as LevelCode;
+          }
         }
-      }
-      if (!tbId) {
-        // DB 조회
-        const { data } = await supabase
-          .from("textbook_passages")
-          .select("textbook_id")
-          .eq("code", row.sentence_id)
-          .maybeSingle();
-        if (data) tbId = (data as any).textbook_id as string;
       }
     }
     setEditForm({
       title: row.title,
       studentId: row.student_id ?? "__all__",
+      selectedLevel: level,
+      selectedSeriesId: seriesId,
       selectedTbId: tbId,
+      selectedUnitId: unitId,
       selectedPassageCode: row.sentence_id ?? "",
       description: row.description ?? "",
       dueDate: new Date(row.due_at),
@@ -454,133 +513,170 @@ const Assignments = () => {
     </div>
   );
 
-  // 교재/지문 선택기 (create/edit 공유)
+  // 레벨 → 시리즈 → 권 → 유닛 → 지문 캐스케이딩 선택기 (create/edit 공유)
   const renderTextbookPickers = (
     f: FormState,
     setter: typeof setForm,
-    openTb: boolean,
-    setOpenTb: (b: boolean) => void,
-    openPg: boolean,
-    setOpenPg: (b: boolean) => void,
-    keyPrefix: string,
   ) => {
-    const selectedTb = textbooks.find((t) => t.id === f.selectedTbId) ?? null;
-    const currentPassages = f.selectedTbId ? passagesByTb[f.selectedTbId] ?? [] : [];
-    const selectedPassage = currentPassages.find((p) => p.code === f.selectedPassageCode);
+    const seriesList = f.selectedLevel ? seriesByLevel[f.selectedLevel] ?? [] : [];
+    const tbList = f.selectedSeriesId ? tbsBySeries[f.selectedSeriesId] ?? [] : [];
+    const unitList = f.selectedTbId ? unitsByTb[f.selectedTbId] ?? [] : [];
+    const passageList = f.selectedUnitId ? passagesByUnit[f.selectedUnitId] ?? [] : [];
 
     return (
       <>
         <div className="space-y-1.5">
-          <Label>연결 교재 <span className="text-destructive">*</span></Label>
-          <Popover open={openTb} onOpenChange={setOpenTb}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                className={cn("w-full justify-between text-left font-normal", !selectedTb && "text-muted-foreground")}
-              >
-                <span className="flex items-center gap-2 min-w-0 truncate">
-                  <BookOpen className="size-4 shrink-0" />
-                  <span className="truncate">{selectedTb ? tbLabel(selectedTb) : "교재 검색·선택"}</span>
-                </span>
-                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-popover" align="start">
-              <Command>
-                <CommandInput placeholder="레벨/제목/Unit 검색…" />
-                <CommandList>
-                  <CommandEmpty>일치하는 교재가 없습니다.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value={`${keyPrefix}-none 미지정`}
-                      onSelect={() => {
-                        setter((prev) => ({ ...prev, selectedTbId: "", selectedPassageCode: "" }));
-                        setOpenTb(false);
-                      }}
-                    >
-                      <Check className={cn("mr-2 size-4", !f.selectedTbId ? "opacity-100" : "opacity-0")} />
-                      교재 미지정
-                    </CommandItem>
-                    {textbooks.map((t) => (
-                      <CommandItem
-                        key={t.id}
-                        value={`${t.level} ${t.title} unit ${t.unit_no} u${t.unit_no}`}
-                        onSelect={() => {
-                          setter((prev) => ({ ...prev, selectedTbId: t.id, selectedPassageCode: "" }));
-                          setOpenTb(false);
-                        }}
-                      >
-                        <Check className={cn("mr-2 size-4", f.selectedTbId === t.id ? "opacity-100" : "opacity-0")} />
-                        {tbLabel(t)}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <Label>레벨 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedLevel || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedLevel: v as LevelCode,
+                selectedSeriesId: "",
+                selectedTbId: "",
+                selectedUnitId: "",
+                selectedPassageCode: "",
+              }))
+            }
+          >
+            <SelectTrigger><SelectValue placeholder="레벨 선택" /></SelectTrigger>
+            <SelectContent>
+              {LEVELS.map((l) => (
+                <SelectItem key={l.code} value={l.code}>
+                  [{l.code}] {l.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
         <div className="space-y-1.5">
+          <Label>시리즈 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedSeriesId || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedSeriesId: v,
+                selectedTbId: "",
+                selectedUnitId: "",
+                selectedPassageCode: "",
+              }))
+            }
+            disabled={!f.selectedLevel}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedLevel ? "시리즈 선택" : "레벨을 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {seriesList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">시리즈가 없습니다</div>
+              ) : (
+                seriesList.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    #{s.series_no} {s.title}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>권 / 교재 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedTbId || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedTbId: v,
+                selectedUnitId: "",
+                selectedPassageCode: "",
+              }))
+            }
+            disabled={!f.selectedSeriesId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedSeriesId ? "권/교재 선택" : "시리즈를 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {tbList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">권이 없습니다</div>
+              ) : (
+                tbList.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    Vol.{t.volume_no} · {t.title}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>유닛 <span className="text-destructive">*</span></Label>
+          <Select
+            value={f.selectedUnitId || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({
+                ...prev,
+                selectedUnitId: v,
+                selectedPassageCode: "",
+              }))
+            }
+            disabled={!f.selectedTbId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedTbId ? "유닛 선택" : "권을 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {unitList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">유닛이 없습니다</div>
+              ) : (
+                unitList.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    U{u.unit_no} · {u.title}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="sm:col-span-2 space-y-1.5">
           <Label>연결 지문 <span className="text-destructive">*</span></Label>
-          <Popover open={openPg} onOpenChange={(o) => f.selectedTbId && setOpenPg(o)}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                disabled={!f.selectedTbId}
-                className={cn("w-full justify-between text-left font-normal", !selectedPassage && "text-muted-foreground")}
-              >
-                <span className="truncate min-w-0">
-                  {selectedPassage
-                    ? `#${String(selectedPassage.passage_no).padStart(3, "0")} ${selectedPassage.english.slice(0, 40)}…`
-                    : f.selectedTbId
-                      ? "지문 검색·선택"
-                      : "교재를 먼저 선택하세요"}
-                </span>
-                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-popover" align="start">
-              <Command>
-                <CommandInput placeholder="번호/본문 검색…" />
-                <CommandList>
-                  <CommandEmpty>지문이 없습니다.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value={`${keyPrefix}-no-passage 미지정`}
-                      onSelect={() => {
-                        setter((prev) => ({ ...prev, selectedPassageCode: "" }));
-                        setOpenPg(false);
-                      }}
-                    >
-                      <Check className={cn("mr-2 size-4", !f.selectedPassageCode ? "opacity-100" : "opacity-0")} />
-                      지문 미지정 (교재 전체 안내용)
-                    </CommandItem>
-                    {currentPassages.map((p) => (
-                      <CommandItem
-                        key={p.id}
-                        value={`#${p.passage_no} ${p.english}`}
-                        onSelect={() => {
-                          setter((prev) => ({ ...prev, selectedPassageCode: p.code }));
-                          setOpenPg(false);
-                        }}
-                      >
-                        <Check className={cn("mr-2 size-4", f.selectedPassageCode === p.code ? "opacity-100" : "opacity-0")} />
-                        <span className="truncate">
-                          <span className="font-mono text-xs text-muted-foreground mr-2">
-                            #{String(p.passage_no).padStart(3, "0")}
-                          </span>
-                          {p.english.slice(0, 60)}
-                          {p.english.length > 60 ? "…" : ""}
-                        </span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <Select
+            value={f.selectedPassageCode || undefined}
+            onValueChange={(v) =>
+              setter((prev) => ({ ...prev, selectedPassageCode: v }))
+            }
+            disabled={!f.selectedUnitId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={f.selectedUnitId ? "지문 선택" : "유닛을 먼저 선택"} />
+            </SelectTrigger>
+            <SelectContent>
+              {passageList.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">지문이 없습니다</div>
+              ) : (
+                passageList.map((p) => (
+                  <SelectItem key={p.id} value={p.code}>
+                    <span className="flex items-center gap-2">
+                      <BookOpen className="size-3.5 text-muted-foreground" />
+                      <span className="font-mono text-xs text-muted-foreground">
+                        #{String(p.passage_no).padStart(3, "0")}
+                      </span>
+                      <span className="truncate max-w-[28rem]">
+                        {p.english.slice(0, 60)}
+                        {p.english.length > 60 ? "…" : ""}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
       </>
     );
@@ -639,7 +735,7 @@ const Assignments = () => {
             <div className="sm:col-span-1">
               {renderStepCheckboxes(form, setForm)}
             </div>
-            {renderTextbookPickers(form, setForm, tbOpen, setTbOpen, pgOpen, setPgOpen, "create")}
+            {renderTextbookPickers(form, setForm)}
             <div className="sm:col-span-2 space-y-1.5">
               <Label>설명 (선택)</Label>
               <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
@@ -755,7 +851,7 @@ const Assignments = () => {
                 </Popover>
               </div>
               <div>{renderStepCheckboxes(editForm, setEditForm)}</div>
-              {renderTextbookPickers(editForm, setEditForm, editTbOpen, setEditTbOpen, editPgOpen, setEditPgOpen, "edit")}
+              {renderTextbookPickers(editForm, setEditForm)}
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>설명 (선택)</Label>
                 <Textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
