@@ -487,12 +487,14 @@ const SentenceLearn = () => {
     try {
       // 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
       await upsertSentenceProgress(sentence.id, {
+        word_test_done: true,
         analysis_done: true,
         analysis_match_rate: analysisRate,
       });
     } catch (e) {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
     }
+    setWordtestDone(true);
     setAnalysisDone(true);
     advanceFrom("analysis");
   };
