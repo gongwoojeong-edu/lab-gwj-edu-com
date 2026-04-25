@@ -321,7 +321,7 @@ const SentenceLearn = () => {
 
   const stepStates = useMemo(
     () => ({
-      pre: { done: preDone, locked: false, skipped: !skipFlags.pre },
+      pre: { done: preDone, locked: analysisDone || translationDone, skipped: !skipFlags.pre },
       wordtest: { done: wordtestDone, locked: skipFlags.pre && !preDone, skipped: !skipFlags.wordtest },
       analysis: {
         done: analysisDone,
