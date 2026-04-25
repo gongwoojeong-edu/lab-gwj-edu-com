@@ -1919,15 +1919,14 @@ const VerbPanel = ({
       <button
         type="button"
         onClick={onVerbConfirm}
-        disabled={confirmed}
         className={cn(
           "w-full py-1.5 rounded-lg text-[11px] font-bold font-kr transition-all border",
           confirmed
-            ? "bg-element-o-bg text-element-o border-element-o/40 cursor-default"
+            ? "bg-element-o-bg text-element-o border-element-o/40 hover:opacity-90"
             : "bg-primary text-primary-foreground border-primary hover:opacity-90",
         )}
       >
-        {confirmed ? "✓ 동사 분석 완료" : "✱ 동사 확정"}
+        {confirmed ? "✓ 동사 분석 완료 (다시 확정)" : "✱ 동사 확정"}
       </button>
     </>
   );
