@@ -835,7 +835,12 @@ const Assignments = () => {
               </div>
               <div className="space-y-1.5">
                 <Label>대상 학생</Label>
-                <Select value={editForm.studentId} onValueChange={(v) => setEditForm((p) => ({ ...p, studentId: v }))}>
+                <Select
+                  value={editForm.studentIds[0] ?? "__all__"}
+                  onValueChange={(v) =>
+                    setEditForm((p) => ({ ...p, studentIds: v === "__all__" ? [] : [v] }))
+                  }
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">전체 학생</SelectItem>
