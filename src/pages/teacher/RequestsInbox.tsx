@@ -26,6 +26,7 @@ import {
   BookOpen,
   ChevronDown,
   FileText,
+  Trash2,
 } from "lucide-react";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { supabase } from "@/integrations/supabase/client";
