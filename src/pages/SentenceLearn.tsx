@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,11 @@ const SentenceLearn = () => {
   const [analysisGrade, setAnalysisGrade] = useState<{ rate: number; passed: boolean; diffs: OwnerDiffEntry[]; hasMaster: boolean } | null>(null);
   const [analysisRate, setAnalysisRate] = useState(0);
   const [analysisHasMaster, setAnalysisHasMaster] = useState(false);
+  const [analysisMasterLoaded, setAnalysisMasterLoaded] = useState(false);
+  /** onAnalysisProgress 콜백 도착 횟수 — Index.tsx의 fetchMasterAnswers 비동기 race를 닫기 위한 카운터.
+   * Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.
+   * 따라서 callback ≥ 2회이거나 hasMaster=true가 한 번이라도 관측되면 마스터 정보가 안정된 것으로 간주. */
+  const masterCallbackCountRef = useRef(0);
   const [analysisCounts, setAnalysisCounts] = useState<{ filled: number; total: number }>({ filled: 0, total: 0 });
   const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
   const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
@@ -108,7 +113,8 @@ const SentenceLearn = () => {
     wordtest: true,
   });
   const ANALYSIS_GATE = 0.8;
-  const canAdvanceToTranslation = analysisDone || analysisRate >= ANALYSIS_GATE;
+  const canAdvanceToTranslation =
+    analysisMasterLoaded && (analysisDone || analysisRate >= ANALYSIS_GATE);
   const testWordResultForFinalSubmit = () => ({
     passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
     score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
@@ -121,6 +127,15 @@ const SentenceLearn = () => {
   const [openRequest, setOpenRequest] = useState<AnalysisReviewRequest | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [currentAttemptNo, setCurrentAttemptNo] = useState(1);
+
+  // sentence 변경 시 마스터 로드 게이트 리셋 + 800ms 안전망(외부 fetch가 어떤 이유로 늦거나 실패해도 진행 가능)
+  useEffect(() => {
+    setAnalysisMasterLoaded(false);
+    masterCallbackCountRef.current = 0;
+    if (!sentenceId) return;
+    const t = window.setTimeout(() => setAnalysisMasterLoaded(true), 800);
+    return () => window.clearTimeout(t);
+  }, [sentenceId]);
 
   useEffect(() => {
     let mounted = true;
@@ -385,8 +400,9 @@ const SentenceLearn = () => {
       const threshold = profile?.analysis_pass_threshold ?? 0.8;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
-      // 마스터 미등록 문장은 학생 분석률(단어 기준)로 판정해 제출 흐름이 보류에 갇히지 않게 한다.
-      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : rateOk;
+      // 마스터 미등록 문장은 attempt log에서 분석 통과로 잡지 않는다(가짜 점수 누적 방지).
+      // 진행 자체는 proceedToTranslation의 'hold' 분기로 차단 없이 이어짐.
+      const naturalAnalysisPassed = grade.hasMaster ? rateOk && requiredOk : false;
       const analysisPassed = opts?.teacherOverride ? true : naturalAnalysisPassed;
       // 단어시험이 OFF인 특별과제 → 단어시험을 자동 PASS 처리
       const wordTestPassed = opts?.teacherOverride ? true : (!skipFlags.wordtest ? true : wordTest.passed);
@@ -410,13 +426,20 @@ const SentenceLearn = () => {
       else if (sp.get("test") === "1") attemptSource = "test";
 
       const attemptCount = await fetchAttemptCount(sentence.id);
-      const ownerDiffPayload = opts?.teacherOverride
-        ? ([{ owner_id: "__teacher_override__", teacherOverride: true } as unknown as OwnerDiffEntry, ...grade.diffs])
-        : grade.diffs;
+      // 마스터 부재 시 owner_diff 맨 앞에 마커를 끼워 후속 재채점/통계 로직에서 식별 가능하게 한다.
+      const noMasterMarker = !grade.hasMaster
+        ? [{ owner_id: "__no_master__", noMaster: true } as unknown as OwnerDiffEntry]
+        : [];
+      const teacherMarker = opts?.teacherOverride
+        ? [{ owner_id: "__teacher_override__", teacherOverride: true } as unknown as OwnerDiffEntry]
+        : [];
+      const ownerDiffPayload = [...teacherMarker, ...noMasterMarker, ...grade.diffs];
+      // attempt_log.analysis_match_rate는 NOT NULL 컬럼이므로 마스터 부재 시 0으로 기록 (NULL 저장은 스키마 변경 필요 → 별도 작업).
+      const attemptRate = grade.hasMaster ? grade.rate : 0;
       await insertAttemptLog({
         sentence_id: sentence.id,
         attempt_no: attemptCount + 1,
-        analysis_match_rate: grade.rate,
+        analysis_match_rate: attemptRate,
         analysis_passed: analysisPassed,
         word_test_score: wordTest.score,
         word_test_passed: wordTestPassed,
@@ -436,10 +459,12 @@ const SentenceLearn = () => {
         });
       } else {
         const nextStatus: "pass" | "fail" = overallPass ? "pass" : "fail";
+        // 마스터 부재 시 sentence_progress.analysis_match_rate는 건드리지 않음
+        // (proceedToTranslation에서 status='hold' + match_rate=NULL로 최종 정리됨).
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
           ...(analysisPassed || opts?.teacherOverride ? { analysis_done: true } : {}),
-          analysis_match_rate: grade.rate,
+          ...(grade.hasMaster ? { analysis_match_rate: grade.rate } : {}),
           status: nextStatus,
           passed_at: nextStatus === "pass" ? new Date().toISOString() : null,
         });
@@ -497,12 +522,27 @@ const SentenceLearn = () => {
       /* 무시하고 계속 시도 */
     }
     try {
-      // 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
-      await upsertSentenceProgress(sentence.id, {
-        word_test_done: true,
-        analysis_done: true,
-        analysis_match_rate: analysisRate,
-      });
+      if (analysisHasMaster) {
+        // 마스터키 있음: 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
+        await upsertSentenceProgress(sentence.id, {
+          word_test_done: true,
+          analysis_done: true,
+          analysis_match_rate: analysisRate,
+        });
+      } else {
+        // 마스터키 없음: 'hold' 상태로 저장하고 가짜 점수(학생 단어 채움률) 기록 금지.
+        // 선생님이 정답을 등록하면 추후 재채점 로직이 hold + match_rate IS NULL을 인식해 자동 채점.
+        await upsertSentenceProgress(sentence.id, {
+          word_test_done: true,
+          analysis_done: true,
+          analysis_match_rate: null,
+          status: "hold",
+        });
+        toast({
+          title: "선생님 채점 대기 중",
+          description: "정답 등록 후 자동 채점됩니다. 한글 해석을 계속 진행하세요.",
+        });
+      }
     } catch (e) {
       toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
       throw e;
@@ -905,6 +945,12 @@ const SentenceLearn = () => {
                     setAnalysisRate(rate);
                     setAnalysisHasMaster(meta.hasMaster);
                     setAnalysisCounts({ filled: meta.filled, total: meta.total });
+                    // 마스터 정보 안정 판정: hasMaster=true가 한 번이라도 관측되거나, 콜백이 2회 이상 도착하면 잠금 해제.
+                    // (Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.)
+                    masterCallbackCountRef.current += 1;
+                    if (meta.hasMaster || masterCallbackCountRef.current >= 2) {
+                      setAnalysisMasterLoaded(true);
+                    }
                   }}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
@@ -913,9 +959,13 @@ const SentenceLearn = () => {
 
             <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm text-foreground">
-                {canAdvanceToTranslation
-                  ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
+                {!analysisMasterLoaded
+                  ? "정답 정보를 불러오는 중…"
+                  : canAdvanceToTranslation
+                    ? analysisHasMaster
+                      ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
+                      : "분석을 80% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
+                    : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride
