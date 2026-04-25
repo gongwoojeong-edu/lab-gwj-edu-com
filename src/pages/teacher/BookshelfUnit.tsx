@@ -870,6 +870,30 @@ const BookshelfUnit = () => {
           </div>
         </Card>
 
+        {/* 유닛 워크북 인쇄 미리보기 모달 */}
+        {workbookStudentId && workbookSummary && unit && (() => {
+          const sel = studentList.find((s) => s.id === workbookStudentId);
+          if (!sel) return null;
+          const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
+          return (
+            <UnitWorkbookPreviewDialog
+              open={previewOpen}
+              onOpenChange={(o) => {
+                if (!workbookPrinting) setPreviewOpen(o);
+              }}
+              studentName={sel.name}
+              studentNo={sel.no}
+              unitTitle={unit.title}
+              unitCode={unitCode}
+              mode={sel.mode}
+              completedCodes={workbookSummary.completedCodes}
+              pendingCodes={workbookSummary.pendingCodes}
+              printing={workbookPrinting}
+              onConfirmPrint={handleConfirmPrintWorkbook}
+            />
+          );
+        })()}
+
         {selectedIds.size > 0 && (
           <div className="flex items-center gap-2 px-1">
             <span className="text-xs text-muted-foreground">
