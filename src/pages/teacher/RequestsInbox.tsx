@@ -211,6 +211,7 @@ const RequestsInbox = () => {
       await markPrintRequestHandled(req.id);
       await ensureHandoutRow(req.user_id, null, toIsoDate(new Date()), req.sentence_id);
       toast({ title: "인쇄창 준비 완료" });
+      setTab("done");
     } catch (e) {
       console.warn("[RequestsInbox] markHandled/ensureRow failed", e);
     } finally {
