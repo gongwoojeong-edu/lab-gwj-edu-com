@@ -103,9 +103,9 @@ const StudentHome = () => {
             .from("sentence_progress")
             .select("sentence_id, status, updated_at, passed_at")
             .eq("user_id", user.id)
-            .in("status", ["pass", "fail"])
+            .in("status", ["pass", "fail", "hold"])
             .order("updated_at", { ascending: false })
-            .limit(5),
+            .limit(6),
           supabase
             .from("assignments")
             .select("id, title, description, sentence_id, due_at, include_pre, include_analysis, include_translation, include_wordtest")
@@ -115,10 +115,39 @@ const StudentHome = () => {
             .limit(5),
         ]);
         const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold"; updated_at: string; passed_at: string | null }[];
+
+        // 정적 SENTENCES에 없는 코드(textbook_passages 기반)는 DB에서 fallback 조회
+        const missingIds = rows
+          .map((r) => r.sentence_id)
+          .filter((id) => !SENTENCES.find((x) => x.id === id));
+        const passageMap = new Map<string, { english: string; korean: string | null }>();
+        if (missingIds.length > 0) {
+          const { data: passages } = await supabase
+            .from("textbook_passages")
+            .select("code, english, korean")
+            .in("code", missingIds);
+          (passages ?? []).forEach((p: { code: string; english: string; korean: string | null }) => {
+            passageMap.set(p.code, { english: p.english, korean: p.korean });
+          });
+        }
+
         const enriched: RecentItem[] = rows
           .map((row) => {
             const s = SENTENCES.find((x) => x.id === row.sentence_id);
-            return s ? { sentence: s, status: row.status, updated_at: row.passed_at ?? row.updated_at } : null;
+            if (s) {
+              return { sentence: s, status: row.status, updated_at: row.passed_at ?? row.updated_at };
+            }
+            const p = passageMap.get(row.sentence_id);
+            if (p) {
+              const fakeSentence = {
+                id: row.sentence_id,
+                english: p.english,
+                korean: p.korean ?? "",
+                tokens: [],
+              } as unknown as Sentence;
+              return { sentence: fakeSentence, status: row.status, updated_at: row.passed_at ?? row.updated_at };
+            }
+            return null;
           })
           .filter(Boolean) as RecentItem[];
 
