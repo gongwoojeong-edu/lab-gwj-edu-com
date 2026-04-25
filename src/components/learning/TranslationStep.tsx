@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Check, Eye, EyeOff } from "lucide-react";
 import { fetchTranslation, upsertTranslation } from "@/integrations/supabase/storage";
 import { toast } from "@/hooks/use-toast";
+import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 
 interface Props {
   sentenceId: string;
@@ -25,6 +26,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const safeEnglishSentence = stripKoreanFromEnglishSource(englishSentence);
 
   useEffect(() => {
     let mounted = true;
@@ -70,7 +72,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
     <Card className="p-4 space-y-3">
       <div className="space-y-1">
         <div className="text-xs text-muted-foreground">원문</div>
-        <div className="text-base font-medium leading-relaxed">{englishSentence}</div>
+        <div className="text-base font-medium leading-relaxed">{safeEnglishSentence}</div>
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
