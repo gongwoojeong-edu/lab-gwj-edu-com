@@ -222,6 +222,7 @@ const RequestsInbox = () => {
     try {
       await approveReviewRequest(id);
       toast({ title: "승인 완료" });
+      setTab("done");
     } catch (e) {
       toast({ title: "승인 실패", description: errMsg(e), variant: "destructive" });
     }
@@ -232,6 +233,7 @@ const RequestsInbox = () => {
     try {
       await rejectReviewRequest(id, note);
       toast({ title: "반려 처리됨" });
+      setTab("done");
     } catch (e) {
       toast({ title: "반려 실패", description: errMsg(e), variant: "destructive" });
     }
