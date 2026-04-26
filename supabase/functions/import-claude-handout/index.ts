@@ -36,8 +36,8 @@ function safeSlug(s: string): string {
     .slice(0, 60);
 }
 
-// 🔧 v3: 공우정에듀 분석기에서 보내는 ➊~➓ / ①~⑳ 원형 숫자 기호로 분할
-//        + 한국어 해석 영역 자동 제거 + 어휘 주석 제거 + 헤더 라인 제거
+// 🔧 v4: 공우정에듀 분석기에서 보내는 ➊~➓ / ①~⑳ 원형 숫자 기호로 분할
+//        + 한국어 해석 영역 자동 제거 + 헤더 라인 제거 + analysis_status는 draft (마스터키 입력 후 ready)
 function splitIntoSentences(text: string): string[] {
   const norm = (text || "").trim();
   if (!norm) return [];
@@ -410,7 +410,7 @@ Deno.serve(async (req) => {
     code: isMulti ? `${codeRoot}-${i + 1}` : codeRoot,
     english: sent,
     korean: i === 0 ? koreanParts : null,
-    analysis_status: "ready",
+    analysis_status: "draft", // 🆕 v4: 분석기 전송본은 draft 상태 — 선생님이 마스터키 입력 후 학생 공개 버튼으로 ready 전환
   }));
 
   const { data: insertedRows, error: passErr } = await admin
