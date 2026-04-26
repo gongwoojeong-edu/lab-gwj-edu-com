@@ -36,11 +36,66 @@ function safeSlug(s: string): string {
     .slice(0, 60);
 }
 
+// 🔧 v2: 공우정에듀 분석기에서 보내는 ➊~➓ / ①~⑳ 원형 숫자 기호로 분할 + 한국어 해석 영역 자동 제거
 function splitIntoSentences(text: string): string[] {
-  const norm = (text || "").replace(/\s+/g, " ").trim();
+  const norm = (text || "").trim();
   if (!norm) return [];
-  const parts = norm.split(/(?<=[.!?])\s+(?=[A-Z"'(])/);
-  return parts.map((s) => s.trim()).filter(Boolean);
+
+  // [Step 1] 한국어 해석 영역 분리
+  // 분석기가 보내는 passage 구조:
+  //   "➊ English sentence 1...
+  //    ➋ English sentence 2...
+  //    ...
+  //    *thermal insulation: 단열   ← (어휘 주석)
+  //    02강 Exercise 02            ← (출처)
+  //    ➊ 한국어 해석 1...           ← (한국어 영역 시작)
+  //    ➋ 한국어 해석 2..."
+  // 줄 단위로 보면서, 한글 비율이 30%를 넘는 첫 줄부터 끝까지 한국어 영역으로 간주하고 잘라냄
+  const lines = norm.split(/\r?\n/);
+  const englishLines: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      englishLines.push(line);
+      continue;
+    }
+    const koreanCount = (trimmed.match(/[\uAC00-\uD7AF]/g) || []).length;
+    // 줄에 한글이 30%보다 많으면 해석 영역 시작 → 이 지점부터 모두 버림
+    if (koreanCount > trimmed.length * 0.3) break;
+    englishLines.push(line);
+  }
+  let englishText = englishLines.join(" ").replace(/\s+/g, " ").trim();
+  if (!englishText) {
+    // 안전망: 한국어를 다 잘라냈더니 빈 문자열이면 원문을 그대로 사용
+    englishText = norm.replace(/\s+/g, " ").trim();
+  }
+
+  // [Step 2] 어휘 주석 제거 (예: "*thermal insulation: 단열 **heat recovery: 열회수")
+  // *나 ** 로 시작하는 영역을 끝까지 잘라냄
+  const noteIdx = englishText.search(/(?:^|\s)\*+[A-Za-z]/);
+  if (noteIdx >= 0) {
+    englishText = englishText.slice(0, noteIdx).trim();
+  }
+
+  if (!englishText) return [];
+
+  // [Step 3] 분할 시도
+  // 우선순위 1: 원형 숫자 기호 (➊➋➌➍➎➏➐➑➒➓ 또는 ①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳)로 분할
+  const circledRegex = /[\u278A-\u2793\u2460-\u2473]/; // ➊~➓ (U+278A~U+2793) 와 ①~⑳ (U+2460~U+2473)
+  if (circledRegex.test(englishText)) {
+    const parts = englishText
+      .split(/(?=[\u278A-\u2793\u2460-\u2473])/)         // 원형 숫자 앞에서 분할 (기호는 다음 조각에 포함)
+      .map((s) => s.replace(/^[\u278A-\u2793\u2460-\u2473]\s*/, "").trim()) // 선두 기호 제거
+      .filter(Boolean);
+    if (parts.length > 0) return parts;
+  }
+
+  // 우선순위 2: 기존 로직 — 마침표/느낌표/물음표 + 공백 + 대문자/따옴표/괄호
+  const parts = englishText
+    .split(/(?<=[.!?])\s+(?=[A-Z"'(])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts;
 }
 
 interface Payload {
