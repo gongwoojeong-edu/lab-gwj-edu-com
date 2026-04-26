@@ -215,15 +215,17 @@ const Assignments = () => {
   useEffect(() => { void ensureUnits(editForm.selectedTbId); }, [editForm.selectedTbId]); // eslint-disable-line
   useEffect(() => { void ensurePassages(editForm.selectedUnitId); }, [editForm.selectedUnitId]); // eslint-disable-line
 
-  // 유닛 선택 시 첫 지문 자동 연결 (사용자가 명시적으로 변경하지 않았다면)
+  // 유닛 선택 시 첫 지문 자동 연결 (unit 모드에서만; sentence 모드는 사용자 명시 선택 필수)
   useEffect(() => {
+    if (form.mode !== "unit") return;
     if (!form.selectedUnitId) return;
     const ps = passagesByUnit[form.selectedUnitId];
     if (!ps || ps.length === 0) return;
     if (form.selectedPassageCode) return; // 이미 선택됨
     setForm((p) => ({ ...p, selectedPassageCode: ps[0].code }));
-  }, [form.selectedUnitId, passagesByUnit]); // eslint-disable-line
+  }, [form.selectedUnitId, form.mode, passagesByUnit]); // eslint-disable-line
   useEffect(() => {
+    // 편집 다이얼로그는 항상 unit 동작과 동일 (모드 잠금)
     if (!editForm.selectedUnitId) return;
     const ps = passagesByUnit[editForm.selectedUnitId];
     if (!ps || ps.length === 0) return;
