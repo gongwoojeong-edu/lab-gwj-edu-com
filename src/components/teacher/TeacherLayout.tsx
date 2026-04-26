@@ -116,35 +116,32 @@ const TeacherSidebarInner = () => {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            </SidebarMenu>
-            {!collapsed && (
-              <div className="px-2 pt-1 pb-1.5">
-                <div
-                  className="flex gap-1 overflow-x-auto scrollbar-thin pb-1"
-                  style={{ scrollbarWidth: "thin" }}
-                >
-                  {LEVELS.map((l) => {
-                    const to = `/teacher/bookshelf/${l.code}`;
-                    const active = isActive(to);
-                    return (
-                      <NavLink
-                        key={l.code}
-                        to={to}
-                        className={cn(
-                          "shrink-0 px-2 py-1 rounded-md text-[11px] font-mono whitespace-nowrap transition-colors",
-                          active
-                            ? "bg-primary text-primary-foreground font-bold"
-                            : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground",
+              {LEVELS.map((l) => {
+                const to = `/teacher/bookshelf/${l.code}`;
+                const active = isActive(to);
+                return (
+                  <SidebarMenuItem key={l.code}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={to} className={linkCls(active)} title={levelDisplay(l.code)}>
+                        <span
+                          className={cn(
+                            "inline-flex items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 rounded text-[10px] font-mono font-bold",
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted/60 text-muted-foreground",
+                          )}
+                        >
+                          {l.code}
+                        </span>
+                        {!collapsed && (
+                          <span className="text-sm">{levelDisplay(l.code)}</span>
                         )}
-                        title={levelDisplay(l.code)}
-                      >
-                        {l.code}
                       </NavLink>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

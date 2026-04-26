@@ -50,6 +50,7 @@ import {
 } from "@/lib/textbooks";
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
+import AssignmentProgressSummary from "@/components/teacher/AssignmentProgressSummary";
 
 import {
   fetchAssignmentProgress,
@@ -1202,6 +1203,15 @@ const Assignments = () => {
                         progress={mergedProgress}
                         studentNameMap={studentNameMap}
                         targetUserIds={allTargetIds}
+                      />
+                      <AssignmentProgressSummary
+                        progress={mergedProgress}
+                        includePre={g.include_pre}
+                        includeAnalysis={g.include_analysis}
+                        includeTranslation={g.include_translation}
+                        includeWordtest={g.include_wordtest}
+                        targetUserIds={allTargetIds}
+                        className="pt-1"
                       />
                       {g.description && <p className="text-xs text-foreground/80 mt-1">{g.description}</p>}
                     </div>
