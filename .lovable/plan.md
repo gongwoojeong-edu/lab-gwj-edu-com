@@ -1,84 +1,60 @@
-## 목표
+## 변경 목표
 
-지금까지 혼동의 근원이었던 **학생별 `unit_workbook_mode` 설정을 폐기**하고, 워크북 인쇄 자체를 깔끔한 **2축 모델**로 다시 정의합니다.
-
-- **축 1 — 워크북 종류**: 구문(분석+해석) / 단어
-- **축 2 — 범위**: 유닛 통합 / 문장별
-
-→ 총 **4종 인쇄 옵션**. 교사가 인쇄할 때마다 직접 선택. 학생 프로필에는 어떤 모드 설정도 저장하지 않음.
-
-또한 단어와 구문은 **절대 같은 PDF에 섞지 않습니다**. 따로 출력.
+1. **진입 위치 이동**: 페이지 상단(우측 "과거 과제함 보기 →" 텍스트 링크)을 제거하고, **"진행중 과제 (N)" 헤더 옆**(스크린샷 녹색 표시 위치)에 같은 형태의 버튼을 배치한다.
+2. **버튼화**: 진행중 과제 카드 내 다른 컨트롤들과 톤이 어울리는 작은 버튼으로 통일 (variant="outline", size="sm").
+3. **완료 과제 목록 포맷 통일**: 현재 `AssignmentsPast`는 개별 row 단위 + accordion으로 표시되는데, 이를 **진행중 과제와 동일한 "유닛 그룹" 카드 포맷**으로 바꾼다 (제목 + "유닛 · 지문 N개" 뱃지 + 대상/마감/통과수 + AssignmentStepBadges).
 
 ---
 
-## 새 인쇄 UI (교사용)
+## 변경 파일
 
-학생 카드/행의 "워크북 인쇄" 버튼을 누르면 모달이 뜨고, 4개 카드 중 하나를 선택:
+### 1) `src/pages/teacher/Assignments.tsx`
 
-```text
-┌─────────────────────┬─────────────────────┐
-│ 구문 · 유닛 통합     │ 구문 · 문장별       │
-│ 유닛 전체 문장의     │ 한 지문의 영어 +    │
-│ 영어 + 한글해석      │ 한글해석            │
-│ (= 김재원 디자인)    │                     │
-├─────────────────────┼─────────────────────┤
-│ 단어 · 유닛 통합     │ 단어 · 문장별       │
-│ 유닛 전체 단어 시험  │ 한 지문 단어 시험   │
-└─────────────────────┴─────────────────────┘
-```
+- **상단 헤더 영역(L987–L997)**: 우측의 `<a href="/teacher/assignments/past">과거 과제함 보기 →</a>` 링크 제거.
+- **"진행중 과제 ({activeGroups.length})" 헤더 줄(L1126)**: `<h2>` 와 같은 줄에 우측 정렬로 `Link` 기반 버튼 추가.
+  ```tsx
+  <div className="flex items-center justify-between gap-2">
+    <h2 className="...">진행중 과제 ({activeGroups.length})</h2>
+    <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">
+      <Link to="/teacher/assignments/past">
+        <ClipboardList className="size-3.5 mr-1" />
+        완료 과제함
+      </Link>
+    </Button>
+  </div>
+  ```
 
-- 카드 선택 → 미리보기(포함 지문 / 예상 페이지) → [인쇄 시작]
-- 단어와 구문은 별도 인쇄 잡으로 처리. 두 개 필요하면 교사가 두 번 누름.
+### 2) `src/pages/teacher/AssignmentsPast.tsx` — 전면 리팩터
 
----
+진행중과 동일한 그룹화/렌더링 로직을 도입한다.
 
-## 학생 설정 정리
+**추가 로드**:
+- `textbook_passages`에서 `code → unit_id` 매핑 (`codeToUnit`)
+- `textbooks` / `units` / `passages` (라벨용)
+- `fetchAssignmentProgress` 결과 (`progressByAsg`) — 그룹 진척 계산용
 
-- 학생 프로필 토글 `WorkbookModeToggle` **모든 화면에서 제거**:
-  - `src/pages/teacher/RequestsInbox.tsx`
-  - `src/pages/teacher/Assignments.tsx`
-  - `src/pages/teacher/LearningResults.tsx`
-  - `src/pages/teacher/BookshelfUnit.tsx`
-  - `src/pages/TeacherStudents.tsx`
-- `WorkbookModeToggle.tsx` 컴포넌트 파일 삭제
-- DB 컬럼 `student_profiles.unit_workbook_mode` 는 **드롭하지 않고 그대로 둠**(데이터 안전). 코드에서 단지 더 이상 읽지/쓰지 않음. 추후 정리 마이그레이션은 별도.
+**그룹화**: 진행중과 동일한 키 `${title}|${due_at}|${student_id}|${unit_id}` 로 묶고 `AssignmentGroup` 구조 생성.
 
----
+**완료 판정**: 기존 `isAssignmentDone(r, progressByAsg[r.id], allIds)` 를 그룹 내 모든 row에 적용해 `group의 모든 row가 완료`인 그룹만 표시. (현재 로직 유지)
 
-## 코드 변경 (기술 영역)
+**카드 렌더링**: 진행중 카드와 동일한 마크업 사용
+- 제목 + `유닛 · 지문 N개` 뱃지
+- "대상 / 마감일 / 통과 N/M명 / 유닛라벨" 메타 라인 (마감일은 빨강 강조 없이 회색)
+- `AssignmentStepBadges` (mergedProgress 동일 계산)
+- 우측 액션은 **삭제 버튼만** (완료된 과제이므로 +1주 / 수정 제거)
+- 기존 accordion(개별 학생 PASS/FAIL 표) 제거 — 뱃지 hover로 충분
 
-### `src/lib/unitWorkbook.ts`
-- `buildUnitWorkbookHtmlFor` 의 `mode` 파라미터를 새 4종 enum으로 교체:
-  - `"syntax_unit"` → 기존 `buildUnitOnlyCombined()` 그대로 (= 김재원 디자인)
-  - `"syntax_passage"` → 한 지문에 대해 [영어 + 학생 한글해석]만 (분석/단어 없음)
-  - `"word_unit"` → 유닛 전체 단어 시험지 (`buildWordPrintHtml` 의 묶음 버전)
-  - `"word_passage"` → 한 지문 단어 시험지
-- 기존 `buildPassageSection`, `buildCoverPage`, `COVER_HEAD` 는 **사용처가 없어지므로 제거** (또는 export 안 하고 dead-code로 남김 → 정리 권장).
-- `summarizeUnitProgress` 는 유닛 통합용에만 사용. 문장별은 단일 지문 ID만 받음.
-
-### `src/components/teacher/UnitWorkbookPreviewDialog.tsx`
-- 모드 선택 UI를 4-카드 그리드로 교체.
-- "지문당 포함 섹션" 박스 제거(혼란 요소).
-- 메타 표시: 학생 / 유닛 / 선택한 워크북 종류 / 포함 지문 수 / 예상 페이지.
-
-### 호출부
-- `LearningResults.tsx`, `BookshelfUnit.tsx` 의 인쇄 버튼은 학생별 mode를 안 읽고, 모달의 선택값을 그대로 `buildUnitWorkbookHtmlFor` 에 전달.
-
-### 인쇄 단위
-- 문장별(syntax_passage / word_passage) 인쇄는 "이 학생의 완료 지문 N개"를 PDF 한 묶음으로 (각 지문 1페이지씩). 또는 단일 선택. → **선택한 유닛 안의 완료 지문 전체를 묶어** 한 번에 인쇄(현재 흐름과 동일).
+**경로/상단**: "← 진행중 과제로" 백 링크 유지.
 
 ---
 
-## 결과
+## 기술 메모
 
-- 배아은·전승우도 김재원과 동일하게 깔끔한 디자인 출력 (구문 유닛통합 카드 선택 시).
-- 학생별로 따로 설정할 게 없어 미래의 "왜 학생마다 디자인이 다르지?" 혼란 원천 봉쇄.
-- 단어 시험지는 항상 별도 인쇄 — 구문과 섞일 일 없음.
-
----
+- 진행중 카드의 `mergedProgress` 계산 블록(L1141–L1173)은 그대로 옮겨 재사용. 가능하면 `Assignments.tsx`/`AssignmentsPast.tsx` 양쪽에서 import할 수 있도록 `src/lib/assignmentGroup.ts`(신규) 같은 헬퍼로 추출하는 것도 검토하나, 우선은 **단순 복제**로 진행해 변경 범위를 최소화한다.
+- `isAssignmentDone` 호출 시 그룹 단위 완료 여부 = 그룹 내 모든 row가 완료. 기존 `AssignmentsPast`의 row 단위 필터를 그룹 단위로 변경.
+- 라우트(`/teacher/assignments/past`)는 그대로. 변경 없음.
 
 ## 영향 범위
 
-수정: 4 페이지 + 1 라이브러리 + 1 모달  
-삭제: 1 컴포넌트(`WorkbookModeToggle`)  
-DB: 변경 없음 (컬럼 보존, 코드에서 무시)
+- 데이터 모델 변경 없음 (DB 마이그레이션 불필요)
+- 두 파일만 수정: `Assignments.tsx`, `AssignmentsPast.tsx`
