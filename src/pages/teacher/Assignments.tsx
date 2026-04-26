@@ -235,6 +235,27 @@ const Assignments = () => {
     setEditForm((p) => ({ ...p, selectedPassageCode: ps[0].code }));
   }, [editForm.selectedUnitId, passagesByUnit]); // eslint-disable-line
 
+  // sentence 모드: 선택 유닛의 지문에 대해 마스터키 가용성 일괄 조회 (뱃지/안내용)
+  useEffect(() => {
+    if (form.mode !== "sentence") return;
+    if (!form.selectedUnitId) return;
+    const ps = passagesByUnit[form.selectedUnitId];
+    if (!ps || ps.length === 0) return;
+    const codes = ps.map((p) => p.code).filter((c) => !(c in masterAvail));
+    if (codes.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const map = await fetchMasterAvailability(codes);
+        if (cancelled) return;
+        setMasterAvail((prev) => ({ ...prev, ...map }));
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [form.mode, form.selectedUnitId, passagesByUnit]); // eslint-disable-line
+
   // sentence_id(=passage code) → 사람이 읽는 라벨 매핑 (목록 표시용)
   const codeLabelMap = useMemo(() => {
     const m = new Map<string, string>();
