@@ -866,15 +866,26 @@ const LearningResults = () => {
                       · 활동 {sentenceIds.length}건
                     </span>
                     {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="ml-auto"
-                      onClick={() => handlePrintAll(userId, sentenceIds)}
-                    >
-                      <Printer className="size-3.5 mr-1" />
-                      전체 인쇄
-                    </Button>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePrintAll(userId, sentenceIds, "syntax_unit")}
+                        title="구문 · 유닛 통합 워크북 (영어분석+해석)"
+                      >
+                        <Printer className="size-3.5 mr-1" />
+                        구문 전체
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePrintAll(userId, sentenceIds, "word_unit")}
+                        title="단어 · 유닛 통합 시험지"
+                      >
+                        <Printer className="size-3.5 mr-1" />
+                        단어 전체
+                      </Button>
+                    </div>
                   </div>
 
                   {/* 유닛별 그룹핑: 같은 unit_id의 sentence들을 한 카드(접이식)로 묶음 */}
