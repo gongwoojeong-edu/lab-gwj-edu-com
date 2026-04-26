@@ -1289,6 +1289,22 @@ const Assignments = () => {
                 </Popover>
               </div>
               <div>{renderStepCheckboxes(editForm, setEditForm)}</div>
+              <div className="sm:col-span-2 space-y-2 opacity-70">
+                <Label>출제 모드</Label>
+                <RadioGroup value={editForm.mode} disabled className="flex flex-wrap gap-4 px-3 py-2 rounded-md border border-border bg-muted/30">
+                  <label className="inline-flex items-center gap-2">
+                    <RadioGroupItem value="unit" disabled />
+                    <span className="text-sm font-medium">유닛 전체</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <RadioGroupItem value="sentence" disabled />
+                    <span className="text-sm font-medium">특정 문장만</span>
+                  </label>
+                </RadioGroup>
+                <p className="text-[11px] text-muted-foreground">
+                  출제 모드는 변경할 수 없습니다. 다른 모드로 출제하려면 새 과제를 생성해주세요.
+                </p>
+              </div>
               {renderTextbookPickers(editForm, setEditForm)}
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>설명 (선택)</Label>
