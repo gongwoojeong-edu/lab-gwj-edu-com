@@ -36,7 +36,8 @@ function safeSlug(s: string): string {
     .slice(0, 60);
 }
 
-// 🔧 v2: 공우정에듀 분석기에서 보내는 ➊~➓ / ①~⑳ 원형 숫자 기호로 분할 + 한국어 해석 영역 자동 제거
+// 🔧 v3: 공우정에듀 분석기에서 보내는 ➊~➓ / ①~⑳ 원형 숫자 기호로 분할
+//        + 한국어 해석 영역 자동 제거 + 어휘 주석 제거 + 헤더 라인 제거
 function splitIntoSentences(text: string): string[] {
   const norm = (text || "").trim();
   if (!norm) return [];
@@ -83,6 +84,11 @@ function splitIntoSentences(text: string): string[] {
   // 우선순위 1: 원형 숫자 기호 (➊➋➌➍➎➏➐➑➒➓ 또는 ①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳)로 분할
   const circledRegex = /[\u278A-\u2793\u2460-\u2473]/; // ➊~➓ (U+278A~U+2793) 와 ①~⑳ (U+2460~U+2473)
   if (circledRegex.test(englishText)) {
+    // 🆕 v3: 첫 번째 원형 숫자 앞의 헤더 라인 제거 (예: "6-Exercise 2", "Lesson 3", "지문 1" 등)
+    const firstCircled = englishText.search(/[\u278A-\u2793\u2460-\u2473]/);
+    if (firstCircled > 0) {
+      englishText = englishText.slice(firstCircled);
+    }
     const parts = englishText
       .split(/(?=[\u278A-\u2793\u2460-\u2473])/)         // 원형 숫자 앞에서 분할 (기호는 다음 조각에 포함)
       .map((s) => s.replace(/^[\u278A-\u2793\u2460-\u2473]\s*/, "").trim()) // 선두 기호 제거
