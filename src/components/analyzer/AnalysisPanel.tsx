@@ -1082,13 +1082,26 @@ const AdjPanel = ({
         <ClauseDepthRow value={adj.clauseDepth ?? 1} onChange={onClauseDepthChange} />
       )}
       {skipsElement ? (
-        <RoleRow
-          unlocked={!!adj.form}
-          status={adj.roleStatus}
-          options={roleOptions}
-          selected={adj.role}
-          onSelect={onAdjRoleChange}
-        />
+        adj.form === "전N" ? (
+          // 결함 #4: 형용사 전N도 부사 전N과 동일한 시각 패턴(통합 그리드 1버튼)으로 표시
+          <PrepPhraseShortcut
+            label="형용사 전치사구"
+            element="M"
+            elementLabel="수식어"
+            colorClass="bg-element-m-bg text-element-m border-element-m/40"
+            selectedRole={adj.role}
+            roleStatus={adj.roleStatus}
+            onPick={() => onAdjRoleChange("형용사 전치사구")}
+          />
+        ) : (
+          <RoleRow
+            unlocked={!!adj.form}
+            status={adj.roleStatus}
+            options={roleOptions}
+            selected={adj.role}
+            onSelect={onAdjRoleChange}
+          />
+        )
       ) : (
         <ElementRoleGrid
           unlocked={!!adj.form}
