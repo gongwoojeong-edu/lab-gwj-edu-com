@@ -964,11 +964,24 @@ const LearningResults = () => {
                                   className="h-7 px-2 ml-1"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handlePrintAll(userId, g.sids);
+                                    handlePrintAll(userId, g.sids, "syntax_unit");
                                   }}
-                                  title="이 유닛 전체 인쇄"
+                                  title="이 유닛 구문 전체 인쇄"
                                 >
                                   <Printer className="size-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePrintAll(userId, g.sids, "word_unit");
+                                  }}
+                                  title="이 유닛 단어 전체 인쇄"
+                                >
+                                  <Printer className="size-3.5" />
+                                  <span className="text-[10px] ml-0.5">단어</span>
                                 </Button>
                               </button>
 
