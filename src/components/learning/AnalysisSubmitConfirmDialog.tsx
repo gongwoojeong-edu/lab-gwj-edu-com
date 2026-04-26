@@ -230,9 +230,13 @@ export const AnalysisSubmitConfirmDialog = ({
               setSubmitting(true);
               try {
                 await onConfirmSubmit();
-                onOpenChange(false);
+              } catch (e) {
+                // proceedToTranslation 등에서 throw돼도 다이얼로그가 멈춰버리면 안 됨.
+                // 호출자가 toast로 사용자에게 알림 → 여기서는 다이얼로그를 닫아 재시도 가능 상태로.
+                console.error("[AnalysisSubmitConfirmDialog] onConfirmSubmit failed", e);
               } finally {
                 setSubmitting(false);
+                onOpenChange(false);
               }
             }}
             disabled={loading || submitting}
