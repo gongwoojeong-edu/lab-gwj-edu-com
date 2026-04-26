@@ -597,7 +597,11 @@ const LearningResults = () => {
     }
   };
 
-  const handlePrintAll = async (userId: string, sentenceIds: string[]) => {
+  const handlePrintAll = async (
+    userId: string,
+    sentenceIds: string[],
+    mode: "syntax_unit" | "word_unit" = "syntax_unit",
+  ) => {
     // sentence_id → unit_id 로 그룹핑 후 유닛별 통합 워크북 1장씩 인쇄
     try {
       const groups = new Map<string, string[]>();
@@ -611,9 +615,6 @@ const LearningResults = () => {
         toast({ title: "유닛에 속한 완료 지문이 없어요", variant: "destructive" });
         return;
       }
-      // "전체 인쇄"는 기본 모드(구문·유닛 통합)로 출력. 다른 모드가 필요하면
-      // 학생 카드의 미리보기 모달에서 선택해서 인쇄.
-      const mode = "syntax_unit" as const;
       const htmls: string[] = [];
       for (const [unitId] of groups) {
         const label = unitLabel[unitId] ?? "Unit";
@@ -634,12 +635,15 @@ const LearningResults = () => {
         toast({ title: "인쇄할 워크북 생성에 실패했어요", variant: "destructive" });
         return;
       }
-      launchPrintHtmlMany(htmls, { jobKey: `printAll:${userId}` }).catch((e) =>
+      launchPrintHtmlMany(htmls, { jobKey: `printAll:${userId}:${mode}` }).catch((e) =>
         console.warn("[LearningResults] launchPrintHtmlMany failed", e),
       );
+      const isWord = mode === "word_unit";
       toast({
-        title: `구문 유닛 통합 워크북 ${htmls.length}건 인쇄 시작`,
-        description: "앞면=영어분석+학생해석, 뒷면=구조도",
+        title: `${isWord ? "단어" : "구문"} 유닛 통합 워크북 ${htmls.length}건 인쇄 시작`,
+        description: isWord
+          ? "유닛 전체 단어 시험지"
+          : "앞면=영어분석+학생해석, 뒷면=구조도",
       });
     } catch (e) {
       const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
@@ -862,15 +866,26 @@ const LearningResults = () => {
                       · 활동 {sentenceIds.length}건
                     </span>
                     {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="ml-auto"
-                      onClick={() => handlePrintAll(userId, sentenceIds)}
-                    >
-                      <Printer className="size-3.5 mr-1" />
-                      전체 인쇄
-                    </Button>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePrintAll(userId, sentenceIds, "syntax_unit")}
+                        title="구문 · 유닛 통합 워크북 (영어분석+해석)"
+                      >
+                        <Printer className="size-3.5 mr-1" />
+                        구문 전체
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePrintAll(userId, sentenceIds, "word_unit")}
+                        title="단어 · 유닛 통합 시험지"
+                      >
+                        <Printer className="size-3.5 mr-1" />
+                        단어 전체
+                      </Button>
+                    </div>
                   </div>
 
                   {/* 유닛별 그룹핑: 같은 unit_id의 sentence들을 한 카드(접이식)로 묶음 */}
@@ -949,11 +964,24 @@ const LearningResults = () => {
                                   className="h-7 px-2 ml-1"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handlePrintAll(userId, g.sids);
+                                    handlePrintAll(userId, g.sids, "syntax_unit");
                                   }}
-                                  title="이 유닛 전체 인쇄"
+                                  title="이 유닛 구문 전체 인쇄"
                                 >
                                   <Printer className="size-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePrintAll(userId, g.sids, "word_unit");
+                                  }}
+                                  title="이 유닛 단어 전체 인쇄"
+                                >
+                                  <Printer className="size-3.5" />
+                                  <span className="text-[10px] ml-0.5">단어</span>
                                 </Button>
                               </button>
 
