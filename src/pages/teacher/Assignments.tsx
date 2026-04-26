@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -54,6 +55,7 @@ import {
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
 import { isAssignmentDone } from "@/lib/assignmentCompletion";
+import { fetchMasterAvailability } from "@/lib/masterAvailability";
 
 interface AssignmentGroup {
   key: string;
@@ -89,8 +91,12 @@ interface AssignmentRow {
 
 type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
+type AssignMode = "unit" | "sentence";
+
 interface FormState {
   title: string;
+  /** 출제 모드: unit = 유닛 전체 지문, sentence = 단일 문장만 */
+  mode: AssignMode;
   /** 빈 배열 = 전체 학생, 1개 이상 = 선택된 학생들 (각각 별도 과제 행 생성) */
   studentIds: string[];
   // 위계 선택 상태 (UI 용)
@@ -109,6 +115,7 @@ interface FormState {
 
 const emptyForm = (): FormState => ({
   title: "",
+  mode: "unit",
   studentIds: [],
   selectedLevel: "",
   selectedSeriesId: "",
@@ -132,6 +139,8 @@ const Assignments = () => {
   const [tbsBySeries, setTbsBySeries] = useState<Record<string, Textbook[]>>({});
   const [unitsByTb, setUnitsByTb] = useState<Record<string, Unit[]>>({});
   const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
+  /** sentence_id → 마스터키(원장 owner_progress) 존재 여부 (sentence 모드 뱃지/안내용) */
+  const [masterAvail, setMasterAvail] = useState<Record<string, boolean>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
   /** sentence_id(=passage code) → unit_id 매핑 (그룹핑·라벨용) */
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
@@ -208,21 +217,44 @@ const Assignments = () => {
   useEffect(() => { void ensureUnits(editForm.selectedTbId); }, [editForm.selectedTbId]); // eslint-disable-line
   useEffect(() => { void ensurePassages(editForm.selectedUnitId); }, [editForm.selectedUnitId]); // eslint-disable-line
 
-  // 유닛 선택 시 첫 지문 자동 연결 (사용자가 명시적으로 변경하지 않았다면)
+  // 유닛 선택 시 첫 지문 자동 연결 (unit 모드에서만; sentence 모드는 사용자 명시 선택 필수)
   useEffect(() => {
+    if (form.mode !== "unit") return;
     if (!form.selectedUnitId) return;
     const ps = passagesByUnit[form.selectedUnitId];
     if (!ps || ps.length === 0) return;
     if (form.selectedPassageCode) return; // 이미 선택됨
     setForm((p) => ({ ...p, selectedPassageCode: ps[0].code }));
-  }, [form.selectedUnitId, passagesByUnit]); // eslint-disable-line
+  }, [form.selectedUnitId, form.mode, passagesByUnit]); // eslint-disable-line
   useEffect(() => {
+    // 편집 다이얼로그는 항상 unit 동작과 동일 (모드 잠금)
     if (!editForm.selectedUnitId) return;
     const ps = passagesByUnit[editForm.selectedUnitId];
     if (!ps || ps.length === 0) return;
     if (editForm.selectedPassageCode) return;
     setEditForm((p) => ({ ...p, selectedPassageCode: ps[0].code }));
   }, [editForm.selectedUnitId, passagesByUnit]); // eslint-disable-line
+
+  // sentence 모드: 선택 유닛의 지문에 대해 마스터키 가용성 일괄 조회 (뱃지/안내용)
+  useEffect(() => {
+    if (form.mode !== "sentence") return;
+    if (!form.selectedUnitId) return;
+    const ps = passagesByUnit[form.selectedUnitId];
+    if (!ps || ps.length === 0) return;
+    const codes = ps.map((p) => p.code).filter((c) => !(c in masterAvail));
+    if (codes.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const map = await fetchMasterAvailability(codes);
+        if (cancelled) return;
+        setMasterAvail((prev) => ({ ...prev, ...map }));
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [form.mode, form.selectedUnitId, passagesByUnit]); // eslint-disable-line
 
   // sentence_id(=passage code) → 사람이 읽는 라벨 매핑 (목록 표시용)
   const codeLabelMap = useMemo(() => {
@@ -379,7 +411,12 @@ const Assignments = () => {
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
-    if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
+    if (f.mode === "sentence") {
+      if (!f.selectedUnitId) return "유닛을 먼저 선택해주세요";
+      if (!f.selectedPassageCode) return "출제할 문장을 선택해주세요";
+    } else {
+      if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
+    }
     if (!f.includePre && !f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
       return "학습 단계는 최소 1개 이상 체크하세요";
     return null;
@@ -401,20 +438,26 @@ const Assignments = () => {
       const targets: (string | null)[] =
         form.studentIds.length === 0 ? [null] : form.studentIds;
 
-      // 🆕 유닛 단위 자동 부여: 선택된 유닛의 모든 지문에 대해 과제 생성
-      // (지문 선택은 유닛 확인용으로만 사용; 실제로는 해당 유닛 전체 지문이 부여됨)
-      const unitPassages = form.selectedUnitId
-        ? passagesByUnit[form.selectedUnitId] ?? []
-        : [];
-      const passageCodes: string[] =
-        unitPassages.length > 0
-          ? unitPassages
-              .slice()
-              .sort((a, b) => a.passage_no - b.passage_no)
-              .map((p) => p.code)
-          : form.selectedPassageCode
-          ? [form.selectedPassageCode]
+      // 출제 모드별 지문 코드 결정:
+      // - unit  : 선택된 유닛의 모든 지문 자동 부여 (기존 동작 유지)
+      // - sentence: 사용자가 명시 선택한 단일 문장만 부여
+      let passageCodes: string[];
+      if (form.mode === "sentence") {
+        passageCodes = form.selectedPassageCode ? [form.selectedPassageCode] : [];
+      } else {
+        const unitPassages = form.selectedUnitId
+          ? passagesByUnit[form.selectedUnitId] ?? []
           : [];
+        passageCodes =
+          unitPassages.length > 0
+            ? unitPassages
+                .slice()
+                .sort((a, b) => a.passage_no - b.passage_no)
+                .map((p) => p.code)
+            : form.selectedPassageCode
+            ? [form.selectedPassageCode]
+            : [];
+      }
 
       if (passageCodes.length === 0) {
         throw new Error("부여할 지문을 찾을 수 없습니다");
@@ -440,9 +483,13 @@ const Assignments = () => {
         form.studentIds.length === 0
           ? "전체 학생"
           : `${form.studentIds.length}명`;
+      const unitLabel =
+        form.mode === "sentence"
+          ? `문장 1개`
+          : `유닛 지문 ${passageCodes.length}개`;
       toast({
         title: "✅ 과제가 생성되었습니다",
-        description: `${studentMsg} × 유닛 지문 ${passageCodes.length}개 = ${rowsToInsert.length}건 부여됨`,
+        description: `${studentMsg} × ${unitLabel} = ${rowsToInsert.length}건 부여됨`,
       });
       setForm(emptyForm());
       void load();
@@ -554,6 +601,7 @@ const Assignments = () => {
     }
     setEditForm({
       title: row.title,
+      mode: "unit", // 편집은 모드 잠금 (생성 시 결정된 형태 유지)
       studentIds: row.student_id ? [row.student_id] : [],
       selectedLevel: level,
       selectedSeriesId: seriesId,
@@ -849,11 +897,22 @@ const Assignments = () => {
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">
-          <Label className="flex items-center gap-2">
-            연결 지문
-            <span className="text-[10px] font-normal text-primary">
-              (✨ 신규 과제는 선택한 <b>유닛 전체 지문</b>이 자동 부여됩니다. 아래 선택은 확인용)
-            </span>
+          <Label className="flex items-center gap-2 flex-wrap">
+            {f.mode === "sentence" ? (
+              <>
+                출제할 문장 <span className="text-destructive">*</span>
+                <span className="text-[10px] font-normal text-primary">
+                  (이 문장 1개만 부여됩니다)
+                </span>
+              </>
+            ) : (
+              <>
+                연결 지문
+                <span className="text-[10px] font-normal text-primary">
+                  (✨ 신규 과제는 선택한 <b>유닛 전체 지문</b>이 자동 부여됩니다. 아래 선택은 확인용)
+                </span>
+              </>
+            )}
           </Label>
           <Select
             value={f.selectedPassageCode || undefined}
@@ -863,29 +922,60 @@ const Assignments = () => {
             disabled={!f.selectedUnitId}
           >
             <SelectTrigger>
-              <SelectValue placeholder={f.selectedUnitId ? "지문 선택" : "유닛을 먼저 선택"} />
+              <SelectValue
+                placeholder={
+                  !f.selectedUnitId
+                    ? "유닛을 먼저 선택"
+                    : f.mode === "sentence"
+                    ? "문장을 선택해주세요"
+                    : "지문 선택"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {passageList.length === 0 ? (
                 <div className="px-2 py-3 text-xs text-muted-foreground">지문이 없습니다</div>
               ) : (
-                passageList.map((p) => (
-                  <SelectItem key={p.id} value={p.code}>
-                    <span className="flex items-center gap-2">
-                      <BookOpen className="size-3.5 text-muted-foreground" />
-                      <span className="font-mono text-xs text-muted-foreground">
-                        #{String(p.passage_no).padStart(3, "0")}
+                passageList.map((p) => {
+                  const hasMaster = masterAvail[p.code];
+                  const showBadge = f.mode === "sentence";
+                  return (
+                    <SelectItem key={p.id} value={p.code}>
+                      <span className="flex items-center gap-2">
+                        {showBadge ? (
+                          <span
+                            className="text-sm shrink-0"
+                            title={hasMaster ? "마스터키 등록됨" : "마스터키 미등록"}
+                          >
+                            {hasMaster ? "🔑" : "⏳"}
+                          </span>
+                        ) : (
+                          <BookOpen className="size-3.5 text-muted-foreground" />
+                        )}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {showBadge
+                            ? p.code
+                            : `#${String(p.passage_no).padStart(3, "0")}`}
+                        </span>
+                        <span className="truncate max-w-[24rem]">
+                          {p.english.slice(0, 50)}
+                          {p.english.length > 50 ? "…" : ""}
+                        </span>
                       </span>
-                      <span className="truncate max-w-[28rem]">
-                        {p.english.slice(0, 60)}
-                        {p.english.length > 60 ? "…" : ""}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))
+                    </SelectItem>
+                  );
+                })
               )}
             </SelectContent>
           </Select>
+          {f.mode === "sentence" &&
+            f.selectedPassageCode &&
+            masterAvail[f.selectedPassageCode] === false && (
+              <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
+                ⏳ 이 문장은 마스터키가 등록되어 있지 않아, 학생 학습 결과가
+                <b> 보류(hold)</b> 상태로 저장됩니다. 추후 마스터키 등록 시 채점됩니다.
+              </p>
+            )}
         </div>
       </>
     );
@@ -1013,6 +1103,32 @@ const Assignments = () => {
             </div>
             <div className="sm:col-span-1">
               {renderStepCheckboxes(form, setForm)}
+            </div>
+            <div className="sm:col-span-2 space-y-2">
+              <Label>출제 모드 *</Label>
+              <RadioGroup
+                value={form.mode}
+                onValueChange={(v) =>
+                  setForm((p) => ({
+                    ...p,
+                    mode: v as AssignMode,
+                    // 모드 전환 시 지문 선택 리셋 (sentence: 사용자 명시 선택 강제)
+                    selectedPassageCode: "",
+                  }))
+                }
+                className="flex flex-wrap gap-4 px-3 py-2 rounded-md border border-border bg-muted/30"
+              >
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="unit" id="mode-unit" />
+                  <span className="text-sm font-medium">유닛 전체</span>
+                  <span className="text-[10px] text-muted-foreground">(기본 · 모든 지문)</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="sentence" id="mode-sentence" />
+                  <span className="text-sm font-medium">특정 문장만</span>
+                  <span className="text-[10px] text-muted-foreground">(테스트·보충용)</span>
+                </label>
+              </RadioGroup>
             </div>
             {renderTextbookPickers(form, setForm)}
             <div className="sm:col-span-2 space-y-1.5">
@@ -1173,6 +1289,22 @@ const Assignments = () => {
                 </Popover>
               </div>
               <div>{renderStepCheckboxes(editForm, setEditForm)}</div>
+              <div className="sm:col-span-2 space-y-2 opacity-70">
+                <Label>출제 모드</Label>
+                <RadioGroup value={editForm.mode} disabled className="flex flex-wrap gap-4 px-3 py-2 rounded-md border border-border bg-muted/30">
+                  <label className="inline-flex items-center gap-2">
+                    <RadioGroupItem value="unit" disabled />
+                    <span className="text-sm font-medium">유닛 전체</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <RadioGroupItem value="sentence" disabled />
+                    <span className="text-sm font-medium">특정 문장만</span>
+                  </label>
+                </RadioGroup>
+                <p className="text-[11px] text-muted-foreground">
+                  출제 모드는 변경할 수 없습니다. 다른 모드로 출제하려면 새 과제를 생성해주세요.
+                </p>
+              </div>
               {renderTextbookPickers(editForm, setEditForm)}
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>설명 (선택)</Label>
