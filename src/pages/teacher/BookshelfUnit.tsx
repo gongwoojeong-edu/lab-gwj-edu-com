@@ -58,7 +58,7 @@ import {
 } from "@/lib/textbooks";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
-import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { launchPrintHtml } from "@/lib/printLauncher";
 import {
@@ -101,6 +101,7 @@ const BookshelfUnit = () => {
   const [deleting, setDeleting] = useState(false);
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
+  const [statusTogglingCode, setStatusTogglingCode] = useState<string | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingStructure, setUploadingStructure] = useState(false);
   const [viewingAnalysis, setViewingAnalysis] = useState(false);
@@ -460,6 +461,42 @@ const BookshelfUnit = () => {
       setExtractedMap((prev) => ({ ...prev, [p.code]: res.count }));
     } finally {
       setExtractingCode(null);
+    }
+  };
+
+  const handleToggleStatus = async (p: Passage) => {
+    if (statusTogglingCode) return;
+    const nextReady = p.analysis_status !== "ready";
+    if (!nextReady) {
+      const ok = window.confirm(
+        `[${p.code}] 지문을 '준비중(draft)'으로 되돌릴까요?\n학생 화면에서 더 이상 노출되지 않습니다.`,
+      );
+      if (!ok) return;
+    }
+    setStatusTogglingCode(p.code);
+    try {
+      await setPassageReady(p.code, nextReady);
+      setPassages((prev) =>
+        prev.map((x) =>
+          x.id === p.id
+            ? { ...x, analysis_status: nextReady ? "ready" : "draft" }
+            : x,
+        ),
+      );
+      toast({
+        title: nextReady ? "분석상태: 완료(ready)" : "분석상태: 준비중(draft)",
+        description: nextReady
+          ? "학생 화면에서 이 지문이 노출됩니다."
+          : "학생 화면에서 숨겨집니다.",
+      });
+    } catch (e) {
+      toast({
+        title: "상태 변경 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setStatusTogglingCode(null);
     }
   };
 
@@ -1007,24 +1044,31 @@ const BookshelfUnit = () => {
                           )}
                         </td>
                         <td className="py-2 px-3">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(p)}
+                            disabled={statusTogglingCode === p.code}
+                            title={
                               ready
-                                ? "bg-[hsl(142_71%_29%_/_0.15)] text-[hsl(var(--success-foreground,142_71%_29%))]"
-                                : "bg-[hsl(38_92%_40%_/_0.15)] text-[hsl(var(--warning-foreground,38_92%_40%))]",
+                                ? "클릭하면 '준비중(draft)'으로 되돌립니다"
+                                : "클릭하면 '완료(ready)'로 학생에게 공개합니다"
+                            }
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition disabled:opacity-50 cursor-pointer",
+                              ready
+                                ? "bg-[hsl(142_71%_29%_/_0.15)] text-[hsl(var(--success-foreground,142_71%_29%))] hover:bg-[hsl(142_71%_29%_/_0.25)]"
+                                : "bg-[hsl(38_92%_40%_/_0.15)] text-[hsl(var(--warning-foreground,38_92%_40%))] hover:bg-[hsl(38_92%_40%_/_0.25)]",
                             )}
                           >
-                            {ready ? (
-                              <>
-                                <FileCheck className="size-3" /> 완료
-                              </>
+                            {statusTogglingCode === p.code ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : ready ? (
+                              <FileCheck className="size-3" />
                             ) : (
-                              <>
-                                <FileEdit className="size-3" /> 준비중
-                              </>
+                              <FileEdit className="size-3" />
                             )}
-                          </span>
+                            {ready ? "완료" : "완료로 표시"}
+                          </button>
                         </td>
                         <td className="py-2 px-3 text-right whitespace-nowrap">
                           <Button
