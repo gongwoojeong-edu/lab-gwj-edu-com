@@ -611,7 +611,9 @@ const LearningResults = () => {
         toast({ title: "유닛에 속한 완료 지문이 없어요", variant: "destructive" });
         return;
       }
-      const mode = students[userId]?.unit_workbook_mode ?? "both";
+      // "전체 인쇄"는 기본 모드(구문·유닛 통합)로 출력. 다른 모드가 필요하면
+      // 학생 카드의 미리보기 모달에서 선택해서 인쇄.
+      const mode = "syntax_unit" as const;
       const htmls: string[] = [];
       for (const [unitId] of groups) {
         const label = unitLabel[unitId] ?? "Unit";
@@ -635,10 +637,9 @@ const LearningResults = () => {
       launchPrintHtmlMany(htmls, { jobKey: `printAll:${userId}` }).catch((e) =>
         console.warn("[LearningResults] launchPrintHtmlMany failed", e),
       );
-      const modeLabel = mode === "unit_only" ? "유닛 통합 워크북" : "유닛+문장 워크북";
       toast({
-        title: `${modeLabel} ${htmls.length}건 인쇄 시작`,
-        description: mode === "unit_only" ? "앞면=영어분석+학생해석, 뒷면=구조도" : undefined,
+        title: `구문 유닛 통합 워크북 ${htmls.length}건 인쇄 시작`,
+        description: "앞면=영어분석+학생해석, 뒷면=구조도",
       });
     } catch (e) {
       const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
