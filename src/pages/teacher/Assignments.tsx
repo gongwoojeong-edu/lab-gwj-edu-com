@@ -563,6 +563,7 @@ const Assignments = () => {
     }
     setEditForm({
       title: row.title,
+      mode: "unit", // 편집은 모드 잠금 (생성 시 결정된 형태 유지)
       studentIds: row.student_id ? [row.student_id] : [],
       selectedLevel: level,
       selectedSeriesId: seriesId,
