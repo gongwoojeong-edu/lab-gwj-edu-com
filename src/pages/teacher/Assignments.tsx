@@ -55,6 +55,7 @@ import {
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
 import { isAssignmentDone } from "@/lib/assignmentCompletion";
+import { fetchMasterAvailability } from "@/lib/masterAvailability";
 
 interface AssignmentGroup {
   key: string;
