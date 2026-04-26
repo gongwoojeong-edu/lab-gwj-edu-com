@@ -1,98 +1,84 @@
-# RLS 수정: 학생 계정에서 마스터키 정상 동작
+## 목표
 
-## 1. 진단 재확인 ✅
+지금까지 혼동의 근원이었던 **학생별 `unit_workbook_mode` 설정을 폐기**하고, 워크북 인쇄 자체를 깔끔한 **2축 모델**로 다시 정의합니다.
 
-요청하신 진단은 정확합니다.
+- **축 1 — 워크북 종류**: 구문(분석+해석) / 단어
+- **축 2 — 범위**: 유닛 통합 / 문장별
 
-- 현재 `user_roles_select_own_or_admin` 정책: `user_id = auth.uid() OR has_role(auth.uid(), 'admin')`
-- 학생 세션 → 본인의 `student` 행만 보임 → admin user_id 0건
-- 결과: `fetchAdminUserIds()`(`analysisGrading.ts`, `masterAvailability.ts`) 빈 배열 → `owner_progress` 마스터 조회 0건 → `analysisHasMaster=false` → hold 분기
+→ 총 **4종 인쇄 옵션**. 교사가 인쇄할 때마다 직접 선택. 학생 프로필에는 어떤 모드 설정도 저장하지 않음.
 
-옵션 A-1(role IN ('admin','teacher') 추가)이 최소 변경으로 정확히 이 경로만 푸는 올바른 방법입니다. admin/teacher의 `user_id`는 이미 `assignments.teacher_id`, `owner_progress.user_id` 등으로 학생에게 사실상 노출돼 있고, 실제 데이터는 각 테이블 RLS가 보호하므로 추가 보안 리스크는 없습니다.
+또한 단어와 구문은 **절대 같은 PDF에 섞지 않습니다**. 따로 출력.
 
-## 2. 마이그레이션 SQL
+---
 
-```sql
--- user_roles SELECT 정책 완화: admin/teacher 행은 모든 인증 사용자에게 노출
--- (student 행은 여전히 본인 또는 admin만 조회 가능 — 개인정보 보호 유지)
-DROP POLICY IF EXISTS user_roles_select_own_or_admin ON public.user_roles;
+## 새 인쇄 UI (교사용)
 
-CREATE POLICY user_roles_select_own_or_admin
-ON public.user_roles
-FOR SELECT
-USING (
-  user_id = auth.uid()
-  OR has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'teacher'::app_role)
-  OR role IN ('admin'::app_role, 'teacher'::app_role)
-);
+학생 카드/행의 "워크북 인쇄" 버튼을 누르면 모달이 뜨고, 4개 카드 중 하나를 선택:
+
+```text
+┌─────────────────────┬─────────────────────┐
+│ 구문 · 유닛 통합     │ 구문 · 문장별       │
+│ 유닛 전체 문장의     │ 한 지문의 영어 +    │
+│ 영어 + 한글해석      │ 한글해석            │
+│ (= 김재원 디자인)    │                     │
+├─────────────────────┼─────────────────────┤
+│ 단어 · 유닛 통합     │ 단어 · 문장별       │
+│ 유닛 전체 단어 시험  │ 한 지문 단어 시험   │
+└─────────────────────┴─────────────────────┘
 ```
 
-다른 테이블/정책/함수 변경 없음. 코드 변경 없음.
+- 카드 선택 → 미리보기(포함 지문 / 예상 페이지) → [인쇄 시작]
+- 단어와 구문은 별도 인쇄 잡으로 처리. 두 개 필요하면 교사가 두 번 누름.
 
-## 3. 영향 범위 분석
+---
 
-**user_roles 직접 조회 코드(전수)**
-| 위치 | 호출 주체 | 이번 변경 영향 |
-|---|---|---|
-| `src/lib/analysisGrading.ts` `fetchAdminUserIds` | 학생/교사 모두 | ✅ 직접 수혜 — admin 행 반환됨 |
-| `src/lib/masterAvailability.ts` `fetchAdminUserIds` | 학생/교사 | ✅ 직접 수혜 — 마스터 유무 정상 판정 |
-| `src/lib/userRoles.ts` `fetchAllUserRoles` | admin 전용 화면 | 변동 없음 — 학생 호출 경로 없음, admin은 어차피 모두 봄 |
-| `src/hooks/useAuth.ts` | 본인 role 조회 | 변동 없음 — `user_id = auth.uid()` |
+## 학생 설정 정리
 
-**`has_role()` 함수**: SECURITY DEFINER + 자체 search_path로 RLS 바이패스 평가 → 정책 변경에 영향받지 않음.
+- 학생 프로필 토글 `WorkbookModeToggle` **모든 화면에서 제거**:
+  - `src/pages/teacher/RequestsInbox.tsx`
+  - `src/pages/teacher/Assignments.tsx`
+  - `src/pages/teacher/LearningResults.tsx`
+  - `src/pages/teacher/BookshelfUnit.tsx`
+  - `src/pages/TeacherStudents.tsx`
+- `WorkbookModeToggle.tsx` 컴포넌트 파일 삭제
+- DB 컬럼 `student_profiles.unit_workbook_mode` 는 **드롭하지 않고 그대로 둠**(데이터 안전). 코드에서 단지 더 이상 읽지/쓰지 않음. 추후 정리 마이그레이션은 별도.
 
-**다른 테이블 RLS 충돌**: 없음. admin/teacher의 user_id 노출은 이미 다른 곳에서 일어나는 일이며, 민감 데이터(`student_profiles`, `owner_progress`, `sentence_progress` 등)는 자체 정책으로 보호됨.
+---
 
-**과제 설정 드롭박스 unit fetch**:
-- `textbook_units`/`textbook_passages`는 authenticated 전체 SELECT라 unit 자체는 항상 보였음
-- "마스터 등록된 unit만 활성/노출"하는 화면은 `fetchMasterAvailability` → `user_roles`(admin id) → `owner_progress` 경로 의존
-- 이번 수정으로 학생 화면(또는 학생 모드 시뮬레이션)에서 마스터 유무 표시가 정상화됨
+## 코드 변경 (기술 영역)
 
-## 4. 잘못 쌓인 데이터 영향 분석
+### `src/lib/unitWorkbook.ts`
+- `buildUnitWorkbookHtmlFor` 의 `mode` 파라미터를 새 4종 enum으로 교체:
+  - `"syntax_unit"` → 기존 `buildUnitOnlyCombined()` 그대로 (= 김재원 디자인)
+  - `"syntax_passage"` → 한 지문에 대해 [영어 + 학생 한글해석]만 (분석/단어 없음)
+  - `"word_unit"` → 유닛 전체 단어 시험지 (`buildWordPrintHtml` 의 묶음 버전)
+  - `"word_passage"` → 한 지문 단어 시험지
+- 기존 `buildPassageSection`, `buildCoverPage`, `COVER_HEAD` 는 **사용처가 없어지므로 제거** (또는 export 안 하고 dead-code로 남김 → 정리 권장).
+- `summarizeUnitProgress` 는 유닛 통합용에만 사용. 문장별은 단일 지문 ID만 받음.
 
-DB 조회 결과, `status='hold'` 7건 중 마스터키 등록이 실제로 있는데 hold로 잘못 저장된 행은 **2건**입니다:
+### `src/components/teacher/UnitWorkbookPreviewDialog.tsx`
+- 모드 선택 UI를 4-카드 그리드로 교체.
+- "지문당 포함 섹션" 박스 제거(혼란 요소).
+- 메타 표시: 학생 / 유닛 / 선택한 워크북 종류 / 포함 지문 수 / 예상 페이지.
 
-| user_id (앞 8자리) | sentence_id | match_rate | has_master | last_activity |
-|---|---|---|---|---|
-| b71f3532… | s1 | 83.3% | true | 2026-04-25 09:00 |
-| 70422ffc… | s2 | 100% | true | 2026-04-25 08:47 |
+### 호출부
+- `LearningResults.tsx`, `BookshelfUnit.tsx` 의 인쇄 버튼은 학생별 mode를 안 읽고, 모달의 선택값을 그대로 `buildUnitWorkbookHtmlFor` 에 전달.
 
-나머지 5건은 진짜 마스터 미등록 unit이라 `hold`가 정상입니다.
+### 인쇄 단위
+- 문장별(syntax_passage / word_passage) 인쇄는 "이 학생의 완료 지문 N개"를 PDF 한 묶음으로 (각 지문 1페이지씩). 또는 단일 선택. → **선택한 유닛 안의 완료 지문 전체를 묶어** 한 번에 인쇄(현재 흐름과 동일).
 
-**권장 처리**: 정책 수정 후 별도 보정 INSERT/UPDATE로 위 2건만 재평가합니다(match_rate ≥ 0.8 → `pass`). 학생이 다시 진입해 정답 제출하지 않아도 자동 채점되도록.
+---
 
-```sql
-UPDATE public.sentence_progress AS sp
-SET status = CASE
-      WHEN sp.analysis_match_rate >= 0.8 THEN 'pass'
-      ELSE 'fail'
-    END,
-    passed_at = CASE
-      WHEN sp.analysis_match_rate >= 0.8 THEN COALESCE(sp.passed_at, now())
-      ELSE sp.passed_at
-    END,
-    updated_at = now()
-WHERE sp.status = 'hold'
-  AND sp.analysis_match_rate IS NOT NULL
-  AND EXISTS (
-    SELECT 1 FROM public.owner_progress op
-    JOIN public.user_roles ur ON ur.user_id = op.user_id AND ur.role = 'admin'
-    WHERE op.sentence_id = sp.sentence_id
-  );
-```
+## 결과
 
-(정확히 위 2건만 영향. 마스터 미등록 5건은 그대로 hold 유지)
+- 배아은·전승우도 김재원과 동일하게 깔끔한 디자인 출력 (구문 유닛통합 카드 선택 시).
+- 학생별로 따로 설정할 게 없어 미래의 "왜 학생마다 디자인이 다르지?" 혼란 원천 봉쇄.
+- 단어 시험지는 항상 별도 인쇄 — 구문과 섞일 일 없음.
 
-## 5. 권장 적용 순서
+---
 
-1. **마이그레이션 1 적용** — `user_roles` SELECT 정책 교체 (위 SQL)
-2. **검증 시나리오 1~7 수동 확인** — 학생 계정 로그인 후 마스터 있는 unit 진입, hold가 아닌 pass/fail 저장되는지
-3. **데이터 보정** — 위 UPDATE를 별도 인서트 작업으로 실행해 잘못 쌓인 2건 정상화
-4. **사후 모니터링** — 1~2일간 신규 `status='hold' + has_master=true` 행이 더 생기지 않는지 주기적 확인
+## 영향 범위
 
-## 변경 파일 요약
-
-- 신규 마이그레이션 1개 (`user_roles` SELECT 정책만)
-- 코드 변경 0개
-- 데이터 보정 별도 단계 (2단계로 분리, 마이그레이션 후 사용자 검증을 거친 뒤 진행 권장)
+수정: 4 페이지 + 1 라이브러리 + 1 모달  
+삭제: 1 컴포넌트(`WorkbookModeToggle`)  
+DB: 변경 없음 (컬럼 보존, 코드에서 무시)

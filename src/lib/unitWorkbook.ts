@@ -1,29 +1,30 @@
 // ============================================================
-// unitWorkbook — 한 학생의 "유닛 단위 워크북" 통합 인쇄
+// unitWorkbook — 한 학생의 "유닛 단위" 인쇄 빌더
 //
-// 구성:
-//   1. 표지 (학생/유닛 정보 + 완료 지문 목록)
-//   2. 각 완료 지문마다:
-//      - 분석 채점본 (본인 제출 + 채점 결과)
-//      - 단어 시험지 (오답 위주 / 없으면 전체)
-//      - 한글해석본 (본인 제출 영역)
+// 4가지 워크북 종류 (교사가 인쇄 시 직접 선택):
+//   1. syntax_unit    — 구문 · 유닛 통합  (유닛 전체 문장의 영어 + 학생 한글해석)
+//   2. syntax_passage — 구문 · 문장별     (지문별 구문 HO 묶음)
+//   3. word_unit      — 단어 · 유닛 통합  (유닛 전체 단어를 하나로 묶은 시험지)
+//   4. word_passage   — 단어 · 문장별     (지문별 단어 시험지 묶음)
 //
-// 완료 기준 (엄격):
+// 단어와 구문은 절대 같은 PDF에 섞지 않는다 — 두 종류 다 필요하면 교사가 두 번 인쇄.
+//
+// 완료 기준 (포함 여부):
 //   sentence_progress 의 word_test_done && translation_done && analysis_done == true
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import {
   preloadAnalysisPayload,
-  preloadWordPayload,
   preloadHandoutPayload,
+  preloadWordPayload,
   PrintPreloadError,
 } from "./printPreload";
 import {
-  buildAnalysisPrintHtml,
-  buildWordPrintHtml,
   buildHandoutPrintHtml,
+  buildWordPrintHtml,
   buildUnitCombinedWorkbookHtml,
   type UnitCombinedItem,
+  type WordPayload,
 } from "./printTemplates";
 import { fetchPassagesByUnit } from "./textbooks";
 
@@ -34,12 +35,6 @@ const escapeHtml = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-
-const nowStamp = (): string => {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
 
 export interface UnitWorkbookSummary {
   totalPassages: number;
@@ -77,82 +72,51 @@ export const summarizeUnitProgress = async (
     if (r && r.w && r.t && r.a) completed.push(c);
     else pending.push(c);
   });
-  return { totalPassages: codes.length, completedCodes: completed, pendingCodes: pending };
+  return {
+    totalPassages: codes.length,
+    completedCodes: completed,
+    pendingCodes: pending,
+  };
 };
 
-export type UnitWorkbookMode = "unit_only" | "both";
+// ============================================================
+// 새 4-mode 모델
+// ============================================================
+export type WorkbookKind = "syntax" | "word";
+export type WorkbookScope = "unit" | "passage";
+export type WorkbookMode = `${WorkbookKind}_${WorkbookScope}`;
+
+/** UI 라벨 */
+export const WORKBOOK_MODE_LABEL: Record<WorkbookMode, string> = {
+  syntax_unit: "구문 · 유닛 통합",
+  syntax_passage: "구문 · 문장별",
+  word_unit: "단어 · 유닛 통합",
+  word_passage: "단어 · 문장별",
+};
+
+/** 한 줄 설명 */
+export const WORKBOOK_MODE_DESC: Record<WorkbookMode, string> = {
+  syntax_unit: "유닛 전체 문장의 영어 + 학생 한글해석을 한 권으로",
+  syntax_passage: "지문 1장에 영어 + 한글해석 (지문마다 1장)",
+  word_unit: "유닛 전체 단어를 하나로 묶은 시험지",
+  word_passage: "지문마다 단어 시험지 1장",
+};
 
 interface UnitWorkbookContext {
   unitTitle: string;
   unitCode: string; // ex) "L05 · 시리즈 · 권 · U3"
   studentName: string | null;
   studentNo: string | null;
-  mode: UnitWorkbookMode;
 }
 
-/** 한 지문에 대한 워크북 섹션(분석/단어/해석) 빌드 — 실패 섹션은 스킵
- *  mode === "unit_only" 인 경우 단어 시험지 섹션은 스킵한다.
- */
-const buildPassageSection = async (
-  sentenceId: string,
-  studentId: string,
-  mode: UnitWorkbookMode,
-): Promise<string> => {
-  const sections: string[] = [];
-
-  // 1) 분석 채점본
-  try {
-    const analysis = await preloadAnalysisPayload({
-      sentenceId,
-      studentId,
-      mode: "marked",
-    });
-    sections.push(buildAnalysisPrintHtml(analysis));
-  } catch (e) {
-    if (!(e instanceof PrintPreloadError && e.stage === "analysis")) {
-      // analysis 데이터가 없는 경우는 안내만
-    }
-    sections.push(
-      `<div class="page"><div class="section"><div class="section-title">분석 채점본 — ${escapeHtml(sentenceId)}</div><div style="padding:6mm;text-align:center;color:#666;border:0.5pt dashed #aaa">분석 비교 데이터를 불러오지 못했어요.</div></div></div>`,
-    );
-  }
-
-  // 2) 단어 시험지 (오답 위주 → 없으면 전체) — unit_only 모드에서는 스킵
-  if (mode === "both") {
-    try {
-      const word = await preloadWordPayload({
-        sentenceId,
-        studentId,
-        scope: "wrong",
-        mode: "mix",
-      });
-      sections.push(buildWordPrintHtml(word));
-    } catch {
-      /* skip */
-    }
-  }
-
-  // 3) 한글해석 HO — both 모드에서만 지문별 출력. unit_only 는 마지막에 통합본으로 한 번만.
-  if (mode === "both") {
-    try {
-      const handout = await preloadHandoutPayload({ sentenceId, studentId });
-      sections.push(buildHandoutPrintHtml(handout));
-    } catch {
-      /* skip */
-    }
-  }
-
-  return sections.join("\n");
-};
-
-/** unit_only 전용 — 앞면(분석+학생해석 통합) + 뒷면(구조도) */
-const buildUnitOnlyCombined = async (
-  unitId: string,
+// ============================================================
+// 1) 구문 · 유닛 통합 — 기존 buildUnitOnlyCombined (= 김재원 디자인)
+// ============================================================
+const buildSyntaxUnit = async (
   sentenceIds: string[],
   studentId: string,
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
-  // 각 문장의 분석 payload + 학생 한글해석 수집
   const items: UnitCombinedItem[] = [];
   for (const sid of sentenceIds) {
     let analysis;
@@ -189,7 +153,15 @@ const buildUnitOnlyCombined = async (
   });
 };
 
-const COVER_HEAD = `
+// ============================================================
+// HTML 합치기 헬퍼 — 각 빌더가 반환한 doctype/wrap 에서 body 만 추출해 결합
+// ============================================================
+const stripDoc = (full: string): string => {
+  const m = full.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return m ? m[1] : full;
+};
+
+const SHARED_HEAD = `
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <style>
@@ -205,99 +177,163 @@ const COVER_HEAD = `
   * { box-sizing: border-box; }
   .page { width: 162mm; min-height: 237mm; margin: 0 auto; padding: 0; page-break-after: always; }
   .page:last-child { page-break-after: auto; }
-  .cover {
-    padding: 30mm 10mm 10mm;
-  }
-  .cover .eyebrow {
-    font-size: 9pt; font-weight: 700; letter-spacing: 0.22em;
-    text-transform: uppercase; color: #555;
-  }
-  .cover .title {
-    font-size: 24pt; font-weight: 800; margin-top: 4mm;
-    border-bottom: 3pt solid #000; padding-bottom: 4mm;
-  }
-  .cover .meta-grid {
-    margin-top: 8mm; display: grid; grid-template-columns: 30mm 1fr;
-    gap: 3mm 5mm; font-size: 11pt;
-  }
-  .cover .meta-grid .k { color: #555; font-weight: 600; }
-  .cover .toc-title {
-    margin-top: 12mm; font-size: 11pt; font-weight: 700;
-    border-left: 2pt solid #000; padding-left: 2mm;
-  }
-  .cover .toc {
-    margin-top: 3mm; font-size: 10pt; line-height: 1.9;
-    columns: 2; column-gap: 8mm;
-  }
-  .cover .toc .item {
-    break-inside: avoid; display: flex; justify-content: space-between;
-    border-bottom: 0.3pt dotted #888; padding: 0.5mm 0;
-  }
-  .cover .footnote {
-    margin-top: auto; font-size: 8.5pt; color: #666;
-    padding-top: 8mm;
-  }
 </style>
 `;
 
-const buildCoverPage = (
-  ctx: UnitWorkbookContext,
-  completedCodes: string[],
-): string => {
-  const stamp = nowStamp();
-  const sName = ctx.studentName ? escapeHtml(ctx.studentName) : "_______";
-  const sNo = ctx.studentNo ? escapeHtml(ctx.studentNo) : "—";
-  // 페이지 추정값: both = 지문당 3섹션, unit_only = 지문당 2섹션
-  const perPassage = ctx.mode === "unit_only" ? 2 : 3;
-  const items = completedCodes
-    .map(
-      (c, i) =>
-        `<div class="item"><span>${i + 1}. ${escapeHtml(c)}</span><span>${i * perPassage + 2}p~</span></div>`,
-    )
-    .join("");
-  const footnote =
-    ctx.mode === "unit_only"
-      ? "각 지문은 [분석 채점본 → 한글해석본] 순으로 구성되어 있어요. (유닛 모드 · 단어 시험지 제외)"
-      : "각 지문은 [분석 채점본 → 단어 시험지 → 한글해석본] 순으로 구성되어 있어요.";
-  const modeBadge =
-    ctx.mode === "unit_only" ? "유닛만 (분석 + 해석)" : "유닛 + 문장 (전체)";
-  return `
-<div class="page cover">
-  <div class="eyebrow">Gongwoojeong · Unit Workbook</div>
-  <div class="title">유닛 워크북 · ${escapeHtml(ctx.unitTitle)}</div>
-  <div class="meta-grid">
-    <div class="k">학생</div><div><b>${sName}</b> (${sNo})</div>
-    <div class="k">유닛</div><div>${escapeHtml(ctx.unitCode)}</div>
-    <div class="k">완료 지문</div><div>${completedCodes.length}건</div>
-    <div class="k">워크북 모드</div><div>${modeBadge}</div>
-    <div class="k">출력 일시</div><div>${stamp}</div>
-  </div>
-  <div class="toc-title">수록 지문</div>
-  <div class="toc">${items || '<div class="item"><span>(없음)</span></div>'}</div>
-  <div class="footnote">
-    ${footnote}
-  </div>
-</div>
-`;
+const wrapMulti = (title: string, parts: string[]): string => {
+  const body = parts.map((p) => stripDoc(p)).join("\n");
+  return `<!DOCTYPE html><html lang="ko"><head><title>${escapeHtml(title)}</title>${SHARED_HEAD}</head><body>${body}<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script></body></html>`;
 };
 
+// ============================================================
+// 2) 구문 · 문장별 — 지문마다 buildHandoutPrintHtml 1장
+// ============================================================
+const buildSyntaxPassage = async (
+  sentenceIds: string[],
+  studentId: string,
+  ctx: UnitWorkbookContext,
+): Promise<string> => {
+  const parts: string[] = [];
+  for (const sid of sentenceIds) {
+    try {
+      const payload = await preloadHandoutPayload({
+        sentenceId: sid,
+        studentId,
+      });
+      parts.push(buildHandoutPrintHtml(payload));
+    } catch (e) {
+      if (e instanceof PrintPreloadError) {
+        // 지문 데이터 자체가 없는 경우만 스킵 안내
+        parts.push(
+          `<div class="page"><div style="padding:20mm;text-align:center;color:#666;border:0.5pt dashed #aaa">구문 HO 준비 실패 — ${escapeHtml(sid)}</div></div>`,
+        );
+      }
+    }
+  }
+  const title = `구문 워크북 · ${ctx.unitTitle} · ${ctx.studentName ?? ""}`;
+  return wrapMulti(title, parts);
+};
+
+// ============================================================
+// 3) 단어 · 유닛 통합 — 모든 지문의 단어를 모아 하나의 시험지 1장
+// ============================================================
+const collectWordItems = async (
+  sentenceId: string,
+  studentId: string,
+): Promise<Array<{ word: string; expected: string }>> => {
+  // 학생의 최근 오답 단어
+  const { data: wt } = await supabase
+    .from("word_test_results")
+    .select("wrong_words, taken_at")
+    .eq("user_id", studentId)
+    .eq("sentence_id", sentenceId)
+    .order("taken_at", { ascending: false })
+    .limit(1);
+  const wrong = (wt?.[0]?.wrong_words ?? []) as Array<{
+    word: string;
+    expected: string;
+  }>;
+  let items = wrong
+    .filter((w) => w?.word)
+    .map((w) => ({ word: w.word, expected: w.expected ?? "" }));
+  if (items.length === 0) {
+    // 오답이 없으면 추출 단어 전체 사용
+    const { data: ext } = await supabase
+      .from("sentence_word_extractions")
+      .select("words")
+      .eq("sentence_id", sentenceId)
+      .maybeSingle();
+    const arr = (ext?.words ?? []) as Array<{
+      word: string;
+      meaning?: string;
+      expected?: string;
+    }>;
+    items = arr
+      .filter((w) => w?.word)
+      .map((w) => ({
+        word: w.word,
+        expected: (w.expected ?? w.meaning ?? "").trim(),
+      }));
+  }
+  return items;
+};
+
+const buildWordUnit = async (
+  sentenceIds: string[],
+  studentId: string,
+  ctx: UnitWorkbookContext,
+): Promise<string> => {
+  // 모든 지문의 단어를 모아서 중복 제거
+  const seen = new Map<string, { word: string; expected: string }>();
+  for (const sid of sentenceIds) {
+    const items = await collectWordItems(sid, studentId);
+    for (const it of items) {
+      const key = it.word.toLowerCase().trim();
+      if (!key) continue;
+      if (!seen.has(key)) seen.set(key, it);
+    }
+  }
+  const merged = Array.from(seen.values());
+  const payload: WordPayload = {
+    passageCode: `${ctx.unitCode} · 유닛 단어`,
+    studentName: ctx.studentName,
+    studentNo: ctx.studentNo,
+    scope: "all",
+    mode: "mix",
+    items: merged,
+  };
+  const html = buildWordPrintHtml(payload);
+  // 단일 시험지지만 wrapMulti 로 일관되게 처리
+  const title = `유닛 단어 시험지 · ${ctx.unitTitle} · ${ctx.studentName ?? ""}`;
+  return wrapMulti(title, [html]);
+};
+
+// ============================================================
+// 4) 단어 · 문장별 — 지문마다 단어 시험지 1장
+// ============================================================
+const buildWordPassage = async (
+  sentenceIds: string[],
+  studentId: string,
+  ctx: UnitWorkbookContext,
+): Promise<string> => {
+  const parts: string[] = [];
+  for (const sid of sentenceIds) {
+    try {
+      const payload = await preloadWordPayload({
+        sentenceId: sid,
+        studentId,
+        scope: "wrong",
+        mode: "mix",
+      });
+      parts.push(buildWordPrintHtml(payload));
+    } catch {
+      // 단어 자체가 없는 경우는 스킵
+    }
+  }
+  const title = `문장별 단어 시험지 · ${ctx.unitTitle} · ${ctx.studentName ?? ""}`;
+  return wrapMulti(title, parts);
+};
+
+// ============================================================
+// Public API
+// ============================================================
 export interface BuildUnitWorkbookInput {
   unitId: string;
   unitTitle: string;
   unitCode: string;
   studentId: string;
-  /** 워크북 인쇄 모드 — 기본 "both" (하위호환) */
-  mode?: UnitWorkbookMode;
+  /** 4종 워크북 모드 — 기본 syntax_unit (= 김재원 디자인) */
+  mode?: WorkbookMode;
 }
 
 /**
- * 한 학생, 한 유닛에 대한 통합 워크북 HTML 빌드.
+ * 한 학생, 한 유닛에 대한 워크북 HTML 빌드.
  * 완료된 지문이 0개면 throw.
  */
 export const buildUnitWorkbookHtmlFor = async (
   input: BuildUnitWorkbookInput,
-): Promise<{ html: string; completedCount: number; mode: UnitWorkbookMode }> => {
-  const mode: UnitWorkbookMode = input.mode === "unit_only" ? "unit_only" : "both";
+): Promise<{ html: string; completedCount: number; mode: WorkbookMode }> => {
+  const mode: WorkbookMode = input.mode ?? "syntax_unit";
 
   // 학생 정보
   const { data: sp } = await supabase
@@ -319,42 +355,23 @@ export const buildUnitWorkbookHtmlFor = async (
     unitCode: input.unitCode,
     studentName,
     studentNo,
-    mode,
   };
 
-  // unit_only 모드: 새 통합 워크북 한 장 (앞=분석+해석, 뒤=구조도). 표지/개별섹션 모두 생략.
-  if (mode === "unit_only") {
-    const combined = await buildUnitOnlyCombined(
-      input.unitId,
-      summary.completedCodes,
-      input.studentId,
-      ctx,
-    );
-    return { html: combined, completedCount: summary.completedCodes.length, mode };
+  let html: string;
+  switch (mode) {
+    case "syntax_unit":
+      html = await buildSyntaxUnit(summary.completedCodes, input.studentId, ctx);
+      break;
+    case "syntax_passage":
+      html = await buildSyntaxPassage(summary.completedCodes, input.studentId, ctx);
+      break;
+    case "word_unit":
+      html = await buildWordUnit(summary.completedCodes, input.studentId, ctx);
+      break;
+    case "word_passage":
+      html = await buildWordPassage(summary.completedCodes, input.studentId, ctx);
+      break;
   }
-
-  // both 모드: 표지 + 지문별 (분석/단어/해석) 섹션
-  const cover = buildCoverPage(ctx, summary.completedCodes);
-  const sections: string[] = [];
-  for (const code of summary.completedCodes) {
-    const sec = await buildPassageSection(code, input.studentId, mode);
-    sections.push(sec);
-  }
-
-  // 각 섹션 빌더가 자체 doctype/wrap을 만들어 반환하므로,
-  // 통합 워크북에서는 body 만 추출해서 합쳐야 한다.
-  const stripDoc = (full: string): string => {
-    const m = full.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-    return m ? m[1] : full;
-  };
-
-  const bodyParts = [
-    cover,
-    ...sections.map((s) => stripDoc(s)),
-  ].join("\n");
-
-  const title = `유닛 워크북 · ${input.unitTitle} · ${studentName ?? ""}`;
-  const html = `<!DOCTYPE html><html lang="ko"><head><title>${escapeHtml(title)}</title>${COVER_HEAD}</head><body>${bodyParts}<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script></body></html>`;
 
   return { html, completedCount: summary.completedCodes.length, mode };
 };

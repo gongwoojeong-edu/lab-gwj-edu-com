@@ -43,7 +43,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
-import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
 import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/lib/printLauncher";
 import {
@@ -60,7 +59,6 @@ interface StudentInfo {
   user_id: string;
   display_name: string | null;
   student_no: string;
-  unit_workbook_mode: "unit_only" | "both";
 }
 interface AttemptStat {
   best_word_score: number | null;
@@ -290,15 +288,14 @@ const LearningResults = () => {
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no, unit_workbook_mode")
+          .select("user_id, display_name, student_no")
           .in("user_id", allUserIds);
         (sp ?? []).forEach((s) => {
-          const row = s as { user_id: string; display_name: string | null; student_no: string; unit_workbook_mode: string | null };
+          const row = s as { user_id: string; display_name: string | null; student_no: string };
           sMap[row.user_id] = {
             user_id: row.user_id,
             display_name: row.display_name,
             student_no: row.student_no,
-            unit_workbook_mode: row.unit_workbook_mode === "unit_only" ? "unit_only" : "both",
           };
         });
       }
@@ -614,7 +611,9 @@ const LearningResults = () => {
         toast({ title: "유닛에 속한 완료 지문이 없어요", variant: "destructive" });
         return;
       }
-      const mode = students[userId]?.unit_workbook_mode ?? "both";
+      // "전체 인쇄"는 기본 모드(구문·유닛 통합)로 출력. 다른 모드가 필요하면
+      // 학생 카드의 미리보기 모달에서 선택해서 인쇄.
+      const mode = "syntax_unit" as const;
       const htmls: string[] = [];
       for (const [unitId] of groups) {
         const label = unitLabel[unitId] ?? "Unit";
@@ -638,10 +637,9 @@ const LearningResults = () => {
       launchPrintHtmlMany(htmls, { jobKey: `printAll:${userId}` }).catch((e) =>
         console.warn("[LearningResults] launchPrintHtmlMany failed", e),
       );
-      const modeLabel = mode === "unit_only" ? "유닛 통합 워크북" : "유닛+문장 워크북";
       toast({
-        title: `${modeLabel} ${htmls.length}건 인쇄 시작`,
-        description: mode === "unit_only" ? "앞면=영어분석+학생해석, 뒷면=구조도" : undefined,
+        title: `구문 유닛 통합 워크북 ${htmls.length}건 인쇄 시작`,
+        description: "앞면=영어분석+학생해석, 뒷면=구조도",
       });
     } catch (e) {
       const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
@@ -863,21 +861,7 @@ const LearningResults = () => {
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
-                    {s && (
-                      <div className="ml-2">
-                        <WorkbookModeToggle
-                          userId={s.user_id}
-                          value={s.unit_workbook_mode}
-                          studentLabel={s.display_name ?? s.student_no}
-                          onChange={(m) =>
-                            setStudents((prev) => ({
-                              ...prev,
-                              [s.user_id]: { ...prev[s.user_id], unit_workbook_mode: m },
-                            }))
-                          }
-                        />
-                      </div>
-                    )}
+                    {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
                     <Button
                       size="sm"
                       variant="outline"

@@ -33,7 +33,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
+
 import { UnitWorkbookPreviewDialog } from "@/components/teacher/UnitWorkbookPreviewDialog";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -111,7 +111,7 @@ const BookshelfUnit = () => {
 
   // 유닛 워크북 인쇄용
   const [studentList, setStudentList] = useState<
-    Array<{ id: string; name: string; no: string; mode: "unit_only" | "both" }>
+    Array<{ id: string; name: string; no: string }>
   >([]);
   const [workbookStudentId, setWorkbookStudentId] = useState<string>("");
   const [workbookSummary, setWorkbookSummary] = useState<{
@@ -151,16 +151,12 @@ const BookshelfUnit = () => {
     void (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("user_id, display_name, student_no, unit_workbook_mode")
+        .select("user_id, display_name, student_no")
         .order("student_no", { ascending: true });
       const list = (data ?? []).map((r) => ({
         id: r.user_id as string,
         name: (r.display_name as string | null) ?? (r.student_no as string),
         no: (r.student_no as string) ?? "",
-        mode:
-          ((r as { unit_workbook_mode?: string }).unit_workbook_mode === "unit_only"
-            ? "unit_only"
-            : "both") as "unit_only" | "both",
       }));
       setStudentList(list);
     })().catch(() => undefined);
@@ -203,8 +199,8 @@ const BookshelfUnit = () => {
     setPreviewOpen(true);
   };
 
-  // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행
-  const handleConfirmPrintWorkbook = async () => {
+  // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행 (모달에서 선택한 mode 사용)
+  const handleConfirmPrintWorkbook = async (mode: import("@/lib/unitWorkbook").WorkbookMode) => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
     if (!workbookSummary || workbookSummary.completed === 0) {
       toast({ title: "완료한 지문이 없어요", variant: "destructive" });
@@ -213,8 +209,6 @@ const BookshelfUnit = () => {
     setWorkbookPrinting(true);
     try {
       const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
-      const selectedStudent = studentList.find((s) => s.id === workbookStudentId);
-      const mode = selectedStudent?.mode ?? "both";
       const { html, completedCount } = await buildUnitWorkbookHtmlFor({
         unitId: unit.id,
         unitTitle: unit.title,
@@ -223,14 +217,14 @@ const BookshelfUnit = () => {
         mode,
       });
       await launchPrintHtml(html, {
-        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}`,
+        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}:${mode}`,
         loadTimeoutMs: 12000,
         cleanupAfterMs: 2500,
       });
-      const modeLabel = mode === "unit_only" ? "유닛만" : "유닛+문장";
+      const { WORKBOOK_MODE_LABEL } = await import("@/lib/unitWorkbook");
       toast({
-        title: "유닛 워크북 인쇄 시작",
-        description: `${completedCount}개 지문 포함 · ${modeLabel}`,
+        title: "워크북 인쇄 시작",
+        description: `${WORKBOOK_MODE_LABEL[mode]} · ${completedCount}개 지문`,
       });
       setPreviewOpen(false);
     } catch (err) {
@@ -842,33 +836,12 @@ const BookshelfUnit = () => {
                     studentList.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name} ({s.no})
-                        {s.mode === "unit_only" ? " · 유닛만" : ""}
                       </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
             </div>
-            {workbookStudentId && (() => {
-              const sel = studentList.find((s) => s.id === workbookStudentId);
-              if (!sel) return null;
-              return (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground">워크북 모드</label>
-                  <WorkbookModeToggle
-                    userId={sel.id}
-                    value={sel.mode}
-                    studentLabel={sel.name}
-                    size="md"
-                    onChange={(m) =>
-                      setStudentList((prev) =>
-                        prev.map((x) => (x.id === sel.id ? { ...x, mode: m } : x)),
-                      )
-                    }
-                  />
-                </div>
-              );
-            })()}
             <div className="text-xs text-muted-foreground min-w-[140px]">
               {!workbookStudentId ? (
                 <span>학생을 선택하면 진행상황이 표시됩니다.</span>
@@ -922,7 +895,6 @@ const BookshelfUnit = () => {
               studentNo={sel.no}
               unitTitle={unit.title}
               unitCode={unitCode}
-              mode={sel.mode}
               completedCodes={workbookSummary.completedCodes}
               pendingCodes={workbookSummary.pendingCodes}
               printing={workbookPrinting}
