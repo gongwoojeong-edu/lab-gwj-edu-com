@@ -1203,6 +1203,15 @@ const Assignments = () => {
                         studentNameMap={studentNameMap}
                         targetUserIds={allTargetIds}
                       />
+                      <AssignmentProgressSummary
+                        progress={mergedProgress}
+                        includePre={g.include_pre}
+                        includeAnalysis={g.include_analysis}
+                        includeTranslation={g.include_translation}
+                        includeWordtest={g.include_wordtest}
+                        targetUserIds={allTargetIds}
+                        className="pt-1"
+                      />
                       {g.description && <p className="text-xs text-foreground/80 mt-1">{g.description}</p>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
