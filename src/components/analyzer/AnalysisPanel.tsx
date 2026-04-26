@@ -934,13 +934,21 @@ const NounPanel = ({
         <ClauseDepthRow value={noun.clauseDepth ?? 1} onChange={onClauseDepthChange} />
       )}
       {formOnlyMode ? (
-        <RoleRow
-          unlocked
-          status={noun.roleStatus}
-          options={formOnlyRoleOptions}
-          selected={noun.role}
-          onSelect={onNounRoleChange}
-        />
+        <>
+          <RoleRow
+            unlocked
+            status={noun.roleStatus}
+            options={formOnlyRoleOptions}
+            selected={noun.role}
+            onSelect={onNounRoleChange}
+          />
+          {/* 결함 #3: 명사 to V/V-ing/접SV form에서도 M(수식어) 옵션을 보장 노출 */}
+          <NounMShortcut
+            selectedRole={noun.role}
+            roleStatus={noun.roleStatus}
+            onPick={() => onNounElementRole("M", null)}
+          />
+        </>
       ) : (
         <ElementRoleGrid
           unlocked={!!noun.form}
