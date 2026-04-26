@@ -1813,6 +1813,50 @@ const VERB_NUMBERS: VerbNumber[] = ["단수", "복수", "기타"];
 const VERB_TENSES: VerbTense[] = ["현재", "과거", "미래"];
 const VERB_ASPECTS: VerbAspect[] = ["진행", "완료"];
 
+// VerbPanel 내부에서 정의되어 있던 Row/Chip 컴포넌트를 외부로 분리.
+// (내부 정의 시 매 렌더마다 새 함수 reference로 인식되어 unmount/remount 가
+//  반복되며 onClick 이벤트가 손실되는 문제가 있었음 — 결함 #2 원인.)
+const VerbRow = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <div className="flex items-center gap-2">
+    <span className="w-10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+      {label}
+    </span>
+    <div className="flex flex-wrap gap-1">{children}</div>
+  </div>
+);
+
+const VerbChip = ({
+  selected,
+  confirmed,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  confirmed: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      "px-3 py-1.5 rounded-md text-xs font-bold font-kr border transition-all min-h-[32px] min-w-[44px]",
+      selected
+        ? "bg-primary/15 text-primary border-primary/40"
+        : "bg-card text-foreground border-border hover:border-primary/40 active:bg-primary/10",
+      confirmed && !selected && "opacity-80",
+    )}
+  >
+    {children}
+  </button>
+);
+
 const VerbPanel = ({
   verb,
   onVerbToggleNumber,
@@ -1827,46 +1871,6 @@ const VerbPanel = ({
   const confirmed = verbConfirmStatus === "correct";
   const wrong = verbConfirmStatus === "wrong";
 
-  const Row = ({
-    label,
-    children,
-  }: {
-    label: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="flex items-center gap-2">
-      <span className="w-10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-        {label}
-      </span>
-      <div className="flex flex-wrap gap-1">{children}</div>
-    </div>
-  );
-
-  const Chip = ({
-    selected,
-    onClick,
-    children,
-  }: {
-    selected: boolean;
-    onClick: () => void;
-    children: React.ReactNode;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "px-3 py-1.5 rounded-md text-xs font-bold font-kr border transition-all min-h-[32px] min-w-[44px]",
-        selected
-          ? "bg-primary/15 text-primary border-primary/40"
-          : "bg-card text-foreground border-border hover:border-primary/40 active:bg-primary/10",
-        // 확정된 후에도 다시 눌러 수정할 수 있도록 잠그지 않음 (선택 변경 시 toggleVerb에서 confirmStatus가 idle로 자동 해제됨)
-        confirmed && !selected && "opacity-80",
-      )}
-    >
-      {children}
-    </button>
-  );
-
   return (
     <>
       <div className="flex items-center justify-between">
@@ -1877,37 +1881,52 @@ const VerbPanel = ({
       </div>
 
       <div className="space-y-1.5">
-        <Row label="수">
+        <VerbRow label="수">
           {VERB_NUMBERS.map((n) => (
-            <Chip key={n} selected={verb.number === n} onClick={() => onVerbToggleNumber(n)}>
+            <VerbChip
+              key={n}
+              selected={verb.number === n}
+              confirmed={confirmed}
+              onClick={() => onVerbToggleNumber(n)}
+            >
               {n}
-            </Chip>
+            </VerbChip>
           ))}
-        </Row>
-        <Row label="시제">
+        </VerbRow>
+        <VerbRow label="시제">
           {VERB_TENSES.map((t) => (
-            <Chip key={t} selected={verb.tense === t} onClick={() => onVerbToggleTense(t)}>
+            <VerbChip
+              key={t}
+              selected={verb.tense === t}
+              confirmed={confirmed}
+              onClick={() => onVerbToggleTense(t)}
+            >
               {t}
-            </Chip>
+            </VerbChip>
           ))}
-        </Row>
-        <Row label="형">
+        </VerbRow>
+        <VerbRow label="형">
           {VERB_ASPECTS.map((a) => (
-            <Chip key={a} selected={verb.aspect.includes(a)} onClick={() => onVerbToggleAspect(a)}>
+            <VerbChip
+              key={a}
+              selected={verb.aspect.includes(a)}
+              confirmed={confirmed}
+              onClick={() => onVerbToggleAspect(a)}
+            >
               {a}
-            </Chip>
+            </VerbChip>
           ))}
-        </Row>
-        <Row label="태">
-          <Chip selected={verb.voice} onClick={onVerbToggleVoice}>
+        </VerbRow>
+        <VerbRow label="태">
+          <VerbChip selected={verb.voice} confirmed={confirmed} onClick={onVerbToggleVoice}>
             수동
-          </Chip>
-        </Row>
-        <Row label="기타">
-          <Chip selected={verb.proVerb} onClick={onVerbToggleProVerb}>
+          </VerbChip>
+        </VerbRow>
+        <VerbRow label="기타">
+          <VerbChip selected={verb.proVerb} confirmed={confirmed} onClick={onVerbToggleProVerb}>
             대동사
-          </Chip>
-        </Row>
+          </VerbChip>
+        </VerbRow>
       </div>
 
       {wrong && (
