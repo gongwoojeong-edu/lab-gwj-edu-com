@@ -897,11 +897,22 @@ const Assignments = () => {
         </div>
 
         <div className="sm:col-span-2 space-y-1.5">
-          <Label className="flex items-center gap-2">
-            연결 지문
-            <span className="text-[10px] font-normal text-primary">
-              (✨ 신규 과제는 선택한 <b>유닛 전체 지문</b>이 자동 부여됩니다. 아래 선택은 확인용)
-            </span>
+          <Label className="flex items-center gap-2 flex-wrap">
+            {f.mode === "sentence" ? (
+              <>
+                출제할 문장 <span className="text-destructive">*</span>
+                <span className="text-[10px] font-normal text-primary">
+                  (이 문장 1개만 부여됩니다)
+                </span>
+              </>
+            ) : (
+              <>
+                연결 지문
+                <span className="text-[10px] font-normal text-primary">
+                  (✨ 신규 과제는 선택한 <b>유닛 전체 지문</b>이 자동 부여됩니다. 아래 선택은 확인용)
+                </span>
+              </>
+            )}
           </Label>
           <Select
             value={f.selectedPassageCode || undefined}
@@ -911,29 +922,60 @@ const Assignments = () => {
             disabled={!f.selectedUnitId}
           >
             <SelectTrigger>
-              <SelectValue placeholder={f.selectedUnitId ? "지문 선택" : "유닛을 먼저 선택"} />
+              <SelectValue
+                placeholder={
+                  !f.selectedUnitId
+                    ? "유닛을 먼저 선택"
+                    : f.mode === "sentence"
+                    ? "문장을 선택해주세요"
+                    : "지문 선택"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {passageList.length === 0 ? (
                 <div className="px-2 py-3 text-xs text-muted-foreground">지문이 없습니다</div>
               ) : (
-                passageList.map((p) => (
-                  <SelectItem key={p.id} value={p.code}>
-                    <span className="flex items-center gap-2">
-                      <BookOpen className="size-3.5 text-muted-foreground" />
-                      <span className="font-mono text-xs text-muted-foreground">
-                        #{String(p.passage_no).padStart(3, "0")}
+                passageList.map((p) => {
+                  const hasMaster = masterAvail[p.code];
+                  const showBadge = f.mode === "sentence";
+                  return (
+                    <SelectItem key={p.id} value={p.code}>
+                      <span className="flex items-center gap-2">
+                        {showBadge ? (
+                          <span
+                            className="text-sm shrink-0"
+                            title={hasMaster ? "마스터키 등록됨" : "마스터키 미등록"}
+                          >
+                            {hasMaster ? "🔑" : "⏳"}
+                          </span>
+                        ) : (
+                          <BookOpen className="size-3.5 text-muted-foreground" />
+                        )}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {showBadge
+                            ? p.code
+                            : `#${String(p.passage_no).padStart(3, "0")}`}
+                        </span>
+                        <span className="truncate max-w-[24rem]">
+                          {p.english.slice(0, 50)}
+                          {p.english.length > 50 ? "…" : ""}
+                        </span>
                       </span>
-                      <span className="truncate max-w-[28rem]">
-                        {p.english.slice(0, 60)}
-                        {p.english.length > 60 ? "…" : ""}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))
+                    </SelectItem>
+                  );
+                })
               )}
             </SelectContent>
           </Select>
+          {f.mode === "sentence" &&
+            f.selectedPassageCode &&
+            masterAvail[f.selectedPassageCode] === false && (
+              <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
+                ⏳ 이 문장은 마스터키가 등록되어 있지 않아, 학생 학습 결과가
+                <b> 보류(hold)</b> 상태로 저장됩니다. 추후 마스터키 등록 시 채점됩니다.
+              </p>
+            )}
         </div>
       </>
     );
