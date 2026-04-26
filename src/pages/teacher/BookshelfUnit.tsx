@@ -836,33 +836,12 @@ const BookshelfUnit = () => {
                     studentList.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name} ({s.no})
-                        {s.mode === "unit_only" ? " · 유닛만" : ""}
                       </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
             </div>
-            {workbookStudentId && (() => {
-              const sel = studentList.find((s) => s.id === workbookStudentId);
-              if (!sel) return null;
-              return (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground">워크북 모드</label>
-                  <WorkbookModeToggle
-                    userId={sel.id}
-                    value={sel.mode}
-                    studentLabel={sel.name}
-                    size="md"
-                    onChange={(m) =>
-                      setStudentList((prev) =>
-                        prev.map((x) => (x.id === sel.id ? { ...x, mode: m } : x)),
-                      )
-                    }
-                  />
-                </div>
-              );
-            })()}
             <div className="text-xs text-muted-foreground min-w-[140px]">
               {!workbookStudentId ? (
                 <span>학생을 선택하면 진행상황이 표시됩니다.</span>
@@ -916,7 +895,6 @@ const BookshelfUnit = () => {
               studentNo={sel.no}
               unitTitle={unit.title}
               unitCode={unitCode}
-              mode={sel.mode}
               completedCodes={workbookSummary.completedCodes}
               pendingCodes={workbookSummary.pendingCodes}
               printing={workbookPrinting}
