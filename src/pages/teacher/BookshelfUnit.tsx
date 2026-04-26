@@ -33,7 +33,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
+
 import { UnitWorkbookPreviewDialog } from "@/components/teacher/UnitWorkbookPreviewDialog";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import {
@@ -111,7 +111,7 @@ const BookshelfUnit = () => {
 
   // 유닛 워크북 인쇄용
   const [studentList, setStudentList] = useState<
-    Array<{ id: string; name: string; no: string; mode: "unit_only" | "both" }>
+    Array<{ id: string; name: string; no: string }>
   >([]);
   const [workbookStudentId, setWorkbookStudentId] = useState<string>("");
   const [workbookSummary, setWorkbookSummary] = useState<{
@@ -151,16 +151,12 @@ const BookshelfUnit = () => {
     void (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("user_id, display_name, student_no, unit_workbook_mode")
+        .select("user_id, display_name, student_no")
         .order("student_no", { ascending: true });
       const list = (data ?? []).map((r) => ({
         id: r.user_id as string,
         name: (r.display_name as string | null) ?? (r.student_no as string),
         no: (r.student_no as string) ?? "",
-        mode:
-          ((r as { unit_workbook_mode?: string }).unit_workbook_mode === "unit_only"
-            ? "unit_only"
-            : "both") as "unit_only" | "both",
       }));
       setStudentList(list);
     })().catch(() => undefined);
