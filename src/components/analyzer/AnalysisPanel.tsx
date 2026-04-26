@@ -1020,6 +1020,66 @@ const NounMShortcut = ({
 };
 
 // ============================================================
+// 전치사구 (전N) form 전용 단축 행 — 부사/형용사가 동일한 시각 패턴을 공유.
+// 결함 #4: 형용사 전명구를 부사 전명구와 동일한 표기로 통일.
+// ============================================================
+const PrepPhraseShortcut = ({
+  label,
+  element,
+  elementLabel,
+  colorClass,
+  selectedRole,
+  roleStatus,
+  onPick,
+}: {
+  label: string;
+  element: "M";
+  elementLabel: string;
+  colorClass: string;
+  selectedRole: string | null;
+  roleStatus: StepStatus;
+  onPick: () => void;
+}) => {
+  const mask = useMaskStatus();
+  const status = mask(roleStatus);
+  const sel = selectedRole === label;
+  const ok = sel && status === "correct";
+  const ng = sel && status === "wrong";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+          Layer 03 · 성분 / 세부역할
+        </p>
+        <StatusPill status={status} />
+      </div>
+      <div className="space-y-0.5">
+        <div className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0">
+          <span className="shrink-0 w-[58px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1">
+            <span className="font-mono text-[12px]">{element}</span>
+            {elementLabel}
+          </span>
+          <div className="flex-1">
+            <button
+              type="button"
+              onClick={onPick}
+              className={cn(
+                "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all border",
+                ok && colorClass,
+                ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
+                !sel && "bg-secondary/60 text-foreground border-transparent hover:bg-primary/10",
+              )}
+            >
+              {label}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // 형용사 패널
 // ============================================================
 interface AdjPanelProps {
