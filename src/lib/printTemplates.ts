@@ -878,35 +878,35 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   .cb-front { margin-bottom: 2mm; }
   /* 앞면: 분석 본문 통합 박스 */
   .cb-passages {
-    border: 0.5pt solid #000; padding: 1.2mm 2.5mm;
+    border: 0.5pt solid #000; padding: 2mm 3mm;
   }
   .cb-prow {
-    display: flex; gap: 1.5mm; padding: 0.3mm 0;
+    display: flex; gap: 2mm; padding: 0.8mm 0;
     border-bottom: 0.3pt dashed #bbb;
   }
   .cb-prow:last-child { border-bottom: none; }
-  .cb-pnum { font-weight: 700; font-size: 8.5pt; color: #333; min-width: 4.5mm; padding-top: 0.3mm; }
+  .cb-pnum { font-weight: 700; font-size: 10pt; color: #333; min-width: 5.5mm; padding-top: 0.4mm; }
   .cb-pbody { flex: 1; min-width: 0; }
   .cb-pcode {
-    font-size: 6.5pt; color: #888; font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    margin-bottom: 0.2mm; letter-spacing: -0.02em;
+    font-size: 7pt; color: #888; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    margin-bottom: 0.4mm; letter-spacing: -0.02em;
   }
   .cb-pbody .passage,
   .cb-pbody .body-text {
     padding: 0 !important; margin: 0;
-    line-height: 1.4 !important; font-size: 9pt !important;
+    line-height: 1.55 !important; font-size: 10.5pt !important;
     letter-spacing: -0.02em; word-spacing: 0;
   }
   /* 앞면: 한글해석 통합 박스 */
   .cb-trans-box {
-    border: 0.5pt solid #000; padding: 1mm 2.5mm;
-    font-size: 9pt; line-height: 1.4; color: #222; letter-spacing: -0.02em;
+    border: 0.5pt solid #000; padding: 1.5mm 3mm;
+    font-size: 10pt; line-height: 1.55; color: #222; letter-spacing: -0.02em;
   }
-  .cb-trow { padding: 0.3mm 0; border-bottom: 0.3pt dashed #ccc; }
+  .cb-trow { padding: 0.6mm 0; border-bottom: 0.3pt dashed #ccc; }
   .cb-trow:last-child { border-bottom: none; }
-  .cb-tnum { font-weight: 700; margin-right: 1mm; }
+  .cb-tnum { font-weight: 700; margin-right: 1.2mm; }
   .cb-tcode {
-    font-size: 6.5pt; color: #888; margin-right: 1.5mm;
+    font-size: 7pt; color: #888; margin-right: 1.8mm;
     font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -0.02em;
   }
   .cb-ttext { white-space: pre-wrap; }
