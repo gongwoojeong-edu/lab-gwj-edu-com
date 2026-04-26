@@ -199,8 +199,8 @@ const BookshelfUnit = () => {
     setPreviewOpen(true);
   };
 
-  // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행
-  const handleConfirmPrintWorkbook = async () => {
+  // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행 (모달에서 선택한 mode 사용)
+  const handleConfirmPrintWorkbook = async (mode: import("@/lib/unitWorkbook").WorkbookMode) => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
     if (!workbookSummary || workbookSummary.completed === 0) {
       toast({ title: "완료한 지문이 없어요", variant: "destructive" });
@@ -209,8 +209,6 @@ const BookshelfUnit = () => {
     setWorkbookPrinting(true);
     try {
       const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
-      const selectedStudent = studentList.find((s) => s.id === workbookStudentId);
-      const mode = selectedStudent?.mode ?? "both";
       const { html, completedCount } = await buildUnitWorkbookHtmlFor({
         unitId: unit.id,
         unitTitle: unit.title,
@@ -219,14 +217,14 @@ const BookshelfUnit = () => {
         mode,
       });
       await launchPrintHtml(html, {
-        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}`,
+        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}:${mode}`,
         loadTimeoutMs: 12000,
         cleanupAfterMs: 2500,
       });
-      const modeLabel = mode === "unit_only" ? "유닛만" : "유닛+문장";
+      const { WORKBOOK_MODE_LABEL } = await import("@/lib/unitWorkbook");
       toast({
-        title: "유닛 워크북 인쇄 시작",
-        description: `${completedCount}개 지문 포함 · ${modeLabel}`,
+        title: "워크북 인쇄 시작",
+        description: `${WORKBOOK_MODE_LABEL[mode]} · ${completedCount}개 지문`,
       });
       setPreviewOpen(false);
     } catch (err) {
