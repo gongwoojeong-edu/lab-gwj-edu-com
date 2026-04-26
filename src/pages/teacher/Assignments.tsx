@@ -1118,7 +1118,15 @@ const Assignments = () => {
         </Card>
 
         <Card className="p-5 space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeGroups.length})</h2>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeGroups.length})</h2>
+            <Button asChild size="sm" variant="outline" className="h-7 text-[11px] font-bold gap-1">
+              <Link to="/teacher/assignments/past">
+                <ClipboardList className="size-3.5" />
+                완료 과제함
+              </Link>
+            </Button>
+          </div>
           {activeGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">진행중인 과제가 없습니다.</p>
           ) : (
