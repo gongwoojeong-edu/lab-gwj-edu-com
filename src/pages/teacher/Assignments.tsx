@@ -49,7 +49,7 @@ import {
 } from "@/lib/textbooks";
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
-import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
+
 import {
   fetchAssignmentProgress,
   type AssignmentProgressMap,
@@ -1062,24 +1062,7 @@ const Assignments = () => {
                               <span className="text-xs text-muted-foreground">({s.student_no})</span>
                             </span>
                           </div>
-                          {/* 우측 가로 스크롤 영역: 워크북 모드 토글 */}
-                          <div
-                            className="flex items-center pl-2 pr-1 py-1"
-                            onClick={(e) => e.preventDefault()}
-                          >
-                            <WorkbookModeToggle
-                              userId={s.user_id}
-                              value={s.unit_workbook_mode ?? "both"}
-                              studentLabel={s.display_name ?? s.student_no}
-                              onChange={(m) =>
-                                setStudents((prev) =>
-                                  prev.map((x) =>
-                                    x.user_id === s.user_id ? { ...x, unit_workbook_mode: m } : x,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
+                          {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
                         </label>
                       );
                     })}
