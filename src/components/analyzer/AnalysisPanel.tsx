@@ -934,13 +934,21 @@ const NounPanel = ({
         <ClauseDepthRow value={noun.clauseDepth ?? 1} onChange={onClauseDepthChange} />
       )}
       {formOnlyMode ? (
-        <RoleRow
-          unlocked
-          status={noun.roleStatus}
-          options={formOnlyRoleOptions}
-          selected={noun.role}
-          onSelect={onNounRoleChange}
-        />
+        <>
+          <RoleRow
+            unlocked
+            status={noun.roleStatus}
+            options={formOnlyRoleOptions}
+            selected={noun.role}
+            onSelect={onNounRoleChange}
+          />
+          {/* 결함 #3: 명사 to V/V-ing/접SV form에서도 M(수식어) 옵션을 보장 노출 */}
+          <NounMShortcut
+            selectedRole={noun.role}
+            roleStatus={noun.roleStatus}
+            onPick={() => onNounElementRole("M", null)}
+          />
+        </>
       ) : (
         <ElementRoleGrid
           unlocked={!!noun.form}
@@ -968,6 +976,106 @@ const NounPanel = ({
         <CompletionBlock label={noun.role ?? noun.form ?? "완료"} />
       )}
     </>
+  );
+};
+
+// ============================================================
+// 명사 form이 to V/V-ing/접SV 일 때도 M(수식어) 옵션을 즉시 선택할 수 있게 하는
+// 보조 단축 행 — 결함 #3 보강.
+// ============================================================
+const NounMShortcut = ({
+  selectedRole,
+  roleStatus,
+  onPick,
+}: {
+  selectedRole: string | null;
+  roleStatus: StepStatus;
+  onPick: () => void;
+}) => {
+  const mask = useMaskStatus();
+  const status = mask(roleStatus);
+  const sel = selectedRole === "수식어";
+  const ok = sel && status === "correct";
+  return (
+    <div className="flex items-start gap-2 py-1 mt-1 border-t border-border/40">
+      <span className="shrink-0 w-[58px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1">
+        <span className="font-mono text-[12px]">M</span>
+        수식어
+      </span>
+      <div className="flex-1">
+        <button
+          type="button"
+          onClick={onPick}
+          className={cn(
+            "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all",
+            ok && "bg-element-m-bg text-element-m border border-element-m/40",
+            !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+          )}
+        >
+          수식어 (즉시 완료)
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 전치사구 (전N) form 전용 단축 행 — 부사/형용사가 동일한 시각 패턴을 공유.
+// 결함 #4: 형용사 전명구를 부사 전명구와 동일한 표기로 통일.
+// ============================================================
+const PrepPhraseShortcut = ({
+  label,
+  element,
+  elementLabel,
+  colorClass,
+  selectedRole,
+  roleStatus,
+  onPick,
+}: {
+  label: string;
+  element: "M";
+  elementLabel: string;
+  colorClass: string;
+  selectedRole: string | null;
+  roleStatus: StepStatus;
+  onPick: () => void;
+}) => {
+  const mask = useMaskStatus();
+  const status = mask(roleStatus);
+  const sel = selectedRole === label;
+  const ok = sel && status === "correct";
+  const ng = sel && status === "wrong";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+          Layer 03 · 성분 / 세부역할
+        </p>
+        <StatusPill status={status} />
+      </div>
+      <div className="space-y-0.5">
+        <div className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0">
+          <span className="shrink-0 w-[58px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1">
+            <span className="font-mono text-[12px]">{element}</span>
+            {elementLabel}
+          </span>
+          <div className="flex-1">
+            <button
+              type="button"
+              onClick={onPick}
+              className={cn(
+                "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all border",
+                ok && colorClass,
+                ng && "bg-destructive/10 text-destructive border-destructive animate-pulse",
+                !sel && "bg-secondary/60 text-foreground border-transparent hover:bg-primary/10",
+              )}
+            >
+              {label}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -1034,13 +1142,26 @@ const AdjPanel = ({
         <ClauseDepthRow value={adj.clauseDepth ?? 1} onChange={onClauseDepthChange} />
       )}
       {skipsElement ? (
-        <RoleRow
-          unlocked={!!adj.form}
-          status={adj.roleStatus}
-          options={roleOptions}
-          selected={adj.role}
-          onSelect={onAdjRoleChange}
-        />
+        adj.form === "전N" ? (
+          // 결함 #4: 형용사 전N도 부사 전N과 동일한 시각 패턴(통합 그리드 1버튼)으로 표시
+          <PrepPhraseShortcut
+            label="형용사 전치사구"
+            element="M"
+            elementLabel="수식어"
+            colorClass="bg-element-m-bg text-element-m border-element-m/40"
+            selectedRole={adj.role}
+            roleStatus={adj.roleStatus}
+            onPick={() => onAdjRoleChange("형용사 전치사구")}
+          />
+        ) : (
+          <RoleRow
+            unlocked={!!adj.form}
+            status={adj.roleStatus}
+            options={roleOptions}
+            selected={adj.role}
+            onSelect={onAdjRoleChange}
+          />
+        )
       ) : (
         <ElementRoleGrid
           unlocked={!!adj.form}
@@ -1813,6 +1934,50 @@ const VERB_NUMBERS: VerbNumber[] = ["단수", "복수", "기타"];
 const VERB_TENSES: VerbTense[] = ["현재", "과거", "미래"];
 const VERB_ASPECTS: VerbAspect[] = ["진행", "완료"];
 
+// VerbPanel 내부에서 정의되어 있던 Row/Chip 컴포넌트를 외부로 분리.
+// (내부 정의 시 매 렌더마다 새 함수 reference로 인식되어 unmount/remount 가
+//  반복되며 onClick 이벤트가 손실되는 문제가 있었음 — 결함 #2 원인.)
+const VerbRow = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <div className="flex items-center gap-2">
+    <span className="w-10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+      {label}
+    </span>
+    <div className="flex flex-wrap gap-1">{children}</div>
+  </div>
+);
+
+const VerbChip = ({
+  selected,
+  confirmed,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  confirmed: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      "px-3 py-1.5 rounded-md text-xs font-bold font-kr border transition-all min-h-[32px] min-w-[44px]",
+      selected
+        ? "bg-primary/15 text-primary border-primary/40"
+        : "bg-card text-foreground border-border hover:border-primary/40 active:bg-primary/10",
+      confirmed && !selected && "opacity-80",
+    )}
+  >
+    {children}
+  </button>
+);
+
 const VerbPanel = ({
   verb,
   onVerbToggleNumber,
@@ -1827,46 +1992,6 @@ const VerbPanel = ({
   const confirmed = verbConfirmStatus === "correct";
   const wrong = verbConfirmStatus === "wrong";
 
-  const Row = ({
-    label,
-    children,
-  }: {
-    label: string;
-    children: React.ReactNode;
-  }) => (
-    <div className="flex items-center gap-2">
-      <span className="w-10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
-        {label}
-      </span>
-      <div className="flex flex-wrap gap-1">{children}</div>
-    </div>
-  );
-
-  const Chip = ({
-    selected,
-    onClick,
-    children,
-  }: {
-    selected: boolean;
-    onClick: () => void;
-    children: React.ReactNode;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "px-3 py-1.5 rounded-md text-xs font-bold font-kr border transition-all min-h-[32px] min-w-[44px]",
-        selected
-          ? "bg-primary/15 text-primary border-primary/40"
-          : "bg-card text-foreground border-border hover:border-primary/40 active:bg-primary/10",
-        // 확정된 후에도 다시 눌러 수정할 수 있도록 잠그지 않음 (선택 변경 시 toggleVerb에서 confirmStatus가 idle로 자동 해제됨)
-        confirmed && !selected && "opacity-80",
-      )}
-    >
-      {children}
-    </button>
-  );
-
   return (
     <>
       <div className="flex items-center justify-between">
@@ -1877,37 +2002,52 @@ const VerbPanel = ({
       </div>
 
       <div className="space-y-1.5">
-        <Row label="수">
+        <VerbRow label="수">
           {VERB_NUMBERS.map((n) => (
-            <Chip key={n} selected={verb.number === n} onClick={() => onVerbToggleNumber(n)}>
+            <VerbChip
+              key={n}
+              selected={verb.number === n}
+              confirmed={confirmed}
+              onClick={() => onVerbToggleNumber(n)}
+            >
               {n}
-            </Chip>
+            </VerbChip>
           ))}
-        </Row>
-        <Row label="시제">
+        </VerbRow>
+        <VerbRow label="시제">
           {VERB_TENSES.map((t) => (
-            <Chip key={t} selected={verb.tense === t} onClick={() => onVerbToggleTense(t)}>
+            <VerbChip
+              key={t}
+              selected={verb.tense === t}
+              confirmed={confirmed}
+              onClick={() => onVerbToggleTense(t)}
+            >
               {t}
-            </Chip>
+            </VerbChip>
           ))}
-        </Row>
-        <Row label="형">
+        </VerbRow>
+        <VerbRow label="형">
           {VERB_ASPECTS.map((a) => (
-            <Chip key={a} selected={verb.aspect.includes(a)} onClick={() => onVerbToggleAspect(a)}>
+            <VerbChip
+              key={a}
+              selected={verb.aspect.includes(a)}
+              confirmed={confirmed}
+              onClick={() => onVerbToggleAspect(a)}
+            >
               {a}
-            </Chip>
+            </VerbChip>
           ))}
-        </Row>
-        <Row label="태">
-          <Chip selected={verb.voice} onClick={onVerbToggleVoice}>
+        </VerbRow>
+        <VerbRow label="태">
+          <VerbChip selected={verb.voice} confirmed={confirmed} onClick={onVerbToggleVoice}>
             수동
-          </Chip>
-        </Row>
-        <Row label="기타">
-          <Chip selected={verb.proVerb} onClick={onVerbToggleProVerb}>
+          </VerbChip>
+        </VerbRow>
+        <VerbRow label="기타">
+          <VerbChip selected={verb.proVerb} confirmed={confirmed} onClick={onVerbToggleProVerb}>
             대동사
-          </Chip>
-        </Row>
+          </VerbChip>
+        </VerbRow>
       </div>
 
       {wrong && (

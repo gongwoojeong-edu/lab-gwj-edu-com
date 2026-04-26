@@ -1483,14 +1483,23 @@ const Index = ({
 
     const hasCompletedOwner = owners.length > 0;
 
-    // === 지우개 모드 — 1회용. 클릭한 단어 위 모든 owner를 한 번에 삭제. ===
+    // === 지우개 모드 — 클릭 1회 = 가장 위(가장 안쪽/짧은) layer 1개만 삭제 ===
+    // owners는 길이 오름차순 정렬됨 → owners[0]이 가장 안쪽(=가장 위에 쌓인) layer.
+    // 남은 layer가 있으면 모드 유지(연속으로 한 층씩 벗겨낼 수 있음).
+    // 모든 layer 제거 완료 또는 미분석 토큰 클릭 시에만 모드 해제.
     if (eraserMode) {
       if (hasCompletedOwner) {
-        owners.forEach(([ownerId]) => eraseOwner(ownerId));
-        toast({ title: `🧽 ${owners.length}개 분석 삭제됨` });
+        const [topOwnerId] = owners[0];
+        eraseOwner(topOwnerId);
+        const remaining = owners.length - 1;
+        toast({
+          title: `🧽 1개 분석 삭제됨${remaining > 0 ? ` · ${remaining}층 남음` : ""}`,
+        });
+        if (remaining === 0) setEraserMode(false);
+      } else {
+        // 미분석 토큰을 클릭하면 모드 해제 (헛클릭 방지)
+        setEraserMode(false);
       }
-      // 미분석 토큰을 클릭해도 모드 해제 (헛클릭 방지)
-      setEraserMode(false);
       return;
     }
 
@@ -2786,7 +2795,9 @@ const Index = ({
 
               // === Owner 종류별 배경 분기 ===
               // clause: 배경 거의 제거 (대괄호로 표현) / parallel: 진한 박스 / general: 옅은 보라 누적
+              // 결함 #5: layer 번호에 비례해 alpha를 증가시켜 위층일수록 진하게 표시.
               const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
+              const LAYER_ALPHAS = [0.14, 0.24, 0.34, 0.44];
               const buildLayerBg = (owners: string[]): string | undefined => {
                 if (owners.length === 0) return undefined;
                 const layers = owners
@@ -2797,13 +2808,28 @@ const Index = ({
                     if (isClauseProgress(op)) return null; // clause는 배경 X
                     if (isParallelProgress(op)) return null; // parallel은 별도 .parallel-box
                     const v = layerVars[i % layerVars.length];
-                    return `linear-gradient(hsl(var(${v}) / 0.20), hsl(var(${v}) / 0.20))`;
+                    const a = LAYER_ALPHAS[Math.min(i, LAYER_ALPHAS.length - 1)];
+                    return `linear-gradient(hsl(var(${v}) / ${a}), hsl(var(${v}) / ${a}))`;
                   })
                   .filter((x): x is string => !!x);
                 if (layers.length === 0) return undefined;
                 return layers.join(", ");
               };
               const wordLayerBg = showTeacherAnnotations && !idiomMark ? buildLayerBg(ownersHere) : undefined;
+
+              // 결함 #5: 본문 단어가 S/V인 경우 텍스트 색을 element 색으로 강조 (가장 안쪽 owner 기준)
+              const innerElementForText: "S" | "V" | undefined =
+                showTeacherAnnotations && isCompleted && innerBadge === "S"
+                  ? "S"
+                  : showTeacherAnnotations && isCompleted && wp?.pos === "동사"
+                    ? "V"
+                    : undefined;
+              const wordTextColorClass =
+                innerElementForText === "S"
+                  ? "text-element-s font-extrabold"
+                  : innerElementForText === "V"
+                    ? "text-element-v font-extrabold"
+                    : "";
 
               // 병렬 owner가 이 인덱스를 포함하면 박스 시각화 (학생 모드는 시각화 차단)
               const parallelOwnerHere = showTeacherAnnotations
@@ -2859,6 +2885,8 @@ const Index = ({
                     className={cn(
                       "relative inline-flex flex-col items-center cursor-pointer leading-none",
                       idiomMark && "py-0.5",
+                      // 결함 #5: S/V 본문 단어 색 강조
+                      wordTextColorClass,
                       hintWrongOwnerIds && ownerId && hintWrongOwnerIds.has(ownerId) &&
                         "ring-2 ring-amber-500/60 ring-offset-1 rounded-md bg-amber-500/5",
                       // 비교 모드 — 자동/수동 diff: 빨강 음영
