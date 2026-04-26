@@ -2885,6 +2885,8 @@ const Index = ({
                     className={cn(
                       "relative inline-flex flex-col items-center cursor-pointer leading-none",
                       idiomMark && "py-0.5",
+                      // 결함 #5: S/V 본문 단어 색 강조
+                      wordTextColorClass,
                       hintWrongOwnerIds && ownerId && hintWrongOwnerIds.has(ownerId) &&
                         "ring-2 ring-amber-500/60 ring-offset-1 rounded-md bg-amber-500/5",
                       // 비교 모드 — 자동/수동 diff: 빨강 음영
