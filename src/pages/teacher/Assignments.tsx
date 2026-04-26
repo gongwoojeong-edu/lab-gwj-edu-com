@@ -139,6 +139,8 @@ const Assignments = () => {
   const [tbsBySeries, setTbsBySeries] = useState<Record<string, Textbook[]>>({});
   const [unitsByTb, setUnitsByTb] = useState<Record<string, Unit[]>>({});
   const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
+  /** sentence_id → 마스터키(원장 owner_progress) 존재 여부 (sentence 모드 뱃지/안내용) */
+  const [masterAvail, setMasterAvail] = useState<Record<string, boolean>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
   /** sentence_id(=passage code) → unit_id 매핑 (그룹핑·라벨용) */
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
