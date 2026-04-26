@@ -1104,6 +1104,32 @@ const Assignments = () => {
             <div className="sm:col-span-1">
               {renderStepCheckboxes(form, setForm)}
             </div>
+            <div className="sm:col-span-2 space-y-2">
+              <Label>출제 모드 *</Label>
+              <RadioGroup
+                value={form.mode}
+                onValueChange={(v) =>
+                  setForm((p) => ({
+                    ...p,
+                    mode: v as AssignMode,
+                    // 모드 전환 시 지문 선택 리셋 (sentence: 사용자 명시 선택 강제)
+                    selectedPassageCode: "",
+                  }))
+                }
+                className="flex flex-wrap gap-4 px-3 py-2 rounded-md border border-border bg-muted/30"
+              >
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="unit" id="mode-unit" />
+                  <span className="text-sm font-medium">유닛 전체</span>
+                  <span className="text-[10px] text-muted-foreground">(기본 · 모든 지문)</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="sentence" id="mode-sentence" />
+                  <span className="text-sm font-medium">특정 문장만</span>
+                  <span className="text-[10px] text-muted-foreground">(테스트·보충용)</span>
+                </label>
+              </RadioGroup>
+            </div>
             {renderTextbookPickers(form, setForm)}
             <div className="sm:col-span-2 space-y-1.5">
               <Label>설명 (선택)</Label>
