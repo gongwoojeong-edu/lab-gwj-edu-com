@@ -91,8 +91,12 @@ interface AssignmentRow {
 
 type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
+type AssignMode = "unit" | "sentence";
+
 interface FormState {
   title: string;
+  /** 출제 모드: unit = 유닛 전체 지문, sentence = 단일 문장만 */
+  mode: AssignMode;
   /** 빈 배열 = 전체 학생, 1개 이상 = 선택된 학생들 (각각 별도 과제 행 생성) */
   studentIds: string[];
   // 위계 선택 상태 (UI 용)
@@ -111,6 +115,7 @@ interface FormState {
 
 const emptyForm = (): FormState => ({
   title: "",
+  mode: "unit",
   studentIds: [],
   selectedLevel: "",
   selectedSeriesId: "",
