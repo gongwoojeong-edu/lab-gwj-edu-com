@@ -388,7 +388,12 @@ const Assignments = () => {
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
     if (!f.dueDate) return "마감일은 필수입니다";
-    if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
+    if (f.mode === "sentence") {
+      if (!f.selectedUnitId) return "유닛을 먼저 선택해주세요";
+      if (!f.selectedPassageCode) return "출제할 문장을 선택해주세요";
+    } else {
+      if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
+    }
     if (!f.includePre && !f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
       return "학습 단계는 최소 1개 이상 체크하세요";
     return null;
@@ -410,20 +415,26 @@ const Assignments = () => {
       const targets: (string | null)[] =
         form.studentIds.length === 0 ? [null] : form.studentIds;
 
-      // 🆕 유닛 단위 자동 부여: 선택된 유닛의 모든 지문에 대해 과제 생성
-      // (지문 선택은 유닛 확인용으로만 사용; 실제로는 해당 유닛 전체 지문이 부여됨)
-      const unitPassages = form.selectedUnitId
-        ? passagesByUnit[form.selectedUnitId] ?? []
-        : [];
-      const passageCodes: string[] =
-        unitPassages.length > 0
-          ? unitPassages
-              .slice()
-              .sort((a, b) => a.passage_no - b.passage_no)
-              .map((p) => p.code)
-          : form.selectedPassageCode
-          ? [form.selectedPassageCode]
+      // 출제 모드별 지문 코드 결정:
+      // - unit  : 선택된 유닛의 모든 지문 자동 부여 (기존 동작 유지)
+      // - sentence: 사용자가 명시 선택한 단일 문장만 부여
+      let passageCodes: string[];
+      if (form.mode === "sentence") {
+        passageCodes = form.selectedPassageCode ? [form.selectedPassageCode] : [];
+      } else {
+        const unitPassages = form.selectedUnitId
+          ? passagesByUnit[form.selectedUnitId] ?? []
           : [];
+        passageCodes =
+          unitPassages.length > 0
+            ? unitPassages
+                .slice()
+                .sort((a, b) => a.passage_no - b.passage_no)
+                .map((p) => p.code)
+            : form.selectedPassageCode
+            ? [form.selectedPassageCode]
+            : [];
+      }
 
       if (passageCodes.length === 0) {
         throw new Error("부여할 지문을 찾을 수 없습니다");
@@ -449,9 +460,13 @@ const Assignments = () => {
         form.studentIds.length === 0
           ? "전체 학생"
           : `${form.studentIds.length}명`;
+      const unitLabel =
+        form.mode === "sentence"
+          ? `문장 1개`
+          : `유닛 지문 ${passageCodes.length}개`;
       toast({
         title: "✅ 과제가 생성되었습니다",
-        description: `${studentMsg} × 유닛 지문 ${passageCodes.length}개 = ${rowsToInsert.length}건 부여됨`,
+        description: `${studentMsg} × ${unitLabel} = ${rowsToInsert.length}건 부여됨`,
       });
       setForm(emptyForm());
       void load();
