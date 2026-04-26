@@ -443,7 +443,7 @@ const TeacherStudents = () => {
               <TableHead>단어 통과%</TableHead>
               <TableHead>분석 통과%</TableHead>
               <TableHead>단어시험 제한(초)</TableHead>
-              <TableHead>워크북 모드</TableHead>
+              
               <TableHead>등록일</TableHead>
               <TableHead>상태</TableHead>
               <TableHead className="text-right">작업</TableHead>
@@ -452,7 +452,7 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
@@ -524,23 +524,6 @@ const TeacherStudents = () => {
                         />
                         <span className="text-xs text-muted-foreground">{tlSec === 0 ? "OFF" : "초"}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={workbookModeByName[s.name] ?? "both"}
-                        onValueChange={(v) =>
-                          saveWorkbookMode(s, v as "unit_only" | "both")
-                        }
-                        disabled={workbookModeSaving === s.name}
-                      >
-                        <SelectTrigger className="h-8 w-28 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="both">유닛+문장</SelectItem>
-                          <SelectItem value="unit_only">유닛만</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground tabular-nums">
                       {formatDate(s.createdAt)}
