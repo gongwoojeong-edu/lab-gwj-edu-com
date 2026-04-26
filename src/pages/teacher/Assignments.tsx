@@ -50,6 +50,7 @@ import {
 } from "@/lib/textbooks";
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
+import AssignmentProgressSummary from "@/components/teacher/AssignmentProgressSummary";
 
 import {
   fetchAssignmentProgress,
