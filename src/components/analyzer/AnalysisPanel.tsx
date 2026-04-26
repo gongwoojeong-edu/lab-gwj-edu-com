@@ -980,6 +980,46 @@ const NounPanel = ({
 };
 
 // ============================================================
+// 명사 form이 to V/V-ing/접SV 일 때도 M(수식어) 옵션을 즉시 선택할 수 있게 하는
+// 보조 단축 행 — 결함 #3 보강.
+// ============================================================
+const NounMShortcut = ({
+  selectedRole,
+  roleStatus,
+  onPick,
+}: {
+  selectedRole: string | null;
+  roleStatus: StepStatus;
+  onPick: () => void;
+}) => {
+  const mask = useMaskStatus();
+  const status = mask(roleStatus);
+  const sel = selectedRole === "수식어";
+  const ok = sel && status === "correct";
+  return (
+    <div className="flex items-start gap-2 py-1 mt-1 border-t border-border/40">
+      <span className="shrink-0 w-[58px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1">
+        <span className="font-mono text-[12px]">M</span>
+        수식어
+      </span>
+      <div className="flex-1">
+        <button
+          type="button"
+          onClick={onPick}
+          className={cn(
+            "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all",
+            ok && "bg-element-m-bg text-element-m border border-element-m/40",
+            !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+          )}
+        >
+          수식어 (즉시 완료)
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // 형용사 패널
 // ============================================================
 interface AdjPanelProps {
