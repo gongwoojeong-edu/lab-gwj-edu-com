@@ -12,7 +12,7 @@ export interface StudentProfile {
   analysis_pass_threshold: number;
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;
-  unit_workbook_mode: "unit_only" | "both";
+  
 }
 
 export const updateStudentWordTestTimeLimit = async (
