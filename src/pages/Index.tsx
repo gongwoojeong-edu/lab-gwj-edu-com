@@ -2795,7 +2795,9 @@ const Index = ({
 
               // === Owner 종류별 배경 분기 ===
               // clause: 배경 거의 제거 (대괄호로 표현) / parallel: 진한 박스 / general: 옅은 보라 누적
+              // 결함 #5: layer 번호에 비례해 alpha를 증가시켜 위층일수록 진하게 표시.
               const layerVars = ["--layer-1", "--layer-2", "--layer-3", "--layer-4"];
+              const LAYER_ALPHAS = [0.14, 0.24, 0.34, 0.44];
               const buildLayerBg = (owners: string[]): string | undefined => {
                 if (owners.length === 0) return undefined;
                 const layers = owners
@@ -2806,13 +2808,28 @@ const Index = ({
                     if (isClauseProgress(op)) return null; // clause는 배경 X
                     if (isParallelProgress(op)) return null; // parallel은 별도 .parallel-box
                     const v = layerVars[i % layerVars.length];
-                    return `linear-gradient(hsl(var(${v}) / 0.20), hsl(var(${v}) / 0.20))`;
+                    const a = LAYER_ALPHAS[Math.min(i, LAYER_ALPHAS.length - 1)];
+                    return `linear-gradient(hsl(var(${v}) / ${a}), hsl(var(${v}) / ${a}))`;
                   })
                   .filter((x): x is string => !!x);
                 if (layers.length === 0) return undefined;
                 return layers.join(", ");
               };
               const wordLayerBg = showTeacherAnnotations && !idiomMark ? buildLayerBg(ownersHere) : undefined;
+
+              // 결함 #5: 본문 단어가 S/V인 경우 텍스트 색을 element 색으로 강조 (가장 안쪽 owner 기준)
+              const innerElementForText: "S" | "V" | undefined =
+                showTeacherAnnotations && isCompleted && innerBadge === "S"
+                  ? "S"
+                  : showTeacherAnnotations && isCompleted && wp?.pos === "동사"
+                    ? "V"
+                    : undefined;
+              const wordTextColorClass =
+                innerElementForText === "S"
+                  ? "text-element-s font-extrabold"
+                  : innerElementForText === "V"
+                    ? "text-element-v font-extrabold"
+                    : "";
 
               // 병렬 owner가 이 인덱스를 포함하면 박스 시각화 (학생 모드는 시각화 차단)
               const parallelOwnerHere = showTeacherAnnotations
