@@ -861,21 +861,7 @@ const LearningResults = () => {
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
-                    {s && (
-                      <div className="ml-2">
-                        <WorkbookModeToggle
-                          userId={s.user_id}
-                          value={s.unit_workbook_mode}
-                          studentLabel={s.display_name ?? s.student_no}
-                          onChange={(m) =>
-                            setStudents((prev) => ({
-                              ...prev,
-                              [s.user_id]: { ...prev[s.user_id], unit_workbook_mode: m },
-                            }))
-                          }
-                        />
-                      </div>
-                    )}
+                    {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
                     <Button
                       size="sm"
                       variant="outline"
