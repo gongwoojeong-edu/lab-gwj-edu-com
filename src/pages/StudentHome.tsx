@@ -815,11 +815,16 @@ const StudentHome = () => {
                                 : "border-primary/20 hover:border-primary/40",
                         )}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-primary">{sentence.id}</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className="text-[10px] font-mono text-muted-foreground/60 truncate min-w-0 flex-1"
+                            title={sentence.id}
+                          >
+                            {sentence.id}
+                          </span>
                           <span
                             className={cn(
-                              "px-2 py-0.5 rounded-full text-[10px] font-extrabold",
+                              "shrink-0 px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap",
                               isPending
                                 ? "bg-sky-500 text-white"
                                 : isHold
