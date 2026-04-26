@@ -100,10 +100,6 @@ const TeacherStudents = () => {
   const [analysisSaving, setAnalysisSaving] = useState<string | null>(null);
   const [timeLimitByName, setTimeLimitByName] = useState<Record<string, number>>({});
   const [timeLimitSaving, setTimeLimitSaving] = useState<string | null>(null);
-  const [workbookModeByName, setWorkbookModeByName] = useState<
-    Record<string, "unit_only" | "both">
-  >({});
-  const [workbookModeSaving, setWorkbookModeSaving] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [profileUserIdByName, setProfileUserIdByName] = useState<Record<string, string>>({});
   const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
@@ -251,38 +247,6 @@ const TeacherStudents = () => {
     }
   };
 
-  const saveWorkbookMode = async (s: Student, mode: "unit_only" | "both") => {
-    setWorkbookModeByName((p) => ({ ...p, [s.name]: mode }));
-    setWorkbookModeSaving(s.name);
-    try {
-      const uid = s.userId ?? profileUserIdByName[s.name];
-      if (!uid) {
-        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
-        return;
-      }
-      const { data, error } = await supabase
-        .from("student_profiles")
-        .update({ unit_workbook_mode: mode })
-        .eq("user_id", uid)
-        .select("user_id");
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        toast({
-          title: "계정 매칭 실패",
-          description: `'${s.name}' 이름 계정이 없습니다.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: `📘 ${s.name} 워크북 모드 ${mode === "unit_only" ? "유닛만" : "유닛+문장"} 저장`,
-        });
-      }
-    } catch (e) {
-      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
-    } finally {
-      setWorkbookModeSaving(null);
-    }
-  };
 
   // Load students from DB (student_profiles) + merge with localStorage entries
   useEffect(() => {
