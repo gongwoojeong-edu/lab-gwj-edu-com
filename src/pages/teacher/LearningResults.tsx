@@ -43,7 +43,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
-import { WorkbookModeToggle } from "@/components/teacher/WorkbookModeToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
 import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/lib/printLauncher";
 import {
@@ -60,7 +59,6 @@ interface StudentInfo {
   user_id: string;
   display_name: string | null;
   student_no: string;
-  unit_workbook_mode: "unit_only" | "both";
 }
 interface AttemptStat {
   best_word_score: number | null;
@@ -290,15 +288,14 @@ const LearningResults = () => {
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no, unit_workbook_mode")
+          .select("user_id, display_name, student_no")
           .in("user_id", allUserIds);
         (sp ?? []).forEach((s) => {
-          const row = s as { user_id: string; display_name: string | null; student_no: string; unit_workbook_mode: string | null };
+          const row = s as { user_id: string; display_name: string | null; student_no: string };
           sMap[row.user_id] = {
             user_id: row.user_id,
             display_name: row.display_name,
             student_no: row.student_no,
-            unit_workbook_mode: row.unit_workbook_mode === "unit_only" ? "unit_only" : "both",
           };
         });
       }
