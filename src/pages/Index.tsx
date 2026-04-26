@@ -1483,14 +1483,23 @@ const Index = ({
 
     const hasCompletedOwner = owners.length > 0;
 
-    // === 지우개 모드 — 1회용. 클릭한 단어 위 모든 owner를 한 번에 삭제. ===
+    // === 지우개 모드 — 클릭 1회 = 가장 위(가장 안쪽/짧은) layer 1개만 삭제 ===
+    // owners는 길이 오름차순 정렬됨 → owners[0]이 가장 안쪽(=가장 위에 쌓인) layer.
+    // 남은 layer가 있으면 모드 유지(연속으로 한 층씩 벗겨낼 수 있음).
+    // 모든 layer 제거 완료 또는 미분석 토큰 클릭 시에만 모드 해제.
     if (eraserMode) {
       if (hasCompletedOwner) {
-        owners.forEach(([ownerId]) => eraseOwner(ownerId));
-        toast({ title: `🧽 ${owners.length}개 분석 삭제됨` });
+        const [topOwnerId] = owners[0];
+        eraseOwner(topOwnerId);
+        const remaining = owners.length - 1;
+        toast({
+          title: `🧽 1개 분석 삭제됨${remaining > 0 ? ` · ${remaining}층 남음` : ""}`,
+        });
+        if (remaining === 0) setEraserMode(false);
+      } else {
+        // 미분석 토큰을 클릭하면 모드 해제 (헛클릭 방지)
+        setEraserMode(false);
       }
-      // 미분석 토큰을 클릭해도 모드 해제 (헛클릭 방지)
-      setEraserMode(false);
       return;
     }
 
