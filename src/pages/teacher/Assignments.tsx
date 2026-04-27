@@ -134,6 +134,7 @@ const emptyForm = (): FormState => ({
 });
 
 const Assignments = () => {
+  const { display: levelDisplay } = useLevelLabels();
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
@@ -799,7 +800,7 @@ const Assignments = () => {
             <SelectContent>
               {LEVELS.map((l) => (
                 <SelectItem key={l.code} value={l.code}>
-                  [{l.code}] {l.label}
+                  [{l.code}] {levelDisplay(l.code)}
                 </SelectItem>
               ))}
             </SelectContent>
