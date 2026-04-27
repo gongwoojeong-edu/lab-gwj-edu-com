@@ -188,15 +188,14 @@ const TeacherStudents = () => {
     }
   };
 
-  const saveThreshold = async (s: Student, percent: number) => {
+  const saveThreshold = async (s: Student, percent: number): Promise<boolean> => {
     const clamped = Math.max(50, Math.min(100, Math.round(percent)));
-    setThresholdByName((p) => ({ ...p, [s.name]: clamped / 100 }));
     setThresholdSaving(s.name);
     try {
       const uid = s.userId ?? profileUserIdByName[s.name];
       if (!uid) {
         toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
-        return;
+        return false;
       }
       const { data, error } = await supabase
         .from("student_profiles")
@@ -210,11 +209,14 @@ const TeacherStudents = () => {
           description: `'${s.name}' 이름 계정이 없습니다.`,
           variant: "destructive",
         });
-      } else {
-        toast({ title: `✅ ${s.name} 단어 통과기준 ${clamped}% 저장` });
+        return false;
       }
+      setThresholdByName((p) => ({ ...p, [s.name]: clamped / 100 }));
+      toast({ title: `✅ ${s.name} 단어 통과기준 ${clamped}% 저장` });
+      return true;
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+      return false;
     } finally {
       setThresholdSaving(null);
     }
