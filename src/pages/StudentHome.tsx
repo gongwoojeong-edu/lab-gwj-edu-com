@@ -20,6 +20,7 @@ import { signOut, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { LEVEL_LABEL } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { fetchStudentRewards, type StudentRewards } from "@/lib/rewards";
 import type { StudentProfile } from "@/lib/studentProfile";
 import { useViewMode } from "@/hooks/useViewMode";
