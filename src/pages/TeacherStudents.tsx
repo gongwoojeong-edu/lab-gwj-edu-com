@@ -675,6 +675,7 @@ const TeacherStudents = () => {
         studentName={skipDialog?.name ?? null}
       />
     </main>
+    </TeacherLayout>
   );
 };
 
