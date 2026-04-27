@@ -49,6 +49,7 @@ import {
   type Passage,
 } from "@/lib/textbooks";
 import { LEVELS, type LevelCode } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import AssignmentProgressSummary from "@/components/teacher/AssignmentProgressSummary";
 
@@ -133,6 +134,7 @@ const emptyForm = (): FormState => ({
 });
 
 const Assignments = () => {
+  const { display: levelDisplay } = useLevelLabels();
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [textbooks, setTextbooks] = useState<Textbook[]>([]);
@@ -798,7 +800,7 @@ const Assignments = () => {
             <SelectContent>
               {LEVELS.map((l) => (
                 <SelectItem key={l.code} value={l.code}>
-                  [{l.code}] {l.label}
+                  [{l.code}] {levelDisplay(l.code)}
                 </SelectItem>
               ))}
             </SelectContent>
