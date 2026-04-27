@@ -77,6 +77,7 @@ const SentenceLearn = () => {
   const navigate = useNavigate();
   const { roles } = useAuth();
   const { setMode } = useViewMode();
+  const { display: levelDisplay } = useLevelLabels();
   const isStaff = roles.includes("teacher") || roles.includes("admin");
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [loading, setLoading] = useState(true);
