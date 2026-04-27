@@ -570,7 +570,9 @@ export const updatePassage = async (
     patch.english.trim() !== prevEnglish.trim();
 
   // 영문이 바뀌면 tokens도 같이 NULL로 리셋한다
-  const finalPatch: Record<string, unknown> = { ...patch };
+  const finalPatch: { english?: string; korean?: string | null; tokens?: null } = {
+    ...patch,
+  };
   if (englishChanged) finalPatch.tokens = null;
 
   const { data, error } = await supabase
