@@ -384,7 +384,8 @@ const TeacherStudents = () => {
   };
 
   return (
-    <main className="max-w-6xl mx-auto p-4 lg:p-8 flex flex-col gap-6 font-kr">
+    <TeacherLayout>
+    <main className="max-w-[1400px] mx-auto p-4 lg:p-8 flex flex-col gap-6 font-kr">
       <div className="flex items-start justify-between gap-3">
         <div>
           <Link
