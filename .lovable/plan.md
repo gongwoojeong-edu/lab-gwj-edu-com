@@ -1,60 +1,53 @@
-## 변경 목표
+## 무엇이 잘못됐나 (한 줄 요약)
 
-1. **진입 위치 이동**: 페이지 상단(우측 "과거 과제함 보기 →" 텍스트 링크)을 제거하고, **"진행중 과제 (N)" 헤더 옆**(스크린샷 녹색 표시 위치)에 같은 형태의 버튼을 배치한다.
-2. **버튼화**: 진행중 과제 카드 내 다른 컨트롤들과 톤이 어울리는 작은 버튼으로 통일 (variant="outline", size="sm").
-3. **완료 과제 목록 포맷 통일**: 현재 `AssignmentsPast`는 개별 row 단위 + accordion으로 표시되는데, 이를 **진행중 과제와 동일한 "유닛 그룹" 카드 포맷**으로 바꾼다 (제목 + "유닛 · 지문 N개" 뱃지 + 대상/마감/통과수 + AssignmentStepBadges).
+본문(`textbook_passages.english`)을 수정했지만, **이전 영문 기준으로 만들어진 부속 데이터**가 그대로 남아있어 분석학습 화면에서 옛 본문이 보입니다.
 
----
+## 원인 — 데이터 확인 결과
 
-## 변경 파일
+DB 직접 조회로 확인한 사실:
 
-### 1) `src/pages/teacher/Assignments.tsx`
+| 위치 | `L04-S1V1U1-002`의 영문 |
+|---|---|
+| `textbook_passages.english` (본문 원본) | `Lucy: Wow! Is this for me? What's this?` ✅ 올바름 |
+| `sentence_word_extractions.english` (AI 단어추출 캐시) | `Today, he brought a new device for Lucy.` ❌ 옛 본문 |
 
-- **상단 헤더 영역(L987–L997)**: 우측의 `<a href="/teacher/assignments/past">과거 과제함 보기 →</a>` 링크 제거.
-- **"진행중 과제 ({activeGroups.length})" 헤더 줄(L1126)**: `<h2>` 와 같은 줄에 우측 정렬로 `Link` 기반 버튼 추가.
-  ```tsx
-  <div className="flex items-center justify-between gap-2">
-    <h2 className="...">진행중 과제 ({activeGroups.length})</h2>
-    <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">
-      <Link to="/teacher/assignments/past">
-        <ClipboardList className="size-3.5 mr-1" />
-        완료 과제함
-      </Link>
-    </Button>
-  </div>
-  ```
+→ 처음에 002로 잘못 분리됐던 영문(`Today, he brought…` = 사실 001의 두 번째 절)으로 **AI 단어추출이 한 번 실행되면서 캐시**가 만들어졌고, 이후 본문을 올바르게 다시 수정해도 이 캐시는 자동 정리되지 않아 분석학습에서 옛 단어/영문이 그대로 노출되고 있습니다.
 
-### 2) `src/pages/teacher/AssignmentsPast.tsx` — 전면 리팩터
+추가로, 본문이 바뀌면 다음 캐시들도 모두 옛 영문 기준으로 남아 같은 종류의 어긋남을 일으킬 수 있습니다:
+- `textbook_passages.tokens` (자동 토큰 캐시)
+- `sentence_word_extractions` (AI 단어 추출 캐시)
+- `sentence_translations` / `sentence_analyses` 등 학생/선생 작업물 (영문 변경 시 의미가 달라짐)
 
-진행중과 동일한 그룹화/렌더링 로직을 도입한다.
+## 해결 계획
 
-**추가 로드**:
-- `textbook_passages`에서 `code → unit_id` 매핑 (`codeToUnit`)
-- `textbooks` / `units` / `passages` (라벨용)
-- `fetchAssignmentProgress` 결과 (`progressByAsg`) — 그룹 진척 계산용
+### 1) 즉시 데이터 정리 (이번 002 사례 + 같은 증상 가진 다른 지문)
+- `sentence_word_extractions` 행들 중 짝이 되는 `textbook_passages.english`와 **영문이 일치하지 않는 행을 찾아 삭제** (한 번의 마이그레이션 SQL).
+- 마찬가지로 `textbook_passages.tokens` 컬럼도 본문이 그 후 수정된 흔적이 있으면 NULL로 비워 자동 토큰화로 재생성되도록 함.
 
-**그룹화**: 진행중과 동일한 키 `${title}|${due_at}|${student_id}|${unit_id}` 로 묶고 `AssignmentGroup` 구조 생성.
+### 2) 본문 수정 시 자동 캐시 무효화 (재발 방지 — 핵심)
+`updatePassage()` (textbooks.ts) 호출 시 `english`가 바뀌면 같은 트랜잭션 흐름에서 자동으로:
+- `textbook_passages.tokens` → `null`로 리셋
+- `sentence_word_extractions` 해당 sentence_id 행 **삭제**
+- (옵션) 학생 진행 데이터(translation/analysis)는 **삭제하지 않음** — 다만 본문 편집 화면에 "본문이 바뀌면 학생들의 기존 분석 결과는 새 본문과 어긋날 수 있어요" 경고 토스트 표시.
 
-**완료 판정**: 기존 `isAssignmentDone(r, progressByAsg[r.id], allIds)` 를 그룹 내 모든 row에 적용해 `group의 모든 row가 완료`인 그룹만 표시. (현재 로직 유지)
+### 3) PassageEditor에서 본문 수정 UI 보강
+- 본문이 수정되면 자동으로 SENTENCES 메모리 캐시 강제 재 hydrate (이미 일부 있으나 보강).
+- "본문이 바뀌었습니다 — AI 단어추출 캐시를 정리했어요" 토스트로 사용자에게 명시.
 
-**카드 렌더링**: 진행중 카드와 동일한 마크업 사용
-- 제목 + `유닛 · 지문 N개` 뱃지
-- "대상 / 마감일 / 통과 N/M명 / 유닛라벨" 메타 라인 (마감일은 빨강 강조 없이 회색)
-- `AssignmentStepBadges` (mergedProgress 동일 계산)
-- 우측 액션은 **삭제 버튼만** (완료된 과제이므로 +1주 / 수정 제거)
-- 기존 accordion(개별 학생 PASS/FAIL 표) 제거 — 뱃지 hover로 충분
+### 4) 선생님용 안전장치 — 한 번 누르면 정리되는 버튼 (보너스)
+PassageEditor 우상단에 "이 지문 캐시 초기화" 버튼:
+- `tokens` 비우기 + `sentence_word_extractions` 삭제
+- 어쩌다 과거 잘못 캐시된 지문도 손쉽게 복구 가능.
 
-**경로/상단**: "← 진행중 과제로" 백 링크 유지.
+## 작업 범위 (파일)
 
----
+- `src/lib/textbooks.ts` — `updatePassage()`에서 english 변경 감지 시 캐시 무효화 로직 추가
+- `src/lib/wordExtraction.ts` — `clearExtraction(sentenceId)` 헬퍼 (이미 deleteExtraction 있음, 재사용)
+- `src/pages/teacher/PassageEditor.tsx` — 캐시 초기화 버튼 + 사용자 안내 토스트
+- 마이그레이션 1건 — 현재 어긋난 `sentence_word_extractions` 정리
 
-## 기술 메모
+## 기대 결과
 
-- 진행중 카드의 `mergedProgress` 계산 블록(L1141–L1173)은 그대로 옮겨 재사용. 가능하면 `Assignments.tsx`/`AssignmentsPast.tsx` 양쪽에서 import할 수 있도록 `src/lib/assignmentGroup.ts`(신규) 같은 헬퍼로 추출하는 것도 검토하나, 우선은 **단순 복제**로 진행해 변경 범위를 최소화한다.
-- `isAssignmentDone` 호출 시 그룹 단위 완료 여부 = 그룹 내 모든 row가 완료. 기존 `AssignmentsPast`의 row 단위 필터를 그룹 단위로 변경.
-- 라우트(`/teacher/assignments/past`)는 그대로. 변경 없음.
-
-## 영향 범위
-
-- 데이터 모델 변경 없음 (DB 마이그레이션 불필요)
-- 두 파일만 수정: `Assignments.tsx`, `AssignmentsPast.tsx`
+- 002 진입 시 분석학습 본문이 `Lucy: Wow! Is this for me? What's this?`로 올바르게 표시
+- 앞으로 본문을 수정하면 옛 캐시가 자동 정리되어 같은 문제 재발 안 함
+- 선생님이 직접 "이 지문 캐시 초기화" 한 번으로 복구 가능

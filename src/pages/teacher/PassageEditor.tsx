@@ -3,10 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Loader2, Eye, EyeOff, RotateCcw } from "lucide-react";
 import Index from "@/pages/Index";
 import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
-import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
+import { fetchPassageByCode, clearPassageDerivedCache, type Passage } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 
 const PassageEditor = () => {
@@ -20,6 +20,7 @@ const PassageEditor = () => {
   const [passage, setPassage] = useState<Passage | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     if (!passageCode) return;
@@ -55,6 +56,33 @@ const PassageEditor = () => {
       });
     } finally {
       setToggling(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (!passage) return;
+    setClearing(true);
+    try {
+      await clearPassageDerivedCache(passage.id, passage.code);
+      // 메모리 캐시 강제 갱신 → 새로 만든 토큰으로 화면 즉시 반영
+      await hydrateSentencesFromDb(true);
+      const refreshed = await fetchPassageByCode(passage.code);
+      setPassage(refreshed);
+      toast({
+        title: "🔄 캐시를 정리했어요",
+        description: "단어 단위는 현재 본문 기준으로 다시 만들어졌습니다. AI 단어추출은 필요 시 다시 실행하세요.",
+      });
+      // Index 임베드가 sentence_id useEffect를 다시 타도록 라우트 리렌더 트릭은 불필요 — hydrate 결과가 SENTENCES 배열에 반영됨.
+      // 강제 리렌더가 필요하면 페이지 새로고침을 권장.
+      setTimeout(() => window.location.reload(), 400);
+    } catch (e) {
+      toast({
+        title: "캐시 초기화 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -117,6 +145,21 @@ const PassageEditor = () => {
             >
               {passage.analysis_status}
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleClearCache}
+              disabled={clearing}
+              title="본문이 바뀌었는데 분석학습에 옛 영문/단어가 보이면 누르세요"
+              className="gap-1"
+            >
+              {clearing ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="size-3.5" />
+              )}
+              <span className="hidden sm:inline text-xs font-kr">캐시 초기화</span>
+            </Button>
             <Button
               onClick={togglePublish}
               disabled={toggling}

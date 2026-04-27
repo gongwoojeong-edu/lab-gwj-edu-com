@@ -539,19 +539,74 @@ export const updatePassageKorean = async (code: string, korean: string): Promise
   if (error) throw error;
 };
 
-/** 지문 본문(영문/국문) 수정. 본문이 바뀌면 토큰/단어추출 캐시는 별도로 재생성해야 한다. */
+/**
+ * 지문 본문(영문/국문) 수정.
+ * 영문이 바뀌면 자동으로 다음 캐시를 무효화한다 (옛 영문 기준 데이터가 화면에 새는 것을 방지):
+ *  - textbook_passages.tokens → NULL (자동 토큰 캐시)
+ *  - sentence_word_extractions 해당 sentence_id 행 → 삭제 (AI 단어추출 캐시)
+ *
+ * 학생 진행 데이터(번역/분석)는 사용자가 직접 검토할 수 있도록 자동 삭제하지 않는다.
+ *
+ * @returns { passage, englishChanged, cacheCleared }
+ */
 export const updatePassage = async (
   id: string,
   patch: { english?: string; korean?: string | null },
-): Promise<Passage> => {
+): Promise<{ passage: Passage; englishChanged: boolean; cacheCleared: boolean }> => {
+  // 변경 전 영문을 먼저 읽어 비교
+  let prevEnglish: string | null = null;
+  if (typeof patch.english === "string") {
+    const { data: prev } = await supabase
+      .from("textbook_passages")
+      .select("english")
+      .eq("id", id)
+      .maybeSingle();
+    prevEnglish = (prev as { english: string } | null)?.english ?? null;
+  }
+
+  const englishChanged =
+    typeof patch.english === "string" &&
+    prevEnglish !== null &&
+    patch.english.trim() !== prevEnglish.trim();
+
+  // 영문이 바뀌면 tokens도 같이 NULL로 리셋한다
+  const finalPatch: { english?: string; korean?: string | null; tokens?: null } = {
+    ...patch,
+  };
+  if (englishChanged) finalPatch.tokens = null;
+
   const { data, error } = await supabase
     .from("textbook_passages")
-    .update(patch)
+    .update(finalPatch)
     .eq("id", id)
     .select("*")
     .single();
   if (error) throw error;
-  return mapPassageRow(data as Record<string, unknown>);
+  const passage = mapPassageRow(data as Record<string, unknown>);
+
+  // 영문이 바뀐 경우 단어추출 캐시 삭제 (실패해도 본문 수정 자체는 성공으로 본다)
+  let cacheCleared = false;
+  if (englishChanged) {
+    const { error: delErr } = await supabase
+      .from("sentence_word_extractions")
+      .delete()
+      .eq("sentence_id", passage.code);
+    cacheCleared = !delErr;
+  }
+
+  return { passage, englishChanged, cacheCleared };
+};
+
+/**
+ * 지문의 파생 캐시(tokens / 단어추출)를 강제로 비운다.
+ * 본문은 그대로, 다음 진입 시 새 본문 기준으로 재생성된다.
+ */
+export const clearPassageDerivedCache = async (
+  id: string,
+  code: string,
+): Promise<void> => {
+  await supabase.from("textbook_passages").update({ tokens: null }).eq("id", id);
+  await supabase.from("sentence_word_extractions").delete().eq("sentence_id", code);
 };
 
 export const deletePassage = async (id: string): Promise<void> => {
