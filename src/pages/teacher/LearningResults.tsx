@@ -81,6 +81,10 @@ const LearningResults = () => {
   const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
   // 학생별 sentence_id 목록 (그 날 활동 흔적이 있는 모든 sentence)
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
+  // (userId::sentenceId) → 마지막 활동 ISO timestamp (정렬용)
+  const [lastActivityMap, setLastActivityMap] = useState<Record<string, string>>({});
+  // userId → 학생의 마지막 활동 ISO timestamp (학생 카드 정렬용)
+  const [studentLastActivity, setStudentLastActivity] = useState<Record<string, string>>({});
   // sentence_id → unit_id 매핑 (그룹핑용)
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
   // unit_id → 라벨 ("[Lxx] 교재 · Uxx 유닛")
