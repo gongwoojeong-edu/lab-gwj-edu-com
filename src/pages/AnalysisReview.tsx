@@ -189,7 +189,7 @@ const AnalysisReview = () => {
             </Button>
             <div className="min-w-0">
               <div className="text-xs text-muted-foreground">
-                {LEVEL_LABEL[sentence.level]} · {sentence.id}
+                {levelDisplay(sentence.level)} · {sentence.id}
               </div>
               <div className="text-sm font-bold text-foreground truncate max-w-[55vw]">
                 {sentence.english}
