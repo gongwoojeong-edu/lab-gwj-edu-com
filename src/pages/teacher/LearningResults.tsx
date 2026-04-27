@@ -198,6 +198,24 @@ const LearningResults = () => {
       ]);
 
       const pairs = new Map<string, Set<string>>(); // userId → Set<sentenceId>
+      // (userId::sentenceId) → 가장 최근 활동 timestamp (ms)
+      const pairLastActivity = new Map<string, number>();
+      // userId → 가장 최근 활동 timestamp (ms)
+      const userLastActivity = new Map<string, number>();
+      const noteActivity = (
+        uid: string | null | undefined,
+        sid: string | null | undefined,
+        ts: string | null | undefined,
+      ) => {
+        if (!uid || !sid || !ts) return;
+        const ms = new Date(ts).getTime();
+        if (!Number.isFinite(ms)) return;
+        const k = `${uid}::${sid}`;
+        const cur = pairLastActivity.get(k);
+        if (cur == null || ms > cur) pairLastActivity.set(k, ms);
+        const uCur = userLastActivity.get(uid);
+        if (uCur == null || ms > uCur) userLastActivity.set(uid, ms);
+      };
       // 단어시험 오답복습 sid 패턴: "<원래코드>__remediation_<숫자>"
       const REMEDIATION_RE = /__remediation_\d+$/;
       const isRemediationSid = (sid: string | null | undefined): boolean =>
@@ -216,41 +234,56 @@ const LearningResults = () => {
         set.add(suffix);
         remediationAttempts.set(k, set);
       };
-      const addPair = (uid: string | null | undefined, sid: string | null | undefined) => {
+      const addPair = (
+        uid: string | null | undefined,
+        sid: string | null | undefined,
+        ts?: string | null,
+      ) => {
         if (!uid || !sid) return;
         // 합성 remediation sid 는 별도 카드로 띄우지 않고 카운트만 잡는다
         if (isRemediationSid(sid)) {
           noteRemediation(uid, sid);
+          // remediation 활동도 부모 sid의 최신 활동으로 반영
+          if (ts) noteActivity(uid, parentOfRemediation(sid), ts);
           return;
         }
         const set = pairs.get(uid) ?? new Set<string>();
         set.add(sid);
         pairs.set(uid, set);
+        if (ts) noteActivity(uid, sid, ts);
       };
       const printedRows = (printedRes.data ?? []) as Array<{
         user_id: string;
         sentence_id: string;
         handled_at: string;
       }>;
-      printedRows.forEach((r) => addPair(r.user_id, r.sentence_id));
-      ((attemptsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
-      );
+      printedRows.forEach((r) => addPair(r.user_id, r.sentence_id, r.handled_at));
+      ((attemptsRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        completed_at: string | null;
+      }>).forEach((r) => addPair(r.user_id, r.sentence_id, r.completed_at));
       const tSet: Record<string, boolean> = {};
-      ((translationsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => {
-          addPair(r.user_id, r.sentence_id);
-          if (!isRemediationSid(r.sentence_id)) {
-            tSet[`${r.user_id}::${r.sentence_id}`] = true;
-          }
-        },
-      );
-      ((wordTestRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
-      );
-      ((wordPreRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
-      );
+      ((translationsRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        submitted_at: string | null;
+      }>).forEach((r) => {
+        addPair(r.user_id, r.sentence_id, r.submitted_at);
+        if (!isRemediationSid(r.sentence_id)) {
+          tSet[`${r.user_id}::${r.sentence_id}`] = true;
+        }
+      });
+      ((wordTestRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        taken_at: string | null;
+      }>).forEach((r) => addPair(r.user_id, r.sentence_id, r.taken_at));
+      ((wordPreRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        taken_at: string | null;
+      }>).forEach((r) => addPair(r.user_id, r.sentence_id, r.taken_at));
       // sentence_progress 도 짝 추가 — attempt_log 미생성 케이스(예: 분석만 끝나고 단어시험 전)도 표에 노출
       const progressRows = (progressRes.data ?? []) as Array<{
         user_id: string;
@@ -259,9 +292,11 @@ const LearningResults = () => {
         analysis_match_rate: number | null;
         translation_done: boolean;
         word_test_done: boolean;
+        last_activity_at: string | null;
+        updated_at: string | null;
       }>;
       progressRows.forEach((r) => {
-        addPair(r.user_id, r.sentence_id);
+        addPair(r.user_id, r.sentence_id, r.last_activity_at ?? r.updated_at);
         if (r.translation_done && !isRemediationSid(r.sentence_id)) {
           tSet[`${r.user_id}::${r.sentence_id}`] = true;
         }
