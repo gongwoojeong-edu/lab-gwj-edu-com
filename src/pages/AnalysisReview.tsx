@@ -15,6 +15,7 @@ import { fetchOpenRequest } from "@/lib/analysisReview";
 import { fetchAttemptCount } from "@/integrations/supabase/storage";
 import { fetchIdiomsAll } from "@/integrations/supabase/storage";
 import { LEVEL_LABEL } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { cn } from "@/lib/utils";
 
 interface AnyProgress {
