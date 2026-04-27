@@ -81,6 +81,10 @@ const LearningResults = () => {
   const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
   // 학생별 sentence_id 목록 (그 날 활동 흔적이 있는 모든 sentence)
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
+  // (userId::sentenceId) → 마지막 활동 ISO timestamp (정렬용)
+  const [lastActivityMap, setLastActivityMap] = useState<Record<string, string>>({});
+  // userId → 학생의 마지막 활동 ISO timestamp (학생 카드 정렬용)
+  const [studentLastActivity, setStudentLastActivity] = useState<Record<string, string>>({});
   // sentence_id → unit_id 매핑 (그룹핑용)
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
   // unit_id → 라벨 ("[Lxx] 교재 · Uxx 유닛")
@@ -194,6 +198,24 @@ const LearningResults = () => {
       ]);
 
       const pairs = new Map<string, Set<string>>(); // userId → Set<sentenceId>
+      // (userId::sentenceId) → 가장 최근 활동 timestamp (ms)
+      const pairLastActivity = new Map<string, number>();
+      // userId → 가장 최근 활동 timestamp (ms)
+      const userLastActivity = new Map<string, number>();
+      const noteActivity = (
+        uid: string | null | undefined,
+        sid: string | null | undefined,
+        ts: string | null | undefined,
+      ) => {
+        if (!uid || !sid || !ts) return;
+        const ms = new Date(ts).getTime();
+        if (!Number.isFinite(ms)) return;
+        const k = `${uid}::${sid}`;
+        const cur = pairLastActivity.get(k);
+        if (cur == null || ms > cur) pairLastActivity.set(k, ms);
+        const uCur = userLastActivity.get(uid);
+        if (uCur == null || ms > uCur) userLastActivity.set(uid, ms);
+      };
       // 단어시험 오답복습 sid 패턴: "<원래코드>__remediation_<숫자>"
       const REMEDIATION_RE = /__remediation_\d+$/;
       const isRemediationSid = (sid: string | null | undefined): boolean =>
@@ -212,41 +234,56 @@ const LearningResults = () => {
         set.add(suffix);
         remediationAttempts.set(k, set);
       };
-      const addPair = (uid: string | null | undefined, sid: string | null | undefined) => {
+      const addPair = (
+        uid: string | null | undefined,
+        sid: string | null | undefined,
+        ts?: string | null,
+      ) => {
         if (!uid || !sid) return;
         // 합성 remediation sid 는 별도 카드로 띄우지 않고 카운트만 잡는다
         if (isRemediationSid(sid)) {
           noteRemediation(uid, sid);
+          // remediation 활동도 부모 sid의 최신 활동으로 반영
+          if (ts) noteActivity(uid, parentOfRemediation(sid), ts);
           return;
         }
         const set = pairs.get(uid) ?? new Set<string>();
         set.add(sid);
         pairs.set(uid, set);
+        if (ts) noteActivity(uid, sid, ts);
       };
       const printedRows = (printedRes.data ?? []) as Array<{
         user_id: string;
         sentence_id: string;
         handled_at: string;
       }>;
-      printedRows.forEach((r) => addPair(r.user_id, r.sentence_id));
-      ((attemptsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
-      );
+      printedRows.forEach((r) => addPair(r.user_id, r.sentence_id, r.handled_at));
+      ((attemptsRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        completed_at: string | null;
+      }>).forEach((r) => addPair(r.user_id, r.sentence_id, r.completed_at));
       const tSet: Record<string, boolean> = {};
-      ((translationsRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => {
-          addPair(r.user_id, r.sentence_id);
-          if (!isRemediationSid(r.sentence_id)) {
-            tSet[`${r.user_id}::${r.sentence_id}`] = true;
-          }
-        },
-      );
-      ((wordTestRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
-      );
-      ((wordPreRes.data ?? []) as Array<{ user_id: string; sentence_id: string }>).forEach(
-        (r) => addPair(r.user_id, r.sentence_id),
-      );
+      ((translationsRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        submitted_at: string | null;
+      }>).forEach((r) => {
+        addPair(r.user_id, r.sentence_id, r.submitted_at);
+        if (!isRemediationSid(r.sentence_id)) {
+          tSet[`${r.user_id}::${r.sentence_id}`] = true;
+        }
+      });
+      ((wordTestRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        taken_at: string | null;
+      }>).forEach((r) => addPair(r.user_id, r.sentence_id, r.taken_at));
+      ((wordPreRes.data ?? []) as Array<{
+        user_id: string;
+        sentence_id: string;
+        taken_at: string | null;
+      }>).forEach((r) => addPair(r.user_id, r.sentence_id, r.taken_at));
       // sentence_progress 도 짝 추가 — attempt_log 미생성 케이스(예: 분석만 끝나고 단어시험 전)도 표에 노출
       const progressRows = (progressRes.data ?? []) as Array<{
         user_id: string;
@@ -255,9 +292,11 @@ const LearningResults = () => {
         analysis_match_rate: number | null;
         translation_done: boolean;
         word_test_done: boolean;
+        last_activity_at: string | null;
+        updated_at: string | null;
       }>;
       progressRows.forEach((r) => {
-        addPair(r.user_id, r.sentence_id);
+        addPair(r.user_id, r.sentence_id, r.last_activity_at ?? r.updated_at);
         if (r.translation_done && !isRemediationSid(r.sentence_id)) {
           tSet[`${r.user_id}::${r.sentence_id}`] = true;
         }
@@ -408,12 +447,28 @@ const LearningResults = () => {
       });
       setAttemptMap(aMap);
 
-      // 학생별 sentence_id 정렬 목록
+      // 학생별 sentence_id 목록 — 가장 최근 활동순 (내림차순)
       const ssMap: Record<string, string[]> = {};
       pairs.forEach((set, uid) => {
-        ssMap[uid] = Array.from(set).sort();
+        ssMap[uid] = Array.from(set).sort((a, b) => {
+          const ta = pairLastActivity.get(`${uid}::${a}`) ?? 0;
+          const tb = pairLastActivity.get(`${uid}::${b}`) ?? 0;
+          if (tb !== ta) return tb - ta; // 최신이 위
+          return a.localeCompare(b);
+        });
       });
       setStudentSentences(ssMap);
+      // 정렬용 활동시간 맵을 state로 노출
+      const laObj: Record<string, string> = {};
+      pairLastActivity.forEach((ms, k) => {
+        laObj[k] = new Date(ms).toISOString();
+      });
+      setLastActivityMap(laObj);
+      const ulaObj: Record<string, string> = {};
+      userLastActivity.forEach((ms, uid) => {
+        ulaObj[uid] = new Date(ms).toISOString();
+      });
+      setStudentLastActivity(ulaObj);
       setTranslationSet(tSet);
 
       // 4) sentence_id → unit_id, unit_id → 라벨 로드
@@ -477,8 +532,17 @@ const LearningResults = () => {
   }, [date]);
 
   const groupedEntries = useMemo(
-    () => Object.entries(studentSentences),
-    [studentSentences],
+    () =>
+      Object.entries(studentSentences).sort(([a], [b]) => {
+        const ta = studentLastActivity[a] ? new Date(studentLastActivity[a]).getTime() : 0;
+        const tb = studentLastActivity[b] ? new Date(studentLastActivity[b]).getTime() : 0;
+        if (tb !== ta) return tb - ta; // 최근 활동한 학생이 위
+        // tie-breaker: 학번 오름차순
+        const sa = students[a]?.student_no ?? "";
+        const sb = students[b]?.student_no ?? "";
+        return sa.localeCompare(sb);
+      }),
+    [studentSentences, studentLastActivity, students],
   );
 
   // ===== 액션 =====
@@ -890,22 +954,45 @@ const LearningResults = () => {
 
                   {/* 유닛별 그룹핑: 같은 unit_id의 sentence들을 한 카드(접이식)로 묶음 */}
                   {(() => {
-                    // 학생의 sentence들을 unit으로 그룹핑
+                    // 학생의 sentence들을 unit으로 그룹핑 (sentenceIds는 이미 최신활동순)
                     const groups = new Map<string, string[]>();
+                    const groupLastActivity = new Map<string, number>();
                     sentenceIds.forEach((sid) => {
                       const uid = codeToUnit[sid];
                       const groupKey = uid ?? `__nounit__${sid}`;
                       if (!groups.has(groupKey)) groups.set(groupKey, []);
                       groups.get(groupKey)!.push(sid);
+                      const ts = lastActivityMap[`${userId}::${sid}`];
+                      const ms = ts ? new Date(ts).getTime() : 0;
+                      const cur = groupLastActivity.get(groupKey) ?? 0;
+                      if (ms > cur) groupLastActivity.set(groupKey, ms);
                     });
-                    const groupArr = Array.from(groups.entries()).map(([k, sids]) => ({
-                      key: k,
-                      unitId: k.startsWith("__nounit__") ? null : k,
-                      sids: sids.slice().sort(),
-                      label: k.startsWith("__nounit__")
-                        ? sids[0]
-                        : unitLabel[k] ?? "유닛 정보 로딩…",
-                    }));
+                    const groupArr = Array.from(groups.entries())
+                      .map(([k, sids]) => ({
+                        key: k,
+                        unitId: k.startsWith("__nounit__") ? null : k,
+                        // 그룹 내부 문장도 최신활동 내림차순
+                        sids: sids.slice().sort((a, b) => {
+                          const ta = lastActivityMap[`${userId}::${a}`]
+                            ? new Date(lastActivityMap[`${userId}::${a}`]).getTime()
+                            : 0;
+                          const tb = lastActivityMap[`${userId}::${b}`]
+                            ? new Date(lastActivityMap[`${userId}::${b}`]).getTime()
+                            : 0;
+                          if (tb !== ta) return tb - ta;
+                          return a.localeCompare(b);
+                        }),
+                        label: k.startsWith("__nounit__")
+                          ? sids[0]
+                          : unitLabel[k] ?? "유닛 정보 로딩…",
+                      }))
+                      // 그룹(유닛)도 가장 최근 활동순
+                      .sort((g1, g2) => {
+                        const t1 = groupLastActivity.get(g1.key) ?? 0;
+                        const t2 = groupLastActivity.get(g2.key) ?? 0;
+                        if (t2 !== t1) return t2 - t1;
+                        return g1.label.localeCompare(g2.label);
+                      });
 
                     return (
                       <div className="space-y-2">
