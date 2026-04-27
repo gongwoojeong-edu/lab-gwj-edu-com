@@ -20,6 +20,7 @@ const PassageEditor = () => {
   const [passage, setPassage] = useState<Passage | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     if (!passageCode) return;
