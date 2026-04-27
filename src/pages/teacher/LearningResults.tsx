@@ -532,8 +532,17 @@ const LearningResults = () => {
   }, [date]);
 
   const groupedEntries = useMemo(
-    () => Object.entries(studentSentences),
-    [studentSentences],
+    () =>
+      Object.entries(studentSentences).sort(([a], [b]) => {
+        const ta = studentLastActivity[a] ? new Date(studentLastActivity[a]).getTime() : 0;
+        const tb = studentLastActivity[b] ? new Date(studentLastActivity[b]).getTime() : 0;
+        if (tb !== ta) return tb - ta; // 최근 활동한 학생이 위
+        // tie-breaker: 학번 오름차순
+        const sa = students[a]?.student_no ?? "";
+        const sb = students[b]?.student_no ?? "";
+        return sa.localeCompare(sb);
+      }),
+    [studentSentences, studentLastActivity, students],
   );
 
   // ===== 액션 =====
