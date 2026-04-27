@@ -49,6 +49,7 @@ import {
   type Passage,
 } from "@/lib/textbooks";
 import { LEVELS, type LevelCode } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import AssignmentProgressSummary from "@/components/teacher/AssignmentProgressSummary";
 
