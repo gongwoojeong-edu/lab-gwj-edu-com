@@ -109,15 +109,14 @@ const TeacherStudents = () => {
   const [historySheet, setHistorySheet] = useState<{ userId: string; name: string; no: string | null } | null>(null);
   const [skipDialog, setSkipDialog] = useState<{ userId: string; name: string } | null>(null);
 
-  const saveTimeLimit = async (s: Student, seconds: number) => {
+  const saveTimeLimit = async (s: Student, seconds: number): Promise<boolean> => {
     const clamped = Math.max(0, Math.min(120, Math.round(seconds)));
-    setTimeLimitByName((p) => ({ ...p, [s.name]: clamped }));
     setTimeLimitSaving(s.name);
     try {
       const uid = s.userId ?? profileUserIdByName[s.name];
       if (!uid) {
         toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
-        return;
+        return false;
       }
       const { data, error } = await supabase
         .from("student_profiles")
@@ -127,11 +126,14 @@ const TeacherStudents = () => {
       if (error) throw error;
       if (!data || data.length === 0) {
         toast({ title: "계정 매칭 실패", description: `'${s.name}' 이름 계정이 없습니다.`, variant: "destructive" });
-      } else {
-        toast({ title: `⏱ ${s.name} 단어시험 제한 ${clamped === 0 ? "OFF" : `${clamped}초`} 저장` });
+        return false;
       }
+      setTimeLimitByName((p) => ({ ...p, [s.name]: clamped }));
+      toast({ title: `⏱ ${s.name} 단어시험 제한 ${clamped === 0 ? "OFF" : `${clamped}초`} 저장` });
+      return true;
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+      return false;
     } finally {
       setTimeLimitSaving(null);
     }
