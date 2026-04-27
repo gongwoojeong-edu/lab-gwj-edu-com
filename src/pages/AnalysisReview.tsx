@@ -15,6 +15,7 @@ import { fetchOpenRequest } from "@/lib/analysisReview";
 import { fetchAttemptCount } from "@/integrations/supabase/storage";
 import { fetchIdiomsAll } from "@/integrations/supabase/storage";
 import { LEVEL_LABEL } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { cn } from "@/lib/utils";
 
 interface AnyProgress {
@@ -67,6 +68,7 @@ const isMatch = (a: AnyProgress | undefined, b: AnyProgress | undefined): "exact
 const AnalysisReview = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
+  const { display: levelDisplay } = useLevelLabels();
   const [loading, setLoading] = useState(true);
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [master, setMaster] = useState<Record<string, AnyProgress>>({});
@@ -187,7 +189,7 @@ const AnalysisReview = () => {
             </Button>
             <div className="min-w-0">
               <div className="text-xs text-muted-foreground">
-                {LEVEL_LABEL[sentence.level]} · {sentence.id}
+                {levelDisplay(sentence.level)} · {sentence.id}
               </div>
               <div className="text-sm font-bold text-foreground truncate max-w-[55vw]">
                 {sentence.english}

@@ -107,6 +107,7 @@ import {
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
 import { Link } from "react-router-dom";
 import { LEVEL_LABEL, formatSentenceCode } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { GraduationCap } from "lucide-react";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -456,6 +457,7 @@ const Index = ({
   showStaffToolbar = false,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
+  const { display: levelDisplay } = useLevelLabels();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
   const [allDone, setAllDone] = useState(false);
@@ -2520,7 +2522,7 @@ const Index = ({
                 문장 분석 · {formatSentenceCode(sentence.level, sentence.no)}
               </p>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold font-kr bg-primary/10 text-primary border border-primary/20">
-                {LEVEL_LABEL[sentence.level]}
+                {levelDisplay(sentence.level)}
               </span>
               {isAdmin && (
                 <Link

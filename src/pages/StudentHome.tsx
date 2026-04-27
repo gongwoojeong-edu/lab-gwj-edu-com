@@ -90,6 +90,7 @@ const StudentHome = () => {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
   const { setMode } = useViewMode();
+  const { display: levelDisplay } = useLevelLabels();
   const retestCount = useRetestAlertsCount(user?.id);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
@@ -759,7 +760,7 @@ const StudentHome = () => {
                 <div className="space-y-1">
                   <div className="text-xs uppercase tracking-widest opacity-80">오늘의 학습</div>
                   <h1 className="text-3xl sm:text-4xl font-extrabold">
-                    {next ? LEVEL_LABEL[next.level] ?? next.level : "—"}
+                    {next ? levelDisplay(next.level) : "—"}
                   </h1>
                   <div className="text-sm opacity-90">
                     {next ? `${next.id} · Passage ${next.no}` : "다음 Passage가 없습니다"}
