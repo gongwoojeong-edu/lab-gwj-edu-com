@@ -279,13 +279,21 @@ const BookshelfVolume = () => {
     }
     setSavingPassage(true);
     try {
-      const updated = await updatePassage(editPassage.id, {
-        english: nextEnglish,
-        korean: editPassageKorean.trim() ? editPassageKorean.trim() : null,
-      });
+      const { passage: updated, englishChanged, cacheCleared } = await updatePassage(
+        editPassage.id,
+        {
+          english: nextEnglish,
+          korean: editPassageKorean.trim() ? editPassageKorean.trim() : null,
+        },
+      );
       setUnitPassages((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
       await hydrateSentencesFromDb(true);
-      toast({ title: "본문이 수정되었습니다", description: updated.code });
+      toast({
+        title: "본문이 수정되었습니다",
+        description: englishChanged
+          ? `${updated.code} · 분석/단어추출 캐시를 자동 정리했어요${cacheCleared ? "" : " (일부 실패)"}. 학생들의 기존 분석 결과는 새 본문과 어긋날 수 있어요.`
+          : updated.code,
+      });
       setEditPassage(null);
     } catch (e) {
       toast({ title: "수정 실패", description: errMsg(e), variant: "destructive" });
