@@ -146,6 +146,21 @@ const PassageEditor = () => {
               {passage.analysis_status}
             </span>
             <Button
+              size="sm"
+              variant="outline"
+              onClick={handleClearCache}
+              disabled={clearing}
+              title="본문이 바뀌었는데 분석학습에 옛 영문/단어가 보이면 누르세요"
+              className="gap-1"
+            >
+              {clearing ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="size-3.5" />
+              )}
+              <span className="hidden sm:inline text-xs font-kr">캐시 초기화</span>
+            </Button>
+            <Button
               onClick={togglePublish}
               disabled={toggling}
               variant={isReady ? "outline" : "default"}
