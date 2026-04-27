@@ -447,25 +447,24 @@ const TeacherStudents = () => {
         </Dialog>
       </div>
 
-      <div className="glass-panel rounded-2xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>이름</TableHead>
-              <TableHead>레벨</TableHead>
-              <TableHead>단어 통과%</TableHead>
-              <TableHead>분석 통과%</TableHead>
-              <TableHead>단어시험 제한(초)</TableHead>
-              
-              <TableHead>등록일</TableHead>
-              <TableHead>상태</TableHead>
-              <TableHead className="text-right">작업</TableHead>
+      <div className="glass-panel rounded-2xl overflow-hidden border border-border/40">
+        <Table className="text-[15px]">
+          <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+            <TableRow className="border-b-2 border-border">
+              <TableHead className="font-bold text-foreground">이름</TableHead>
+              <TableHead className="font-bold text-foreground">레벨</TableHead>
+              <TableHead className="font-bold text-foreground">단어 통과%</TableHead>
+              <TableHead className="font-bold text-foreground">분석 통과%</TableHead>
+              <TableHead className="font-bold text-foreground">단어시험 제한</TableHead>
+              <TableHead className="font-bold text-foreground">등록일</TableHead>
+              <TableHead className="font-bold text-foreground">상태</TableHead>
+              <TableHead className="font-bold text-foreground text-right">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
@@ -475,83 +474,82 @@ const TeacherStudents = () => {
               const aPct = Math.round((analysisByName[s.name] ?? 0.8) * 100);
               const tlSec = Math.round(timeLimitByName[s.name] ?? 20);
               const isExpanded = expandedStudentId === s.id;
+              const hasAccount = !!profileUserIdByName[s.name];
               return (
                 <Fragment key={s.id}>
-                  <TableRow key={s.id}>
-                    <TableCell className="font-semibold">{s.name}</TableCell>
+                  <TableRow
+                    key={s.id}
+                    className="hover:bg-muted/40 transition-colors [&>td]:py-3.5"
+                  >
+                    <TableCell className="font-bold text-base">
+                      <div className="flex flex-col">
+                        <span>{s.name}</span>
+                        {profileNoByName[s.name] && (
+                          <span className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                            #{profileNoByName[s.name]}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="font-bold">
+                      <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
                         {s.level} · {LEVEL_LABEL[s.level]}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={50}
-                          max={100}
-                          step={5}
-                          defaultValue={pct}
-                          disabled={thresholdSaving === s.name}
-                          className="h-8 w-20 text-center font-bold tabular-nums"
-                          onBlur={(e) => {
-                            const v = Number(e.target.value);
-                            if (!Number.isNaN(v) && v !== pct) saveThreshold(s, v);
-                          }}
-                        />
-                        <span className="text-xs text-muted-foreground">%</span>
-                      </div>
+                      <SaveNumberInput
+                        value={pct}
+                        min={50}
+                        max={100}
+                        step={5}
+                        suffix="%"
+                        ariaLabel={`${s.name} 단어 통과 기준`}
+                        onSave={(v) => saveThreshold(s, v)}
+                      />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={50}
-                          max={100}
-                          step={5}
-                          defaultValue={aPct}
-                          disabled={analysisSaving === s.name}
-                          className="h-8 w-20 text-center font-bold tabular-nums"
-                          onBlur={(e) => {
-                            const v = Number(e.target.value);
-                            if (!Number.isNaN(v) && v !== aPct) saveAnalysisThreshold(s, v);
-                          }}
-                        />
-                        <span className="text-xs text-muted-foreground">%</span>
-                      </div>
+                      <SaveNumberInput
+                        value={aPct}
+                        min={50}
+                        max={100}
+                        step={5}
+                        suffix="%"
+                        ariaLabel={`${s.name} 분석 통과 기준`}
+                        onSave={(v) => saveAnalysisThreshold(s, v)}
+                      />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={120}
-                          step={5}
-                          defaultValue={tlSec}
-                          disabled={timeLimitSaving === s.name}
-                          className="h-8 w-20 text-center font-bold tabular-nums"
-                          onBlur={(e) => {
-                            const v = Number(e.target.value);
-                            if (!Number.isNaN(v) && v !== tlSec) saveTimeLimit(s, v);
-                          }}
-                        />
-                        <span className="text-xs text-muted-foreground">{tlSec === 0 ? "OFF" : "초"}</span>
-                      </div>
+                      <SaveNumberInput
+                        value={tlSec}
+                        min={0}
+                        max={120}
+                        step={5}
+                        suffix={tlSec === 0 ? "OFF" : "초"}
+                        ariaLabel={`${s.name} 단어시험 제한 시간`}
+                        onSave={(v) => saveTimeLimit(s, v)}
+                      />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground tabular-nums">
                       {formatDate(s.createdAt)}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center gap-1 text-xs text-element-v font-bold">
-                        <span className="size-1.5 rounded-full bg-element-v" /> 활성
-                      </span>
+                      {hasAccount ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-element-v font-bold">
+                          <span className="size-2 rounded-full bg-element-v" /> 활성
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-bold">
+                          <span className="size-2 rounded-full bg-muted-foreground/50" /> 미연결
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="inline-flex items-center gap-1">
+                      <div className="inline-flex items-center gap-0.5 flex-wrap justify-end">
                         <Button
                           size="sm"
                           variant="ghost"
-                          disabled={!profileUserIdByName[s.name]}
+                          className="h-8 px-2"
+                          disabled={!hasAccount}
                           onClick={() => {
                             const uid = profileUserIdByName[s.name];
                             if (!uid) {
@@ -571,18 +569,20 @@ const TeacherStudents = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-8 px-2"
                           onClick={() => setExpandedStudentId(isExpanded ? null : s.id)}
                         >
                           <ChevronDown className={`size-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                          종합점수
+                          점수
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => openPin(s)}>
+                        <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => openPin(s)}>
                           <KeyRound className="size-3.5" /> PIN
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          disabled={!profileUserIdByName[s.name]}
+                          className="h-8 px-2"
+                          disabled={!hasAccount}
                           onClick={() => {
                             const uid = profileUserIdByName[s.name];
                             if (!uid) {
@@ -595,23 +595,23 @@ const TeacherStudents = () => {
                         >
                           <FastForward className="size-3.5" /> 스킵
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
+                        <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => openEdit(s)}>
                           <Pencil className="size-3.5" /> 수정
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-destructive hover:text-destructive"
+                          className="h-8 px-2 text-destructive hover:text-destructive"
                           onClick={() => remove(s.id)}
                         >
-                          <Trash2 className="size-3.5" /> 삭제
+                          <Trash2 className="size-3.5" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={9} className="bg-muted/20 py-5">
+                      <TableCell colSpan={8} className="bg-muted/20 py-5">
                         {profileUserIdByName[s.name] ? (
                           <DailyTestSummary userId={profileUserIdByName[s.name]} days={14} />
                         ) : (
