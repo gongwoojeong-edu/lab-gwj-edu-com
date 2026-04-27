@@ -342,8 +342,11 @@ const TeacherStudents = () => {
         setTimeLimitByName((p) => moveKey(p));
         
       }
+      if (uid && level !== editing.level) {
+        await updateStudentStartLevel(uid, level);
+      }
       const next = students.map((s) =>
-        s.id === editing.id ? { ...s, name: trimmed, level } : s,
+        s.id === editing.id ? { ...s, name: trimmed, level, userId: uid ?? s.userId } : s,
       );
       setStudents(next);
       persist(next);
