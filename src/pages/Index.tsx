@@ -107,6 +107,7 @@ import {
 import { useHintSettings } from "@/components/analyzer/HintSettingsContext";
 import { Link } from "react-router-dom";
 import { LEVEL_LABEL, formatSentenceCode } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { GraduationCap } from "lucide-react";
 import { buildSubBadgeLabel, buildElementBadge, isClauseProgress } from "@/lib/labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
