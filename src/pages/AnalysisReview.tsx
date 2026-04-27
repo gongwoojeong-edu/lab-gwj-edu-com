@@ -68,6 +68,7 @@ const isMatch = (a: AnyProgress | undefined, b: AnyProgress | undefined): "exact
 const AnalysisReview = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
+  const { display: levelDisplay } = useLevelLabels();
   const [loading, setLoading] = useState(true);
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [master, setMaster] = useState<Record<string, AnyProgress>>({});
