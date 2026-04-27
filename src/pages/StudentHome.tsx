@@ -90,6 +90,7 @@ const StudentHome = () => {
   const navigate = useNavigate();
   const { user, roles } = useAuth();
   const { setMode } = useViewMode();
+  const { display: levelDisplay } = useLevelLabels();
   const retestCount = useRetestAlertsCount(user?.id);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
