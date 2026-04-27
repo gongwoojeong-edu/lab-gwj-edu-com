@@ -954,22 +954,45 @@ const LearningResults = () => {
 
                   {/* 유닛별 그룹핑: 같은 unit_id의 sentence들을 한 카드(접이식)로 묶음 */}
                   {(() => {
-                    // 학생의 sentence들을 unit으로 그룹핑
+                    // 학생의 sentence들을 unit으로 그룹핑 (sentenceIds는 이미 최신활동순)
                     const groups = new Map<string, string[]>();
+                    const groupLastActivity = new Map<string, number>();
                     sentenceIds.forEach((sid) => {
                       const uid = codeToUnit[sid];
                       const groupKey = uid ?? `__nounit__${sid}`;
                       if (!groups.has(groupKey)) groups.set(groupKey, []);
                       groups.get(groupKey)!.push(sid);
+                      const ts = lastActivityMap[`${userId}::${sid}`];
+                      const ms = ts ? new Date(ts).getTime() : 0;
+                      const cur = groupLastActivity.get(groupKey) ?? 0;
+                      if (ms > cur) groupLastActivity.set(groupKey, ms);
                     });
-                    const groupArr = Array.from(groups.entries()).map(([k, sids]) => ({
-                      key: k,
-                      unitId: k.startsWith("__nounit__") ? null : k,
-                      sids: sids.slice().sort(),
-                      label: k.startsWith("__nounit__")
-                        ? sids[0]
-                        : unitLabel[k] ?? "유닛 정보 로딩…",
-                    }));
+                    const groupArr = Array.from(groups.entries())
+                      .map(([k, sids]) => ({
+                        key: k,
+                        unitId: k.startsWith("__nounit__") ? null : k,
+                        // 그룹 내부 문장도 최신활동 내림차순
+                        sids: sids.slice().sort((a, b) => {
+                          const ta = lastActivityMap[`${userId}::${a}`]
+                            ? new Date(lastActivityMap[`${userId}::${a}`]).getTime()
+                            : 0;
+                          const tb = lastActivityMap[`${userId}::${b}`]
+                            ? new Date(lastActivityMap[`${userId}::${b}`]).getTime()
+                            : 0;
+                          if (tb !== ta) return tb - ta;
+                          return a.localeCompare(b);
+                        }),
+                        label: k.startsWith("__nounit__")
+                          ? sids[0]
+                          : unitLabel[k] ?? "유닛 정보 로딩…",
+                      }))
+                      // 그룹(유닛)도 가장 최근 활동순
+                      .sort((g1, g2) => {
+                        const t1 = groupLastActivity.get(g1.key) ?? 0;
+                        const t2 = groupLastActivity.get(g2.key) ?? 0;
+                        if (t2 !== t1) return t2 - t1;
+                        return g1.label.localeCompare(g2.label);
+                      });
 
                     return (
                       <div className="space-y-2">
