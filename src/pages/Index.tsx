@@ -2522,7 +2522,7 @@ const Index = ({
                 문장 분석 · {formatSentenceCode(sentence.level, sentence.no)}
               </p>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold font-kr bg-primary/10 text-primary border border-primary/20">
-                {LEVEL_LABEL[sentence.level]}
+                {levelDisplay(sentence.level)}
               </span>
               {isAdmin && (
                 <Link
