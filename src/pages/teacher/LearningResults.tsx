@@ -447,12 +447,28 @@ const LearningResults = () => {
       });
       setAttemptMap(aMap);
 
-      // 학생별 sentence_id 정렬 목록
+      // 학생별 sentence_id 목록 — 가장 최근 활동순 (내림차순)
       const ssMap: Record<string, string[]> = {};
       pairs.forEach((set, uid) => {
-        ssMap[uid] = Array.from(set).sort();
+        ssMap[uid] = Array.from(set).sort((a, b) => {
+          const ta = pairLastActivity.get(`${uid}::${a}`) ?? 0;
+          const tb = pairLastActivity.get(`${uid}::${b}`) ?? 0;
+          if (tb !== ta) return tb - ta; // 최신이 위
+          return a.localeCompare(b);
+        });
       });
       setStudentSentences(ssMap);
+      // 정렬용 활동시간 맵을 state로 노출
+      const laObj: Record<string, string> = {};
+      pairLastActivity.forEach((ms, k) => {
+        laObj[k] = new Date(ms).toISOString();
+      });
+      setLastActivityMap(laObj);
+      const ulaObj: Record<string, string> = {};
+      userLastActivity.forEach((ms, uid) => {
+        ulaObj[uid] = new Date(ms).toISOString();
+      });
+      setStudentLastActivity(ulaObj);
       setTranslationSet(tSet);
 
       // 4) sentence_id → unit_id, unit_id → 라벨 로드
