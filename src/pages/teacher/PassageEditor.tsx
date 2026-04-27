@@ -3,10 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Loader2, Eye, EyeOff, RotateCcw } from "lucide-react";
 import Index from "@/pages/Index";
 import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
-import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
+import { fetchPassageByCode, clearPassageDerivedCache, type Passage } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 
 const PassageEditor = () => {
