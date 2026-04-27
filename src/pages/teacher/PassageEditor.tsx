@@ -59,6 +59,33 @@ const PassageEditor = () => {
     }
   };
 
+  const handleClearCache = async () => {
+    if (!passage) return;
+    setClearing(true);
+    try {
+      await clearPassageDerivedCache(passage.id, passage.code);
+      // 메모리 캐시 강제 갱신 → 새로 만든 토큰으로 화면 즉시 반영
+      await hydrateSentencesFromDb(true);
+      const refreshed = await fetchPassageByCode(passage.code);
+      setPassage(refreshed);
+      toast({
+        title: "🔄 캐시를 정리했어요",
+        description: "단어 단위는 현재 본문 기준으로 다시 만들어졌습니다. AI 단어추출은 필요 시 다시 실행하세요.",
+      });
+      // Index 임베드가 sentence_id useEffect를 다시 타도록 라우트 리렌더 트릭은 불필요 — hydrate 결과가 SENTENCES 배열에 반영됨.
+      // 강제 리렌더가 필요하면 페이지 새로고침을 권장.
+      setTimeout(() => window.location.reload(), 400);
+    } catch (e) {
+      toast({
+        title: "캐시 초기화 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setClearing(false);
+    }
+  };
+
   if (loading) {
     return (
       <TeacherLayout>
