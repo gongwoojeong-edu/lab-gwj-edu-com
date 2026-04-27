@@ -34,6 +34,7 @@ import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
+import { updateStudentStartLevel } from "@/lib/studentProfile";
 
 interface Student {
   id: string;
@@ -253,7 +254,7 @@ const TeacherStudents = () => {
     (async () => {
       const { data, error } = await supabase
         .from("student_profiles")
-        .select("user_id, student_no, display_name, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+        .select("user_id, student_no, display_name, start_level, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
@@ -263,7 +264,7 @@ const TeacherStudents = () => {
       const userMap: Record<string, string> = {};
       const noMap: Record<string, string> = {};
       const dbStudents: Student[] = [];
-      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
+      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; start_level: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
         const name = row.display_name || row.student_no || row.user_id.slice(0, 8);
         wtMap[name] = Number(row.word_test_pass_threshold ?? 0.8);
         anMap[name] = Number(row.analysis_pass_threshold ?? 0.8);
@@ -273,7 +274,7 @@ const TeacherStudents = () => {
         dbStudents.push({
           id: `db-${row.user_id}`,
           name,
-          level: ((row.current_level as LevelCode) || "L05"),
+          level: ((row.start_level as LevelCode) || (row.current_level as LevelCode) || "L05"),
           createdAt: row.created_at,
           userId: row.user_id,
         });
@@ -341,8 +342,11 @@ const TeacherStudents = () => {
         setTimeLimitByName((p) => moveKey(p));
         
       }
+      if (uid && level !== editing.level) {
+        await updateStudentStartLevel(uid, level);
+      }
       const next = students.map((s) =>
-        s.id === editing.id ? { ...s, name: trimmed, level } : s,
+        s.id === editing.id ? { ...s, name: trimmed, level, userId: uid ?? s.userId } : s,
       );
       setStudents(next);
       persist(next);
