@@ -63,24 +63,24 @@ const Login = () => {
                 id="studentNo"
                 value={studentNo}
                 onChange={(e) => {
-                  // gwj 접두사 자동 제거 + 숫자 4자리까지만 허용
-                  const v = e.target.value
-                    .toLowerCase()
-                    .replace(/^gwj/, "")
-                    .replace(/\D/g, "")
-                    .slice(0, 4);
+                  // gwj 접두사 자동 제거 + (t+숫자3) 또는 (숫자4)만 허용
+                  let v = e.target.value.toLowerCase().replace(/^gwj/, "");
+                  if (v.startsWith("t")) {
+                    v = "t" + v.slice(1).replace(/\D/g, "").slice(0, 3);
+                  } else {
+                    v = v.replace(/\D/g, "").slice(0, 4);
+                  }
                   setStudentNo(v);
                 }}
-                placeholder="0001"
-                inputMode="numeric"
-                pattern="\d{4}"
+                placeholder="0001 또는 t001"
+                inputMode="text"
                 maxLength={4}
                 autoComplete="username"
                 autoFocus
                 className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 font-mono tracking-widest text-base"
               />
             </div>
-            <p className="text-[11px] text-muted-foreground">학번 뒷자리 4자리만 입력하세요</p>
+            <p className="text-[11px] text-muted-foreground">학생: 숫자 4자리 / 선생님: t + 숫자 3자리</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">비밀번호</Label>
