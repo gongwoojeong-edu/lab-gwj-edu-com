@@ -23,7 +23,7 @@ import {
 import Index from "@/pages/Index";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut, useAuth } from "@/hooks/useAuth";
-import { LEVEL_LABEL } from "@/lib/levels";
+import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import {
   fetchOwnerProgressForSentence,
