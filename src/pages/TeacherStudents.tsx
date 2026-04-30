@@ -800,7 +800,7 @@ const TeacherStudents = () => {
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1.5">
                           <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
-                            {s.level} · {LEVEL_LABEL[s.level]}
+                            {s.level} · {displayLevel(s.level)}
                           </Badge>
                           {(passageCountByLevel[s.level] ?? 0) === 0 && (
                             <span
