@@ -466,6 +466,8 @@ const Index = ({
   missingOwnerIds,
   onOwnerToggle,
   showStaffToolbar = false,
+  onHydrationError,
+  reloadNonce = 0,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const { displayStudent: levelDisplay } = useLevelLabels();
