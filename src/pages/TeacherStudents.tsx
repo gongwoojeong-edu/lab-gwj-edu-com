@@ -530,6 +530,23 @@ const TeacherStudents = () => {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <Select
+                        value={actualGradeByName[s.name] ?? ""}
+                        onValueChange={(v) => saveActualGrade(s, v === "__none__" ? "" : v)}
+                        disabled={!hasAccount || actualGradeSaving === s.name}
+                      >
+                        <SelectTrigger className="h-8 w-[92px] text-sm">
+                          <SelectValue placeholder="미지정" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">미지정</SelectItem>
+                          {ACTUAL_GRADE_OPTIONS.map((g) => (
+                            <SelectItem key={g} value={g}>{g}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
                         {s.level} · {LEVEL_LABEL[s.level]}
                       </Badge>
