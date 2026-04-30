@@ -335,6 +335,18 @@ const TeacherStudents = () => {
       // Merge: DB students first, then any localStorage students whose name doesn't match a DB account
       const localOnly = loadStudents().filter((s) => !userMap[s.name]);
       setStudents([...dbStudents, ...localOnly]);
+
+      // 레벨별 지문 수 집계 (textbooks.level → textbook_passages 카운트)
+      const { data: tb } = await supabase.from("textbooks").select("id, level");
+      const { data: tp } = await supabase.from("textbook_passages").select("textbook_id");
+      const levelOf: Record<string, string> = {};
+      ((tb ?? []) as { id: string; level: string }[]).forEach((r) => { levelOf[r.id] = r.level; });
+      const cnt: Record<string, number> = {};
+      ((tp ?? []) as { textbook_id: string }[]).forEach((r) => {
+        const lv = levelOf[r.textbook_id];
+        if (lv) cnt[lv] = (cnt[lv] ?? 0) + 1;
+      });
+      setPassageCountByLevel(cnt);
     })();
   }, []);
 
