@@ -118,6 +118,8 @@ const TeacherStudents = () => {
   const [skipDialog, setSkipDialog] = useState<{ userId: string; name: string } | null>(null);
   // 학생별 실제 학년 (학습 레벨과 분리)
   const [actualGradeByName, setActualGradeByName] = useState<Record<string, string>>({});
+  // 레벨별 등록된 지문 수 (지정 레벨에 지문이 없는 학생 경고용)
+  const [passageCountByLevel, setPassageCountByLevel] = useState<Record<string, number>>({});
   const [actualGradeSaving, setActualGradeSaving] = useState<string | null>(null);
 
   const saveActualGrade = async (s: Student, grade: string) => {
