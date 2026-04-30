@@ -47,6 +47,14 @@ interface Student {
   userId?: string;
 }
 
+/** 실제 학년 선택지. "" = 미지정. 학습 레벨(L01~L09)과는 별개. */
+const ACTUAL_GRADE_OPTIONS = [
+  "초3", "초4", "초5", "초6",
+  "중1", "중2", "중3",
+  "고1", "고2", "고3",
+] as const;
+type ActualGrade = typeof ACTUAL_GRADE_OPTIONS[number];
+
 const STUDENTS_KEY = "gwj.students.v1";
 
 const seedStudents = (): Student[] => [
@@ -108,6 +116,31 @@ const TeacherStudents = () => {
   const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
   const [historySheet, setHistorySheet] = useState<{ userId: string; name: string; no: string | null } | null>(null);
   const [skipDialog, setSkipDialog] = useState<{ userId: string; name: string } | null>(null);
+  // 학생별 실제 학년 (학습 레벨과 분리)
+  const [actualGradeByName, setActualGradeByName] = useState<Record<string, string>>({});
+  const [actualGradeSaving, setActualGradeSaving] = useState<string | null>(null);
+
+  const saveActualGrade = async (s: Student, grade: string) => {
+    setActualGradeSaving(s.name);
+    try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from("student_profiles") as any)
+        .update({ actual_grade: grade || null })
+        .eq("user_id", uid);
+      if (error) throw error;
+      setActualGradeByName((p) => ({ ...p, [s.name]: grade }));
+      toast({ title: `🎓 ${s.name} 실제 학년 ${grade || "미지정"} 저장` });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setActualGradeSaving(null);
+    }
+  };
 
   const saveTimeLimit = async (s: Student, seconds: number): Promise<boolean> => {
     const clamped = Math.max(0, Math.min(120, Math.round(seconds)));
@@ -262,7 +295,8 @@ const TeacherStudents = () => {
     (async () => {
       const { data, error } = await supabase
         .from("student_profiles")
-        .select("user_id, student_no, display_name, start_level, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
@@ -271,14 +305,16 @@ const TeacherStudents = () => {
       const tlMap: Record<string, number> = {};
       const userMap: Record<string, string> = {};
       const noMap: Record<string, string> = {};
+      const gradeMap: Record<string, string> = {};
       const dbStudents: Student[] = [];
-      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; start_level: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
-        const name = row.display_name || row.student_no || row.user_id.slice(0, 8);
+      (data ?? []).forEach((row) => {
+        const name = row.display_name || row.student_no || String(row.user_id).slice(0, 8);
         wtMap[name] = Number(row.word_test_pass_threshold ?? 0.8);
         anMap[name] = Number(row.analysis_pass_threshold ?? 0.8);
         tlMap[name] = Number(row.word_test_time_limit_sec ?? 20);
         userMap[name] = row.user_id;
         if (row.student_no) noMap[name] = row.student_no;
+        gradeMap[name] = row.actual_grade ?? "";
         dbStudents.push({
           id: `db-${row.user_id}`,
           name,
@@ -292,6 +328,7 @@ const TeacherStudents = () => {
       setTimeLimitByName(tlMap);
       setProfileUserIdByName(userMap);
       setProfileNoByName(noMap);
+      setActualGradeByName(gradeMap);
 
       // Merge: DB students first, then any localStorage students whose name doesn't match a DB account
       const localOnly = loadStudents().filter((s) => !userMap[s.name]);
@@ -452,7 +489,8 @@ const TeacherStudents = () => {
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
             <TableRow className="border-b-2 border-border">
               <TableHead className="font-bold text-foreground">이름</TableHead>
-              <TableHead className="font-bold text-foreground">레벨</TableHead>
+              <TableHead className="font-bold text-foreground">실제 학년</TableHead>
+              <TableHead className="font-bold text-foreground">학습 레벨</TableHead>
               <TableHead className="font-bold text-foreground">단어 통과%</TableHead>
               <TableHead className="font-bold text-foreground">분석 통과%</TableHead>
               <TableHead className="font-bold text-foreground">단어시험 제한</TableHead>
@@ -464,7 +502,7 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
@@ -490,6 +528,23 @@ const TeacherStudents = () => {
                           </span>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={actualGradeByName[s.name] ?? ""}
+                        onValueChange={(v) => saveActualGrade(s, v === "__none__" ? "" : v)}
+                        disabled={!hasAccount || actualGradeSaving === s.name}
+                      >
+                        <SelectTrigger className="h-8 w-[92px] text-sm">
+                          <SelectValue placeholder="미지정" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">미지정</SelectItem>
+                          {ACTUAL_GRADE_OPTIONS.map((g) => (
+                            <SelectItem key={g} value={g}>{g}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
@@ -611,7 +666,7 @@ const TeacherStudents = () => {
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={8} className="bg-muted/20 py-5">
+                      <TableCell colSpan={9} className="bg-muted/20 py-5">
                         {profileUserIdByName[s.name] ? (
                           <DailyTestSummary userId={profileUserIdByName[s.name]} days={14} />
                         ) : (

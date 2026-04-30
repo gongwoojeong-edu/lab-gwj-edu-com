@@ -103,6 +103,85 @@ const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => {
  */
 const hydratedKeys = new Set<string>();
 
+/** sessionStorage 캐시 키 prefix. 스키마 바뀌면 v숫자 올려서 무효화. */
+const SS_PREFIX = "lab.sentenceMeta.v1.";
+
+/** sessionStorage TTL — 30분. 너무 오래 들고 있으면 신선도 ↓ */
+const SS_TTL_MS = 30 * 60 * 1000;
+
+interface SsCacheRow {
+  code: string;
+  level: LevelCode;
+  no: number;
+  english: string;
+  korean: string | null;
+}
+
+const readSessionCache = (key: string): SsCacheRow[] | null => {
+  try {
+    const raw = sessionStorage.getItem(SS_PREFIX + key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw) as { ts: number; rows: SsCacheRow[] };
+    if (!obj?.rows || Date.now() - obj.ts > SS_TTL_MS) return null;
+    return obj.rows;
+  } catch {
+    return null;
+  }
+};
+
+const writeSessionCache = (key: string, rows: SsCacheRow[]) => {
+  try {
+    sessionStorage.setItem(
+      SS_PREFIX + key,
+      JSON.stringify({ ts: Date.now(), rows }),
+    );
+  } catch {
+    // QuotaExceeded 등은 조용히 무시
+  }
+};
+
+/** 메모리 + sessionStorage 캐시 무효화 (편집/임포트 후 호출) */
+export const invalidateSentenceCache = () => {
+  hydratedKeys.clear();
+  hydrated = false;
+  hydrating = null;
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith(SS_PREFIX)) toRemove.push(k);
+    }
+    toRemove.forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+};
+
+const applyCachedRowsToSentences = (rows: SsCacheRow[]) => {
+  for (const r of rows) {
+    const idx = SENTENCES.findIndex((s) => s.id === r.code);
+    if (idx >= 0) {
+      SENTENCES[idx] = {
+        ...SENTENCES[idx],
+        no: r.no,
+        level: r.level,
+        english: r.english,
+        korean: r.korean ?? SENTENCES[idx].korean,
+      };
+    } else {
+      SENTENCES.push({
+        id: r.code,
+        no: r.no,
+        level: r.level,
+        english: r.english,
+        korean: r.korean ?? "",
+        structureTags: [],
+        tokens: buildTokensFromEnglish(r.english),
+      });
+    }
+  }
+};
+
 export const hydrateSentencesFromDb = async (
   force = false,
   options?: { levels?: LevelCode[]; includeTokens?: boolean },
@@ -111,13 +190,20 @@ export const hydrateSentencesFromDb = async (
   const includeTokens = options?.includeTokens ?? false;
   const cacheKey = `${(levels ?? ["__all__"]).slice().sort().join(",")}|${includeTokens ? "T" : "N"}`;
 
-  if (force) {
-    hydratedKeys.clear();
-    hydrated = false;
-    hydrating = null;
-  }
+  if (force) invalidateSentenceCache();
   if (hydratedKeys.has(cacheKey)) return;
   if (hydrating) return hydrating;
+
+  // sessionStorage 캐시 빠른 경로 (tokens 미포함 모드만)
+  if (!includeTokens) {
+    const cached = readSessionCache(cacheKey);
+    if (cached) {
+      applyCachedRowsToSentences(cached);
+      hydratedKeys.add(cacheKey);
+      hydrated = true;
+      return;
+    }
+  }
 
   hydrating = (async () => {
     try {
@@ -144,6 +230,7 @@ export const hydrateSentencesFromDb = async (
       const tbMap = new Map<string, TextbookRow>(
         (tbs as TextbookRow[]).map((t) => [t.id, t]),
       );
+      const ssRows: SsCacheRow[] = [];
       for (const raw of passages as unknown as PassageRow[]) {
         const tb = tbMap.get(raw.textbook_id);
         if (!tb) continue;
@@ -151,6 +238,15 @@ export const hydrateSentencesFromDb = async (
         const idx = SENTENCES.findIndex((s) => s.id === raw.code);
         const row: PassageRow = { ...raw, tokens: raw.tokens ?? null };
         const dbTokens = row.tokens ?? [];
+        if (!includeTokens) {
+          ssRows.push({
+            code: row.code,
+            level,
+            no: row.passage_no,
+            english: stripKoreanFromEnglishSource(row.english),
+            korean: row.korean ?? null,
+          });
+        }
         // tokens 미포함 select 인 경우, 정적 SENTENCES 의 tokens 보존
         if (!includeTokens && idx >= 0) {
           SENTENCES[idx] = {
@@ -169,6 +265,9 @@ export const hydrateSentencesFromDb = async (
         } else {
           SENTENCES.push(next);
         }
+      }
+      if (!includeTokens && ssRows.length > 0) {
+        writeSessionCache(cacheKey, ssRows);
       }
       hydratedKeys.add(cacheKey);
       hydrated = true;
