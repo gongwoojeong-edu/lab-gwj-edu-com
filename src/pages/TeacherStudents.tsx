@@ -583,7 +583,7 @@ const TeacherStudents = () => {
                 <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
                 <div className="text-amber-800 dark:text-amber-200">
                   <strong>지문이 없는 레벨이 있어요:</strong>{" "}
-                  {missing.map((lv) => `${lv}·${LEVEL_LABEL[lv as LevelCode]}`).join(", ")} —{" "}
+                  {missing.map((lv) => `${lv}·${displayLevel(lv as LevelCode)}`).join(", ")} —{" "}
                   해당 레벨의 학생({affected.length}명)은 학습을 시작할 수 없습니다.
                   <Link to="/teacher/bookshelf" className="ml-1 underline font-bold">책장에서 지문 추가</Link>
                 </div>
