@@ -489,7 +489,8 @@ const TeacherStudents = () => {
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
             <TableRow className="border-b-2 border-border">
               <TableHead className="font-bold text-foreground">이름</TableHead>
-              <TableHead className="font-bold text-foreground">레벨</TableHead>
+              <TableHead className="font-bold text-foreground">실제 학년</TableHead>
+              <TableHead className="font-bold text-foreground">학습 레벨</TableHead>
               <TableHead className="font-bold text-foreground">단어 통과%</TableHead>
               <TableHead className="font-bold text-foreground">분석 통과%</TableHead>
               <TableHead className="font-bold text-foreground">단어시험 제한</TableHead>
