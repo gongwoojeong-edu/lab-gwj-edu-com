@@ -8,6 +8,8 @@ export interface NextSentenceResult {
   sentence: Sentence | null;
   profile: StudentProfile | null;
   done: boolean;
+  /** 지정 레벨에 등록된 지문 자체가 0개인 경우(학습 자료 미준비) */
+  noContent?: boolean;
 }
 
 export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
@@ -30,6 +32,12 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
   const inLevel = SENTENCES.filter((s) => s.level === targetLevel).sort((a, b) => a.no - b.no);
+
+  // 지정 레벨에 등록된 지문이 0개 → 학습 자료 미준비 상태(완료가 아님)
+  if (inLevel.length === 0) {
+    return { sentence: null, profile, done: false, noContent: true };
+  }
+
   const found = inLevel.find((s) => !passed.has(s.id));
   if (found) {
     if (profile.current_level !== targetLevel || profile.current_no !== found.no) {
