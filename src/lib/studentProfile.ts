@@ -109,8 +109,8 @@ export const updateStudentStartScope = async (
     start_unit_id: string | null;
   },
 ): Promise<void> => {
-  await supabase
-    .from("student_profiles")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
     .update({
       start_level: scope.start_level,
       current_level: scope.start_level,
