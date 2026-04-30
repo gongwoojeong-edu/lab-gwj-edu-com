@@ -433,13 +433,14 @@ const TeacherStudents = () => {
     setOpen(true);
   };
 
-  // 다이얼로그가 열려있을 때 level이 바뀌면 → 시리즈 목록 로드
+  // 다이얼로그가 열려있는 동안 항상 전체 시리즈를 보여준다.
+  // (학생 학습레벨과 무관 — 시리즈를 고르면 그 시리즈의 레벨로 학습레벨을 자동 맞춘다.)
   useEffect(() => {
     if (!open) return;
-    fetchSeriesByLevel(level)
+    fetchAllSeries()
       .then(setSeriesList)
       .catch(() => setSeriesList([]));
-  }, [open, level]);
+  }, [open]);
 
   // 시리즈가 바뀌면 → 권 목록 로드
   useEffect(() => {
