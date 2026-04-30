@@ -38,7 +38,7 @@ import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
 import {
-  fetchSeriesByLevel,
+  fetchAllSeries,
   fetchTextbooksBySeries,
   fetchUnitsByTextbook,
   type Series,
