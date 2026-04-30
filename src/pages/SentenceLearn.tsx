@@ -956,11 +956,48 @@ const SentenceLearn = () => {
                   </span>
                 )}
               </div>
+              {hydrationError && (
+                <div
+                  role="alert"
+                  className="rounded-xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap"
+                >
+                  <div className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-100">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-bold">{hydrationError}</div>
+                      <div className="text-xs opacity-80 mt-0.5">
+                        인터넷 연결을 확인한 뒤 다시 불러오기를 눌러주세요. 작성한 분석은 클라우드에 안전하게 저장되어 있어요.
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-amber-500 text-amber-900 dark:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                    onClick={() => {
+                      setHydrationError(null);
+                      setHydrationReloadNonce((n) => n + 1);
+                      toast({ title: "분석 데이터를 다시 불러옵니다…" });
+                    }}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" /> 다시 불러오기
+                  </Button>
+                </div>
+              )}
               <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden">
                 <Index
                   embedMode
                   studentMode={true}
                   embedSentenceId={sentence.id}
+                  reloadNonce={hydrationReloadNonce}
+                  onHydrationError={(info) => {
+                    setHydrationError(info.message);
+                    toast({
+                      title: info.message,
+                      description: "'다시 불러오기' 버튼을 눌러 재시도해주세요.",
+                      variant: "destructive",
+                    });
+                  }}
                   onAnalysisDone={() => setAnalysisDone(true)}
                   onAnalysisProgress={(rate, meta) => {
                     setAnalysisRate(rate);
@@ -972,6 +1009,8 @@ const SentenceLearn = () => {
                     if (meta.hasMaster || masterCallbackCountRef.current >= 2) {
                       setAnalysisMasterLoaded(true);
                     }
+                    // hydrate 성공 시 자동으로 배너 정리
+                    if (hydrationError) setHydrationError(null);
                   }}
                   hintWrongOwnerIds={hintWrongOwnerIds.size > 0 ? hintWrongOwnerIds : undefined}
                 />
