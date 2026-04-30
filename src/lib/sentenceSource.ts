@@ -170,9 +170,12 @@ export const hydrateSentencesFromDb = async (
           SENTENCES.push(next);
         }
       }
+      hydratedKeys.add(cacheKey);
       hydrated = true;
     } catch (e) {
       console.error("[sentenceSource] hydrate failed", e);
+    } finally {
+      hydrating = null;
     }
   })();
   return hydrating;
