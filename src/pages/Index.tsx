@@ -457,7 +457,7 @@ const Index = ({
   showStaffToolbar = false,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
-  const { display: levelDisplay } = useLevelLabels();
+  const { displayStudent: levelDisplay } = useLevelLabels();
   const [sentenceIdx, setSentenceIdx] = useState(0);
   const [autoLoading, setAutoLoading] = useState(true);
   const [allDone, setAllDone] = useState(false);
