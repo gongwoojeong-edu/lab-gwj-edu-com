@@ -87,7 +87,38 @@ export const updateStudentStartLevel = async (
 ): Promise<void> => {
   await supabase
     .from("student_profiles")
-    .update({ start_level: startLevel, current_level: startLevel, current_no: 1 })
+    .update({
+      start_level: startLevel,
+      current_level: startLevel,
+      current_no: 1,
+      // 레벨만 바꾸면 하위 범위 지정도 초기화 (전체로 되돌림)
+      start_series_id: null,
+      start_volume_id: null,
+      start_unit_id: null,
+    })
+    .eq("user_id", userId);
+};
+
+/** 시작 범위(레벨/책/권/유닛) 통합 업데이트. null = 해당 단계 전체 */
+export const updateStudentStartScope = async (
+  userId: string,
+  scope: {
+    start_level: LevelCode;
+    start_series_id: string | null;
+    start_volume_id: string | null;
+    start_unit_id: string | null;
+  },
+): Promise<void> => {
+  await supabase
+    .from("student_profiles")
+    .update({
+      start_level: scope.start_level,
+      current_level: scope.start_level,
+      current_no: 1,
+      start_series_id: scope.start_series_id,
+      start_volume_id: scope.start_volume_id,
+      start_unit_id: scope.start_unit_id,
+    })
     .eq("user_id", userId);
 };
 
