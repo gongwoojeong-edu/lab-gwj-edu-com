@@ -85,8 +85,8 @@ export const updateStudentStartLevel = async (
   userId: string,
   startLevel: LevelCode,
 ): Promise<void> => {
-  await supabase
-    .from("student_profiles")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
     .update({
       start_level: startLevel,
       current_level: startLevel,
