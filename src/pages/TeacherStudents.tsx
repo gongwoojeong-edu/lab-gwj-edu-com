@@ -50,6 +50,14 @@ interface Student {
   id: string;
   name: string;
   level: LevelCode;
+  /** 시작 시리즈(책) id. null이면 레벨 전체 */
+  startSeriesId?: string | null;
+  /** 시작 권 id. null이면 시리즈 전체 */
+  startVolumeId?: string | null;
+  /** 시작 유닛 id. null이면 권 전체 */
+  startUnitId?: string | null;
+  /** 표시용 라벨: "L08 · 고1 / EBS 수능특강 / Vol.1 / Unit 3" */
+  scopeLabel?: string;
   createdAt: string;
   /** student_profiles.user_id (DB 계정에 연결된 학생만 채워짐) */
   userId?: string;
