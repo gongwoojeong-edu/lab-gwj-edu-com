@@ -6,13 +6,18 @@ export interface StudentProfile {
   student_no: string;
   display_name: string | null;
   start_level: LevelCode;
+  /** 시작 시리즈(책) id. null이면 해당 레벨 전체 */
+  start_series_id: string | null;
+  /** 시작 권 id (textbooks.id). null이면 시리즈 전체 */
+  start_volume_id: string | null;
+  /** 시작 유닛 id. null이면 권 전체 */
+  start_unit_id: string | null;
   current_level: LevelCode;
   current_no: number;
   teacher_id: string | null;
   analysis_pass_threshold: number;
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;
-  
 }
 
 export const updateStudentWordTestTimeLimit = async (
