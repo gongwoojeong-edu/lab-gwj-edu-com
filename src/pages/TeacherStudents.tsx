@@ -112,6 +112,7 @@ const formatDate = (iso: string) => {
 };
 
 const TeacherStudents = () => {
+  const { display: displayLevel } = useLevelLabels();
   const [students, setStudents] = useState<Student[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
