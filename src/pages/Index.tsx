@@ -440,6 +440,17 @@ interface IndexProps {
    * 지우개 도구바를 노출. 책장(PassageEditor) 같은 마스터키 편집 컨테이너에서 사용.
    */
   showStaffToolbar?: boolean;
+  /**
+   * 학생 모드에서 클라우드 hydrate 실패 시 호출.
+   * 부모(SentenceLearn)에서 배너/토스트로 노출하고 [다시 불러오기] 버튼을 제공.
+   * retry: 외부에서 재hydrate를 트리거하기 위한 함수 ID — 동일 sentence/user 한정.
+   */
+  onHydrationError?: (info: { message: string }) => void;
+  /**
+   * 외부에서 클라우드 hydrate를 강제로 다시 실행하기 위한 nonce.
+   * 값이 바뀔 때마다 hydrate effect가 재실행된다.
+   */
+  reloadNonce?: number;
 }
 
 const Index = ({
