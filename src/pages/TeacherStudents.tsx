@@ -640,19 +640,30 @@ const TeacherStudents = () => {
                 <Select
                   value={seriesId ?? "__all__"}
                   onValueChange={(v) => {
-                    setSeriesId(v === "__all__" ? null : v);
+                    if (v === "__all__") {
+                      setSeriesId(null);
+                    } else {
+                      setSeriesId(v);
+                      // 시리즈를 고르면 그 시리즈의 레벨로 학습레벨을 자동 맞춘다
+                      const picked = seriesList.find((s) => s.id === v);
+                      if (picked && picked.level !== level) {
+                        setLevel(picked.level as LevelCode);
+                      }
+                    }
                     setVolumeId(null);
                     setUnitId(null);
                   }}
                   disabled={seriesList.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={seriesList.length === 0 ? "이 레벨에 등록된 책 없음" : "레벨 전체"} />
+                    <SelectValue placeholder={seriesList.length === 0 ? "등록된 책 없음" : "레벨 전체"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all__">레벨 전체</SelectItem>
+                    <SelectItem value="__all__">레벨 전체 (책 미지정)</SelectItem>
                     {seriesList.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                      <SelectItem key={s.id} value={s.id}>
+                        [{s.level}] {s.title}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
