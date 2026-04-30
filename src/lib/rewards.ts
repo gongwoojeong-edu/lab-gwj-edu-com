@@ -84,10 +84,12 @@ export const grantPassReward = async (
     reason: milestoneHit ? "streak_bonus" : "word_test_pass",
   });
 
+  // 단어테스트 통과는 word_test_done 만 마킹한다.
+  // status='pass'는 한글 해석 제출(=recordAttempt) 또는 선생님 override 시점에서만 설정.
+  // 여기서 status를 'pass'로 바꾸면 다음 지문 산정(nextSentence)이 이 지문을 완료로 간주해
+  // 학생이 구문분석/한글해석 단계로 진입하지 못한 채 다음 지문으로 건너뛰어 버린다.
   await upsertSentenceProgress(sentenceId, {
     word_test_done: true,
-    status: "pass",
-    passed_at: new Date().toISOString(),
   });
 
   return {
