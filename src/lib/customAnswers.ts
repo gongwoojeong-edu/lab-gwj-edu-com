@@ -217,8 +217,8 @@ export const saveSavedOwners = (ids: string[]) => {
   }
 };
 
-/** 현재 customAnswers의 localStorage 키 (legacy direct write 호환용) */
-export const getCustomAnswersStorageKey = (): string => storageKey();
+/** 현재 customAnswers의 localStorage 키 (legacy direct write 호환용). 미준비/학생모드 시 null. */
+export const getCustomAnswersStorageKey = (): string | null => storageKey();
 
 /**
  * 원본 정답에 사용자 입력을 머지.
