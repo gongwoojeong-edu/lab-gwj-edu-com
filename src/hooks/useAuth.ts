@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { purgeAllGwjKeysForUser } from "@/lib/cacheCleanup";
 
 export type AppRole = "student" | "teacher" | "admin";
 
@@ -46,4 +47,15 @@ export const useAuth = (): AuthState => {
   return { session, user: session?.user ?? null, roles, loading };
 };
 
-export const signOut = () => supabase.auth.signOut();
+export const signOut = async () => {
+  // 로그아웃 직전 현재 user의 gwj.* localStorage 키 일괄 정리.
+  // (공용 PC에서 다른 학생 로그인 시 잔재 노출 방지)
+  try {
+    const { data } = await supabase.auth.getUser();
+    const uid = data.user?.id;
+    if (uid) purgeAllGwjKeysForUser(uid);
+  } catch {
+    /* ignore */
+  }
+  return supabase.auth.signOut();
+};

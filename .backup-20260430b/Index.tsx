@@ -731,12 +731,6 @@ const Index = ({
     // localStorage write를 건너뛰도록 한다(다른 학생 데이터 오염 차단).
     setLocalStorageDisabled(studentMode);
     if (studentMode) {
-      // D — 학원 공용 PC: 본인 user_id가 포함되지 않은 모든 gwj.* 잔재 키 즉시 삭제.
-      if (hydrateUserId) {
-        void import("@/lib/cacheCleanup").then(({ purgeForeignGwjKeys }) => {
-          purgeForeignGwjKeys(hydrateUserId);
-        });
-      }
       setCustomAnswers({});
       setIdiomMap({});
       setModifierMap({});
@@ -750,7 +744,7 @@ const Index = ({
     setModifierMap(loadModifierTargets());
     setReferentMap(loadReferentTargets());
     setSavedOwnerSet(new Set(loadSavedOwners()));
-  }, [studentMode, hydrateUserId]);
+  }, [studentMode]);
 
   // ===== sentence 변경 시 클라우드 hydration =====
   // owner_progress / modifier_relations / referent_relations 는 RLS로 user_id=auth.uid() 본인 행만 반환.
