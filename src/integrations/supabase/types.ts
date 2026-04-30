@@ -613,6 +613,7 @@ export type Database = {
       }
       student_profiles: {
         Row: {
+          actual_grade: string | null
           analysis_pass_threshold: number
           best_streak: number
           created_at: string
@@ -633,6 +634,7 @@ export type Database = {
           word_test_time_limit_sec: number
         }
         Insert: {
+          actual_grade?: string | null
           analysis_pass_threshold?: number
           best_streak?: number
           created_at?: string
@@ -653,6 +655,7 @@ export type Database = {
           word_test_time_limit_sec?: number
         }
         Update: {
+          actual_grade?: string | null
           analysis_pass_threshold?: number
           best_streak?: number
           created_at?: string
