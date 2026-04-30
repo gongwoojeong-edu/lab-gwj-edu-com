@@ -75,7 +75,6 @@ import {
   loadSavedOwners,
   saveSavedOwners,
   hydrateCustomAnswersFromCloud,
-  setLocalStorageDisabled,
   type CustomAnswerMap,
 } from "@/lib/customAnswers";
 import {
@@ -441,17 +440,6 @@ interface IndexProps {
    * 지우개 도구바를 노출. 책장(PassageEditor) 같은 마스터키 편집 컨테이너에서 사용.
    */
   showStaffToolbar?: boolean;
-  /**
-   * 학생 모드에서 클라우드 hydrate 실패 시 호출.
-   * 부모(SentenceLearn)에서 배너/토스트로 노출하고 [다시 불러오기] 버튼을 제공.
-   * retry: 외부에서 재hydrate를 트리거하기 위한 함수 ID — 동일 sentence/user 한정.
-   */
-  onHydrationError?: (info: { message: string }) => void;
-  /**
-   * 외부에서 클라우드 hydrate를 강제로 다시 실행하기 위한 nonce.
-   * 값이 바뀔 때마다 hydrate effect가 재실행된다.
-   */
-  reloadNonce?: number;
 }
 
 const Index = ({
@@ -467,8 +455,6 @@ const Index = ({
   missingOwnerIds,
   onOwnerToggle,
   showStaffToolbar = false,
-  onHydrationError,
-  reloadNonce = 0,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const { displayStudent: levelDisplay } = useLevelLabels();
@@ -722,23 +708,7 @@ const Index = ({
   }, [selectedId]);
 
   useEffect(() => {
-    // 학생 모드는 localStorage를 신뢰하지 않는다.
-    // - 다른 학생/관리자가 같은 브라우저를 썼을 때 잔재 키가 남아있을 위험
-    // - v1→v2 마이그레이션 잔재
-    // - cachedUserId 미준비 상태에서 __anon 폴백으로 빈 값을 읽는 사고
-    // 위 사유로 학생 모드는 빈 상태로 시작 → 아래 클라우드 hydrate 결과만 신뢰한다.
-    // 또한 글로벌 플래그를 켜서 customAnswers/idioms/modifier/referent 모듈 전체가
-    // localStorage write를 건너뛰도록 한다(다른 학생 데이터 오염 차단).
-    setLocalStorageDisabled(studentMode);
-    if (studentMode) {
-      setCustomAnswers({});
-      setIdiomMap({});
-      setModifierMap({});
-      setReferentMap({});
-      setSavedOwnerSet(new Set());
-      return;
-    }
-    // 선생님 모드는 새로고침 직후 작성 중 내용 보존을 위해 localStorage 캐시 사용 유지.
+    // localStorage는 이미 user_id 스코프(v2). 본인 데이터만 로드되므로 항상 안전.
     setCustomAnswers(loadCustomAnswers());
     setIdiomMap(loadIdioms());
     setModifierMap(loadModifierTargets());
@@ -749,34 +719,17 @@ const Index = ({
   // ===== sentence 변경 시 클라우드 hydration =====
   // owner_progress / modifier_relations / referent_relations 는 RLS로 user_id=auth.uid() 본인 행만 반환.
   // 따라서 학생은 본인 입력만, 관리자는 본인 입력(=마스터키)만 hydrate된다 → 데이터 누수 없음.
-  // ⚠ 학생 모드에서는 이 hydrate가 단일 진실원이다. 실패 시 부모에 신호를 보낸다.
   useEffect(() => {
     let cancelled = false;
     const sid = sentence.id;
-    // Promise.all은 하나라도 reject되면 전체 reject — 부분 실패 인지를 위해 allSettled 사용.
-    Promise.allSettled([
+    Promise.all([
       fetchSentenceProgress(sid),
       fetchBadgeOffsets(sid, hydrateUserId),
       hydrateCustomAnswersFromCloud(sid, hydrateUserId),
       hydrateModifierTargetsFromCloud(sid, hydrateUserId),
       hydrateReferentTargetsFromCloud(sid, hydrateUserId),
-    ]).then((results) => {
+    ]).then(([prog, offs, customs, mods, refs]) => {
       if (cancelled) return;
-      const [progRes, offsRes, customsRes, modsRes, refsRes] = results;
-      const prog = progRes.status === "fulfilled" ? progRes.value : null;
-      const offs = offsRes.status === "fulfilled" ? offsRes.value : {};
-      const customs = customsRes.status === "fulfilled" ? customsRes.value : null;
-      const mods = modsRes.status === "fulfilled" ? modsRes.value : null;
-      const refs = refsRes.status === "fulfilled" ? refsRes.value : null;
-
-      // 학생 모드에서 핵심 hydrate(customs/mods/refs)가 하나라도 실패면 부모에 알린다.
-      if (studentMode) {
-        const failed = [customsRes, modsRes, refsRes].some((r) => r.status === "rejected");
-        if (failed && onHydrationError) {
-          onHydrationError({ message: "분석 데이터를 불러오지 못했어요." });
-        }
-      }
-
       // 분석 대상 단어가 없으면 pre/wordtest는 의미가 없으므로 자동 done 처리 →
       // 진행바가 '구문 분석'에서 시작되도록 보정
       const hasAnalyzableWords = sentence.tokens.some((t) => t.type === "analyzable");
@@ -790,19 +743,17 @@ const Index = ({
       // 새 순서: pre → wordtest → analysis → translation
       setLearningStep(!pre ? "pre" : !wt ? "wordtest" : !an ? "analysis" : "translation");
       setBadgeOffsets(offs);
-      // 학생 모드에서 customs hydrate가 실패하면 빈 객체로 덮지 않는다(사용자 작업 손실 방지).
-      // 선생님 모드에서는 첫 effect에서 localStorage로 채워둔 값이 fallback 역할.
-      if (customs) setCustomAnswers(customs);
-      if (mods) setModifierMap(mods);
-      if (refs) setReferentMap(refs);
+      setCustomAnswers(customs);
+      setModifierMap(mods);
+      setReferentMap(refs);
     });
     void hydrateIdiomsFromCloud(hydrateUserId).then((m) => {
       if (!cancelled) setIdiomMap(m);
-    }).catch(() => { /* idiom 실패는 학습 게이트에 영향 없음 — 무시 */ });
+    });
     return () => {
       cancelled = true;
     };
-  }, [sentence.id, hydrateUserId, reloadNonce, studentMode, onHydrationError]);
+  }, [sentence.id, hydrateUserId]);
 
   // (hydration effect는 wordUnits 선언 이후로 이동 — 아래 참조)
 

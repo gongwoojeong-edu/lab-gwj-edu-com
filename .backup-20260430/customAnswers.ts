@@ -23,31 +23,13 @@ const SAVED_OWNERS_PREFIX = "gwj.savedOwners.v2.";
 // 동기 캐시 — auth 결과를 유지해 동기 함수에서 즉시 사용
 let cachedUserId: string | null | undefined = undefined;
 
-// 학생 모드 플래그 — 켜져 있으면 모든 localStorage write/read를 스킵.
-// 학생 PC가 공용/세션 갈아탐/잔재 키 위험에 노출되어 있어 클라우드 단일 진실원만 사용.
-let studentModeFlag = false;
-export const setLocalStorageDisabled = (disabled: boolean) => {
-  studentModeFlag = disabled;
-};
-export const isLocalStorageDisabled = () => studentModeFlag;
-
 const setCachedUserId = (uid: string | null) => {
   cachedUserId = uid;
 };
 
-/**
- * 사용자별 키 생성. cachedUserId가 아직 도착 전(undefined)이거나 로그아웃 상태(null)면
- * null을 반환해 호출 측에서 read/write를 건너뛰게 한다.
- *
- * ⚠ 과거에는 `__anon` 키로 폴백했지만, 그 키에 누적된 값이
- *   다른 학생 로그인 후 본인 데이터를 가린 채 0% 분석률로 표시되는 사고를 일으켰다.
- *   이제는 폴백을 금지한다 — auth가 도착하면 두 번째 effect의 클라우드 hydrate가
- *   정상적으로 본인 데이터를 채운다.
- */
-const computeKey = (prefix: string): string | null => {
-  const uid = cachedUserId;
-  if (!uid) return null;
-  return `${prefix}${uid}`;
+const computeKey = (prefix: string): string => {
+  const uid = cachedUserId ?? null;
+  return `${prefix}${uid ?? "__anon"}`;
 };
 
 const storageKey = () => computeKey(STORAGE_PREFIX);
@@ -78,11 +60,8 @@ export type CustomAnswerMap = Record<string, CustomAnswerPatch>;
 
 export const loadCustomAnswers = (): CustomAnswerMap => {
   if (typeof window === "undefined") return {};
-  if (studentModeFlag) return {};
-  const key = storageKey();
-  if (!key) return {};
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = window.localStorage.getItem(storageKey());
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? (parsed as CustomAnswerMap) : {};
@@ -93,11 +72,8 @@ export const loadCustomAnswers = (): CustomAnswerMap => {
 
 export const saveCustomAnswers = (map: CustomAnswerMap) => {
   if (typeof window === "undefined") return;
-  if (studentModeFlag) return;
-  const key = storageKey();
-  if (!key) return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(map));
+    window.localStorage.setItem(storageKey(), JSON.stringify(map));
   } catch {
     // ignore quota errors
   }
@@ -105,10 +81,7 @@ export const saveCustomAnswers = (map: CustomAnswerMap) => {
 
 export const clearCustomAnswers = () => {
   if (typeof window === "undefined") return;
-  if (studentModeFlag) return;
-  const key = storageKey();
-  if (!key) return;
-  window.localStorage.removeItem(key);
+  window.localStorage.removeItem(storageKey());
 };
 
 // ownerId → sentenceId 추출 (`tokenId::idx` 또는 `__span__::sentenceId::s-e`)
@@ -192,11 +165,8 @@ export const hydrateCustomAnswersFromCloud = async (
 // ============================================================
 export const loadSavedOwners = (): string[] => {
   if (typeof window === "undefined") return [];
-  if (studentModeFlag) return [];
-  const key = savedOwnersKey();
-  if (!key) return [];
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = window.localStorage.getItem(savedOwnersKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as string[]) : [];
@@ -207,18 +177,15 @@ export const loadSavedOwners = (): string[] => {
 
 export const saveSavedOwners = (ids: string[]) => {
   if (typeof window === "undefined") return;
-  if (studentModeFlag) return;
-  const key = savedOwnersKey();
-  if (!key) return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(Array.from(new Set(ids))));
+    window.localStorage.setItem(savedOwnersKey(), JSON.stringify(Array.from(new Set(ids))));
   } catch {
     // ignore
   }
 };
 
-/** 현재 customAnswers의 localStorage 키 (legacy direct write 호환용). 미준비/학생모드 시 null. */
-export const getCustomAnswersStorageKey = (): string | null => storageKey();
+/** 현재 customAnswers의 localStorage 키 (legacy direct write 호환용) */
+export const getCustomAnswersStorageKey = (): string => storageKey();
 
 /**
  * 원본 정답에 사용자 입력을 머지.

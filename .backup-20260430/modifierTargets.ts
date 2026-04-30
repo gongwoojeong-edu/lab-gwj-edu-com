@@ -1,14 +1,12 @@
 // ============================================================
 // modifierTargets — 수식 관계(source ownerId → target tokenId)
 // localStorage + Supabase modifier_relations 동기화
-// 학생 모드(setLocalStorageDisabled(true))에서는 localStorage를 우회한다.
 // ============================================================
 import {
   fetchModifierRelations,
   upsertModifierRelation,
   deleteModifierRelation,
 } from "@/integrations/supabase/storage";
-import { isLocalStorageDisabled } from "@/lib/customAnswers";
 
 const STORAGE_KEY = "gwj.modifierTargets.v1";
 
@@ -24,7 +22,6 @@ export type ModifierTargetMap = Record<string, ModifierTarget[]>;
 
 export const loadModifierTargets = (): ModifierTargetMap => {
   if (typeof window === "undefined") return {};
-  if (isLocalStorageDisabled()) return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
@@ -37,7 +34,6 @@ export const loadModifierTargets = (): ModifierTargetMap => {
 
 export const saveModifierTargets = (map: ModifierTargetMap) => {
   if (typeof window === "undefined") return;
-  if (isLocalStorageDisabled()) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {

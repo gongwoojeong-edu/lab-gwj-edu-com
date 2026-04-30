@@ -1,14 +1,12 @@
 // ============================================================
 // referentTargets — 대명사 지시어 관계(source ownerId → target tokenId)
 // localStorage + Supabase referent_relations 동기화
-// 학생 모드(setLocalStorageDisabled(true))에서는 localStorage를 우회한다.
 // ============================================================
 import {
   fetchReferentRelations,
   upsertReferentRelation,
   deleteReferentRelation,
 } from "@/integrations/supabase/storage";
-import { isLocalStorageDisabled } from "@/lib/customAnswers";
 
 const STORAGE_KEY = "gwj.referentTargets.v1";
 
@@ -24,7 +22,6 @@ export type ReferentTargetMap = Record<string, ReferentTarget[]>;
 
 export const loadReferentTargets = (): ReferentTargetMap => {
   if (typeof window === "undefined") return {};
-  if (isLocalStorageDisabled()) return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
@@ -37,7 +34,6 @@ export const loadReferentTargets = (): ReferentTargetMap => {
 
 export const saveReferentTargets = (map: ReferentTargetMap) => {
   if (typeof window === "undefined") return;
-  if (isLocalStorageDisabled()) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {

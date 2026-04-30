@@ -1,14 +1,12 @@
 // ============================================================
 // idioms — 숙어/구문 마킹 store. SVOC 분석과 완전 독립.
 // localStorage + Supabase 양방향 동기화.
-// 학생 모드(setLocalStorageDisabled(true))에서는 localStorage를 우회한다.
 // ============================================================
 import {
   fetchIdiomsAll,
   upsertIdiomRow,
   deleteIdiomRow,
 } from "@/integrations/supabase/storage";
-import { isLocalStorageDisabled } from "@/lib/customAnswers";
 
 const STORAGE_KEY = "gwj.idioms.v1";
 
@@ -28,7 +26,6 @@ const makeId = (sentenceId: string, indices: number[]) =>
 
 export const loadIdioms = (): IdiomMap => {
   if (typeof window === "undefined") return {};
-  if (isLocalStorageDisabled()) return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
@@ -41,7 +38,6 @@ export const loadIdioms = (): IdiomMap => {
 
 export const saveIdioms = (map: IdiomMap) => {
   if (typeof window === "undefined") return;
-  if (isLocalStorageDisabled()) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
