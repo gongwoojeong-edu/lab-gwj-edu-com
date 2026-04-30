@@ -616,10 +616,15 @@ const TeacherStudents = () => {
                 <Select
                   value={level}
                   onValueChange={(v) => {
-                    setLevel(v as LevelCode);
-                    setSeriesId(null);
-                    setVolumeId(null);
-                    setUnitId(null);
+                    const next = v as LevelCode;
+                    setLevel(next);
+                    // 선택된 시리즈가 새 레벨과 다르면 하위 지정 초기화
+                    const picked = seriesList.find((s) => s.id === seriesId);
+                    if (!picked || picked.level !== next) {
+                      setSeriesId(null);
+                      setVolumeId(null);
+                      setUnitId(null);
+                    }
                   }}
                 >
                   <SelectTrigger>
