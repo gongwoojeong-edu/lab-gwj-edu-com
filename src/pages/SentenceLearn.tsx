@@ -39,7 +39,7 @@ import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
-import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
