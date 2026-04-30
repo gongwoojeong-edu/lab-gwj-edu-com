@@ -35,9 +35,19 @@ const setCachedUserId = (uid: string | null) => {
   cachedUserId = uid;
 };
 
-const computeKey = (prefix: string): string => {
-  const uid = cachedUserId ?? null;
-  return `${prefix}${uid ?? "__anon"}`;
+/**
+ * 사용자별 키 생성. cachedUserId가 아직 도착 전(undefined)이거나 로그아웃 상태(null)면
+ * null을 반환해 호출 측에서 read/write를 건너뛰게 한다.
+ *
+ * ⚠ 과거에는 `__anon` 키로 폴백했지만, 그 키에 누적된 값이
+ *   다른 학생 로그인 후 본인 데이터를 가린 채 0% 분석률로 표시되는 사고를 일으켰다.
+ *   이제는 폴백을 금지한다 — auth가 도착하면 두 번째 effect의 클라우드 hydrate가
+ *   정상적으로 본인 데이터를 채운다.
+ */
+const computeKey = (prefix: string): string | null => {
+  const uid = cachedUserId;
+  if (!uid) return null;
+  return `${prefix}${uid}`;
 };
 
 const storageKey = () => computeKey(STORAGE_PREFIX);
