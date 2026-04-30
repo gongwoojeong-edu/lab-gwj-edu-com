@@ -79,8 +79,10 @@ export type CustomAnswerMap = Record<string, CustomAnswerPatch>;
 export const loadCustomAnswers = (): CustomAnswerMap => {
   if (typeof window === "undefined") return {};
   if (studentModeFlag) return {};
+  const key = storageKey();
+  if (!key) return {};
   try {
-    const raw = window.localStorage.getItem(storageKey());
+    const raw = window.localStorage.getItem(key);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? (parsed as CustomAnswerMap) : {};
@@ -92,8 +94,10 @@ export const loadCustomAnswers = (): CustomAnswerMap => {
 export const saveCustomAnswers = (map: CustomAnswerMap) => {
   if (typeof window === "undefined") return;
   if (studentModeFlag) return;
+  const key = storageKey();
+  if (!key) return;
   try {
-    window.localStorage.setItem(storageKey(), JSON.stringify(map));
+    window.localStorage.setItem(key, JSON.stringify(map));
   } catch {
     // ignore quota errors
   }
@@ -102,7 +106,9 @@ export const saveCustomAnswers = (map: CustomAnswerMap) => {
 export const clearCustomAnswers = () => {
   if (typeof window === "undefined") return;
   if (studentModeFlag) return;
-  window.localStorage.removeItem(storageKey());
+  const key = storageKey();
+  if (!key) return;
+  window.localStorage.removeItem(key);
 };
 
 // ownerId → sentenceId 추출 (`tokenId::idx` 또는 `__span__::sentenceId::s-e`)
