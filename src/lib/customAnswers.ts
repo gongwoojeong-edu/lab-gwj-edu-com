@@ -23,6 +23,14 @@ const SAVED_OWNERS_PREFIX = "gwj.savedOwners.v2.";
 // 동기 캐시 — auth 결과를 유지해 동기 함수에서 즉시 사용
 let cachedUserId: string | null | undefined = undefined;
 
+// 학생 모드 플래그 — 켜져 있으면 모든 localStorage write/read를 스킵.
+// 학생 PC가 공용/세션 갈아탐/잔재 키 위험에 노출되어 있어 클라우드 단일 진실원만 사용.
+let studentModeFlag = false;
+export const setLocalStorageDisabled = (disabled: boolean) => {
+  studentModeFlag = disabled;
+};
+export const isLocalStorageDisabled = () => studentModeFlag;
+
 const setCachedUserId = (uid: string | null) => {
   cachedUserId = uid;
 };
