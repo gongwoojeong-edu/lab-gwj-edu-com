@@ -6,13 +6,18 @@ export interface StudentProfile {
   student_no: string;
   display_name: string | null;
   start_level: LevelCode;
+  /** 시작 시리즈(책) id. null이면 해당 레벨 전체 */
+  start_series_id: string | null;
+  /** 시작 권 id (textbooks.id). null이면 시리즈 전체 */
+  start_volume_id: string | null;
+  /** 시작 유닛 id. null이면 권 전체 */
+  start_unit_id: string | null;
   current_level: LevelCode;
   current_no: number;
   teacher_id: string | null;
   analysis_pass_threshold: number;
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;
-  
 }
 
 export const updateStudentWordTestTimeLimit = async (
@@ -80,9 +85,40 @@ export const updateStudentStartLevel = async (
   userId: string,
   startLevel: LevelCode,
 ): Promise<void> => {
-  await supabase
-    .from("student_profiles")
-    .update({ start_level: startLevel, current_level: startLevel, current_no: 1 })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
+    .update({
+      start_level: startLevel,
+      current_level: startLevel,
+      current_no: 1,
+      // 레벨만 바꾸면 하위 범위 지정도 초기화 (전체로 되돌림)
+      start_series_id: null,
+      start_volume_id: null,
+      start_unit_id: null,
+    })
+    .eq("user_id", userId);
+};
+
+/** 시작 범위(레벨/책/권/유닛) 통합 업데이트. null = 해당 단계 전체 */
+export const updateStudentStartScope = async (
+  userId: string,
+  scope: {
+    start_level: LevelCode;
+    start_series_id: string | null;
+    start_volume_id: string | null;
+    start_unit_id: string | null;
+  },
+): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
+    .update({
+      start_level: scope.start_level,
+      current_level: scope.start_level,
+      current_no: 1,
+      start_series_id: scope.start_series_id,
+      start_volume_id: scope.start_volume_id,
+      start_unit_id: scope.start_unit_id,
+    })
     .eq("user_id", userId);
 };
 

@@ -36,12 +36,28 @@ import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
-import { updateStudentStartLevel } from "@/lib/studentProfile";
+import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
+import {
+  fetchSeriesByLevel,
+  fetchTextbooksBySeries,
+  fetchUnitsByTextbook,
+  type Series,
+  type Textbook,
+  type Unit,
+} from "@/lib/textbooks";
 
 interface Student {
   id: string;
   name: string;
   level: LevelCode;
+  /** 시작 시리즈(책) id. null이면 레벨 전체 */
+  startSeriesId?: string | null;
+  /** 시작 권 id. null이면 시리즈 전체 */
+  startVolumeId?: string | null;
+  /** 시작 유닛 id. null이면 권 전체 */
+  startUnitId?: string | null;
+  /** 표시용 라벨: "L08 · 고1 / EBS 수능특강 / Vol.1 / Unit 3" */
+  scopeLabel?: string;
   createdAt: string;
   /** student_profiles.user_id (DB 계정에 연결된 학생만 채워짐) */
   userId?: string;
@@ -100,6 +116,13 @@ const TeacherStudents = () => {
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
   const [level, setLevel] = useState<LevelCode>("L05");
+  // 시작 범위 캐스케이딩 선택 상태 (다이얼로그 내부)
+  const [seriesId, setSeriesId] = useState<string | null>(null);
+  const [volumeId, setVolumeId] = useState<string | null>(null);
+  const [unitId, setUnitId] = useState<string | null>(null);
+  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [volumeList, setVolumeList] = useState<Textbook[]>([]);
+  const [unitList, setUnitList] = useState<Unit[]>([]);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinTarget, setPinTarget] = useState<Student | null>(null);
   const [pinValue, setPinValue] = useState("");
@@ -298,10 +321,28 @@ const TeacherStudents = () => {
       const { data, error } = await supabase
         .from("student_profiles")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec") as { data: any[] | null; error: { message: string } | null };
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
+
+      // 시리즈/권/유닛 메타 한 번에 로드 (라벨용)
+      const [seriesAll, tbAll, unitsAll, passagesAll] = await Promise.all([
+        supabase.from("textbook_series").select("id, title, series_no, level"),
+        supabase.from("textbooks").select("id, level, title, volume_no, series_id"),
+        supabase.from("textbook_units").select("id, title, unit_no, textbook_id"),
+        supabase.from("textbook_passages").select("textbook_id"),
+      ]);
+      const seriesById = new Map<string, { title: string; series_no: number }>();
+      ((seriesAll.data ?? []) as { id: string; title: string; series_no: number }[])
+        .forEach((r) => seriesById.set(r.id, { title: r.title, series_no: r.series_no }));
+      const volById = new Map<string, { title: string; volume_no: number }>();
+      ((tbAll.data ?? []) as { id: string; title: string; volume_no: number }[])
+        .forEach((r) => volById.set(r.id, { title: r.title, volume_no: r.volume_no }));
+      const unitById = new Map<string, { title: string; unit_no: number }>();
+      ((unitsAll.data ?? []) as { id: string; title: string; unit_no: number }[])
+        .forEach((r) => unitById.set(r.id, { title: r.title, unit_no: r.unit_no }));
+
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
       const tlMap: Record<string, number> = {};
@@ -317,10 +358,27 @@ const TeacherStudents = () => {
         userMap[name] = row.user_id;
         if (row.student_no) noMap[name] = row.student_no;
         gradeMap[name] = row.actual_grade ?? "";
+        // 범위 라벨 만들기
+        const labelParts: string[] = [];
+        if (row.start_series_id && seriesById.has(row.start_series_id)) {
+          labelParts.push(seriesById.get(row.start_series_id)!.title);
+        }
+        if (row.start_volume_id && volById.has(row.start_volume_id)) {
+          const v = volById.get(row.start_volume_id)!;
+          labelParts.push(`Vol.${v.volume_no} ${v.title}`);
+        }
+        if (row.start_unit_id && unitById.has(row.start_unit_id)) {
+          const u = unitById.get(row.start_unit_id)!;
+          labelParts.push(`Unit ${u.unit_no} ${u.title}`);
+        }
         dbStudents.push({
           id: `db-${row.user_id}`,
           name,
           level: ((row.start_level as LevelCode) || (row.current_level as LevelCode) || "L05"),
+          startSeriesId: row.start_series_id ?? null,
+          startVolumeId: row.start_volume_id ?? null,
+          startUnitId: row.start_unit_id ?? null,
+          scopeLabel: labelParts.length > 0 ? labelParts.join(" / ") : undefined,
           createdAt: row.created_at,
           userId: row.user_id,
         });
@@ -337,12 +395,10 @@ const TeacherStudents = () => {
       setStudents([...dbStudents, ...localOnly]);
 
       // 레벨별 지문 수 집계 (textbooks.level → textbook_passages 카운트)
-      const { data: tb } = await supabase.from("textbooks").select("id, level");
-      const { data: tp } = await supabase.from("textbook_passages").select("textbook_id");
       const levelOf: Record<string, string> = {};
-      ((tb ?? []) as { id: string; level: string }[]).forEach((r) => { levelOf[r.id] = r.level; });
+      ((tbAll.data ?? []) as { id: string; level: string }[]).forEach((r) => { levelOf[r.id] = r.level; });
       const cnt: Record<string, number> = {};
-      ((tp ?? []) as { textbook_id: string }[]).forEach((r) => {
+      ((passagesAll.data ?? []) as { textbook_id: string }[]).forEach((r) => {
         const lv = levelOf[r.textbook_id];
         if (lv) cnt[lv] = (cnt[lv] ?? 0) + 1;
       });
@@ -359,6 +415,11 @@ const TeacherStudents = () => {
     setEditing(null);
     setName("");
     setLevel("L05");
+    setSeriesId(null);
+    setVolumeId(null);
+    setUnitId(null);
+    setVolumeList([]);
+    setUnitList([]);
     setOpen(true);
   };
 
@@ -366,8 +427,43 @@ const TeacherStudents = () => {
     setEditing(s);
     setName(s.name);
     setLevel(s.level);
+    setSeriesId(s.startSeriesId ?? null);
+    setVolumeId(s.startVolumeId ?? null);
+    setUnitId(s.startUnitId ?? null);
     setOpen(true);
   };
+
+  // 다이얼로그가 열려있을 때 level이 바뀌면 → 시리즈 목록 로드
+  useEffect(() => {
+    if (!open) return;
+    fetchSeriesByLevel(level)
+      .then(setSeriesList)
+      .catch(() => setSeriesList([]));
+  }, [open, level]);
+
+  // 시리즈가 바뀌면 → 권 목록 로드
+  useEffect(() => {
+    if (!open) return;
+    if (!seriesId) {
+      setVolumeList([]);
+      return;
+    }
+    fetchTextbooksBySeries(seriesId)
+      .then(setVolumeList)
+      .catch(() => setVolumeList([]));
+  }, [open, seriesId]);
+
+  // 권이 바뀌면 → 유닛 목록 로드
+  useEffect(() => {
+    if (!open) return;
+    if (!volumeId) {
+      setUnitList([]);
+      return;
+    }
+    fetchUnitsByTextbook(volumeId)
+      .then(setUnitList)
+      .catch(() => setUnitList([]));
+  }, [open, volumeId]);
 
   const submit = async () => {
     if (!name.trim()) {
@@ -399,13 +495,37 @@ const TeacherStudents = () => {
         setThresholdByName((p) => moveKey(p));
         setAnalysisByName((p) => moveKey(p));
         setTimeLimitByName((p) => moveKey(p));
-        
       }
-      if (uid && level !== editing.level) {
-        await updateStudentStartLevel(uid, level);
+      // 시작 범위(레벨/시리즈/권/유닛) 저장 — 항상 호출 (값이 같아도 안전)
+      if (uid) {
+        await updateStudentStartScope(uid, {
+          start_level: level,
+          start_series_id: seriesId,
+          start_volume_id: volumeId,
+          start_unit_id: unitId,
+        });
       }
+      // 표시용 라벨 즉시 갱신
+      const labelParts: string[] = [];
+      const sObj = seriesList.find((x) => x.id === seriesId);
+      if (sObj) labelParts.push(sObj.title);
+      const vObj = volumeList.find((x) => x.id === volumeId);
+      if (vObj) labelParts.push(`Vol.${vObj.volume_no} ${vObj.title}`);
+      const uObj = unitList.find((x) => x.id === unitId);
+      if (uObj) labelParts.push(`Unit ${uObj.unit_no} ${uObj.title}`);
       const next = students.map((s) =>
-        s.id === editing.id ? { ...s, name: trimmed, level, userId: uid ?? s.userId } : s,
+        s.id === editing.id
+          ? {
+              ...s,
+              name: trimmed,
+              level,
+              startSeriesId: seriesId,
+              startVolumeId: volumeId,
+              startUnitId: unitId,
+              scopeLabel: labelParts.length > 0 ? labelParts.join(" / ") : undefined,
+              userId: uid ?? s.userId,
+            }
+          : s,
       );
       setStudents(next);
       persist(next);
@@ -492,7 +612,15 @@ const TeacherStudents = () => {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>레벨</Label>
-                <Select value={level} onValueChange={(v) => setLevel(v as LevelCode)}>
+                <Select
+                  value={level}
+                  onValueChange={(v) => {
+                    setLevel(v as LevelCode);
+                    setSeriesId(null);
+                    setVolumeId(null);
+                    setUnitId(null);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -504,6 +632,77 @@ const TeacherStudents = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>책 (선택)</Label>
+                <Select
+                  value={seriesId ?? "__all__"}
+                  onValueChange={(v) => {
+                    setSeriesId(v === "__all__" ? null : v);
+                    setVolumeId(null);
+                    setUnitId(null);
+                  }}
+                  disabled={seriesList.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={seriesList.length === 0 ? "이 레벨에 등록된 책 없음" : "레벨 전체"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">레벨 전체</SelectItem>
+                    {seriesList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>권 (선택)</Label>
+                <Select
+                  value={volumeId ?? "__all__"}
+                  onValueChange={(v) => {
+                    setVolumeId(v === "__all__" ? null : v);
+                    setUnitId(null);
+                  }}
+                  disabled={!seriesId || volumeList.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={!seriesId ? "먼저 책을 선택" : volumeList.length === 0 ? "등록된 권 없음" : "책 전체"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">책 전체</SelectItem>
+                    {volumeList.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>Vol.{v.volume_no} {v.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>유닛 (선택)</Label>
+                <Select
+                  value={unitId ?? "__all__"}
+                  onValueChange={(v) => setUnitId(v === "__all__" ? null : v)}
+                  disabled={!volumeId || unitList.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={!volumeId ? "먼저 권을 선택" : unitList.length === 0 ? "등록된 유닛 없음" : "권 전체"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">권 전체</SelectItem>
+                    {unitList.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>Unit {u.unit_no} {u.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  비워두면 상위 단계 전체가 학습 범위가 됩니다. 좁힐수록 학생은 그 범위의 지문만 학습합니다.
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -579,16 +778,23 @@ const TeacherStudents = () => {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
-                          {s.level} · {LEVEL_LABEL[s.level]}
-                        </Badge>
-                        {(passageCountByLevel[s.level] ?? 0) === 0 && (
-                          <span
-                            title="이 레벨에 등록된 지문이 없습니다. 책장에서 지문을 추가해 주세요."
-                            className="inline-flex items-center text-amber-600"
-                          >
-                            <AlertTriangle className="w-4 h-4" />
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
+                            {s.level} · {LEVEL_LABEL[s.level]}
+                          </Badge>
+                          {(passageCountByLevel[s.level] ?? 0) === 0 && (
+                            <span
+                              title="이 레벨에 등록된 지문이 없습니다. 책장에서 지문을 추가해 주세요."
+                              className="inline-flex items-center text-amber-600"
+                            >
+                              <AlertTriangle className="w-4 h-4" />
+                            </span>
+                          )}
+                        </div>
+                        {s.scopeLabel && (
+                          <span className="text-[11px] text-muted-foreground leading-tight max-w-[220px] truncate" title={s.scopeLabel}>
+                            📚 {s.scopeLabel}
                           </span>
                         )}
                       </div>

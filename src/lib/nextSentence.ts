@@ -8,9 +8,61 @@ export interface NextSentenceResult {
   sentence: Sentence | null;
   profile: StudentProfile | null;
   done: boolean;
-  /** 지정 레벨에 등록된 지문 자체가 0개인 경우(학습 자료 미준비) */
+  /** 지정 범위에 등록된 지문 자체가 0개인 경우(학습 자료 미준비) */
   noContent?: boolean;
 }
+
+/**
+ * 학생 프로필의 시작 범위 지정(start_series_id/volume_id/unit_id)에 해당하는
+ * passage code 목록을 DB에서 조회한다. 범위 미지정이면 null 반환(=레벨 전체).
+ */
+const fetchScopedPassageCodes = async (
+  profile: StudentProfile,
+): Promise<Set<string> | null> => {
+  // 가장 좁은 지정부터 검사
+  if (profile.start_unit_id) {
+    const { data } = await supabase
+      .from("textbook_passages")
+      .select("code")
+      .eq("unit_id", profile.start_unit_id);
+    return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
+  }
+  if (profile.start_volume_id) {
+    // 권 → 유닛들 → 지문들
+    const { data: units } = await supabase
+      .from("textbook_units")
+      .select("id")
+      .eq("textbook_id", profile.start_volume_id);
+    const unitIds = ((units ?? []) as { id: string }[]).map((u) => u.id);
+    if (unitIds.length === 0) return new Set();
+    const { data } = await supabase
+      .from("textbook_passages")
+      .select("code")
+      .in("unit_id", unitIds);
+    return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
+  }
+  if (profile.start_series_id) {
+    // 시리즈 → 권들 → 유닛들 → 지문들
+    const { data: vols } = await supabase
+      .from("textbooks")
+      .select("id")
+      .eq("series_id", profile.start_series_id);
+    const volIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
+    if (volIds.length === 0) return new Set();
+    const { data: units } = await supabase
+      .from("textbook_units")
+      .select("id")
+      .in("textbook_id", volIds);
+    const unitIds = ((units ?? []) as { id: string }[]).map((u) => u.id);
+    if (unitIds.length === 0) return new Set();
+    const { data } = await supabase
+      .from("textbook_passages")
+      .select("code")
+      .in("unit_id", unitIds);
+    return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
+  }
+  return null; // 범위 미지정 → 레벨 전체
+};
 
 export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   // DB 지문이 SENTENCES에 머지될 때까지 대기 (실패해도 정적 폴백)
@@ -31,9 +83,15 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
     .in("status", ["pass", "fail"]);
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
-  const inLevel = SENTENCES.filter((s) => s.level === targetLevel).sort((a, b) => a.no - b.no);
+  // 시작 범위(시리즈/권/유닛) 지정이 있으면 그 code 집합으로 한 번 더 좁힌다.
+  const scopedCodes = await fetchScopedPassageCodes(profile);
 
-  // 지정 레벨에 등록된 지문이 0개 → 학습 자료 미준비 상태(완료가 아님)
+  let inLevel = SENTENCES.filter((s) => s.level === targetLevel).sort((a, b) => a.no - b.no);
+  if (scopedCodes) {
+    inLevel = inLevel.filter((s) => scopedCodes.has(s.id));
+  }
+
+  // 지정 범위에 등록된 지문이 0개 → 학습 자료 미준비 상태(완료가 아님)
   if (inLevel.length === 0) {
     return { sentence: null, profile, done: false, noContent: true };
   }
