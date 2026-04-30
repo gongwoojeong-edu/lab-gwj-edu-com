@@ -608,6 +608,15 @@ const StudentHome = () => {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
+        ) : noContent ? (
+          <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 dark:from-amber-950/30 dark:to-orange-950/30">
+            <AlertCircle className="w-16 h-16 mx-auto text-amber-600" />
+            <h1 className="text-2xl font-extrabold text-amber-700 dark:text-amber-400">학습 자료 준비 중</h1>
+            <p className="text-muted-foreground">
+              현재 지정된 레벨의 학습 지문이 아직 등록되지 않았습니다.<br/>
+              선생님께 문의해 주세요.
+            </p>
+          </Card>
         ) : done ? (
           <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
             <Trophy className="w-16 h-16 mx-auto text-primary" />
