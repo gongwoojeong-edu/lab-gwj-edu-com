@@ -100,6 +100,9 @@ const SentenceLearn = () => {
   const [analysisRate, setAnalysisRate] = useState(0);
   const [analysisHasMaster, setAnalysisHasMaster] = useState(false);
   const [analysisMasterLoaded, setAnalysisMasterLoaded] = useState(false);
+  // C — 클라우드 hydrate 실패 시 학생에게 노출할 상태 (무음 실패 방지).
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [hydrationReloadNonce, setHydrationReloadNonce] = useState(0);
   /** onAnalysisProgress 콜백 도착 횟수 — Index.tsx의 fetchMasterAnswers 비동기 race를 닫기 위한 카운터.
    * Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.
    * 따라서 callback ≥ 2회이거나 hasMaster=true가 한 번이라도 관측되면 마스터 정보가 안정된 것으로 간주. */
