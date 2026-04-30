@@ -35,13 +35,26 @@ export const invalidateLevelLabels = () => {
 };
 
 /**
+ * LevelCode("L04") → Step 번호("Step 4"). 학생 화면 전용.
+ * 학년 라벨(중1/고1 등) 노출을 피하고 학습 단계만 보여줄 때 사용.
+ */
+export const toStudentStepLabel = (code: LevelCode): string => {
+  const m = /^L0?(\d+)$/i.exec(code);
+  const n = m ? parseInt(m[1], 10) : NaN;
+  return Number.isFinite(n) ? `Step ${n}` : code;
+};
+
+/**
  * 화면에 보여줄 레벨 라벨을 반환.
  * DB 오버라이드 우선, 없으면 levels.ts 의 정적 라벨 사용.
+ *
+ * - `display(code)`     : 선생님/관리 화면용 학년 라벨 ("중1", "고1" 등)
+ * - `displayStudent(code)`: 학생 화면 전용 ("Step 4") — 학년 표기 숨김
  */
 export const useLevelLabels = (): {
   labels: LevelLabelMap;
-  /** 코드 → 표시용 라벨 (오버라이드 + 정적 fallback) */
   display: (code: LevelCode) => string;
+  displayStudent: (code: LevelCode) => string;
   loading: boolean;
 } => {
   const [labels, setLabels] = useState<LevelLabelMap>(cache ?? {});
@@ -62,8 +75,9 @@ export const useLevelLabels = (): {
 
   const display = (code: LevelCode) =>
     labels[code] ?? LEVEL_LABEL[code] ?? code;
+  const displayStudent = (code: LevelCode) => toStudentStepLabel(code);
 
-  return { labels, display, loading };
+  return { labels, display, displayStudent, loading };
 };
 
 // 인증 변경 시 캐시 초기화 (다른 사용자 로그인 대비)
