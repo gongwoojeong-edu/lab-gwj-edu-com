@@ -727,6 +727,9 @@ const Index = ({
     // - v1→v2 마이그레이션 잔재
     // - cachedUserId 미준비 상태에서 __anon 폴백으로 빈 값을 읽는 사고
     // 위 사유로 학생 모드는 빈 상태로 시작 → 아래 클라우드 hydrate 결과만 신뢰한다.
+    // 또한 글로벌 플래그를 켜서 customAnswers/idioms/modifier/referent 모듈 전체가
+    // localStorage write를 건너뛰도록 한다(다른 학생 데이터 오염 차단).
+    setLocalStorageDisabled(studentMode);
     if (studentMode) {
       setCustomAnswers({});
       setIdiomMap({});
