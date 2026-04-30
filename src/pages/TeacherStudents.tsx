@@ -38,7 +38,7 @@ import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
 import {
-  fetchSeriesByLevel,
+  fetchAllSeries,
   fetchTextbooksBySeries,
   fetchUnitsByTextbook,
   type Series,
@@ -433,13 +433,14 @@ const TeacherStudents = () => {
     setOpen(true);
   };
 
-  // 다이얼로그가 열려있을 때 level이 바뀌면 → 시리즈 목록 로드
+  // 다이얼로그가 열려있는 동안 항상 전체 시리즈를 보여준다.
+  // (학생 학습레벨과 무관 — 시리즈를 고르면 그 시리즈의 레벨로 학습레벨을 자동 맞춘다.)
   useEffect(() => {
     if (!open) return;
-    fetchSeriesByLevel(level)
+    fetchAllSeries()
       .then(setSeriesList)
       .catch(() => setSeriesList([]));
-  }, [open, level]);
+  }, [open]);
 
   // 시리즈가 바뀌면 → 권 목록 로드
   useEffect(() => {
@@ -615,10 +616,15 @@ const TeacherStudents = () => {
                 <Select
                   value={level}
                   onValueChange={(v) => {
-                    setLevel(v as LevelCode);
-                    setSeriesId(null);
-                    setVolumeId(null);
-                    setUnitId(null);
+                    const next = v as LevelCode;
+                    setLevel(next);
+                    // 선택된 시리즈가 새 레벨과 다르면 하위 지정 초기화
+                    const picked = seriesList.find((s) => s.id === seriesId);
+                    if (!picked || picked.level !== next) {
+                      setSeriesId(null);
+                      setVolumeId(null);
+                      setUnitId(null);
+                    }
                   }}
                 >
                   <SelectTrigger>
@@ -639,19 +645,30 @@ const TeacherStudents = () => {
                 <Select
                   value={seriesId ?? "__all__"}
                   onValueChange={(v) => {
-                    setSeriesId(v === "__all__" ? null : v);
+                    if (v === "__all__") {
+                      setSeriesId(null);
+                    } else {
+                      setSeriesId(v);
+                      // 시리즈를 고르면 그 시리즈의 레벨로 학습레벨을 자동 맞춘다
+                      const picked = seriesList.find((s) => s.id === v);
+                      if (picked && picked.level !== level) {
+                        setLevel(picked.level as LevelCode);
+                      }
+                    }
                     setVolumeId(null);
                     setUnitId(null);
                   }}
                   disabled={seriesList.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={seriesList.length === 0 ? "이 레벨에 등록된 책 없음" : "레벨 전체"} />
+                    <SelectValue placeholder={seriesList.length === 0 ? "등록된 책 없음" : "레벨 전체"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all__">레벨 전체</SelectItem>
+                    <SelectItem value="__all__">레벨 전체 (책 미지정)</SelectItem>
                     {seriesList.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                      <SelectItem key={s.id} value={s.id}>
+                        [{s.level}] {s.title}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
