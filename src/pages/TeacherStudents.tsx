@@ -612,7 +612,15 @@ const TeacherStudents = () => {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>레벨</Label>
-                <Select value={level} onValueChange={(v) => setLevel(v as LevelCode)}>
+                <Select
+                  value={level}
+                  onValueChange={(v) => {
+                    setLevel(v as LevelCode);
+                    setSeriesId(null);
+                    setVolumeId(null);
+                    setUnitId(null);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -624,6 +632,77 @@ const TeacherStudents = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>책 (선택)</Label>
+                <Select
+                  value={seriesId ?? "__all__"}
+                  onValueChange={(v) => {
+                    setSeriesId(v === "__all__" ? null : v);
+                    setVolumeId(null);
+                    setUnitId(null);
+                  }}
+                  disabled={seriesList.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={seriesList.length === 0 ? "이 레벨에 등록된 책 없음" : "레벨 전체"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">레벨 전체</SelectItem>
+                    {seriesList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>권 (선택)</Label>
+                <Select
+                  value={volumeId ?? "__all__"}
+                  onValueChange={(v) => {
+                    setVolumeId(v === "__all__" ? null : v);
+                    setUnitId(null);
+                  }}
+                  disabled={!seriesId || volumeList.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={!seriesId ? "먼저 책을 선택" : volumeList.length === 0 ? "등록된 권 없음" : "책 전체"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">책 전체</SelectItem>
+                    {volumeList.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>Vol.{v.volume_no} {v.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>유닛 (선택)</Label>
+                <Select
+                  value={unitId ?? "__all__"}
+                  onValueChange={(v) => setUnitId(v === "__all__" ? null : v)}
+                  disabled={!volumeId || unitList.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={!volumeId ? "먼저 권을 선택" : unitList.length === 0 ? "등록된 유닛 없음" : "권 전체"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">권 전체</SelectItem>
+                    {unitList.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>Unit {u.unit_no} {u.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  비워두면 상위 단계 전체가 학습 범위가 됩니다. 좁힐수록 학생은 그 범위의 지문만 학습합니다.
+                </p>
               </div>
             </div>
             <DialogFooter>
