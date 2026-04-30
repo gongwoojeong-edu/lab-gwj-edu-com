@@ -561,9 +561,19 @@ const TeacherStudents = () => {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
-                        {s.level} · {LEVEL_LABEL[s.level]}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
+                          {s.level} · {LEVEL_LABEL[s.level]}
+                        </Badge>
+                        {(passageCountByLevel[s.level] ?? 0) === 0 && (
+                          <span
+                            title="이 레벨에 등록된 지문이 없습니다. 책장에서 지문을 추가해 주세요."
+                            className="inline-flex items-center text-amber-600"
+                          >
+                            <AlertTriangle className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <SaveNumberInput
