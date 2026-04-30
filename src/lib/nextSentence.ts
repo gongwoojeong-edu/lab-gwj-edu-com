@@ -44,6 +44,13 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
 };
 
 export const advanceAfterPass = async (justPassed: Sentence): Promise<void> => {
-  // 같은 학년 안에서 다음 번호로만 이동한다. 학년 변경은 선생님 설정(start_level)만 따른다.
-  await updateMyProgress(justPassed.level, justPassed.no + 1);
+  // 진도(current_level/current_no)는 항상 선생님이 지정한 start_level 기준으로만 갱신.
+  // 학생이 링크로 다른 레벨 문장을 풀어도 지정 레벨이 흔들리지 않도록 한다.
+  const profile = await fetchMyProfile();
+  if (!profile) return;
+  if (justPassed.level !== profile.start_level) {
+    // 지정 외 레벨 학습은 진도에 반영하지 않음
+    return;
+  }
+  await updateMyProgress(profile.start_level, justPassed.no + 1);
 };
