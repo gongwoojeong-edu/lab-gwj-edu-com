@@ -321,10 +321,28 @@ const TeacherStudents = () => {
       const { data, error } = await supabase
         .from("student_profiles")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec") as { data: any[] | null; error: { message: string } | null };
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
+
+      // 시리즈/권/유닛 메타 한 번에 로드 (라벨용)
+      const [seriesAll, tbAll, unitsAll, passagesAll] = await Promise.all([
+        supabase.from("textbook_series").select("id, title, series_no, level"),
+        supabase.from("textbooks").select("id, level, title, volume_no, series_id"),
+        supabase.from("textbook_units").select("id, title, unit_no, textbook_id"),
+        supabase.from("textbook_passages").select("textbook_id"),
+      ]);
+      const seriesById = new Map<string, { title: string; series_no: number }>();
+      ((seriesAll.data ?? []) as { id: string; title: string; series_no: number }[])
+        .forEach((r) => seriesById.set(r.id, { title: r.title, series_no: r.series_no }));
+      const volById = new Map<string, { title: string; volume_no: number }>();
+      ((tbAll.data ?? []) as { id: string; title: string; volume_no: number }[])
+        .forEach((r) => volById.set(r.id, { title: r.title, volume_no: r.volume_no }));
+      const unitById = new Map<string, { title: string; unit_no: number }>();
+      ((unitsAll.data ?? []) as { id: string; title: string; unit_no: number }[])
+        .forEach((r) => unitById.set(r.id, { title: r.title, unit_no: r.unit_no }));
+
       const wtMap: Record<string, number> = {};
       const anMap: Record<string, number> = {};
       const tlMap: Record<string, number> = {};
@@ -340,10 +358,27 @@ const TeacherStudents = () => {
         userMap[name] = row.user_id;
         if (row.student_no) noMap[name] = row.student_no;
         gradeMap[name] = row.actual_grade ?? "";
+        // 범위 라벨 만들기
+        const labelParts: string[] = [];
+        if (row.start_series_id && seriesById.has(row.start_series_id)) {
+          labelParts.push(seriesById.get(row.start_series_id)!.title);
+        }
+        if (row.start_volume_id && volById.has(row.start_volume_id)) {
+          const v = volById.get(row.start_volume_id)!;
+          labelParts.push(`Vol.${v.volume_no} ${v.title}`);
+        }
+        if (row.start_unit_id && unitById.has(row.start_unit_id)) {
+          const u = unitById.get(row.start_unit_id)!;
+          labelParts.push(`Unit ${u.unit_no} ${u.title}`);
+        }
         dbStudents.push({
           id: `db-${row.user_id}`,
           name,
           level: ((row.start_level as LevelCode) || (row.current_level as LevelCode) || "L05"),
+          startSeriesId: row.start_series_id ?? null,
+          startVolumeId: row.start_volume_id ?? null,
+          startUnitId: row.start_unit_id ?? null,
+          scopeLabel: labelParts.length > 0 ? labelParts.join(" / ") : undefined,
           createdAt: row.created_at,
           userId: row.user_id,
         });
@@ -360,12 +395,10 @@ const TeacherStudents = () => {
       setStudents([...dbStudents, ...localOnly]);
 
       // 레벨별 지문 수 집계 (textbooks.level → textbook_passages 카운트)
-      const { data: tb } = await supabase.from("textbooks").select("id, level");
-      const { data: tp } = await supabase.from("textbook_passages").select("textbook_id");
       const levelOf: Record<string, string> = {};
-      ((tb ?? []) as { id: string; level: string }[]).forEach((r) => { levelOf[r.id] = r.level; });
+      ((tbAll.data ?? []) as { id: string; level: string }[]).forEach((r) => { levelOf[r.id] = r.level; });
       const cnt: Record<string, number> = {};
-      ((tp ?? []) as { textbook_id: string }[]).forEach((r) => {
+      ((passagesAll.data ?? []) as { textbook_id: string }[]).forEach((r) => {
         const lv = levelOf[r.textbook_id];
         if (lv) cnt[lv] = (cnt[lv] ?? 0) + 1;
       });
