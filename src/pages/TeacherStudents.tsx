@@ -36,7 +36,15 @@ import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
-import { updateStudentStartLevel } from "@/lib/studentProfile";
+import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
+import {
+  fetchSeriesByLevel,
+  fetchTextbooksBySeries,
+  fetchUnitsByTextbook,
+  type Series,
+  type Textbook,
+  type Unit,
+} from "@/lib/textbooks";
 
 interface Student {
   id: string;
