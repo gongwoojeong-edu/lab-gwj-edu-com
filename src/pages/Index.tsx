@@ -760,7 +760,7 @@ const Index = ({
       if (cancelled) return;
       const [progRes, offsRes, customsRes, modsRes, refsRes] = results;
       const prog = progRes.status === "fulfilled" ? progRes.value : null;
-      const offs = offsRes.status === "fulfilled" ? offsRes.value : [];
+      const offs = offsRes.status === "fulfilled" ? offsRes.value : {};
       const customs = customsRes.status === "fulfilled" ? customsRes.value : null;
       const mods = modsRes.status === "fulfilled" ? modsRes.value : null;
       const refs = refsRes.status === "fulfilled" ? refsRes.value : null;
