@@ -24,6 +24,7 @@ export type ModifierTargetMap = Record<string, ModifierTarget[]>;
 
 export const loadModifierTargets = (): ModifierTargetMap => {
   if (typeof window === "undefined") return {};
+  if (isLocalStorageDisabled()) return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
@@ -36,6 +37,7 @@ export const loadModifierTargets = (): ModifierTargetMap => {
 
 export const saveModifierTargets = (map: ModifierTargetMap) => {
   if (typeof window === "undefined") return;
+  if (isLocalStorageDisabled()) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
