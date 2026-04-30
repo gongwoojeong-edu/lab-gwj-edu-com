@@ -624,6 +624,9 @@ export type Database = {
           hint_mode_enabled: boolean
           points: number
           start_level: string
+          start_series_id: string | null
+          start_unit_id: string | null
+          start_volume_id: string | null
           student_no: string
           teacher_id: string | null
           teacher_pin: string | null
@@ -645,6 +648,9 @@ export type Database = {
           hint_mode_enabled?: boolean
           points?: number
           start_level?: string
+          start_series_id?: string | null
+          start_unit_id?: string | null
+          start_volume_id?: string | null
           student_no: string
           teacher_id?: string | null
           teacher_pin?: string | null
@@ -666,6 +672,9 @@ export type Database = {
           hint_mode_enabled?: boolean
           points?: number
           start_level?: string
+          start_series_id?: string | null
+          start_unit_id?: string | null
+          start_volume_id?: string | null
           student_no?: string
           teacher_id?: string | null
           teacher_pin?: string | null
