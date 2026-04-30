@@ -47,6 +47,14 @@ interface Student {
   userId?: string;
 }
 
+/** 실제 학년 선택지. "" = 미지정. 학습 레벨(L01~L09)과는 별개. */
+const ACTUAL_GRADE_OPTIONS = [
+  "초3", "초4", "초5", "초6",
+  "중1", "중2", "중3",
+  "고1", "고2", "고3",
+] as const;
+type ActualGrade = typeof ACTUAL_GRADE_OPTIONS[number];
+
 const STUDENTS_KEY = "gwj.students.v1";
 
 const seedStudents = (): Student[] => [
