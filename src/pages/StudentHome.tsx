@@ -97,6 +97,7 @@ const StudentHome = () => {
   const [rewards, setRewards] = useState<StudentRewards | null>(null);
   const [next, setNext] = useState<Sentence | null>(null);
   const [done, setDone] = useState(false);
+  const [noContent, setNoContent] = useState(false);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>([]);
   const [assignmentProgress, setAssignmentProgress] = useState<
