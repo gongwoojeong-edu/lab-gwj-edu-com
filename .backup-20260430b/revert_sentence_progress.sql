@@ -6,3 +6,5 @@ UPDATE public.sentence_progress SET status='pending', analysis_done=false, analy
 UPDATE public.sentence_progress SET status='pending', analysis_done=false, analysis_match_rate=NULL, updated_at='2026-04-30 10:52:37.649166+00' WHERE user_id='f9622caf-ac4b-4568-a198-81c89a6a24dc' AND sentence_id='L04-S1V1U1-001';
 UPDATE public.sentence_progress SET status='pending', analysis_done=false, analysis_match_rate=NULL, updated_at='2026-04-30 10:52:37.649166+00' WHERE user_id='d8ba829e-190e-4839-a165-af2c8608b511' AND sentence_id='L04-S1V1U1-001';
 UPDATE public.sentence_progress SET status='pending', analysis_done=false, analysis_match_rate=NULL, updated_at='2026-04-30 10:52:37.649166+00' WHERE user_id='60522990-d656-4e8b-a219-15fb1a9b0670' AND sentence_id='L05-S1V3U3-001';
+-- 원장/29-1-1: row missing in sentence_progress, will be INSERTed → revert is DELETE
+DELETE FROM public.sentence_progress WHERE user_id='083dc2d2-968b-4811-a881-7fe6085776ca' AND sentence_id='29-1-1';
