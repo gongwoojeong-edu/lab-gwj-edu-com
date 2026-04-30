@@ -116,6 +116,13 @@ const TeacherStudents = () => {
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
   const [level, setLevel] = useState<LevelCode>("L05");
+  // 시작 범위 캐스케이딩 선택 상태 (다이얼로그 내부)
+  const [seriesId, setSeriesId] = useState<string | null>(null);
+  const [volumeId, setVolumeId] = useState<string | null>(null);
+  const [unitId, setUnitId] = useState<string | null>(null);
+  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [volumeList, setVolumeList] = useState<Textbook[]>([]);
+  const [unitList, setUnitList] = useState<Unit[]>([]);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinTarget, setPinTarget] = useState<Student | null>(null);
   const [pinValue, setPinValue] = useState("");
