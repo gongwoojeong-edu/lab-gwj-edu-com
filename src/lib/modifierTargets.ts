@@ -1,12 +1,14 @@
 // ============================================================
 // modifierTargets — 수식 관계(source ownerId → target tokenId)
 // localStorage + Supabase modifier_relations 동기화
+// 학생 모드(setLocalStorageDisabled(true))에서는 localStorage를 우회한다.
 // ============================================================
 import {
   fetchModifierRelations,
   upsertModifierRelation,
   deleteModifierRelation,
 } from "@/integrations/supabase/storage";
+import { isLocalStorageDisabled } from "@/lib/customAnswers";
 
 const STORAGE_KEY = "gwj.modifierTargets.v1";
 
