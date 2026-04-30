@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BarChart3, ChevronDown, ChevronLeft, FastForward, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronLeft, FastForward, KeyRound, Pencil, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
