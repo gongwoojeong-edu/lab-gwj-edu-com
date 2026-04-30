@@ -635,7 +635,7 @@ const TeacherStudents = () => {
                   <SelectContent>
                     {LEVELS.map((l) => (
                       <SelectItem key={l.code} value={l.code}>
-                        {l.code} · {l.label}
+                        {l.code} · {displayLevel(l.code)}
                       </SelectItem>
                     ))}
                   </SelectContent>
