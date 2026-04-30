@@ -93,40 +93,76 @@ const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => {
 };
 
 /**
- * DB의 모든 passage를 읽어 정적 SENTENCES와 머지한다.
- * - 같은 code 가 있으면 DB 데이터로 교체
- * - 없으면 추가
- * - tokens가 비어있는 DB 행은 정적 데이터를 보존
+ * DB의 passage를 읽어 정적 SENTENCES와 머지한다.
+ *
+ * 성능 최적화 (2026-04):
+ *  - `levels` 가 주어지면 해당 레벨의 textbook_passages 만 가져온다.
+ *  - `tokens` 컬럼(jsonb, 큼)은 기본적으로 select에서 제외.
+ *    실제 분석 화면에서는 `loadSentenceByCode` 로 1건만 fetch.
+ *  - 같은 code 가 있으면 DB 데이터로 교체, 없으면 추가.
  */
-export const hydrateSentencesFromDb = async (force = false): Promise<void> => {
+const hydratedKeys = new Set<string>();
+
+export const hydrateSentencesFromDb = async (
+  force = false,
+  options?: { levels?: LevelCode[]; includeTokens?: boolean },
+): Promise<void> => {
+  const levels = options?.levels;
+  const includeTokens = options?.includeTokens ?? false;
+  const cacheKey = `${(levels ?? ["__all__"]).slice().sort().join(",")}|${includeTokens ? "T" : "N"}`;
+
   if (force) {
+    hydratedKeys.clear();
     hydrated = false;
     hydrating = null;
   }
-  if (hydrated) return;
+  if (hydratedKeys.has(cacheKey)) return;
   if (hydrating) return hydrating;
+
   hydrating = (async () => {
     try {
-      const [{ data: tbs }, { data: passages }] = await Promise.all([
-        supabase.from("textbooks").select("id, level, unit_no"),
-        supabase
-          .from("textbook_passages")
-          .select("id, textbook_id, passage_no, code, english, korean, tokens, analysis_status"),
-      ]);
-      if (!tbs || !passages) return;
+      let tbQuery = supabase.from("textbooks").select("id, level, unit_no");
+      if (levels && levels.length > 0) {
+        tbQuery = tbQuery.in("level", levels);
+      }
+      const { data: tbs } = await tbQuery;
+      if (!tbs || tbs.length === 0) {
+        hydratedKeys.add(cacheKey);
+        return;
+      }
+      const tbIds = (tbs as TextbookRow[]).map((t) => t.id);
+
+      const cols = includeTokens
+        ? "id, textbook_id, passage_no, code, english, korean, tokens, analysis_status"
+        : "id, textbook_id, passage_no, code, english, korean, analysis_status";
+      const { data: passages } = await supabase
+        .from("textbook_passages")
+        .select(cols)
+        .in("textbook_id", tbIds);
+      if (!passages) return;
+
       const tbMap = new Map<string, TextbookRow>(
         (tbs as TextbookRow[]).map((t) => [t.id, t]),
       );
-      for (const row of passages as PassageRow[]) {
-        const tb = tbMap.get(row.textbook_id);
+      for (const raw of passages as unknown as PassageRow[]) {
+        const tb = tbMap.get(raw.textbook_id);
         if (!tb) continue;
         const level = tb.level as LevelCode;
-        const idx = SENTENCES.findIndex((s) => s.id === row.code);
+        const idx = SENTENCES.findIndex((s) => s.id === raw.code);
+        const row: PassageRow = { ...raw, tokens: raw.tokens ?? null };
         const dbTokens = row.tokens ?? [];
-        // DB tokens 비어있고 정적 데이터가 있으면 정적 보존 (정적 SENTENCES 유지)
-        if (dbTokens.length === 0 && idx >= 0) {
+        // tokens 미포함 select 인 경우, 정적 SENTENCES 의 tokens 보존
+        if (!includeTokens && idx >= 0) {
+          SENTENCES[idx] = {
+            ...SENTENCES[idx],
+            no: row.passage_no,
+            level,
+            english: stripKoreanFromEnglishSource(row.english),
+            korean: row.korean ?? SENTENCES[idx].korean,
+          };
           continue;
         }
+        if (dbTokens.length === 0 && idx >= 0) continue;
         const next = rowToSentence(row, level);
         if (idx >= 0) {
           SENTENCES[idx] = { ...SENTENCES[idx], ...next };
