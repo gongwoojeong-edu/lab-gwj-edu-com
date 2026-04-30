@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BarChart3, ChevronDown, ChevronLeft, FastForward, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronLeft, FastForward, KeyRound, Pencil, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,8 @@ const TeacherStudents = () => {
   const [skipDialog, setSkipDialog] = useState<{ userId: string; name: string } | null>(null);
   // 학생별 실제 학년 (학습 레벨과 분리)
   const [actualGradeByName, setActualGradeByName] = useState<Record<string, string>>({});
+  // 레벨별 등록된 지문 수 (지정 레벨에 지문이 없는 학생 경고용)
+  const [passageCountByLevel, setPassageCountByLevel] = useState<Record<string, number>>({});
   const [actualGradeSaving, setActualGradeSaving] = useState<string | null>(null);
 
   const saveActualGrade = async (s: Student, grade: string) => {
@@ -333,6 +335,18 @@ const TeacherStudents = () => {
       // Merge: DB students first, then any localStorage students whose name doesn't match a DB account
       const localOnly = loadStudents().filter((s) => !userMap[s.name]);
       setStudents([...dbStudents, ...localOnly]);
+
+      // 레벨별 지문 수 집계 (textbooks.level → textbook_passages 카운트)
+      const { data: tb } = await supabase.from("textbooks").select("id, level");
+      const { data: tp } = await supabase.from("textbook_passages").select("textbook_id");
+      const levelOf: Record<string, string> = {};
+      ((tb ?? []) as { id: string; level: string }[]).forEach((r) => { levelOf[r.id] = r.level; });
+      const cnt: Record<string, number> = {};
+      ((tp ?? []) as { textbook_id: string }[]).forEach((r) => {
+        const lv = levelOf[r.textbook_id];
+        if (lv) cnt[lv] = (cnt[lv] ?? 0) + 1;
+      });
+      setPassageCountByLevel(cnt);
     })();
   }, []);
 
@@ -435,6 +449,24 @@ const TeacherStudents = () => {
           <p className="text-sm text-muted-foreground mt-0.5">
             학생을 등록하고 레벨·통과기준을 지정하세요. (분석 통과율은 저학년일수록 높게 설정 권장)
           </p>
+          {(() => {
+            const missing = Array.from(new Set(students.map((s) => s.level))).filter(
+              (lv) => (passageCountByLevel[lv] ?? 0) === 0,
+            );
+            if (missing.length === 0) return null;
+            const affected = students.filter((s) => missing.includes(s.level));
+            return (
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
+                <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+                <div className="text-amber-800 dark:text-amber-200">
+                  <strong>지문이 없는 레벨이 있어요:</strong>{" "}
+                  {missing.map((lv) => `${lv}·${LEVEL_LABEL[lv as LevelCode]}`).join(", ")} —{" "}
+                  해당 레벨의 학생({affected.length}명)은 학습을 시작할 수 없습니다.
+                  <Link to="/teacher/bookshelf" className="ml-1 underline font-bold">책장에서 지문 추가</Link>
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -547,9 +579,19 @@ const TeacherStudents = () => {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
-                        {s.level} · {LEVEL_LABEL[s.level]}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
+                          {s.level} · {LEVEL_LABEL[s.level]}
+                        </Badge>
+                        {(passageCountByLevel[s.level] ?? 0) === 0 && (
+                          <span
+                            title="이 레벨에 등록된 지문이 없습니다. 책장에서 지문을 추가해 주세요."
+                            className="inline-flex items-center text-amber-600"
+                          >
+                            <AlertTriangle className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <SaveNumberInput
