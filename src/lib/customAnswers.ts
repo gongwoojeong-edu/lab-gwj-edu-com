@@ -68,6 +68,7 @@ export type CustomAnswerMap = Record<string, CustomAnswerPatch>;
 
 export const loadCustomAnswers = (): CustomAnswerMap => {
   if (typeof window === "undefined") return {};
+  if (studentModeFlag) return {};
   try {
     const raw = window.localStorage.getItem(storageKey());
     if (!raw) return {};
@@ -80,6 +81,7 @@ export const loadCustomAnswers = (): CustomAnswerMap => {
 
 export const saveCustomAnswers = (map: CustomAnswerMap) => {
   if (typeof window === "undefined") return;
+  if (studentModeFlag) return;
   try {
     window.localStorage.setItem(storageKey(), JSON.stringify(map));
   } catch {
@@ -89,6 +91,7 @@ export const saveCustomAnswers = (map: CustomAnswerMap) => {
 
 export const clearCustomAnswers = () => {
   if (typeof window === "undefined") return;
+  if (studentModeFlag) return;
   window.localStorage.removeItem(storageKey());
 };
 
