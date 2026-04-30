@@ -176,6 +176,7 @@ export const hydrateCustomAnswersFromCloud = async (
 // ============================================================
 export const loadSavedOwners = (): string[] => {
   if (typeof window === "undefined") return [];
+  if (studentModeFlag) return [];
   try {
     const raw = window.localStorage.getItem(savedOwnersKey());
     if (!raw) return [];
@@ -188,6 +189,7 @@ export const loadSavedOwners = (): string[] => {
 
 export const saveSavedOwners = (ids: string[]) => {
   if (typeof window === "undefined") return;
+  if (studentModeFlag) return;
   try {
     window.localStorage.setItem(savedOwnersKey(), JSON.stringify(Array.from(new Set(ids))));
   } catch {
