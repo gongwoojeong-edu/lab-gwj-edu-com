@@ -666,7 +666,7 @@ const TeacherStudents = () => {
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={8} className="bg-muted/20 py-5">
+                      <TableCell colSpan={9} className="bg-muted/20 py-5">
                         {profileUserIdByName[s.name] ? (
                           <DailyTestSummary userId={profileUserIdByName[s.name]} days={14} />
                         ) : (
