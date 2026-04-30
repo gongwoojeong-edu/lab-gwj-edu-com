@@ -33,19 +33,34 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
     setLoading(true);
     setText("");
     setShowPrevious(false);
-    fetchTranslation(sentenceId).then((t) => {
-      if (!mounted) return;
-      if (t) {
-        setPreviousText(t);
-        setSubmitted(true);
-      } else {
-        setPreviousText(null);
-        setSubmitted(false);
-      }
-      setLoading(false);
-    });
+    setPreviousText(null);
+    setSubmitted(false);
+
+    // 안전망: 5초 안에 응답이 없으면 강제로 입력 가능 상태로 전환
+    // (네트워크 지연/RLS reject 등으로 영원히 로딩 멈추는 현상 방지)
+    const safetyTimer = window.setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 5000);
+
+    fetchTranslation(sentenceId)
+      .then((t) => {
+        if (!mounted) return;
+        if (t) {
+          setPreviousText(t);
+          setSubmitted(true);
+        }
+      })
+      .catch((e) => {
+        // 조용히 실패: 학생은 새로 작성하면 됨
+        console.warn("[TranslationStep] fetchTranslation failed", e);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
     return () => {
       mounted = false;
+      window.clearTimeout(safetyTimer);
     };
   }, [sentenceId]);
 

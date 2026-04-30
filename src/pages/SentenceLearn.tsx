@@ -23,7 +23,7 @@ import {
 import Index from "@/pages/Index";
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut, useAuth } from "@/hooks/useAuth";
-import { LEVEL_LABEL } from "@/lib/levels";
+import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import {
   fetchOwnerProgressForSentence,
@@ -39,7 +39,7 @@ import { fetchExtraction, extractedToEntries } from "@/lib/wordExtraction";
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { TranslationStep } from "@/components/learning/TranslationStep";
 import { WordTestStep } from "@/components/learning/WordTestStep";
-import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
@@ -143,8 +143,24 @@ const SentenceLearn = () => {
     let mounted = true;
     (async () => {
       setLoading(true);
-      await hydrateSentencesFromDb();
-      const found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
+      // 1) 학생 본인 level만 hydrate (tokens 제외, 가벼운 메타만)
+      const prof0 = await fetchMyProfile().catch(() => null);
+      const myLevel = (prof0?.current_level ?? prof0?.start_level) as
+        | LevelCode
+        | undefined;
+      await hydrateSentencesFromDb(false, myLevel ? { levels: [myLevel] } : undefined);
+
+      // 2) 현재 sentence 1건은 tokens 포함해 직접 fetch (hydrate 결과를 덮어씀)
+      let found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
+      if (sentenceId) {
+        const one = await loadSentenceByCode(sentenceId).catch(() => null);
+        if (one) {
+          const idx = SENTENCES.findIndex((s) => s.id === one.id);
+          if (idx >= 0) SENTENCES[idx] = { ...SENTENCES[idx], ...one };
+          else SENTENCES.push(one);
+          found = SENTENCES.find((s) => s.id === sentenceId) ?? one;
+        }
+      }
       if (!mounted) return;
       setSentence(found);
 
