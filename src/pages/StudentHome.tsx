@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText, RotateCcw } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText, RotateCcw, AlertCircle } from "lucide-react";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import { resolveNextSentence } from "@/lib/nextSentence";
