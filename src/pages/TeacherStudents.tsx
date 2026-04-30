@@ -415,6 +415,11 @@ const TeacherStudents = () => {
     setEditing(null);
     setName("");
     setLevel("L05");
+    setSeriesId(null);
+    setVolumeId(null);
+    setUnitId(null);
+    setVolumeList([]);
+    setUnitList([]);
     setOpen(true);
   };
 
@@ -422,8 +427,43 @@ const TeacherStudents = () => {
     setEditing(s);
     setName(s.name);
     setLevel(s.level);
+    setSeriesId(s.startSeriesId ?? null);
+    setVolumeId(s.startVolumeId ?? null);
+    setUnitId(s.startUnitId ?? null);
     setOpen(true);
   };
+
+  // 다이얼로그가 열려있을 때 level이 바뀌면 → 시리즈 목록 로드
+  useEffect(() => {
+    if (!open) return;
+    fetchSeriesByLevel(level)
+      .then(setSeriesList)
+      .catch(() => setSeriesList([]));
+  }, [open, level]);
+
+  // 시리즈가 바뀌면 → 권 목록 로드
+  useEffect(() => {
+    if (!open) return;
+    if (!seriesId) {
+      setVolumeList([]);
+      return;
+    }
+    fetchTextbooksBySeries(seriesId)
+      .then(setVolumeList)
+      .catch(() => setVolumeList([]));
+  }, [open, seriesId]);
+
+  // 권이 바뀌면 → 유닛 목록 로드
+  useEffect(() => {
+    if (!open) return;
+    if (!volumeId) {
+      setUnitList([]);
+      return;
+    }
+    fetchUnitsByTextbook(volumeId)
+      .then(setUnitList)
+      .catch(() => setUnitList([]));
+  }, [open, volumeId]);
 
   const submit = async () => {
     if (!name.trim()) {
@@ -455,13 +495,37 @@ const TeacherStudents = () => {
         setThresholdByName((p) => moveKey(p));
         setAnalysisByName((p) => moveKey(p));
         setTimeLimitByName((p) => moveKey(p));
-        
       }
-      if (uid && level !== editing.level) {
-        await updateStudentStartLevel(uid, level);
+      // 시작 범위(레벨/시리즈/권/유닛) 저장 — 항상 호출 (값이 같아도 안전)
+      if (uid) {
+        await updateStudentStartScope(uid, {
+          start_level: level,
+          start_series_id: seriesId,
+          start_volume_id: volumeId,
+          start_unit_id: unitId,
+        });
       }
+      // 표시용 라벨 즉시 갱신
+      const labelParts: string[] = [];
+      const sObj = seriesList.find((x) => x.id === seriesId);
+      if (sObj) labelParts.push(sObj.title);
+      const vObj = volumeList.find((x) => x.id === volumeId);
+      if (vObj) labelParts.push(`Vol.${vObj.volume_no} ${vObj.title}`);
+      const uObj = unitList.find((x) => x.id === unitId);
+      if (uObj) labelParts.push(`Unit ${uObj.unit_no} ${uObj.title}`);
       const next = students.map((s) =>
-        s.id === editing.id ? { ...s, name: trimmed, level, userId: uid ?? s.userId } : s,
+        s.id === editing.id
+          ? {
+              ...s,
+              name: trimmed,
+              level,
+              startSeriesId: seriesId,
+              startVolumeId: volumeId,
+              startUnitId: unitId,
+              scopeLabel: labelParts.length > 0 ? labelParts.join(" / ") : undefined,
+              userId: uid ?? s.userId,
+            }
+          : s,
       );
       setStudents(next);
       persist(next);
