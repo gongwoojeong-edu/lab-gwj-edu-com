@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
