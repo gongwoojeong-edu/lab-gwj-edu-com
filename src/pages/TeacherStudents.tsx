@@ -116,6 +116,31 @@ const TeacherStudents = () => {
   const [profileNoByName, setProfileNoByName] = useState<Record<string, string>>({});
   const [historySheet, setHistorySheet] = useState<{ userId: string; name: string; no: string | null } | null>(null);
   const [skipDialog, setSkipDialog] = useState<{ userId: string; name: string } | null>(null);
+  // 학생별 실제 학년 (학습 레벨과 분리)
+  const [actualGradeByName, setActualGradeByName] = useState<Record<string, string>>({});
+  const [actualGradeSaving, setActualGradeSaving] = useState<string | null>(null);
+
+  const saveActualGrade = async (s: Student, grade: string) => {
+    setActualGradeSaving(s.name);
+    try {
+      const uid = s.userId ?? profileUserIdByName[s.name];
+      if (!uid) {
+        toast({ title: "계정 매칭 실패", description: `'${s.name}' 학생은 DB 계정이 없습니다.`, variant: "destructive" });
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from("student_profiles") as any)
+        .update({ actual_grade: grade || null })
+        .eq("user_id", uid);
+      if (error) throw error;
+      setActualGradeByName((p) => ({ ...p, [s.name]: grade }));
+      toast({ title: `🎓 ${s.name} 실제 학년 ${grade || "미지정"} 저장` });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setActualGradeSaving(null);
+    }
+  };
 
   const saveTimeLimit = async (s: Student, seconds: number): Promise<boolean> => {
     const clamped = Math.max(0, Math.min(120, Math.round(seconds)));
