@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import StudentHistorySheet from "@/components/teacher/StudentHistorySheet";
 import { LEVELS, LEVEL_LABEL, type LevelCode } from "@/lib/levels";
+import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
@@ -111,6 +112,7 @@ const formatDate = (iso: string) => {
 };
 
 const TeacherStudents = () => {
+  const { display: displayLevel } = useLevelLabels();
   const [students, setStudents] = useState<Student[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
@@ -581,7 +583,7 @@ const TeacherStudents = () => {
                 <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
                 <div className="text-amber-800 dark:text-amber-200">
                   <strong>지문이 없는 레벨이 있어요:</strong>{" "}
-                  {missing.map((lv) => `${lv}·${LEVEL_LABEL[lv as LevelCode]}`).join(", ")} —{" "}
+                  {missing.map((lv) => `${lv}·${displayLevel(lv as LevelCode)}`).join(", ")} —{" "}
                   해당 레벨의 학생({affected.length}명)은 학습을 시작할 수 없습니다.
                   <Link to="/teacher/bookshelf" className="ml-1 underline font-bold">책장에서 지문 추가</Link>
                 </div>
@@ -633,7 +635,7 @@ const TeacherStudents = () => {
                   <SelectContent>
                     {LEVELS.map((l) => (
                       <SelectItem key={l.code} value={l.code}>
-                        {l.code} · {l.label}
+                        {l.code} · {displayLevel(l.code)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -798,7 +800,7 @@ const TeacherStudents = () => {
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1.5">
                           <Badge variant="secondary" className="font-bold text-sm px-2.5 py-1">
-                            {s.level} · {LEVEL_LABEL[s.level]}
+                            {s.level} · {displayLevel(s.level)}
                           </Badge>
                           {(passageCountByLevel[s.level] ?? 0) === 0 && (
                             <span
