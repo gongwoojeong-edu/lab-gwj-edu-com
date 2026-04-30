@@ -28,6 +28,7 @@ const makeId = (sentenceId: string, indices: number[]) =>
 
 export const loadIdioms = (): IdiomMap => {
   if (typeof window === "undefined") return {};
+  if (isLocalStorageDisabled()) return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
@@ -40,6 +41,7 @@ export const loadIdioms = (): IdiomMap => {
 
 export const saveIdioms = (map: IdiomMap) => {
   if (typeof window === "undefined") return;
+  if (isLocalStorageDisabled()) return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
