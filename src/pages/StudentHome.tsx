@@ -122,6 +122,7 @@ const StudentHome = () => {
       setProfile(r.profile);
       setNext(r.sentence);
       setDone(r.done);
+      setNoContent(!!r.noContent);
       setRewards(rw);
 
       if (user) {
