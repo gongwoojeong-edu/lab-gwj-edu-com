@@ -295,7 +295,8 @@ const TeacherStudents = () => {
     (async () => {
       const { data, error } = await supabase
         .from("student_profiles")
-        .select("user_id, student_no, display_name, start_level, current_level, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
@@ -304,14 +305,16 @@ const TeacherStudents = () => {
       const tlMap: Record<string, number> = {};
       const userMap: Record<string, string> = {};
       const noMap: Record<string, string> = {};
+      const gradeMap: Record<string, string> = {};
       const dbStudents: Student[] = [];
-      (data ?? []).forEach((row: { user_id: string; student_no: string | null; display_name: string | null; start_level: string | null; current_level: string | null; created_at: string; word_test_pass_threshold: number | null; analysis_pass_threshold: number | null; word_test_time_limit_sec: number | null }) => {
-        const name = row.display_name || row.student_no || row.user_id.slice(0, 8);
+      (data ?? []).forEach((row) => {
+        const name = row.display_name || row.student_no || String(row.user_id).slice(0, 8);
         wtMap[name] = Number(row.word_test_pass_threshold ?? 0.8);
         anMap[name] = Number(row.analysis_pass_threshold ?? 0.8);
         tlMap[name] = Number(row.word_test_time_limit_sec ?? 20);
         userMap[name] = row.user_id;
         if (row.student_no) noMap[name] = row.student_no;
+        gradeMap[name] = row.actual_grade ?? "";
         dbStudents.push({
           id: `db-${row.user_id}`,
           name,
@@ -325,6 +328,7 @@ const TeacherStudents = () => {
       setTimeLimitByName(tlMap);
       setProfileUserIdByName(userMap);
       setProfileNoByName(noMap);
+      setActualGradeByName(gradeMap);
 
       // Merge: DB students first, then any localStorage students whose name doesn't match a DB account
       const localOnly = loadStudents().filter((s) => !userMap[s.name]);
