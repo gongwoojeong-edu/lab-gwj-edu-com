@@ -502,7 +502,7 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
