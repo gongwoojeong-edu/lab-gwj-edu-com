@@ -449,6 +449,24 @@ const TeacherStudents = () => {
           <p className="text-sm text-muted-foreground mt-0.5">
             학생을 등록하고 레벨·통과기준을 지정하세요. (분석 통과율은 저학년일수록 높게 설정 권장)
           </p>
+          {(() => {
+            const missing = Array.from(new Set(students.map((s) => s.level))).filter(
+              (lv) => (passageCountByLevel[lv] ?? 0) === 0,
+            );
+            if (missing.length === 0) return null;
+            const affected = students.filter((s) => missing.includes(s.level));
+            return (
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
+                <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+                <div className="text-amber-800 dark:text-amber-200">
+                  <strong>지문이 없는 레벨이 있어요:</strong>{" "}
+                  {missing.map((lv) => `${lv}·${LEVEL_LABEL[lv as LevelCode]}`).join(", ")} —{" "}
+                  해당 레벨의 학생({affected.length}명)은 학습을 시작할 수 없습니다.
+                  <Link to="/teacher/bookshelf" className="ml-1 underline font-bold">책장에서 지문 추가</Link>
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
