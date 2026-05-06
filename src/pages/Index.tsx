@@ -1240,6 +1240,35 @@ const Index = ({
     });
   };
 
+  const saveStudentProgressEntries = useCallback(async (entries: [string, WordProgress][]): Promise<FlushAnalysisResult> => {
+    if (entries.length === 0) return { total: 0, saved: 0, failed: 0 };
+    const results = await Promise.allSettled(
+      entries.map(([ownerId, wp]) => {
+        const cloudPatch = progressToCloudPatch(wp);
+        const customPatch = (customAnswers[ownerId] ?? {}) as Record<string, unknown>;
+        const merged = { ...customPatch, ...cloudPatch };
+        return upsertOwnerProgress({
+          sentence_id: sentence.id,
+          owner_id: ownerId,
+          progress: merged,
+          custom_answer: merged,
+          completed: wp.completed,
+        });
+      }),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    return { total: entries.length, saved: entries.length - failed, failed };
+  }, [customAnswers, progressMap, sentence.id]);
+
+  useEffect(() => {
+    if (!studentMode || !onFlushStudentProgress) return;
+    onFlushStudentProgress(async () => {
+      const entries = Object.entries(progressMap).filter(([, wp]) => wp?.pos);
+      return saveStudentProgressEntries(entries);
+    });
+    return () => onFlushStudentProgress(null);
+  }, [onFlushStudentProgress, progressMap, saveStudentProgressEntries, studentMode]);
+
   const flushStudentProgressToCloud = async () => {
     const entries = Object.entries(progressMap).filter(([, wp]) => wp?.pos);
     if (entries.length === 0) {
@@ -1248,22 +1277,8 @@ const Index = ({
     }
     setStudentSaveBusy(true);
     try {
-      const results = await Promise.allSettled(
-        entries.map(([ownerId, wp]) => {
-          const cloudPatch = progressToCloudPatch(wp);
-          const customPatch = (customAnswers[ownerId] ?? {}) as Record<string, unknown>;
-          const merged = { ...customPatch, ...cloudPatch };
-          return upsertOwnerProgress({
-            sentence_id: sentence.id,
-            owner_id: ownerId,
-            progress: merged,
-            custom_answer: merged,
-            completed: wp.completed,
-          });
-        }),
-      );
-      const failed = results.filter((r) => r.status === "rejected");
-      if (failed.length > 0) throw new Error(`${failed.length}/${entries.length}개 저장 실패`);
+      const result = await saveStudentProgressEntries(entries);
+      if (result.failed > 0) throw new Error(`${result.failed}/${result.total}개 저장 실패`);
       toast({ title: "💾 저장됨", description: `분석 ${entries.length}개가 클라우드에 저장되었습니다.` });
     } catch (err) {
       reportStudentProgressSaveFailure(err);
