@@ -49,6 +49,7 @@ import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/li
 import {
   buildHandoutPrintHtmlFor,
   buildWordPrintHtmlFor,
+  buildAnalysisPrintHtmlFor,
   printStageMessage,
   PrintPreloadError,
 } from "@/lib/printPreload";
@@ -1194,6 +1195,36 @@ const LearningResults = () => {
                                                   title={isPrinted ? "재인쇄 (분석+해석)" : "인쇄 (분석+해석)"}
                                                 >
                                                   <Printer className="size-3" />
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="h-6 px-1.5"
+                                                  title="학생 분석본 인쇄 (채점본)"
+                                                  onClick={async () => {
+                                                    try {
+                                                      const html = await buildAnalysisPrintHtmlFor({
+                                                        sentenceId: sid,
+                                                        studentId: userId,
+                                                        mode: "marked",
+                                                      });
+                                                      launchPrintHtml(html, {
+                                                        jobKey: `lr-analysis:${sid}:${userId}`,
+                                                      });
+                                                    } catch (e) {
+                                                      const msg =
+                                                        e instanceof PrintPreloadError
+                                                          ? printStageMessage(e.stage)
+                                                          : errMsg(e);
+                                                      toast({
+                                                        title: "분석본 준비 실패",
+                                                        description: msg,
+                                                        variant: "destructive",
+                                                      });
+                                                    }
+                                                  }}
+                                                >
+                                                  <FileText className="size-3" />
                                                 </Button>
                                               </div>
                                             )}
