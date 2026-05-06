@@ -3,6 +3,7 @@ import { type LevelCode } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/studentProfile";
 import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
+import { getCurrentUserId } from "@/lib/authState";
 
 export interface NextSentenceResult {
   sentence: Sentence | null;
@@ -74,12 +75,12 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   const targetLevel = profile.start_level;
 
   // pull all passed sentence ids for this user
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return { sentence: null, profile, done: false };
+  const userId = await getCurrentUserId();
+  if (!userId) return { sentence: null, profile, done: false };
   const { data: passedRows } = await supabase
     .from("sentence_progress")
     .select("sentence_id, status")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .in("status", ["pass", "fail"]);
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
