@@ -1,0 +1,2 @@
+ALTER TABLE public.student_profiles ALTER COLUMN analysis_pass_threshold SET DEFAULT 0.3;
+UPDATE public.student_profiles SET analysis_pass_threshold = 0.3, updated_at = now() WHERE analysis_pass_threshold IS DISTINCT FROM 0.3;
