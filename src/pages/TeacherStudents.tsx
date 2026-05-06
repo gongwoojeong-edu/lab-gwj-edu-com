@@ -283,7 +283,7 @@ const TeacherStudents = () => {
   };
 
   const saveAnalysisThreshold = async (s: Student, percent: number): Promise<boolean> => {
-    const clamped = Math.max(50, Math.min(100, Math.round(percent)));
+    const clamped = Math.max(30, Math.min(100, Math.round(percent)));
     setAnalysisSaving(s.name);
     try {
       const uid = s.userId ?? profileUserIdByName[s.name];
@@ -355,7 +355,7 @@ const TeacherStudents = () => {
       (data ?? []).forEach((row) => {
         const name = row.display_name || row.student_no || String(row.user_id).slice(0, 8);
         wtMap[name] = Number(row.word_test_pass_threshold ?? 0.8);
-        anMap[name] = Number(row.analysis_pass_threshold ?? 0.8);
+        anMap[name] = Number(row.analysis_pass_threshold ?? 0.3);
         tlMap[name] = Number(row.word_test_time_limit_sec ?? 20);
         userMap[name] = row.user_id;
         if (row.student_no) noMap[name] = row.student_no;
@@ -759,7 +759,7 @@ const TeacherStudents = () => {
             )}
             {sorted.map((s) => {
               const pct = Math.round((thresholdByName[s.name] ?? 0.8) * 100);
-              const aPct = Math.round((analysisByName[s.name] ?? 0.8) * 100);
+              const aPct = Math.round((analysisByName[s.name] ?? 0.3) * 100);
               const tlSec = Math.round(timeLimitByName[s.name] ?? 20);
               const isExpanded = expandedStudentId === s.id;
               const hasAccount = !!profileUserIdByName[s.name];
@@ -832,7 +832,7 @@ const TeacherStudents = () => {
                     <TableCell>
                       <SaveNumberInput
                         value={aPct}
-                        min={50}
+                        min={30}
                         max={100}
                         step={5}
                         suffix="%"

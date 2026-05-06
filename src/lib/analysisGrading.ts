@@ -267,7 +267,7 @@ export const gradeAnalysis = async (
     hasMaster: true,
     // 통과/요청 조건도 단어 기준 분석률을 우선한다.
     // 마스터가 span owner인데 학생이 단어 단위로 분석한 경우 필수 owner ID가 직접 매칭되지 않아도 막지 않는다.
-    requiredOwnersFilled: safeRate >= 0.8 || missingRequiredOwnerIds.length === 0,
+    requiredOwnersFilled: safeRate >= 0.3 || missingRequiredOwnerIds.length === 0,
     missingRequiredOwnerIds,
   };
 };

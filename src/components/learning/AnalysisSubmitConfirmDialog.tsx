@@ -33,7 +33,7 @@ interface Props {
 }
 
 const rateBarClass = (rate: number) => {
-  if (rate >= 0.8) return "bg-emerald-500";
+  if (rate >= 0.3) return "bg-emerald-500";
   if (rate >= 0.5) return "bg-amber-500";
   return "bg-destructive";
 };
@@ -166,12 +166,12 @@ export const AnalysisSubmitConfirmDialog = ({
                       🟡 미통 보조 트랙 — 미통 상태이므로 결과 화면에서 선생님분석본보기 요청이 가능합니다.
                     </div>
                   )}
-                  {track === null && grade.rate < 0.5 && (
+                  {track === null && grade.rate < 0.3 && (
                     <div className="text-xs text-muted-foreground">
-                      🔒 정답률이 50% 미만이라 선생님분석본보기 요청을 받을 수 없어요. 더 분석한 뒤 제출하세요.
+                      🔒 분석률이 30% 미만이라 선생님분석본보기 요청을 받을 수 없어요. 더 분석한 뒤 제출하세요.
                     </div>
                   )}
-                  {track === null && grade.rate >= 0.5 && (
+                  {track === null && grade.rate >= 0.3 && (
                     <div className="text-xs text-muted-foreground">
                       🟡 미통이 되면 미통 보조 트랙으로 선생님분석본보기 요청이 가능해집니다. (현재{" "}
                       {currentStatus === "pending" ? "첫 시도" : currentStatus.toUpperCase()})
@@ -210,7 +210,7 @@ export const AnalysisSubmitConfirmDialog = ({
                   </div>
                 )}
 
-                {grade.rate < 0.5 && (
+                {grade.rate < 0.3 && (
                   <div className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded p-2">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>정답률이 매우 낮아요. 더 진행한 뒤 제출하는 것을 권장합니다.</span>

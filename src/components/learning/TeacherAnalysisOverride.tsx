@@ -10,8 +10,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { fetchTeacherPin } from "@/lib/teacherPin";
 
 interface Props {
   /** PIN 일치 시 호출. 호출 측에서 분석 통과/스킵 처리. */
@@ -42,21 +42,15 @@ export const TeacherAnalysisOverride = ({
 }: Props) => {
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState("");
-  const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
-      const { data } = await supabase
-        .from("student_profiles")
-        .select("teacher_pin")
-        .eq("user_id", u.user.id)
-        .maybeSingle();
+      const nextPin = await fetchTeacherPin().catch(() => null);
       if (!mounted) return;
-      setStoredPin((data?.teacher_pin as string | null) ?? null);
+      setStoredPin(nextPin);
     })();
     return () => {
       mounted = false;
@@ -68,16 +62,8 @@ export const TeacherAnalysisOverride = ({
     setLoading(true);
     let pinToCheck = storedPin;
     if (!pinToCheck) {
-      const { data: u } = await supabase.auth.getUser();
-      if (u.user) {
-        const { data } = await supabase
-          .from("student_profiles")
-          .select("teacher_pin")
-          .eq("user_id", u.user.id)
-          .maybeSingle();
-        pinToCheck = (data?.teacher_pin as string | null) ?? null;
-        setStoredPin(pinToCheck);
-      }
+      pinToCheck = await fetchTeacherPin().catch(() => null);
+      setStoredPin(pinToCheck);
     }
     if (!pinToCheck) {
       toast({ title: "PIN이 설정되지 않았어요", description: "선생님께 패스키 설정을 요청하세요.", variant: "destructive" });
@@ -97,6 +83,7 @@ export const TeacherAnalysisOverride = ({
     }
   };
 
+  const checkingPin = storedPin === undefined;
   const noPin = storedPin === null;
 
   return (
@@ -121,6 +108,8 @@ export const TeacherAnalysisOverride = ({
             <DialogDescription>
               {noPin
                 ? "이 계정에 PIN이 설정되어 있지 않습니다. 선생님께 패스키 설정을 요청하세요."
+                : checkingPin
+                  ? "패스키 설정을 확인하고 있습니다. 번호를 입력한 뒤 확인을 누르세요."
                 : description}
             </DialogDescription>
           </DialogHeader>
