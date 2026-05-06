@@ -1148,78 +1148,115 @@ const AdjPanel = ({
   onClauseDepthChange,
   modifier,
 }: AdjPanelProps) => {
-  const formCorrect = adj.formStatus === "correct";
-  const skipsElement = adj.form ? !!ADJ_FORM_SKIPS_ELEMENT[adj.form] : false;
-  const roleOptions = adj.form ? ADJ_ROLES_BY_FORM[adj.form] : [];
-
-  // skipsElement (전N, 접SV, to V, V-ing/PP) → 평탄 그리드 대신 기존 RoleRow
-  // 그 외 (형용사) → C/M 평탄 element-role 그리드
-  const elementRoleGroups = !formCorrect || skipsElement
-    ? []
-    : ADJ_ELEMENTS.map(({ key, label, colorClass }) => {
-        let options: RoleOption[];
-        if (key === "C") {
-          options = roleOptions.filter(
-            (o) => typeof o === "string" && /보어/.test(o),
-          );
-        } else {
-          options = roleOptions.filter(
-            (o) => typeof o === "string" && !/보어/.test(o),
-          );
-        }
-        return { element: key, label, colorClass, options };
-      });
-
-  // 형용사가 선택되면 항상 수식선 지정 UI를 노출 (form/role 무관).
-  // 명사수식 role을 골랐다면 강조 라벨이 추가되고, 그렇지 않아도 수동으로 수식 대상을 지정 가능.
+  const mask = useMaskStatus();
+  const roleStatus = mask(adj.roleStatus);
+  const elementStatus = mask(adj.elementStatus);
+  const done = roleStatus === "correct";
   const showModifier = !!modifier;
+
+  type Btn = { element: "C" | "M" | null; role: string; display: string };
+
+  const handlePick = (form: AdjForm, btn: Btn) => {
+    if (adj.form !== form) onAdjFormChange(form);
+    if (btn.element) {
+      setTimeout(() => onAdjElementRole(btn.element!, btn.role), 0);
+    } else {
+      setTimeout(() => onAdjRoleChange(btn.role), 0);
+    }
+  };
+
+  const inferElementForAdj = (label: string): "C" | "M" => (/보어/.test(label) ? "C" : "M");
 
   return (
     <>
-      <FormRow
-        label="Layer 02 · 형태"
-        status={adj.formStatus}
-        items={ADJ_FORMS}
-        selected={adj.form}
-        locked={false}
-        onSelect={(k) => onAdjFormChange(k as AdjForm)}
-      />
       {adj.form === "접SV" && onClauseDepthChange && (
         <ClauseDepthRow value={adj.clauseDepth ?? 1} onChange={onClauseDepthChange} />
       )}
-      {skipsElement ? (
-        adj.form === "전N" ? (
-          // 결함 #4: 형용사 전N도 부사 전N과 동일한 시각 패턴(통합 그리드 1버튼)으로 표시
-          <PrepPhraseShortcut
-            label="형용사 전치사구"
-            element="M"
-            elementLabel="수식어"
-            colorClass="bg-element-m-bg text-element-m border-element-m/40"
-            selectedRole={adj.role}
-            roleStatus={adj.roleStatus}
-            onPick={() => onAdjRoleChange("형용사 전치사구")}
-          />
-        ) : (
-          <RoleRow
-            unlocked={!!adj.form}
-            status={adj.roleStatus}
-            options={roleOptions}
-            selected={adj.role}
-            onSelect={onAdjRoleChange}
-          />
-        )
-      ) : (
-        <ElementRoleGrid
-          unlocked={!!adj.form}
-          element={adj.element}
-          elementStatus={adj.elementStatus}
-          role={adj.role}
-          roleStatus={adj.roleStatus}
-          groups={elementRoleGroups}
-          onPick={(e, r) => onAdjElementRole(e as "C" | "M", r)}
-        />
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+            Layer 02·03 · 형태 / 성분·세부역할
+          </p>
+          <StatusPill status={done ? "correct" : roleStatus === "wrong" || elementStatus === "wrong" ? "wrong" : "idle"} />
+        </div>
+        <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
+          {ADJ_FORMS.map(({ key: form, circle, label: formLabel }) => {
+            const opts = ADJ_ROLES_BY_FORM[form] ?? [];
+            const skipsEl = !!ADJ_FORM_SKIPS_ELEMENT[form];
+            const buttons: Btn[] = [];
+            opts.forEach((opt) => {
+              if (typeof opt === "string") {
+                buttons.push({
+                  element: skipsEl ? null : inferElementForAdj(opt),
+                  role: opt,
+                  display: opt,
+                });
+              }
+            });
+
+            return (
+              <div
+                key={form}
+                className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0"
+              >
+                <span
+                  className="shrink-0 w-[64px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1"
+                  aria-hidden
+                >
+                  {circle && <span className="font-mono text-[12px]">{circle}</span>}
+                  {formLabel}
+                </span>
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  {buttons.map((b, idx) => {
+                    const sel =
+                      adj.form === form &&
+                      ((b.element != null && adj.element === b.element && adj.role === b.role) ||
+                        (b.element == null && adj.role === b.role));
+                    const ok = sel && done;
+                    const ng = sel && (roleStatus === "wrong" || elementStatus === "wrong");
+                    return (
+                      <button
+                        key={`${form}-${idx}-${b.display}`}
+                        type="button"
+                        onClick={() => handlePick(form, b)}
+                        className={cn(
+                          "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+                          ok && "bg-primary/15 text-primary",
+                          ng && "bg-destructive/10 text-destructive animate-pulse",
+                          !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+                        )}
+                      >
+                        {b.display}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {/* 형용사 전N 단축 — Layer02에서 제거되어 [수식 대상 지정] 옆으로 이동 */}
+      {showModifier && modifier && (
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              if (adj.form !== "전N") onAdjFormChange("전N");
+              setTimeout(() => onAdjRoleChange("형용사 전치사구"), 0);
+            }}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-[11px] font-bold font-kr border transition-colors",
+              adj.form === "전N" && adj.role === "형용사 전치사구"
+                ? "bg-primary/15 text-primary border-primary/40"
+                : "bg-secondary/60 text-foreground border-transparent hover:bg-primary/10",
+            )}
+            title="전치사구가 명사를 수식 (형용사 전N)"
+          >
+            ⑭ 전N (형용사 전치사구)
+          </button>
+        </div>
       )}
-      {/* Layer 3 하단: 수식 대상 명사 지정 */}
       {showModifier && modifier && (
         <RelationSection
           variant="modifier"
@@ -1231,9 +1268,7 @@ const AdjPanel = ({
           onCancel={modifier.onCancelPendingModifier}
         />
       )}
-      {adj.roleStatus === "correct" && (
-        <CompletionBlock label={adj.role ?? adj.form ?? "완료"} />
-      )}
+      {done && <CompletionBlock label={adj.role ?? adj.form ?? "완료"} />}
     </>
   );
 };
