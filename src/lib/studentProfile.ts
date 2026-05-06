@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 import type { LevelCode } from "@/lib/levels";
 
 export interface StudentProfile {
@@ -54,23 +55,23 @@ export const fetchStudentFailCounts = async (): Promise<Record<string, number>> 
 };
 
 export const fetchMyProfile = async (): Promise<StudentProfile | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data } = await supabase
     .from("student_profiles")
     .select("*")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   return (data as StudentProfile) ?? null;
 };
 
 export const updateMyProgress = async (level: LevelCode, no: number): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return;
+  const userId = await getCurrentUserId();
+  if (!userId) return;
   await supabase
     .from("student_profiles")
     .update({ current_level: level, current_no: no })
-    .eq("user_id", u.user.id);
+    .eq("user_id", userId);
 };
 
 export const fetchAllStudents = async (): Promise<StudentProfile[]> => {
