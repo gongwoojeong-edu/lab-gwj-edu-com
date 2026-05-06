@@ -1222,18 +1222,27 @@ const Index = ({
     return [] as number[];
   }, [completedSelectionMap, selectedId, selectedWordIndices]);
 
+  const reportStudentProgressSaveFailure = (err: unknown) => {
+    console.warn("[studentAnalysisAutosave] owner_progress 저장 실패", err);
+    toast({
+      title: "분석 저장 실패",
+      description: "인터넷 연결을 확인한 뒤 같은 항목을 한 번 더 눌러주세요.",
+      variant: "destructive",
+    });
+  };
+
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
     setProgressMap((prev) => {
       const nextProgress = updater(prev[id] ?? emptyProgress());
-      if (studentMode && nextProgress.completed && nextProgress.pos) {
+      if (studentMode && nextProgress.pos) {
         const patch = progressToCloudPatch(nextProgress);
         void upsertOwnerProgress({
           sentence_id: sentence.id,
           owner_id: id,
           progress: patch,
           custom_answer: patch,
-          completed: true,
-        }).catch(() => {});
+          completed: nextProgress.completed,
+        }).catch(reportStudentProgressSaveFailure);
       }
       return {
         ...prev,
