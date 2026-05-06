@@ -285,7 +285,7 @@ const PrintableHandout = () => {
                 </>
               )}
             </div>
-            <div className="header-meta">출력: {printedAt} · 2 / 2</div>
+            <div className="header-meta">출력: {printedAt} · 2 / {withAnalysis ? 3 : 2}</div>
           </div>
         </div>
 
