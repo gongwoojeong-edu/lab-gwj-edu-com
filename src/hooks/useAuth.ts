@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { purgeAllGwjKeysForUser } from "@/lib/cacheCleanup";
+// D(cacheCleanup) 비활성화: signOut 내부에서 getUser() 호출이 supabase auth lock과 충돌하여
+// "Lock not released within 5000ms / Lock broken by another request" 에러를 유발했음.
+// 학생 모드는 이미 cloud-only로 전환되어 LS 잔재 노출 위험이 낮으므로 임시 보류.
+// import { purgeAllGwjKeysForUser } from "@/lib/cacheCleanup";
 
 export type AppRole = "student" | "teacher" | "admin";
 
