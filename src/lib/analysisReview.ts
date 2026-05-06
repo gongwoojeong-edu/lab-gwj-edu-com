@@ -94,13 +94,13 @@ export const cancelReviewRequest = async (id: string): Promise<void> => {
 
 /** 선생님: 요청 승인 */
 export const approveReviewRequest = async (id: string, note?: string): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   await supabase
     .from("analysis_review_requests")
     .update({
       status: "approved",
       responded_at: new Date().toISOString(),
-      responded_by: u.user?.id ?? null,
+      responded_by: userId,
       response_note: note ?? null,
     })
     .eq("id", id);
@@ -108,13 +108,13 @@ export const approveReviewRequest = async (id: string, note?: string): Promise<v
 
 /** 선생님: 요청 거절 */
 export const rejectReviewRequest = async (id: string, note?: string): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   await supabase
     .from("analysis_review_requests")
     .update({
       status: "rejected",
       responded_at: new Date().toISOString(),
-      responded_by: u.user?.id ?? null,
+      responded_by: userId,
       response_note: note ?? null,
     })
     .eq("id", id);
@@ -167,7 +167,7 @@ export const fetchInboxReviewRequests = async (): Promise<AnalysisReviewRequest[
 /** 선생님: 모든 pending 일괄 승인 */
 export const approveAllPending = async (): Promise<number> => {
   const list = await fetchPendingRequests();
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   if (list.length === 0) return 0;
   const ids = list.map((r) => r.id);
   await supabase
@@ -175,7 +175,7 @@ export const approveAllPending = async (): Promise<number> => {
     .update({
       status: "approved",
       responded_at: new Date().toISOString(),
-      responded_by: u.user?.id ?? null,
+      responded_by: userId,
     })
     .in("id", ids);
   return ids.length;
