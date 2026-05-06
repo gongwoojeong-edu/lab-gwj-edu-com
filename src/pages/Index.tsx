@@ -522,6 +522,7 @@ const Index = ({
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, WordProgress>>({});
+  const [studentSaveBusy, setStudentSaveBusy] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // 데스크톱에서 분석 패널 강제 숨김/복구 토글 (`?` 단축키 / 플로팅 버튼)
   const [analysisPanelHidden, setAnalysisPanelHidden] = useState(false);
@@ -1222,18 +1223,59 @@ const Index = ({
     return [] as number[];
   }, [completedSelectionMap, selectedId, selectedWordIndices]);
 
+  const reportStudentProgressSaveFailure = (err: unknown) => {
+    console.warn("[studentAnalysisAutosave] owner_progress 저장 실패", err);
+    toast({
+      title: "분석 저장 실패",
+      description: "인터넷 연결을 확인한 뒤 같은 항목을 한 번 더 눌러주세요.",
+      variant: "destructive",
+    });
+  };
+
+  const flushStudentProgressToCloud = async () => {
+    const entries = Object.entries(progressMap).filter(([, wp]) => wp?.pos);
+    if (entries.length === 0) {
+      toast({ title: "저장할 분석이 없습니다" });
+      return;
+    }
+    setStudentSaveBusy(true);
+    try {
+      const results = await Promise.allSettled(
+        entries.map(([ownerId, wp]) => {
+          const cloudPatch = progressToCloudPatch(wp);
+          const customPatch = (customAnswers[ownerId] ?? {}) as Record<string, unknown>;
+          const merged = { ...customPatch, ...cloudPatch };
+          return upsertOwnerProgress({
+            sentence_id: sentence.id,
+            owner_id: ownerId,
+            progress: merged,
+            custom_answer: merged,
+            completed: wp.completed,
+          });
+        }),
+      );
+      const failed = results.filter((r) => r.status === "rejected");
+      if (failed.length > 0) throw new Error(`${failed.length}/${entries.length}개 저장 실패`);
+      toast({ title: "💾 저장됨", description: `분석 ${entries.length}개가 클라우드에 저장되었습니다.` });
+    } catch (err) {
+      reportStudentProgressSaveFailure(err);
+    } finally {
+      setStudentSaveBusy(false);
+    }
+  };
+
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
     setProgressMap((prev) => {
       const nextProgress = updater(prev[id] ?? emptyProgress());
-      if (studentMode && nextProgress.completed && nextProgress.pos) {
+      if (studentMode && nextProgress.pos) {
         const patch = progressToCloudPatch(nextProgress);
         void upsertOwnerProgress({
           sentence_id: sentence.id,
           owner_id: id,
           progress: patch,
           custom_answer: patch,
-          completed: true,
-        }).catch(() => {});
+          completed: nextProgress.completed,
+        }).catch(reportStudentProgressSaveFailure);
       }
       return {
         ...prev,
@@ -2632,12 +2674,13 @@ const Index = ({
             </button>
             <button
               type="button"
-              onClick={() => toast({ title: "💾 저장됨", description: "분석 진행은 자동으로 저장됩니다." })}
+              onClick={() => void flushStudentProgressToCloud()}
+              disabled={studentSaveBusy}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-primary/40 bg-primary/10 text-primary text-[11px] font-bold font-kr hover:bg-primary/20"
               title="저장 확인"
             >
               <Save className="size-3" />
-              저장
+              {studentSaveBusy ? "저장 중…" : "저장"}
             </button>
           </div>
         )}
