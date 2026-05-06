@@ -82,7 +82,7 @@ const AssignmentsPast = () => {
   const load = async () => {
     const [studs, { data }, tbs] = await Promise.all([
       fetchAllStudents(),
-      supabase.from("assignments").select("*").order("due_at", { ascending: false }),
+      supabase.from("assignments").select("*").order("created_at", { ascending: false }),
       fetchAllTextbooks(),
     ]);
     setStudents(studs);
