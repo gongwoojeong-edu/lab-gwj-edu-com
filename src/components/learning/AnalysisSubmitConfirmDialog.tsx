@@ -269,7 +269,7 @@ export const AnalysisSubmitConfirmDialog = ({
                 onOpenChange(false);
               }
             }}
-            disabled={loading || submitting}
+            disabled={submitting || (loading && !timeoutFallback)}
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "제출 →"}
           </Button>
