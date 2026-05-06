@@ -832,7 +832,7 @@ const TeacherStudents = () => {
                     <TableCell>
                       <SaveNumberInput
                         value={aPct}
-                        min={50}
+                        min={30}
                         max={100}
                         step={5}
                         suffix="%"
