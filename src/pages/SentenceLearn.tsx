@@ -526,50 +526,52 @@ const SentenceLearn = () => {
   /** 분석 → translation 전환 (다이얼로그 confirm 시) */
   const proceedToTranslation = async () => {
     if (!sentence) return;
-    // 세션 만료 사전 체크 — auth singleton 스냅샷만 확인해 Web Locks 재진입을 만들지 않는다.
-    try {
-      const auth = await waitForAuthReady(1500);
-      if (!auth.loading && !auth.user) {
-        toast({
-          title: "로그인이 풀렸어요",
-          description: "다시 로그인하면 분석한 내용 그대로 한글 해석부터 이어집니다.",
-          variant: "destructive",
-        });
-        navigate("/login");
-        return;
-      }
-    } catch {
-      /* 무시하고 계속 시도 */
-    }
-    try {
-      if (analysisHasMaster) {
-        // 마스터키 있음: 분석 일치율을 즉시 저장 → 선생님 화면에서 한글해석 전이라도 점수 확인 가능
-        await upsertSentenceProgress(sentence.id, {
-          word_test_done: true,
-          analysis_done: true,
-          analysis_match_rate: analysisRate,
-        });
-      } else {
-        // 마스터키 없음: 'hold' 상태로 저장하고 가짜 점수(학생 단어 채움률) 기록 금지.
-        // 선생님이 정답을 등록하면 추후 재채점 로직이 hold + match_rate IS NULL을 인식해 자동 채점.
-        await upsertSentenceProgress(sentence.id, {
-          word_test_done: true,
-          analysis_done: true,
-          analysis_match_rate: null,
-          status: "hold",
-        });
-        toast({
-          title: "선생님 채점 대기 중",
-          description: "정답 등록 후 자동 채점됩니다. 한글 해석을 계속 진행하세요.",
-        });
-      }
-    } catch (e) {
-      toast({ title: "진행 저장 실패", description: String(e), variant: "destructive" });
-      throw e;
-    }
+    // ⚡ 낙관적 진입: 학생 화면을 즉시 한글해석으로 전환한다.
+    // 저장(upsertSentenceProgress)은 백그라운드에서 fire-and-forget으로 처리.
+    // 이렇게 하지 않으면 네트워크가 한 번이라도 지연될 때 학생이 다이얼로그/로딩에 갇힘.
+    const sid = sentence.id;
+    const sentenceHasMaster = analysisHasMaster;
+    const rateForSave = analysisRate;
+
     setWordtestDone(true);
     setAnalysisDone(true);
     advanceFrom("analysis");
+
+    // 마스터키 없을 때만 안내 토스트(차단 아님)
+    if (!sentenceHasMaster) {
+      toast({
+        title: "선생님 채점 대기 중",
+        description: "정답 등록 후 자동 채점됩니다. 한글 해석을 계속 진행하세요.",
+      });
+    }
+
+    // 저장은 백그라운드 — 실패해도 학생 진행은 막지 않는다.
+    void (async () => {
+      try {
+        if (sentenceHasMaster) {
+          await upsertSentenceProgress(sid, {
+            word_test_done: true,
+            analysis_done: true,
+            analysis_match_rate: rateForSave,
+          });
+        } else {
+          await upsertSentenceProgress(sid, {
+            word_test_done: true,
+            analysis_done: true,
+            analysis_match_rate: null,
+            status: "hold",
+          });
+        }
+      } catch (e) {
+        console.warn("[proceedToTranslation] background save failed", e);
+        // 분석 본문 자체는 owner_progress에 이미 저장됨 → 단순 진행 플래그 저장만 실패한 상황.
+        // 잠시 후 다음 자동저장 사이클이나 다음 단계 완료 시점에 다시 기록됨.
+        toast({
+          title: "진행 상태 저장이 잠시 지연됐어요",
+          description: "한글 해석은 그대로 진행하셔도 됩니다. 곧 자동으로 다시 저장됩니다.",
+        });
+      }
+    })();
   };
 
   /** 자기 첨삭 요청 생성 */
@@ -965,7 +967,7 @@ const SentenceLearn = () => {
                     <div>
                       <div className="font-bold">{hydrationError}</div>
                       <div className="text-xs opacity-80 mt-0.5">
-                        인터넷 연결을 확인한 뒤 다시 불러오기를 눌러주세요. 작성한 분석은 클라우드에 안전하게 저장되어 있어요.
+                        잠시 후 [다시 불러오기]를 눌러주세요. 작성한 분석은 클라우드에 안전하게 저장되어 있어요.
                       </div>
                     </div>
                   </div>
