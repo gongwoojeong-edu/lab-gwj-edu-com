@@ -236,10 +236,13 @@ export const preloadAnalysisPayload = async (
   if (!passage) throw new PrintPreloadError("passage", `지문 없음: ${input.sentenceId}`);
   if (!diff) throw new PrintPreloadError("analysis", "분석 비교 실패");
 
-  // surface 채워주기
-  const units: FlatWordUnit[] = passage.tokens
-    ? buildWordUnitsFromTokens(passage.tokens)
-    : [];
+  // surface 채워주기 — tokens 가 없으면 영문에서 자동 생성(인쇄 본문 칩 누락 방지)
+  const tokensForUnits =
+    passage.tokens && passage.tokens.length > 0
+      ? passage.tokens
+      : buildTokensFromEnglish(passage.english);
+  const units: FlatWordUnit[] =
+    tokensForUnits.length > 0 ? buildWordUnitsFromTokens(tokensForUnits) : [];
   const detailsWithSurface = diff.details.map((d) => ({
     ...d,
     surface: units.length > 0 ? ownerIdToSurface(d.ownerId, units) : d.ownerId,
