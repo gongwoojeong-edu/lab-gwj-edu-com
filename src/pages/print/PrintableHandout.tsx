@@ -110,7 +110,7 @@ const PrintableHandout = () => {
     return () => {
       cancelled = true;
     };
-  }, [autoprint, embed, loading, passage]);
+  }, [autoprint, embed, loading, passage, withAnalysis]);
 
   const segments = useMemo(
     () => (passage ? buildClozeSegments(passage.tokens) : null),
