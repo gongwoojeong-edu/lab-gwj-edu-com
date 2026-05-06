@@ -352,9 +352,10 @@ const ADV_ROLES_BY_FORM: Record<AdvForm, RoleOption[]> = {
 };
 
 // 부사 form일 때만 보이는 sub-type 행
-const ADV_SUBTYPES: { key: "일반부사" | "접속부사"; label: string }[] = [
+const ADV_SUBTYPES: { key: AdvSubtype; label: string }[] = [
   { key: "일반부사", label: "일반부사" },
   { key: "접속부사", label: "접속부사" },
+  { key: "유도부사", label: "유도부사" },
 ];
 
 // ============================================================
