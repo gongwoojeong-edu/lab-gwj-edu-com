@@ -169,7 +169,7 @@ const Assignments = () => {
   const load = async () => {
     const [studs, { data }, tbs] = await Promise.all([
       fetchAllStudents(),
-      supabase.from("assignments").select("*").order("due_at", { ascending: true }),
+      supabase.from("assignments").select("*").order("created_at", { ascending: false }),
       fetchAllTextbooks(),
     ]);
     setStudents(studs);
@@ -409,7 +409,11 @@ const Assignments = () => {
         doneCount,
       });
     });
-    return out.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
+    return out.sort((a, b) => {
+      const am = Math.max(...a.rows.map((r) => new Date(r.created_at).getTime()));
+      const bm = Math.max(...b.rows.map((r) => new Date(r.created_at).getTime()));
+      return bm - am;
+    });
   }, [activeRows, students, codeToUnit, unitLabelMap, progressByAsg]);
 
   const validateForm = (f: FormState): string | null => {
