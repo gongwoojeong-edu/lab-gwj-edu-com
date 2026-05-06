@@ -1,6 +1,7 @@
 // Rewards: points, streak, and sentence pass marking.
 import { supabase } from "@/integrations/supabase/client";
 import { upsertSentenceProgress } from "@/integrations/supabase/storage";
+import { getCurrentUserId } from "@/lib/authState";
 
 export const POINTS = {
   firstPass: 10,
@@ -18,12 +19,12 @@ export interface StudentRewards {
 }
 
 export const fetchStudentRewards = async (): Promise<StudentRewards | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data } = await supabase
     .from("student_profiles")
     .select("points, current_streak, best_streak, word_test_pass_threshold")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   if (!data) return null;
   return {
@@ -47,9 +48,8 @@ export const grantPassReward = async (
   score: number,
   attemptNo: number,
 ): Promise<PassRewardResult | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
-  const userId = u.user.id;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
 
   const { data: prof } = await supabase
     .from("student_profiles")
@@ -102,7 +102,7 @@ export const grantPassReward = async (
 };
 
 export const resetStreakOnFail = async (): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return;
-  await supabase.from("student_profiles").update({ current_streak: 0 }).eq("user_id", u.user.id);
+  const userId = await getCurrentUserId();
+  if (!userId) return;
+  await supabase.from("student_profiles").update({ current_streak: 0 }).eq("user_id", userId);
 };
