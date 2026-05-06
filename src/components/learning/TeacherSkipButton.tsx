@@ -30,12 +30,16 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
+  const [pinError, setPinError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const nextPin = await fetchTeacherPin().catch(() => null);
+      const nextPin = await fetchTeacherPin().catch(() => {
+        setPinError(true);
+        return null;
+      });
       if (!mounted) return;
       setStoredPin(nextPin);
     })();
@@ -47,7 +51,11 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
   const submit = async () => {
     if (loading) return;
     setLoading(true);
-    const pinToCheck = storedPin ?? (await fetchTeacherPin().catch(() => null));
+    setPinError(false);
+    const pinToCheck = storedPin ?? (await fetchTeacherPin().catch(() => {
+      setPinError(true);
+      return null;
+    }));
     setStoredPin(pinToCheck);
     if (!pinToCheck) {
       toast({
@@ -72,7 +80,7 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
   };
 
   const checkingPin = storedPin === undefined;
-  const noPin = storedPin === null;
+  const noPin = storedPin === null && !pinError;
 
   return (
     <>
@@ -96,6 +104,8 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
             <DialogDescription>
               {noPin
                 ? "이 계정에 PIN이 설정되어 있지 않습니다. 선생님께 패스키 설정을 요청하세요."
+                : pinError
+                  ? "패스키 확인이 지연되고 있습니다. 번호를 입력한 뒤 확인을 누르세요."
                 : checkingPin
                   ? "패스키 설정을 확인하고 있습니다. 번호를 입력한 뒤 확인을 누르세요."
                 : "선생님께 PIN을 받아 입력하세요. 일치하면 이 단계가 통과 처리됩니다."}
@@ -110,7 +120,7 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
             }}
-            disabled={noPin}
+            disabled={false}
             className="text-center text-2xl tracking-[0.5em] font-mono"
             autoFocus
           />
@@ -118,7 +128,7 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
             <Button variant="outline" onClick={() => setOpen(false)}>
               취소
             </Button>
-            <Button onClick={submit} disabled={noPin || pin.length < 4 || loading}>
+            <Button onClick={submit} disabled={pin.length < 4 || loading}>
               확인
             </Button>
           </DialogFooter>
