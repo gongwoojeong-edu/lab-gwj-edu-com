@@ -2680,7 +2680,9 @@ const Index = ({
 
         {/* 학생용 미니 툴바 — embedMode + studentMode + 비교모드 아닐 때만 */}
         {embedMode && studentMode && !compareMode && (
-          <div className="flex items-center justify-end gap-1.5 mb-2">
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <KoreanHintButton korean={sentence.korean} />
+            <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setEraserMode((p) => !p)}
@@ -2714,6 +2716,7 @@ const Index = ({
               <Save className="size-3" />
               {studentSaveBusy ? "저장 중…" : "저장"}
             </button>
+            </div>
           </div>
         )}
 
