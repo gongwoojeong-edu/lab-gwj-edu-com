@@ -117,7 +117,7 @@ const SentenceLearn = () => {
     translation: true,
     wordtest: true,
   });
-  const ANALYSIS_GATE = 0.8;
+  const ANALYSIS_GATE = 0.3;
   const canAdvanceToTranslation =
     analysisMasterLoaded && (analysisDone || analysisRate >= ANALYSIS_GATE);
   const testWordResultForFinalSubmit = () => ({
@@ -416,9 +416,9 @@ const SentenceLearn = () => {
   ) => {
     if (!sentence) return;
     try {
-      // 마스터 미등록 문장은 analysisRate(전체 분석가능 owner 대비 채워진 비율)를 fallback rate로 사용 → 80% 게이트 일관 적용
+      // 마스터 미등록 문장은 analysisRate(전체 분석가능 owner 대비 채워진 비율)를 fallback rate로 사용 → 게이트 일관 적용
       const grade = await gradeAnalysis(sentence.id, { fallbackRate: analysisRate });
-      const threshold = profile?.analysis_pass_threshold ?? 0.8;
+      const threshold = profile?.analysis_pass_threshold ?? ANALYSIS_GATE;
       const rateOk = grade.rate >= threshold;
       const requiredOk = grade.requiredOwnersFilled;
       // 마스터 미등록 문장은 attempt log에서 분석 통과로 잡지 않는다(가짜 점수 누적 방지).
@@ -587,7 +587,7 @@ const SentenceLearn = () => {
       if (!track) {
         toast({
           title: "요청을 보낼 수 없어요",
-          description: "정답률 80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
+          description: "분석률 30% 이상이면 요청할 수 있어요.",
           variant: "destructive",
         });
         return;
@@ -678,7 +678,7 @@ const SentenceLearn = () => {
         </Button>
       );
     }
-    if (rate >= 0.8 && required) {
+    if (rate >= ANALYSIS_GATE && required) {
       return (
         <Button size="sm" onClick={requestAnalysisReview} disabled={requesting}>
           <ShieldCheck className="w-4 h-4 mr-1" /> 선생님분석본보기요청
@@ -699,8 +699,8 @@ const SentenceLearn = () => {
       );
     }
     return (
-      <Button size="sm" disabled variant="outline" className="text-xs" title="80% 이상 또는 미통 후 요청 가능">
-        <HelpCircle className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (80% 이상 또는 미통 후)
+      <Button size="sm" disabled variant="outline" className="text-xs" title="30% 이상 또는 미통 후 요청 가능">
+        <HelpCircle className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (30% 이상 또는 미통 후)
       </Button>
     );
   };
@@ -1024,8 +1024,8 @@ const SentenceLearn = () => {
                   : canAdvanceToTranslation
                     ? analysisHasMaster
                       ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                      : "분석을 80% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
-                    : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
+                      : "분석을 30% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
+                    : `분석을 30% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride
