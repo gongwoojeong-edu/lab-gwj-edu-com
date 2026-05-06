@@ -1275,7 +1275,7 @@ const Index = ({
   const commitPatch = (ownerId: string) => {
     const pending = pendingPatchMap[ownerId];
     if (pending && Object.keys(pending).length > 0) {
-      const next = upsertCustomAnswer(ownerId, pending, sentence.id);
+      const next = upsertCustomAnswer(ownerId, pending, sentence.id, customAnswers);
       setCustomAnswers(next);
       setPendingPatchMap((prev) => {
         const n = { ...prev };
@@ -1301,7 +1301,7 @@ const Index = ({
     let merged = customAnswers;
     entries.forEach(([ownerId, patch]) => {
       if (Object.keys(patch).length > 0) {
-        merged = upsertCustomAnswer(ownerId, patch, sentence.id);
+        merged = upsertCustomAnswer(ownerId, patch, sentence.id, merged);
       }
     });
     setCustomAnswers(merged);
