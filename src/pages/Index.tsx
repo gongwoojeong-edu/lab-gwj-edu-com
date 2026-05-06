@@ -732,12 +732,13 @@ const Index = ({
     // localStorage write를 건너뛰도록 한다(다른 학생 데이터 오염 차단).
     setLocalStorageDisabled(studentMode);
     if (studentMode) {
-      // D — 학원 공용 PC: 본인 user_id가 포함되지 않은 모든 gwj.* 잔재 키 즉시 삭제.
-      if (hydrateUserId) {
-        void import("@/lib/cacheCleanup").then(({ purgeForeignGwjKeys }) => {
-          purgeForeignGwjKeys(hydrateUserId);
-        });
-      }
+      // D(cacheCleanup) 임시 비활성화 — auth lock 충돌 우려로 보류.
+      // 학생 모드는 이미 LS 우회(setLocalStorageDisabled) 상태이므로 잔재 노출 위험은 낮음.
+      // if (hydrateUserId) {
+      //   void import("@/lib/cacheCleanup").then(({ purgeForeignGwjKeys }) => {
+      //     purgeForeignGwjKeys(hydrateUserId);
+      //   });
+      // }
       setCustomAnswers({});
       setIdiomMap({});
       setModifierMap({});
