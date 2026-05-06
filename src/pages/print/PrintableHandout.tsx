@@ -14,6 +14,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
 import { buildClozeSegments, buildStructureHint } from "@/lib/handoutCloze";
+import Index from "@/pages/Index";
 
 interface StudentInfo {
   display_name: string | null;
@@ -26,6 +27,8 @@ const PrintableHandout = () => {
   const studentId = params.get("student");
   const autoprint = params.get("autoprint") === "1";
   const embed = params.get("embed") === "1";
+  // 학생 분석본 페이지 포함 여부 (기본 ON, ?withAnalysis=0 으로 끔)
+  const withAnalysis = params.get("withAnalysis") !== "0" && Boolean(studentId);
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
@@ -82,6 +85,10 @@ const PrintableHandout = () => {
       } catch {
         /* ignore */
       }
+      // 학생 분석본 임베드 시 Index 내부 hydration 대기
+      if (withAnalysis) {
+        await new Promise((r) => window.setTimeout(r, 350));
+      }
       if (cancelled) return;
       requestAnimationFrame(() => {
         if (cancelled) return;
@@ -103,7 +110,7 @@ const PrintableHandout = () => {
     return () => {
       cancelled = true;
     };
-  }, [autoprint, embed, loading, passage]);
+  }, [autoprint, embed, loading, passage, withAnalysis]);
 
   const segments = useMemo(
     () => (passage ? buildClozeSegments(passage.tokens) : null),
@@ -227,7 +234,7 @@ const PrintableHandout = () => {
               학생: {student?.display_name ?? "_______"}{" "}
               {student?.student_no && <>({student.student_no})</>}
             </div>
-            <div className="header-meta">출력: {printedAt} · 1 / 2</div>
+            <div className="header-meta">출력: {printedAt} · 1 / {withAnalysis ? 3 : 2}</div>
           </div>
           <div className="qr-wrap">
             <QRCodeSVG value={audioUrl} size={68} level="M" />
@@ -282,7 +289,7 @@ const PrintableHandout = () => {
                 </>
               )}
             </div>
-            <div className="header-meta">출력: {printedAt} · 2 / 2</div>
+            <div className="header-meta">출력: {printedAt} · 2 / {withAnalysis ? 3 : 2}</div>
           </div>
         </div>
 
@@ -321,6 +328,61 @@ const PrintableHandout = () => {
           </div>
         </div>
       </div>
+
+      {/* ===== Page 3 ===== 학생 분석본 (수동 첨삭용) */}
+      {withAnalysis && studentId && (
+        <div className="ph-page">
+          <div className="header-row">
+            <div className="header-info">
+              <div className="header-eyebrow">Gongwoojeong · Student Analysis</div>
+              <div className="header-title">공우정바른학원 · 학생 분석본 (첨삭용)</div>
+              <div className="header-meta">
+                {passage.code}
+                {student?.display_name && (
+                  <> · {student.display_name} ({student.student_no})</>
+                )}
+              </div>
+              <div className="header-meta">출력: {printedAt} · 3 / 3</div>
+            </div>
+          </div>
+
+          <div className="ph-section" style={{ flex: "0 0 auto" }}>
+            <div className="ph-section-title">
+              ⑥ 학생 분석 결과
+              <span className="hint">학생이 학습 중 입력한 분석 그대로</span>
+            </div>
+            <div
+              style={{
+                border: "0.5pt solid #000",
+                borderRadius: "2mm",
+                padding: "3mm",
+                lineHeight: 2.4,
+                background: "white",
+              }}
+            >
+              <Index
+                embedMode
+                studentMode={false}
+                embedSentenceId={passage.code}
+                hydrateUserId={studentId}
+                compareMode
+              />
+            </div>
+          </div>
+
+          <div className="ph-section" style={{ flex: "1 1 auto" }}>
+            <div className="ph-section-title">⑦ 첨삭 메모</div>
+            <div
+              className="ph-grid"
+              style={{
+                minHeight: "70mm",
+                backgroundImage:
+                  "repeating-linear-gradient(to bottom, transparent 0, transparent 8mm, #999 8mm, #999 calc(8mm + 0.3pt))",
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
