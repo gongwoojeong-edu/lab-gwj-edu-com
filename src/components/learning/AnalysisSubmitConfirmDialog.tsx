@@ -52,21 +52,35 @@ export const AnalysisSubmitConfirmDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const [grade, setGrade] = useState<AnalysisGradeResult | null>(null);
   const [showDiff, setShowDiff] = useState(false);
+  // 🚨 임시방편: supabase auth lock 충돌로 gradeAnalysis가 무한대기할 때 학생이 갇히지 않도록
+  // 5초 후 강제로 [제출 →] 버튼을 활성화한다. (채점 실패해도 진행 허용)
+  const [timeoutFallback, setTimeoutFallback] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setTimeoutFallback(false);
+      return;
+    }
     let mounted = true;
     setLoading(true);
     setShowDiff(false);
+    setTimeoutFallback(false);
+    const tid = window.setTimeout(() => {
+      if (mounted) setTimeoutFallback(true);
+    }, 5000);
     gradeAnalysis(sentenceId, { fallbackRate: wordAnalysisRate })
       .then((g) => {
         if (mounted) setGrade(g);
+      })
+      .catch((e) => {
+        console.warn("[AnalysisSubmitConfirmDialog] gradeAnalysis failed", e);
       })
       .finally(() => {
         if (mounted) setLoading(false);
       });
     return () => {
       mounted = false;
+      window.clearTimeout(tid);
     };
   }, [open, sentenceId, wordAnalysisRate]);
 
@@ -103,9 +117,25 @@ export const AnalysisSubmitConfirmDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        {loading || !grade ? (
+        {(loading || !grade) && !timeoutFallback ? (
           <div className="py-10 flex items-center justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          </div>
+        ) : !grade ? (
+          <div className="space-y-3 py-4">
+            <div className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900 dark:text-amber-100">
+              <div className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4" /> 채점 결과를 불러오지 못했어요
+              </div>
+              <div className="text-xs opacity-80 mt-1">
+                네트워크가 느리거나 일시적인 오류입니다. 분석한 내용은 이미 저장되어 있으니
+                바로 한글 해석으로 넘어가도 괜찮아요.
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              현재 분석률(단어 기준): <span className="font-mono font-bold">{Math.round((wordAnalysisRate ?? 0) * 100)}%</span>
+              {analyzableTotal ? ` · ${analyzedFilled ?? 0}/${analyzableTotal}` : null}
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -239,7 +269,7 @@ export const AnalysisSubmitConfirmDialog = ({
                 onOpenChange(false);
               }
             }}
-            disabled={loading || submitting}
+            disabled={submitting || (loading && !timeoutFallback)}
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "제출 →"}
           </Button>
