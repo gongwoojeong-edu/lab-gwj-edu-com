@@ -208,7 +208,7 @@ const ADJ_FORMS: { key: AdjForm; circle: string; label: string }[] = [
   { key: "to V", circle: "⑥", label: "to V" },
   { key: "V-ing/PP", circle: "⑨", label: "V-ing/PP" },
   { key: "접SV", circle: "⑫", label: "접SV" },
-  { key: "전N", circle: "⑭", label: "전N" },
+  // "전N"은 Layer02에서 제거 — [수식 대상 지정] 옆에 단축 버튼으로 이동
 ];
 
 // LAYER 02: 부사 형태
