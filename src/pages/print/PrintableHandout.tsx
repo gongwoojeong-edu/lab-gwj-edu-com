@@ -85,6 +85,10 @@ const PrintableHandout = () => {
       } catch {
         /* ignore */
       }
+      // 학생 분석본 임베드 시 Index 내부 hydration 대기
+      if (withAnalysis) {
+        await new Promise((r) => window.setTimeout(r, 350));
+      }
       if (cancelled) return;
       requestAnimationFrame(() => {
         if (cancelled) return;
