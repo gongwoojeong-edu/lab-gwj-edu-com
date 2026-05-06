@@ -2,6 +2,7 @@
 // analysisReview.ts — 자기 첨삭(정답 대조) 요청 CRUD + 트랙 판정 + 실시간 구독
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 
 export type ReviewStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ReviewTrack = "normal" | "fail_assist";
@@ -41,12 +42,12 @@ export const fetchOpenRequest = async (
   sentenceId: string,
   attemptNo: number,
 ): Promise<AnalysisReviewRequest | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data } = await supabase
     .from("analysis_review_requests")
     .select("*")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .eq("sentence_id", sentenceId)
     .eq("attempt_no", attemptNo)
     .in("status", ["pending", "approved"])
@@ -64,12 +65,12 @@ export const createReviewRequest = async (input: {
   required_filled: boolean;
   track: ReviewTrack;
 }): Promise<AnalysisReviewRequest | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data, error } = await supabase
     .from("analysis_review_requests")
     .insert({
-      user_id: u.user.id,
+      user_id: userId,
       sentence_id: input.sentence_id,
       attempt_no: input.attempt_no,
       analysis_rate: input.analysis_rate,
