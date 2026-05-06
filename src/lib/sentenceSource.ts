@@ -104,7 +104,7 @@ const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => {
 const hydratedKeys = new Set<string>();
 
 /** sessionStorage 캐시 키 prefix. 스키마 바뀌면 v숫자 올려서 무효화. */
-const SS_PREFIX = "lab.sentenceMeta.v1.";
+const SS_PREFIX = "lab.sentenceMeta.v2.";
 
 /** sessionStorage TTL — 30분. 너무 오래 들고 있으면 신선도 ↓ */
 const SS_TTL_MS = 30 * 60 * 1000;
