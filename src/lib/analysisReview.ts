@@ -30,9 +30,9 @@ export const decideTrack = (input: {
   requiredFilled: boolean;
   sentenceStatus: "pending" | "pass" | "fail" | "hold";
 }): ReviewTrack | null => {
-  if (input.rate >= 0.8 && input.requiredFilled) return "normal";
+  if (input.rate >= 0.3 && input.requiredFilled) return "normal";
   if (input.rate >= 0.5 && input.sentenceStatus === "fail") return "fail_assist";
-  if (input.rate >= 0.5 && input.sentenceStatus === "hold") return "normal";
+  if (input.rate >= 0.3 && input.sentenceStatus === "hold") return "normal";
   return null;
 };
 
