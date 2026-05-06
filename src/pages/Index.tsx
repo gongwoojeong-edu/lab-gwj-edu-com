@@ -995,13 +995,15 @@ const Index = ({
     if (isMobile && selectedId) setDrawerOpen(true);
   }, [isMobile, selectedId]);
 
-  const analyzableIds = useMemo(
-    () =>
-      sentence.tokens
-        .filter((t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> => t.type === "analyzable")
-        .map((t) => t.id),
-    [sentence],
-  );
+  const analyzableIds = useMemo(() => {
+    const tokenIds = sentence.tokens
+      .filter((t): t is Extract<typeof sentence.tokens[number], { type: "analyzable" }> => t.type === "analyzable")
+      .map((t) => t.id);
+    if (tokenIds.length > 0) return tokenIds;
+    return wordUnits
+      .map((unit) => unit.tokenId)
+      .filter((id): id is string => !!id);
+  }, [sentence, wordUnits]);
 
   const OWNER_KEY_SEPARATOR = "::";
   const SPAN_PREFIX = "span";

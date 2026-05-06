@@ -7,10 +7,20 @@ import { supabase } from "./client";
 const getUserId = async (): Promise<string | null> => {
   try {
     const { data } = await supabase.auth.getUser();
-    return data.user?.id ?? null;
+    if (data.user?.id) return data.user.id;
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData.session?.user.id ?? null;
   } catch {
     return null;
   }
+};
+
+const requireUserId = async (): Promise<string> => {
+  const userId = await getUserId();
+  if (!userId) {
+    throw new Error("로그인이 확인되지 않아 저장할 수 없습니다. 다시 로그인해 주세요.");
+  }
+  return userId;
 };
 
 // ---------- sentence_progress ----------
@@ -41,7 +51,7 @@ export const upsertSentenceProgress = async (
   sentenceId: string,
   patch: Partial<Omit<SentenceProgressRow, "sentence_id">> & { touchActivity?: boolean },
 ): Promise<void> => {
-  const userId = await getUserId();
+  const userId = await requireUserId();
   const existing = await fetchSentenceProgress(sentenceId);
   const { touchActivity, ...rest } = patch;
   const next: Record<string, unknown> = {
@@ -106,8 +116,7 @@ export interface AttemptLogRow {
 }
 
 export const insertAttemptLog = async (input: AttemptLogInput): Promise<void> => {
-  const userId = await getUserId();
-  if (!userId) return;
+  const userId = await requireUserId();
   const payload = {
     user_id: userId,
     sentence_id: input.sentence_id,
@@ -170,7 +179,7 @@ export const fetchOwnerProgressForSentence = async (
 };
 
 export const upsertOwnerProgress = async (row: OwnerProgressRow): Promise<void> => {
-  const userId = await getUserId();
+  const userId = await requireUserId();
   const payload = { user_id: userId, ...row } as never;
   const { error } = await supabase.from("owner_progress").upsert(payload, { onConflict: "user_id,sentence_id,owner_id" });
   if (error) throw error;
