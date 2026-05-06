@@ -52,21 +52,35 @@ export const AnalysisSubmitConfirmDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const [grade, setGrade] = useState<AnalysisGradeResult | null>(null);
   const [showDiff, setShowDiff] = useState(false);
+  // 🚨 임시방편: supabase auth lock 충돌로 gradeAnalysis가 무한대기할 때 학생이 갇히지 않도록
+  // 5초 후 강제로 [제출 →] 버튼을 활성화한다. (채점 실패해도 진행 허용)
+  const [timeoutFallback, setTimeoutFallback] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setTimeoutFallback(false);
+      return;
+    }
     let mounted = true;
     setLoading(true);
     setShowDiff(false);
+    setTimeoutFallback(false);
+    const tid = window.setTimeout(() => {
+      if (mounted) setTimeoutFallback(true);
+    }, 5000);
     gradeAnalysis(sentenceId, { fallbackRate: wordAnalysisRate })
       .then((g) => {
         if (mounted) setGrade(g);
+      })
+      .catch((e) => {
+        console.warn("[AnalysisSubmitConfirmDialog] gradeAnalysis failed", e);
       })
       .finally(() => {
         if (mounted) setLoading(false);
       });
     return () => {
       mounted = false;
+      window.clearTimeout(tid);
     };
   }, [open, sentenceId, wordAnalysisRate]);
 
