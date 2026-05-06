@@ -2674,12 +2674,13 @@ const Index = ({
             </button>
             <button
               type="button"
-              onClick={() => toast({ title: "💾 저장됨", description: "분석 진행은 자동으로 저장됩니다." })}
+              onClick={() => void flushStudentProgressToCloud()}
+              disabled={studentSaveBusy}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-primary/40 bg-primary/10 text-primary text-[11px] font-bold font-kr hover:bg-primary/20"
               title="저장 확인"
             >
               <Save className="size-3" />
-              저장
+              {studentSaveBusy ? "저장 중…" : "저장"}
             </button>
           </div>
         )}
