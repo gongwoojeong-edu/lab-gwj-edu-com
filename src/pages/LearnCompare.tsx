@@ -5,7 +5,7 @@
 // ============================================================
 import { useEffect, useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 import AnalysisCompare from "@/pages/teacher/AnalysisCompare";
 
 const LearnCompare = () => {
@@ -13,7 +13,13 @@ const LearnCompare = () => {
   const [uid, setUid] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null));
+    let cancelled = false;
+    getCurrentUserId().then((userId) => {
+      if (!cancelled) setUid(userId);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!sentenceId) return <Navigate to="/learn" replace />;

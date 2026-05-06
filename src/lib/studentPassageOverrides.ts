@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 
 export interface StudentPassageOverride {
   user_id: string;
@@ -22,12 +23,12 @@ export const fetchOverridesForStudent = async (
 export const fetchMyOverrideForSentence = async (
   sentenceId: string,
 ): Promise<StudentPassageOverride | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data } = await supabase
     .from("student_passage_overrides")
     .select("user_id, sentence_id, skip_pre")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .eq("sentence_id", sentenceId)
     .maybeSingle();
   return (data as StudentPassageOverride) ?? null;
@@ -39,7 +40,7 @@ export const upsertSkipPre = async (
   sentenceId: string,
   skipPre: boolean,
 ): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const currentUserId = await getCurrentUserId();
   const { error } = await supabase
     .from("student_passage_overrides")
     .upsert(
@@ -47,7 +48,7 @@ export const upsertSkipPre = async (
         user_id: userId,
         sentence_id: sentenceId,
         skip_pre: skipPre,
-        created_by: u.user?.id ?? null,
+        created_by: currentUserId,
       },
       { onConflict: "user_id,sentence_id" },
     );

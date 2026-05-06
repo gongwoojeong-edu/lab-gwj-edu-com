@@ -4,7 +4,7 @@
 // 매우 자주 호출되므로 모듈 단위 캐시를 둔다.
 // ============================================================
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { subscribeAuthState } from "@/lib/authState";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
 import { fetchLevelLabels, type LevelLabelMap } from "@/lib/textbooks";
 
@@ -81,6 +81,6 @@ export const useLevelLabels = (): {
 };
 
 // 인증 변경 시 캐시 초기화 (다른 사용자 로그인 대비)
-supabase.auth.onAuthStateChange(() => {
+subscribeAuthState(() => {
   cache = null;
 });

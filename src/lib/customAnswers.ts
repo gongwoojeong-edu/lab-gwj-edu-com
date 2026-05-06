@@ -8,7 +8,7 @@
 //   다른 키를 읽으므로 정답 라벨/배지가 절대 새지 않는다.
 // ============================================================
 import type { WordAnswer } from "@/data/sentences";
-import { supabase } from "@/integrations/supabase/client";
+import { ensureAuthStarted, getAuthSnapshot, subscribeAuthState } from "@/lib/authState";
 import {
   upsertOwnerProgress,
   deleteOwnerProgress,
@@ -55,14 +55,9 @@ const savedOwnersKey = () => computeKey(SAVED_OWNERS_PREFIX);
 
 // auth 변경 시 캐시 갱신 + 다른 user 키로 전환되도록.
 if (typeof window !== "undefined") {
-  // 초기값
-  void supabase.auth.getUser().then(({ data }) => {
-    setCachedUserId(data.user?.id ?? null);
-  });
-  // 로그인/로그아웃 추적
-  supabase.auth.onAuthStateChange((_evt, session) => {
-    setCachedUserId(session?.user?.id ?? null);
-  });
+  ensureAuthStarted();
+  setCachedUserId(getAuthSnapshot().user?.id ?? null);
+  subscribeAuthState(() => setCachedUserId(getAuthSnapshot().user?.id ?? null));
   // legacy 키 정리 (v1 — user 분리 없는 키는 정답 누수 위험)
   try {
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);

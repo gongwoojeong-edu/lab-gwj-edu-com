@@ -2,6 +2,7 @@
 // analysisGrading.ts — 학생 owner_progress vs 원장(admin) 마스터키 비교
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 
 interface AnyProgress {
   pos: string | null;
@@ -150,9 +151,9 @@ export const fetchMasterAnswers = async (
 export const fetchStudentAnswers = async (
   sentenceId: string,
 ): Promise<Record<string, AnyProgress>> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return {};
-  return fetchStudentAnswersByUserId(sentenceId, u.user.id);
+  const userId = await getCurrentUserId();
+  if (!userId) return {};
+  return fetchStudentAnswersByUserId(sentenceId, userId);
 };
 
 /** 특정 학생(userId)의 owner_progress 조회 — 선생님 검토 화면용. RLS op2_select 가 teacher/admin 허용. */

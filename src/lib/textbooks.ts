@@ -8,6 +8,7 @@
 // 모든 변경은 선생님/관리자(RLS)만 가능.
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 import type { LevelCode } from "@/lib/levels";
 import type { SentenceToken } from "@/data/sentences";
 
@@ -113,7 +114,7 @@ export const createSeries = async (input: {
   title: string;
   description?: string;
 }): Promise<Series> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("textbook_series")
     .insert({
@@ -121,7 +122,7 @@ export const createSeries = async (input: {
       series_no: input.series_no,
       title: input.title,
       description: input.description ?? null,
-      created_by: u.user?.id ?? null,
+      created_by: userId,
     })
     .select("*")
     .single();
@@ -192,7 +193,7 @@ export const createTextbook = async (input: {
   title: string;
   description?: string;
 }): Promise<Textbook> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("textbooks")
     .insert({
@@ -203,7 +204,7 @@ export const createTextbook = async (input: {
       volume_no: input.volume_no,
       title: input.title,
       description: input.description ?? null,
-      created_by: u.user?.id ?? null,
+      created_by: userId,
     })
     .select("*")
     .single();
@@ -271,7 +272,7 @@ export const createUnit = async (input: {
   title: string;
   description?: string;
 }): Promise<Unit> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("textbook_units")
     .insert({
@@ -279,7 +280,7 @@ export const createUnit = async (input: {
       unit_no: input.unit_no,
       title: input.title,
       description: input.description ?? null,
-      created_by: u.user?.id ?? null,
+      created_by: userId,
     })
     .select("*")
     .single();
@@ -697,14 +698,14 @@ export const fetchLevelLabels = async (): Promise<LevelLabelMap> => {
 
 /** 단일 레벨 라벨 upsert */
 export const upsertLevelLabel = async (level: string, label: string): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("level_labels")
     .upsert(
       {
         level,
         label,
-        updated_by: u.user?.id ?? null,
+        updated_by: userId,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "level" },

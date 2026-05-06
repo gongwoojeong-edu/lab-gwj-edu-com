@@ -2,6 +2,7 @@
 // analysisReview.ts — 자기 첨삭(정답 대조) 요청 CRUD + 트랙 판정 + 실시간 구독
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 
 export type ReviewStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ReviewTrack = "normal" | "fail_assist";
@@ -41,12 +42,12 @@ export const fetchOpenRequest = async (
   sentenceId: string,
   attemptNo: number,
 ): Promise<AnalysisReviewRequest | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data } = await supabase
     .from("analysis_review_requests")
     .select("*")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .eq("sentence_id", sentenceId)
     .eq("attempt_no", attemptNo)
     .in("status", ["pending", "approved"])
@@ -64,12 +65,12 @@ export const createReviewRequest = async (input: {
   required_filled: boolean;
   track: ReviewTrack;
 }): Promise<AnalysisReviewRequest | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data, error } = await supabase
     .from("analysis_review_requests")
     .insert({
-      user_id: u.user.id,
+      user_id: userId,
       sentence_id: input.sentence_id,
       attempt_no: input.attempt_no,
       analysis_rate: input.analysis_rate,
@@ -93,13 +94,13 @@ export const cancelReviewRequest = async (id: string): Promise<void> => {
 
 /** 선생님: 요청 승인 */
 export const approveReviewRequest = async (id: string, note?: string): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   await supabase
     .from("analysis_review_requests")
     .update({
       status: "approved",
       responded_at: new Date().toISOString(),
-      responded_by: u.user?.id ?? null,
+      responded_by: userId,
       response_note: note ?? null,
     })
     .eq("id", id);
@@ -107,13 +108,13 @@ export const approveReviewRequest = async (id: string, note?: string): Promise<v
 
 /** 선생님: 요청 거절 */
 export const rejectReviewRequest = async (id: string, note?: string): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   await supabase
     .from("analysis_review_requests")
     .update({
       status: "rejected",
       responded_at: new Date().toISOString(),
-      responded_by: u.user?.id ?? null,
+      responded_by: userId,
       response_note: note ?? null,
     })
     .eq("id", id);
@@ -166,7 +167,7 @@ export const fetchInboxReviewRequests = async (): Promise<AnalysisReviewRequest[
 /** 선생님: 모든 pending 일괄 승인 */
 export const approveAllPending = async (): Promise<number> => {
   const list = await fetchPendingRequests();
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   if (list.length === 0) return 0;
   const ids = list.map((r) => r.id);
   await supabase
@@ -174,7 +175,7 @@ export const approveAllPending = async (): Promise<number> => {
     .update({
       status: "approved",
       responded_at: new Date().toISOString(),
-      responded_by: u.user?.id ?? null,
+      responded_by: userId,
     })
     .in("id", ids);
   return ids.length;

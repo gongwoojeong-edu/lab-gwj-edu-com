@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
@@ -113,7 +114,13 @@ const LearningResults = () => {
   } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
+    let cancelled = false;
+    getCurrentUserId().then((userId) => {
+      if (!cancelled) setTeacherId(userId);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 인쇄대기열에서 인쇄 완료된 행도 실시간 반영
@@ -579,16 +586,16 @@ const LearningResults = () => {
     setPrintedSet((p) => ({ ...p, [stateKey]: nowIso }));
     // 3) 백그라운드 처리: print_requests 로깅 + handout 행 보장
     try {
-      const { data: u } = await supabase.auth.getUser();
+      const currentTeacherId = await getCurrentUserId();
       supabase
         .from("print_requests")
         .insert({
           user_id: userId,
           sentence_id: sentenceId,
-          teacher_id: u.user?.id ?? null,
+          teacher_id: currentTeacherId,
           status: "printed",
           handled_at: nowIso,
-          handled_by: u.user?.id ?? null,
+          handled_by: currentTeacherId,
           note: "teacher-print",
         })
         .then(({ error }) => {
@@ -596,7 +603,7 @@ const LearningResults = () => {
         });
       const row = await ensureHandoutRow(
         userId,
-        u.user?.id ?? null,
+        currentTeacherId,
         toIsoDate(new Date()),
         sentenceId,
       );
@@ -633,12 +640,12 @@ const LearningResults = () => {
         });
       }
       // 2) assignments 에 [재시험] 행 insert (학생 홈 특별과제로 노출)
-      const { data: u } = await supabase.auth.getUser();
-      if (u.user?.id) {
+      const currentTeacherId = await getCurrentUserId();
+      if (currentTeacherId) {
         const due = new Date();
         due.setDate(due.getDate() + 1);
         await supabase.from("assignments").insert({
-          teacher_id: u.user.id,
+          teacher_id: currentTeacherId,
           student_id: userId,
           sentence_id: sentenceId,
           title: `[재시험] ${sentenceId}`,
@@ -737,17 +744,17 @@ const LearningResults = () => {
     const nowIso = new Date().toISOString();
     setPrintedSet((p) => ({ ...p, [`${userId}::${sentenceId}`]: nowIso }));
     try {
-      const { data: u } = await supabase.auth.getUser();
+      const currentTeacherId = await getCurrentUserId();
       // print_requests insert 실패는 사용자에게 노출하지 않음 (인쇄 자체는 성공)
       supabase
         .from("print_requests")
         .insert({
           user_id: userId,
           sentence_id: sentenceId,
-          teacher_id: u.user?.id ?? null,
+          teacher_id: currentTeacherId,
           status: "printed",
           handled_at: nowIso,
-          handled_by: u.user?.id ?? null,
+          handled_by: currentTeacherId,
           note: `teacher-print-word-${scope}`,
         })
         .then(({ error }) => {
@@ -755,7 +762,7 @@ const LearningResults = () => {
         });
       const row = await ensureHandoutRow(
         userId,
-        u.user?.id ?? null,
+        currentTeacherId,
         toIsoDate(new Date()),
         sentenceId,
       );

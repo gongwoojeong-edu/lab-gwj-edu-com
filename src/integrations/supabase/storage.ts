@@ -3,16 +3,10 @@
 // Anonymous-friendly: user_id is null when not logged in.
 // ============================================================
 import { supabase } from "./client";
+import { getCurrentUserId } from "@/lib/authState";
 
 const getUserId = async (): Promise<string | null> => {
-  try {
-    const { data } = await supabase.auth.getUser();
-    if (data.user?.id) return data.user.id;
-    const { data: sessionData } = await supabase.auth.getSession();
-    return sessionData.session?.user.id ?? null;
-  } catch {
-    return null;
-  }
+  return getCurrentUserId();
 };
 
 const requireUserId = async (): Promise<string> => {

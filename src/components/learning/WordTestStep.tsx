@@ -23,6 +23,8 @@ import { fetchStudentRewards, grantPassReward, resetStreakOnFail } from "@/lib/r
 import { WordPreStep } from "@/components/learning/WordPreStep";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 
 interface Props {
   sentenceId: string;
@@ -71,14 +73,13 @@ export const WordTestStep = ({ sentenceId, entries, onPassed, onTestCompleted, o
       const a = await fetchWordTestAttemptCount(sentenceId);
       const passed = await fetchPassedWordTestModes(sentenceId);
       // 학생 시간제한 로드
-      const { data: u } = await import("@/integrations/supabase/client").then((m) => m.supabase.auth.getUser());
+      const userId = await getCurrentUserId();
       let limit = 20;
-      if (u.user) {
-        const { supabase } = await import("@/integrations/supabase/client");
+      if (userId) {
         const { data } = await supabase
           .from("student_profiles")
           .select("word_test_time_limit_sec")
-          .eq("user_id", u.user.id)
+          .eq("user_id", userId)
           .maybeSingle();
         limit = Number((data as { word_test_time_limit_sec?: number } | null)?.word_test_time_limit_sec ?? 20);
       }
