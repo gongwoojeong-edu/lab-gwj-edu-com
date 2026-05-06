@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AnalysisPanel,
@@ -146,6 +146,8 @@ type WordProgress = {
   verb: VerbProgress;
   completed: boolean;
 };
+
+type FlushAnalysisResult = { total: number; saved: number; failed: number };
 
 type AnalyzableToken = Extract<(typeof SENTENCES)[number]["tokens"][number], { type: "analyzable" }>;
 
@@ -447,6 +449,8 @@ interface IndexProps {
    * retry: 외부에서 재hydrate를 트리거하기 위한 함수 ID — 동일 sentence/user 한정.
    */
   onHydrationError?: (info: { message: string }) => void;
+  /** 학생 분석 화면을 벗어나기 직전 현재 메모리 상태를 클라우드에 강제 저장한다. */
+  onFlushStudentProgress?: ((flush: (() => Promise<FlushAnalysisResult>) | null) => void);
   /**
    * 외부에서 클라우드 hydrate를 강제로 다시 실행하기 위한 nonce.
    * 값이 바뀔 때마다 hydrate effect가 재실행된다.
@@ -468,6 +472,7 @@ const Index = ({
   onOwnerToggle,
   showStaffToolbar = false,
   onHydrationError,
+  onFlushStudentProgress,
   reloadNonce = 0,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
