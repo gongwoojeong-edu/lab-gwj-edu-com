@@ -35,6 +35,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 import { toast } from "@/hooks/use-toast";
 import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
 import {
@@ -438,8 +439,8 @@ const Assignments = () => {
     }
     setSaving(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("로그인이 필요합니다");
+      const teacherId = await getCurrentUserId();
+      if (!teacherId) throw new Error("로그인이 필요합니다");
       const endOfDay = new Date(form.dueDate!);
       endOfDay.setHours(23, 59, 59, 999);
       // studentIds 가 비어있으면 [null] (전체학생 1건), 아니면 각 학생별 1건씩
@@ -473,7 +474,7 @@ const Assignments = () => {
 
       const rowsToInsert = targets.flatMap((sid) =>
         passageCodes.map((code) => ({
-          teacher_id: u.user!.id,
+          teacher_id: teacherId,
           student_id: sid,
           title: form.title.trim(),
           description: form.description.trim() || null,
