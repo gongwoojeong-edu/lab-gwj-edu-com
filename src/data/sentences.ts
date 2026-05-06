@@ -34,7 +34,7 @@ export interface AdjAnswer {
 
 // ---- 부사 ----
 export type AdvForm = "부사" | "to V" | "ing/pp" | "접SV" | "전N";
-export type AdvSubtype = "일반부사" | "접속부사";
+export type AdvSubtype = "일반부사" | "접속부사" | "유도부사";
 
 export interface AdvAnswer {
   pos: "부사";
