@@ -2716,6 +2716,7 @@ const Index = ({
               <Save className="size-3" />
               {studentSaveBusy ? "저장 중…" : "저장"}
             </button>
+            </div>
           </div>
         )}
 
