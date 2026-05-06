@@ -324,6 +324,61 @@ const PrintableHandout = () => {
           </div>
         </div>
       </div>
+
+      {/* ===== Page 3 ===== 학생 분석본 (수동 첨삭용) */}
+      {withAnalysis && studentId && (
+        <div className="ph-page">
+          <div className="header-row">
+            <div className="header-info">
+              <div className="header-eyebrow">Gongwoojeong · Student Analysis</div>
+              <div className="header-title">공우정바른학원 · 학생 분석본 (첨삭용)</div>
+              <div className="header-meta">
+                {passage.code}
+                {student?.display_name && (
+                  <> · {student.display_name} ({student.student_no})</>
+                )}
+              </div>
+              <div className="header-meta">출력: {printedAt} · 3 / 3</div>
+            </div>
+          </div>
+
+          <div className="ph-section" style={{ flex: "0 0 auto" }}>
+            <div className="ph-section-title">
+              ⑥ 학생 분석 결과
+              <span className="hint">학생이 학습 중 입력한 분석 그대로</span>
+            </div>
+            <div
+              style={{
+                border: "0.5pt solid #000",
+                borderRadius: "2mm",
+                padding: "3mm",
+                lineHeight: 2.4,
+                background: "white",
+              }}
+            >
+              <Index
+                embedMode
+                studentMode={false}
+                embedSentenceId={passage.code}
+                hydrateUserId={studentId}
+                compareMode
+              />
+            </div>
+          </div>
+
+          <div className="ph-section" style={{ flex: "1 1 auto" }}>
+            <div className="ph-section-title">⑦ 첨삭 메모</div>
+            <div
+              className="ph-grid"
+              style={{
+                minHeight: "70mm",
+                backgroundImage:
+                  "repeating-linear-gradient(to bottom, transparent 0, transparent 8mm, #999 8mm, #999 calc(8mm + 0.3pt))",
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
