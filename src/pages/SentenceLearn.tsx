@@ -1068,11 +1068,6 @@ const SentenceLearn = () => {
           wordAnalysisRate={analysisRate}
         />
 
-        {/* unused-old-marker */}
-        {false && (
-          <div>{null}</div>
-        )}
-
         {step === "wordtest" && skipFlags.wordtest && (
           <WordTestStep
             sentenceId={sentence.id}
