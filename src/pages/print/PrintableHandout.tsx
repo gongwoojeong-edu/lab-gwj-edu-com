@@ -27,6 +27,8 @@ const PrintableHandout = () => {
   const studentId = params.get("student");
   const autoprint = params.get("autoprint") === "1";
   const embed = params.get("embed") === "1";
+  // 학생 분석본 페이지 포함 여부 (기본 ON, ?withAnalysis=0 으로 끔)
+  const withAnalysis = params.get("withAnalysis") !== "0" && Boolean(studentId);
 
   const [passage, setPassage] = useState<Passage | null>(null);
   const [student, setStudent] = useState<StudentInfo | null>(null);
