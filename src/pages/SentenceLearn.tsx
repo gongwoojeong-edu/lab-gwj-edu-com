@@ -60,6 +60,7 @@ import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
 
 type Step = "pre" | "wordtest" | "analysis" | "translation";
 
@@ -192,6 +193,7 @@ const SentenceLearn = () => {
         window.history.replaceState({}, "", url.toString());
       }
 
+      const currentUserId = await getCurrentUserId();
       const [prog, extraction, owners, prof, logs, attemptCnt, assignRes, overrideRes] = await Promise.all([
         fetchSentenceProgress(found.id),
         fetchExtraction(found.id),
@@ -201,13 +203,12 @@ const SentenceLearn = () => {
         fetchAttemptCount(found.id),
         // 활성 특별과제 lookup (해당 sentence + 마감 미경과 + 본인 또는 전체 대상) — 가장 임박 1건
         (async () => {
-          const { data: u } = await supabase.auth.getUser();
-          if (!u.user) return null;
+          if (!currentUserId) return null;
           const { data } = await supabase
             .from("assignments")
             .select("include_pre, include_analysis, include_translation, include_wordtest")
             .eq("sentence_id", found.id)
-            .or(`student_id.eq.${u.user.id},student_id.is.null`)
+            .or(`student_id.eq.${currentUserId},student_id.is.null`)
             .gte("due_at", new Date().toISOString())
             .order("due_at", { ascending: true })
             .limit(1)
@@ -307,7 +308,7 @@ const SentenceLearn = () => {
         .from("word_test_results")
         .select("passed, mode")
         .eq("sentence_id", found.id)
-        .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
+        .eq("user_id", currentUserId ?? "")
         .eq("passed", true);
       const passedModes = new Set(((wordTestPassedRow.data ?? []) as { mode: string }[]).map((r) => r.mode));
       const wordtestAllPassed = passedModes.has("spell") && passedModes.has("meaning") && passedModes.has("mixed");
@@ -525,15 +526,10 @@ const SentenceLearn = () => {
   /** 분석 → translation 전환 (다이얼로그 confirm 시) */
   const proceedToTranslation = async () => {
     if (!sentence) return;
-    // 세션 만료 사전 체크 — 단, supabase auth lock이 점유돼 getSession()이 무한대기하면
-    // 학생이 영영 못 넘어가므로 1.5초 timeout으로 race. 만료 확인이 늦어지면 그냥 진행한다.
+    // 세션 만료 사전 체크 — auth singleton 스냅샷만 확인해 Web Locks 재진입을 만들지 않는다.
     try {
-      const sesPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise<{ data: { session: unknown } | null }>((resolve) =>
-        window.setTimeout(() => resolve({ data: { session: "unknown" } }), 1500),
-      );
-      const ses = (await Promise.race([sesPromise, timeoutPromise])) as { data?: { session?: unknown } } | null;
-      if (ses && ses.data && ses.data.session === null) {
+      const auth = await waitForAuthReady(1500);
+      if (!auth.loading && !auth.user) {
         toast({
           title: "로그인이 풀렸어요",
           description: "다시 로그인하면 분석한 내용 그대로 한글 해석부터 이어집니다.",
