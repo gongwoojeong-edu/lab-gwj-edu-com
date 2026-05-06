@@ -1191,6 +1191,16 @@ const AdjPanel = ({
                   role: opt,
                   display: opt,
                 });
+              } else {
+                // grouped { header, items } — flatten with "header·item" display
+                opt.items.forEach((item) => {
+                  const role = `${opt.header} ${item}`;
+                  buttons.push({
+                    element: skipsEl ? null : inferElementForAdj(item),
+                    role,
+                    display: `${opt.header}·${item}`,
+                  });
+                });
               }
             });
 
