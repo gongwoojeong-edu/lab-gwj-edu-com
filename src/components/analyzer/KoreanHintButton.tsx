@@ -40,6 +40,8 @@ export const KoreanHintButton = ({ korean, durationMs = 5000 }: KoreanHintButton
     }, durationMs);
   };
 
+  const hasKorean = !!korean && korean.trim().length > 0;
+
   return (
     <div className="flex items-center gap-3 min-h-[28px]">
       <button
@@ -56,7 +58,7 @@ export const KoreanHintButton = ({ korean, durationMs = 5000 }: KoreanHintButton
         {hintEnabled ? <Eye className="size-3" /> : <Lock className="size-3" />}
         {hintEnabled ? "한글 힌트" : "힌트 잠금"}
       </button>
-      {shown && (
+      {shown && hasKorean && (
         <p
           className={cn(
             "text-xs text-muted-foreground font-kr transition-opacity duration-400",
@@ -64,6 +66,11 @@ export const KoreanHintButton = ({ korean, durationMs = 5000 }: KoreanHintButton
           )}
         >
           {korean}
+        </p>
+      )}
+      {shown && !hasKorean && (
+        <p className="text-xs text-amber-600 font-kr">
+          이 지문은 한글 번역이 아직 등록되지 않았어요
         </p>
       )}
       {!hintEnabled && (
