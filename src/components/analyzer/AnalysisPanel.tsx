@@ -285,6 +285,7 @@ const FORM_BONUS_ROLES_BY_ELEMENT: Partial<
 
 const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
   "to V": [
+    "toV(주어)", "toV(목적어)", "toV(보어)", "toV의 의미상주어",
     "의문사(to V)",
     "부정형",
     "수동형",
@@ -293,7 +294,10 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
     "원형부정사",
     "대부정사",
   ],
-  "V-ing": ["부정형", "수동형", "완료형"],
+  "V-ing": [
+    "동명사(주어)", "동명사(목적어)", "동명사(보어)", "동명사의 의미상주어",
+    "부정형", "수동형", "완료형",
+  ],
   // 명사절 — 5개 form × 3개 SVOC role(주어/목적어/보어) = 15 평탄 버튼
   // 라벨 자체가 부배지로 그대로 노출됨 (열 순서 유지)
   "접SV": [
