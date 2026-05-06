@@ -230,7 +230,7 @@ const PrintableHandout = () => {
               학생: {student?.display_name ?? "_______"}{" "}
               {student?.student_no && <>({student.student_no})</>}
             </div>
-            <div className="header-meta">출력: {printedAt} · 1 / 2</div>
+            <div className="header-meta">출력: {printedAt} · 1 / {withAnalysis ? 3 : 2}</div>
           </div>
           <div className="qr-wrap">
             <QRCodeSVG value={audioUrl} size={68} level="M" />
