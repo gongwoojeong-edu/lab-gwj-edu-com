@@ -6,26 +6,17 @@ const cleanPin = (value: unknown): string | null => {
 };
 
 export const fetchTeacherPin = async (): Promise<string | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
-
-  const own = await supabase
-    .from("student_profiles")
-    .select("teacher_pin")
-    .eq("user_id", u.user.id)
-    .maybeSingle();
-  const ownPin = cleanPin(own.data?.teacher_pin);
-  if (ownPin) return ownPin;
-
-  // 학생은 RLS상 본인 행만 보여 여기서도 타인 PIN을 볼 수 없다.
-  // 선생님/관리자가 학생 화면을 확인하는 경우에는 본인 student_profile이 없으므로
-  // 등록된 학생 PIN 중 하나를 안전망으로 사용한다.
-  const fallback = await supabase
+  // getUser()는 auth 토큰 lock을 잡을 수 있어, 학습 화면의 제출/오버라이드와 충돌할 수 있다.
+  // RLS가 이미 학생=본인 행, 선생님/관리자=허용 행만 노출하므로 DB 조회만으로 PIN을 가져온다.
+  const { data, error } = await supabase
     .from("student_profiles")
     .select("teacher_pin")
     .not("teacher_pin", "is", null)
+    .neq("teacher_pin", "")
     .limit(1)
     .maybeSingle();
 
-  return cleanPin(fallback.data?.teacher_pin);
+  if (error) throw error;
+
+  return cleanPin(data?.teacher_pin);
 };
