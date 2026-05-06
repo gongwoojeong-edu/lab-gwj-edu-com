@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
@@ -113,7 +114,13 @@ const LearningResults = () => {
   } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setTeacherId(data.user?.id ?? null));
+    let cancelled = false;
+    getCurrentUserId().then((userId) => {
+      if (!cancelled) setTeacherId(userId);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 인쇄대기열에서 인쇄 완료된 행도 실시간 반영
