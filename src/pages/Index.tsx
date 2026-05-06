@@ -1232,11 +1232,20 @@ const Index = ({
   }, [completedSelectionMap, selectedId, selectedWordIndices]);
 
   const reportStudentProgressSaveFailure = (err: unknown) => {
+    // 콘솔에 진짜 원인(보통 supabase auth lock / 네트워크 일시 오류) 그대로 남긴다.
     console.warn("[studentAnalysisAutosave] owner_progress 저장 실패", err);
+    const raw = (err as { message?: string } | null)?.message ?? "";
+    const isAuthLock = /Lock|lock:sb-|NavigatorLock|steal/i.test(raw);
+    // 인증 락/일시 충돌은 사용자에게 잘못된 안내(인터넷 탓)를 하지 않는다.
+    // 분석 입력값 자체는 로컬 상태에 그대로 남아 다음 자동저장 사이클에서 재시도된다.
+    if (isAuthLock) {
+      console.info("[studentAnalysisAutosave] auth lock 충돌로 자동 재시도 예정 — 사용자 토스트 생략");
+      return;
+    }
     toast({
-      title: "분석 저장 실패",
-      description: "인터넷 연결을 확인한 뒤 같은 항목을 한 번 더 눌러주세요.",
-      variant: "destructive",
+      title: "분석 저장이 잠시 지연됐어요",
+      description:
+        "작성한 분석은 화면에 그대로 남아있고 곧 자동으로 다시 저장됩니다. 한글 해석으로 그대로 진행해도 괜찮아요.",
     });
   };
 
