@@ -8,10 +8,17 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// 🔒 No-op lock — supabase-js의 기본 Web Locks(`navigator.locks`)가
+// 학원 공용 PC + 동시 다발 컴포넌트 마운트 환경에서 "orphaned lock" 상태로
+// 빠지면 모든 PostgREST 요청이 5초씩 대기하다 steal 됨. 학생 학습기가 수십 초씩
+// 멈추는 근본 원인이었음. 단일 탭에서만 쓰므로 락 없이 즉시 통과시킨다.
+const noopLock = async <R>(_name: string, _timeout: number, fn: () => Promise<R>): Promise<R> => fn();
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    lock: noopLock,
   }
 });
