@@ -40,7 +40,7 @@ export const upsertSkipPre = async (
   sentenceId: string,
   skipPre: boolean,
 ): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const currentUserId = await getCurrentUserId();
   const { error } = await supabase
     .from("student_passage_overrides")
     .upsert(
@@ -48,7 +48,7 @@ export const upsertSkipPre = async (
         user_id: userId,
         sentence_id: sentenceId,
         skip_pre: skipPre,
-        created_by: u.user?.id ?? null,
+        created_by: currentUserId,
       },
       { onConflict: "user_id,sentence_id" },
     );
