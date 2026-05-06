@@ -10,8 +10,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { fetchTeacherPin } from "@/lib/teacherPin";
 
 interface Props {
   /** PIN 일치 시 호출. 호출 측에서 분석 통과/스킵 처리. */
@@ -48,15 +48,9 @@ export const TeacherAnalysisOverride = ({
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
-      const { data } = await supabase
-        .from("student_profiles")
-        .select("teacher_pin")
-        .eq("user_id", u.user.id)
-        .maybeSingle();
+      const nextPin = await fetchTeacherPin().catch(() => null);
       if (!mounted) return;
-      setStoredPin((data?.teacher_pin as string | null) ?? null);
+      setStoredPin(nextPin);
     })();
     return () => {
       mounted = false;
@@ -68,16 +62,8 @@ export const TeacherAnalysisOverride = ({
     setLoading(true);
     let pinToCheck = storedPin;
     if (!pinToCheck) {
-      const { data: u } = await supabase.auth.getUser();
-      if (u.user) {
-        const { data } = await supabase
-          .from("student_profiles")
-          .select("teacher_pin")
-          .eq("user_id", u.user.id)
-          .maybeSingle();
-        pinToCheck = (data?.teacher_pin as string | null) ?? null;
-        setStoredPin(pinToCheck);
-      }
+      pinToCheck = await fetchTeacherPin().catch(() => null);
+      setStoredPin(pinToCheck);
     }
     if (!pinToCheck) {
       toast({ title: "PIN이 설정되지 않았어요", description: "선생님께 패스키 설정을 요청하세요.", variant: "destructive" });
