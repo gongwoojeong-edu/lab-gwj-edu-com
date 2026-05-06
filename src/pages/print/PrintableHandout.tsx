@@ -14,6 +14,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPassageByCode, type Passage } from "@/lib/textbooks";
 import { buildClozeSegments, buildStructureHint } from "@/lib/handoutCloze";
+import Index from "@/pages/Index";
 
 interface StudentInfo {
   display_name: string | null;
