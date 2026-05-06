@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 
 export type AssistEntry = {
   word: string;
@@ -21,10 +22,10 @@ export const insertWordPreResult = async (
   unknown: string[],
   assistLog: AssistEntry[] = [],
 ): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return;
+  const userId = await getCurrentUserId();
+  if (!userId) return;
   await supabase.from("word_pre_results").insert({
-    user_id: u.user.id,
+    user_id: userId,
     sentence_id: sentenceId,
     known_words: known,
     unknown_words: unknown,
@@ -34,12 +35,12 @@ export const insertWordPreResult = async (
 };
 
 export const fetchLatestWordPre = async (sentenceId: string): Promise<WordPreResult | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data } = await supabase
     .from("word_pre_results")
     .select("sentence_id, known_words, unknown_words, completed")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .eq("sentence_id", sentenceId)
     .order("taken_at", { ascending: false })
     .limit(1)
