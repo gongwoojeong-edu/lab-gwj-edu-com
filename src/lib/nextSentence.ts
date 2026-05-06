@@ -86,6 +86,23 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   // 시작 범위(시리즈/권/유닛) 지정이 있으면 그 code 집합으로 한 번 더 좁힌다.
   const scopedCodes = await fetchScopedPassageCodes(profile);
 
+  // scopedCodes 중 메모리 SENTENCES에 아직 없는 것이 있으면 DB에서 직접 로드해 머지.
+  // (sessionStorage 캐시가 stale 한 경우 신규 배정 책의 지문이 누락되는 사고 방지)
+  if (scopedCodes && scopedCodes.size > 0) {
+    const known = new Set(SENTENCES.map((s) => s.id));
+    const missing = [...scopedCodes].filter((c) => !known.has(c));
+    if (missing.length > 0) {
+      const loaded = await Promise.all(missing.map((c) => loadSentenceByCode(c)));
+      for (const s of loaded) {
+        if (s) {
+          const idx = SENTENCES.findIndex((x) => x.id === s.id);
+          if (idx >= 0) SENTENCES[idx] = s;
+          else SENTENCES.push(s);
+        }
+      }
+    }
+  }
+
   let inLevel = SENTENCES.filter((s) => s.level === targetLevel).sort((a, b) => a.no - b.no);
   if (scopedCodes) {
     inLevel = inLevel.filter((s) => scopedCodes.has(s.id));
