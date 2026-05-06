@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AnalysisPanel,
@@ -146,6 +146,8 @@ type WordProgress = {
   verb: VerbProgress;
   completed: boolean;
 };
+
+type FlushAnalysisResult = { total: number; saved: number; failed: number };
 
 type AnalyzableToken = Extract<(typeof SENTENCES)[number]["tokens"][number], { type: "analyzable" }>;
 
@@ -447,6 +449,8 @@ interface IndexProps {
    * retry: 외부에서 재hydrate를 트리거하기 위한 함수 ID — 동일 sentence/user 한정.
    */
   onHydrationError?: (info: { message: string }) => void;
+  /** 학생 분석 화면을 벗어나기 직전 현재 메모리 상태를 클라우드에 강제 저장한다. */
+  onFlushStudentProgress?: ((flush: (() => Promise<FlushAnalysisResult>) | null) => void);
   /**
    * 외부에서 클라우드 hydrate를 강제로 다시 실행하기 위한 nonce.
    * 값이 바뀔 때마다 hydrate effect가 재실행된다.
@@ -468,6 +472,7 @@ const Index = ({
   onOwnerToggle,
   showStaffToolbar = false,
   onHydrationError,
+  onFlushStudentProgress,
   reloadNonce = 0,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
@@ -1235,6 +1240,35 @@ const Index = ({
     });
   };
 
+  const saveStudentProgressEntries = useCallback(async (entries: [string, WordProgress][]): Promise<FlushAnalysisResult> => {
+    if (entries.length === 0) return { total: 0, saved: 0, failed: 0 };
+    const results = await Promise.allSettled(
+      entries.map(([ownerId, wp]) => {
+        const cloudPatch = progressToCloudPatch(wp);
+        const customPatch = (customAnswers[ownerId] ?? {}) as Record<string, unknown>;
+        const merged = { ...customPatch, ...cloudPatch };
+        return upsertOwnerProgress({
+          sentence_id: sentence.id,
+          owner_id: ownerId,
+          progress: merged,
+          custom_answer: merged,
+          completed: wp.completed,
+        });
+      }),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    return { total: entries.length, saved: entries.length - failed, failed };
+  }, [customAnswers, progressMap, sentence.id]);
+
+  useEffect(() => {
+    if (!studentMode || !onFlushStudentProgress) return;
+    onFlushStudentProgress(async () => {
+      const entries = Object.entries(progressMap).filter(([, wp]) => wp?.pos);
+      return saveStudentProgressEntries(entries);
+    });
+    return () => onFlushStudentProgress(null);
+  }, [onFlushStudentProgress, progressMap, saveStudentProgressEntries, studentMode]);
+
   const flushStudentProgressToCloud = async () => {
     const entries = Object.entries(progressMap).filter(([, wp]) => wp?.pos);
     if (entries.length === 0) {
@@ -1243,22 +1277,8 @@ const Index = ({
     }
     setStudentSaveBusy(true);
     try {
-      const results = await Promise.allSettled(
-        entries.map(([ownerId, wp]) => {
-          const cloudPatch = progressToCloudPatch(wp);
-          const customPatch = (customAnswers[ownerId] ?? {}) as Record<string, unknown>;
-          const merged = { ...customPatch, ...cloudPatch };
-          return upsertOwnerProgress({
-            sentence_id: sentence.id,
-            owner_id: ownerId,
-            progress: merged,
-            custom_answer: merged,
-            completed: wp.completed,
-          });
-        }),
-      );
-      const failed = results.filter((r) => r.status === "rejected");
-      if (failed.length > 0) throw new Error(`${failed.length}/${entries.length}개 저장 실패`);
+      const result = await saveStudentProgressEntries(entries);
+      if (result.failed > 0) throw new Error(`${result.failed}/${result.total}개 저장 실패`);
       toast({ title: "💾 저장됨", description: `분석 ${entries.length}개가 클라우드에 저장되었습니다.` });
     } catch (err) {
       reportStudentProgressSaveFailure(err);
