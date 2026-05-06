@@ -127,8 +127,15 @@ export const upsertCustomAnswer = (
   tokenId: string,
   patch: CustomAnswerPatch,
   sentenceId?: string,
+  /**
+   * 학생 모드에서는 loadCustomAnswers()가 항상 {} 를 반환하므로,
+   * 호출 측이 현재 메모리상의 customAnswers 맵을 baseMap으로 넘겨줘야
+   * 다른 단어들의 정답이 통째로 사라지지 않는다.
+   * (선생님 모드는 baseMap 미지정 시 localStorage에서 로드)
+   */
+  baseMap?: CustomAnswerMap,
 ): CustomAnswerMap => {
-  const cur = loadCustomAnswers();
+  const cur = baseMap ?? loadCustomAnswers();
   const merged: CustomAnswerMap = {
     ...cur,
     [tokenId]: { ...(cur[tokenId] ?? {}), ...patch },

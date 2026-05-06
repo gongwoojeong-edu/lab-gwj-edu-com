@@ -1258,7 +1258,8 @@ const Index = ({
     const studentProgressPatch = studentMode && progressMap[ownerId]
       ? progressToCloudPatch(progressMap[ownerId])
       : {};
-    const next = upsertCustomAnswer(ownerId, { ...studentProgressPatch, ...patch }, sentence.id);
+    // 학생 모드에서는 loadCustomAnswers()가 빈 객체를 반환하므로 메모리 맵을 baseMap으로 전달.
+    const next = upsertCustomAnswer(ownerId, { ...studentProgressPatch, ...patch }, sentence.id, customAnswers);
     setCustomAnswers(next);
   };
 
@@ -1274,7 +1275,7 @@ const Index = ({
   const commitPatch = (ownerId: string) => {
     const pending = pendingPatchMap[ownerId];
     if (pending && Object.keys(pending).length > 0) {
-      const next = upsertCustomAnswer(ownerId, pending, sentence.id);
+      const next = upsertCustomAnswer(ownerId, pending, sentence.id, customAnswers);
       setCustomAnswers(next);
       setPendingPatchMap((prev) => {
         const n = { ...prev };
@@ -1300,7 +1301,7 @@ const Index = ({
     let merged = customAnswers;
     entries.forEach(([ownerId, patch]) => {
       if (Object.keys(patch).length > 0) {
-        merged = upsertCustomAnswer(ownerId, patch, sentence.id);
+        merged = upsertCustomAnswer(ownerId, patch, sentence.id, merged);
       }
     });
     setCustomAnswers(merged);
