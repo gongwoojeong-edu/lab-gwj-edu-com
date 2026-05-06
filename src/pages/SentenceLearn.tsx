@@ -525,17 +525,20 @@ const SentenceLearn = () => {
   /** 분석 → translation 전환 (다이얼로그 confirm 시) */
   const proceedToTranslation = async () => {
     if (!sentence) return;
-    // 세션 만료 사전 체크 — 만료된 상태에서 upsert를 하면 RLS 거부 + RequireAuth 리다이렉트가
-    // 동시에 일어나 학생이 다음 단계로 못 넘어가는 사고가 발생함.
+    // 세션 만료 사전 체크 — 단, supabase auth lock이 점유돼 getSession()이 무한대기하면
+    // 학생이 영영 못 넘어가므로 1.5초 timeout으로 race. 만료 확인이 늦어지면 그냥 진행한다.
     try {
-      const { data: ses } = await supabase.auth.getSession();
-      if (!ses?.session) {
+      const sesPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise<{ data: { session: unknown } | null }>((resolve) =>
+        window.setTimeout(() => resolve({ data: { session: "unknown" } }), 1500),
+      );
+      const ses = (await Promise.race([sesPromise, timeoutPromise])) as { data?: { session?: unknown } } | null;
+      if (ses && ses.data && ses.data.session === null) {
         toast({
           title: "로그인이 풀렸어요",
           description: "다시 로그인하면 분석한 내용 그대로 한글 해석부터 이어집니다.",
           variant: "destructive",
         });
-        // 분석 작업물은 owner_progress 등으로 이미 저장된 상태이므로, 학생을 로그인 페이지로 보냄
         navigate("/login");
         return;
       }
