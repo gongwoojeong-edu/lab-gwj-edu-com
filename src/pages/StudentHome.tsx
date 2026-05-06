@@ -466,10 +466,10 @@ const StudentHome = () => {
     setBusyFor(`review:${sentenceId}`, true);
     try {
       const grade = await gradeAnalysis(sentenceId);
-      if (grade.rate < 0.5) {
+      if (grade.rate < 0.3) {
         toast({
           title: `${grade.hasMaster ? "정답률" : "분석률"}이 부족해요`,
-          description: `현재 ${Math.round(grade.rate * 100)}% — 50% 이상 분석 후 요청 가능`,
+          description: `현재 ${Math.round(grade.rate * 100)}% — 30% 이상 분석 후 요청 가능`,
           variant: "destructive",
         });
         return;
@@ -477,11 +477,11 @@ const StudentHome = () => {
       const cur = recent.find((r) => r.sentence.id === sentenceId);
       const isPass = cur?.status === "pass";
       const isFail = cur?.status === "fail";
-      // 마스터 없음(hold 또는 hasMaster=false): 50% 이상이면 normal 트랙으로 허용
+      // 마스터 없음(hold 또는 hasMaster=false): 30% 이상이면 normal 트랙으로 허용
       const track: "normal" | "fail_assist" | null =
-        grade.rate >= 0.8 && grade.requiredOwnersFilled
+        grade.rate >= 0.3 && grade.requiredOwnersFilled
           ? "normal"
-          : !grade.hasMaster && grade.rate >= 0.5
+          : !grade.hasMaster && grade.rate >= 0.3
             ? "normal"
             : isFail && grade.rate >= 0.5
               ? "fail_assist"
@@ -489,7 +489,7 @@ const StudentHome = () => {
       if (!track) {
         toast({
           title: "요청 조건 미충족",
-          description: "80%(필수 owner 충족) 또는 미통 + 50% 이상이어야 합니다.",
+          description: "분석률 30% 이상이면 요청할 수 있어요.",
           variant: "destructive",
         });
         return;
