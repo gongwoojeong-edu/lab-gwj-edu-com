@@ -49,6 +49,7 @@ import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/li
 import {
   buildHandoutPrintHtmlFor,
   buildWordPrintHtmlFor,
+  buildAnalysisPrintHtmlFor,
   printStageMessage,
   PrintPreloadError,
 } from "@/lib/printPreload";
