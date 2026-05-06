@@ -344,7 +344,7 @@ const ADJ_FORM_SKIPS_ELEMENT: Partial<Record<AdjForm, "C" | "M">> = {
 // 부사 세부역할 매핑
 // ============================================================
 const ADV_ROLES_BY_FORM: Record<AdvForm, RoleOption[]> = {
-  "부사": ["부사", "유도부사"],
+  "부사": ["부사"],
   "to V": ["목적", "감정의원인", "판단의근거", "조건", "결과", "형용사수식"],
   "ing/pp": ["분사구문", "완료", "부정", "독립", "with N 형부"],
   "접SV": ["시간", "장소", "이유", "조건", "양보", "결과", "양태", "비교"],
@@ -352,9 +352,10 @@ const ADV_ROLES_BY_FORM: Record<AdvForm, RoleOption[]> = {
 };
 
 // 부사 form일 때만 보이는 sub-type 행
-const ADV_SUBTYPES: { key: "일반부사" | "접속부사"; label: string }[] = [
+const ADV_SUBTYPES: { key: AdvSubtype; label: string }[] = [
   { key: "일반부사", label: "일반부사" },
   { key: "접속부사", label: "접속부사" },
+  { key: "유도부사", label: "유도부사" },
 ];
 
 // ============================================================
