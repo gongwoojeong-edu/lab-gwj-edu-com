@@ -1258,7 +1258,8 @@ const Index = ({
     const studentProgressPatch = studentMode && progressMap[ownerId]
       ? progressToCloudPatch(progressMap[ownerId])
       : {};
-    const next = upsertCustomAnswer(ownerId, { ...studentProgressPatch, ...patch }, sentence.id);
+    // 학생 모드에서는 loadCustomAnswers()가 빈 객체를 반환하므로 메모리 맵을 baseMap으로 전달.
+    const next = upsertCustomAnswer(ownerId, { ...studentProgressPatch, ...patch }, sentence.id, customAnswers);
     setCustomAnswers(next);
   };
 
