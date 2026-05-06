@@ -2,7 +2,7 @@ import { SENTENCES, type Sentence } from "@/data/sentences";
 import { type LevelCode } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/studentProfile";
-import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
+import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 
 export interface NextSentenceResult {
   sentence: Sentence | null;
