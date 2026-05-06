@@ -663,14 +663,14 @@ const SentenceLearn = () => {
       ? !analysisGrade.diffs.some((d) => d.status === "missing")
       : analysisRequiredFilled;
     const label = rateLabel(hasMaster);
-    if (rate < 0.5) {
+    if (rate < ANALYSIS_GATE) {
       return (
         <Button size="sm" disabled variant="outline" className="text-xs">
           <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({label} {Math.round(rate * 100)}%)
         </Button>
       );
     }
-    // 마스터 없음 → 50% 이상이면 normal 트랙으로 요청 가능
+    // 마스터 없음 → 30% 이상이면 normal 트랙으로 요청 가능
     if (!hasMaster) {
       return (
         <Button size="sm" onClick={requestAnalysisReview} disabled={requesting}>
