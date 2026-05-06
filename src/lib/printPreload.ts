@@ -13,6 +13,7 @@
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPassageByCode } from "./textbooks";
+import { buildTokensFromEnglish } from "./sentenceSource";
 import { buildClozeSegments, buildStructureHint } from "./handoutCloze";
 import {
   buildHandoutPrintHtml,
