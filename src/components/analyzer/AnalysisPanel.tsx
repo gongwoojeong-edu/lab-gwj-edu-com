@@ -901,70 +901,120 @@ const NounPanel = ({
   onClauseDepthChange,
   referent,
 }: NounPanelProps) => {
-  const formCorrect = noun.formStatus === "correct";
-  const formOnlyMode =
-    formCorrect &&
-    !!noun.form &&
-    (noun.form === "접SV" ||
-      ((FORM_ONLY_ROLES[noun.form]?.length ?? 0) > 0 && noun.element == null));
-
-  // 형태전용(접SV 등): 평탄 element-role 그리드 대신 기존 RoleRow 재사용
-  const formOnlyRoleOptions = formOnlyMode && noun.form ? FORM_ONLY_ROLES[noun.form] ?? [] : [];
-
-  // 평탄 element-role 그리드용 데이터 (S/O/C/M)
-  const elementRoleGroups = !formCorrect || formOnlyMode || !noun.form
-    ? []
-    : (ELEMENTS.map(({ key, label, colorClass }) => {
-        const common = COMMON_ROLES_BY_ELEMENT[key] ?? [];
-        const bonus = FORM_BONUS_ROLES_BY_ELEMENT[noun.form!]?.[key] ?? [];
-        return { element: key, label, colorClass, options: [...common, ...bonus] };
-      }));
-
-  // 지시어 섹션 노출 조건 — Index.tsx에서 canAssignReferentTarget를 명사 owner일 때 true로 제공.
-  // 추가로 role이 "대명사"이거나 form/role이 비어있을 때도 노출 (사용자가 대상 지정 가능).
+  const mask = useMaskStatus();
+  const roleStatus = mask(noun.roleStatus);
+  const done = roleStatus === "correct";
   const showReferent = !!referent?.canAssignReferentTarget;
+
+  // form별 평탄 버튼 목록 (부사 패널과 동일한 패턴)
+  // 라벨에서 (주어)/(목적어)/(보어) 패턴이 있으면 element 자동 추론, "수식어"는 M, 그 외는 form-only role
+  const inferElement = (label: string): SentenceElement | null => {
+    if (/\(주어\)|^주어/.test(label)) return "S";
+    if (/\(목적어\)|^목적어|간접목적어|직접목적어|가목적어|진목적어|전치사의o|to V의o|V-ing의o|^대명사$/.test(label)) {
+      // "대명사"는 기본 O로
+      return label === "대명사" ? "O" : "O";
+    }
+    if (/\(보어\)|보어/.test(label)) return "C";
+    if (/수식어|^M$/.test(label)) return "M";
+    return null;
+  };
+
+  const handlePick = (form: NounForm, label: string) => {
+    if (noun.form !== form) onNounFormChange(form);
+    const el = inferElement(label);
+    if (el) {
+      setTimeout(() => onNounElementRole(el, label === "수식어" ? null : label), 0);
+    } else {
+      // form-only role (예: "부정형", "수동형" 등)
+      setTimeout(() => onNounRoleChange(label), 0);
+    }
+  };
 
   return (
     <>
-      <FormRow
-        label="Layer 02 · 형태"
-        status={noun.formStatus}
-        items={NOUN_FORMS}
-        selected={noun.form}
-        locked={false}
-        onSelect={(k) => onNounFormChange(k as NounForm)}
-      />
       {noun.form === "접SV" && onClauseDepthChange && (
         <ClauseDepthRow value={noun.clauseDepth ?? 1} onChange={onClauseDepthChange} />
       )}
-      {formOnlyMode ? (
-        <>
-          <RoleRow
-            unlocked
-            status={noun.roleStatus}
-            options={formOnlyRoleOptions}
-            selected={noun.role}
-            onSelect={onNounRoleChange}
-          />
-          {/* 결함 #3: 명사 to V/V-ing/접SV form에서도 M(수식어) 옵션을 보장 노출 */}
-          <NounMShortcut
-            selectedRole={noun.role}
-            roleStatus={noun.roleStatus}
-            onPick={() => onNounElementRole("M", null)}
-          />
-        </>
-      ) : (
-        <ElementRoleGrid
-          unlocked={!!noun.form}
-          element={noun.element}
-          elementStatus={noun.elementStatus}
-          role={noun.role}
-          roleStatus={noun.roleStatus}
-          groups={elementRoleGroups}
-          onPick={(e, r) => onNounElementRole(e as SentenceElement, r)}
-        />
-      )}
-      {/* Layer 3 하단: 지시어(대명사) 대상 지정 */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-kr">
+            Layer 02·03 · 형태 / 성분·세부역할
+          </p>
+          <StatusPill status={roleStatus} />
+        </div>
+        <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pr-1">
+          {NOUN_FORMS.map(({ key: form, circle, label: formLabel }) => {
+            // form별 평탄 버튼 목록
+            const buttons: { value: string; display: string }[] = [];
+            const formOnly = FORM_ONLY_ROLES[form] ?? [];
+            if (formOnly.length > 0) {
+              formOnly.forEach((opt) => {
+                if (typeof opt === "string") buttons.push({ value: opt, display: opt });
+              });
+              // M 단축 옵션 보장
+              buttons.push({ value: "수식어", display: "수식어" });
+            } else {
+              // 일반 명사: ELEMENTS × COMMON_ROLES + bonus
+              ELEMENTS.forEach(({ key: elKey, label: elLabel }) => {
+                const common = COMMON_ROLES_BY_ELEMENT[elKey] ?? [];
+                const bonus = FORM_BONUS_ROLES_BY_ELEMENT[form]?.[elKey] ?? [];
+                const all = [...common, ...bonus];
+                if (all.length === 0 && elKey === "M") {
+                  buttons.push({ value: "수식어", display: "수식어" });
+                  return;
+                }
+                all.forEach((opt) => {
+                  if (typeof opt === "string") {
+                    // element 정보가 라벨에 없으면 inferElement가 못 찾으니, 접미사로 element 표시
+                    const hasElTag = /\(주어\)|\(목적어\)|\(보어\)|수식어/.test(opt);
+                    const display = hasElTag ? opt : `${opt}(${elLabel})`;
+                    const value = hasElTag ? opt : `${opt}(${elLabel})`;
+                    buttons.push({ value, display });
+                  }
+                });
+              });
+            }
+
+            return (
+              <div
+                key={form}
+                className="flex items-start gap-2 py-1 border-b border-border/40 last:border-0"
+              >
+                <span
+                  className="shrink-0 w-[64px] pt-1 text-[11px] font-bold font-kr text-muted-foreground select-none flex items-center gap-1"
+                  aria-hidden
+                >
+                  {circle && <span className="font-mono text-[12px]">{circle}</span>}
+                  {formLabel}
+                </span>
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  {buttons.map((b) => {
+                    const sel = noun.form === form && noun.role === b.value;
+                    const ok = sel && done;
+                    const ng = sel && roleStatus === "wrong";
+                    return (
+                      <button
+                        key={`${form}-${b.value}`}
+                        type="button"
+                        onClick={() => handlePick(form, b.value)}
+                        disabled={false}
+                        className={cn(
+                          "px-2 py-1 rounded-md text-[11px] font-bold font-kr transition-all disabled:opacity-30 text-left",
+                          ok && "bg-primary/15 text-primary",
+                          ng && "bg-destructive/10 text-destructive animate-pulse",
+                          !sel && "bg-secondary/60 text-foreground hover:bg-primary/10",
+                        )}
+                      >
+                        {b.display}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {showReferent && referent && (
         <RelationSection
           variant="referent"
@@ -976,9 +1026,7 @@ const NounPanel = ({
           onCancel={referent.onCancelPendingReferent}
         />
       )}
-      {noun.roleStatus === "correct" && (
-        <CompletionBlock label={noun.role ?? noun.form ?? "완료"} />
-      )}
+      {done && <CompletionBlock label={noun.role ?? noun.form ?? "완료"} />}
     </>
   );
 };
