@@ -55,7 +55,7 @@ const applySession = (session: Session | null) => {
   }
 
   setSnapshot({ session, user, loading: true });
-  window.setTimeout(() => void loadRoles(user.id, requestId), 0);
+  globalThis.setTimeout(() => void loadRoles(user.id, requestId), 0);
 };
 
 export const ensureAuthStarted = () => {
@@ -91,10 +91,10 @@ export const waitForAuthReady = (timeoutMs = 1500): Promise<AuthSnapshot> => {
     let unsubscribe: (() => void) | null = null;
     const done = () => {
       if (unsubscribe) unsubscribe();
-      window.clearTimeout(timer);
+    globalThis.clearTimeout(timer);
       resolve(snapshot);
     };
-    const timer = window.setTimeout(done, timeoutMs);
+    const timer = globalThis.setTimeout(done, timeoutMs);
     unsubscribe = subscribeAuthState(() => {
       if (!snapshot.loading) done();
     });
