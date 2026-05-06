@@ -3,6 +3,7 @@
 // kind='handout' (시험지) 또는 'analysis' (분석자료 PDF)로 구분.
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUserId } from "@/lib/authState";
 
 export type PrintRequestStatus = "pending" | "printed" | "canceled";
 export type PrintRequestKind = "handout" | "analysis";
@@ -28,12 +29,12 @@ export const fetchMyPendingPrintRequest = async (
   sentenceId: string,
   kind: PrintRequestKind = "handout",
 ): Promise<PrintRequest | null> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return null;
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
   const { data } = await supabase
     .from("print_requests")
     .select("*")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .eq("sentence_id", sentenceId)
     .eq("status", "pending")
     .eq("kind", kind)
@@ -43,12 +44,12 @@ export const fetchMyPendingPrintRequest = async (
 
 /** 학생: 본인의 모든 pending 요청 — 카드 일괄 표시용 */
 export const fetchMyPendingPrintRequests = async (): Promise<PrintRequest[]> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return [];
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
   const { data } = await supabase
     .from("print_requests")
     .select("*")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .eq("status", "pending");
   return (data ?? []) as PrintRequest[];
 };
@@ -60,18 +61,18 @@ export const createPrintRequest = async (input: {
   kind?: PrintRequestKind;
   file_url?: string | null;
 }): Promise<PrintRequest> => {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) throw new Error("not authenticated");
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error("not authenticated");
   // teacher_id 채우기 (있으면)
   const { data: prof } = await supabase
     .from("student_profiles")
     .select("teacher_id")
-    .eq("user_id", u.user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   const { data, error } = await supabase
     .from("print_requests")
     .insert({
-      user_id: u.user.id,
+      user_id: userId,
       sentence_id: input.sentence_id,
       teacher_id: prof?.teacher_id ?? null,
       note: input.note ?? null,
@@ -130,13 +131,13 @@ export const deletePrintRequest = async (id: string): Promise<void> => {
 
 /** 선생님: 처리 완료(인쇄됨) */
 export const markPrintRequestHandled = async (id: string): Promise<void> => {
-  const { data: u } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId();
   await supabase
     .from("print_requests")
     .update({
       status: "printed",
       handled_at: new Date().toISOString(),
-      handled_by: u.user?.id ?? null,
+      handled_by: userId,
     })
     .eq("id", id);
 };
