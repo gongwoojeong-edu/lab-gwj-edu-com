@@ -1107,8 +1107,8 @@ const Index = ({
   // "모든 단어를 분석했으면 100%"가 되도록 단어 기준으로 분모/분자를 산정한다.
   const analysisRate =
     analyzableIds.length > 0 ? wordFilledCount / analyzableIds.length : 0;
-  // 80% 이상 분석하면 다음 단계로 진행 가능 (SentenceLearn과 동일 기준)
-  const canAdvanceToTranslation = analysisDone || analysisRate >= 0.8;
+  // 30% 이상 분석하면 다음 단계로 진행 가능 (SentenceLearn과 동일 기준)
+  const canAdvanceToTranslation = analysisDone || analysisRate >= 0.3;
 
   // 분석 완료 상태를 Supabase에 동기화 + 임베드 모드면 외부 콜백 호출
   // ⚠ analysis_done=true 마킹 전에 progressMap의 모든 completed owner를 클라우드에
@@ -3357,13 +3357,13 @@ const Index = ({
             );
           })()}
 
-          {/* 3) 구문 분석 — 80% 이상이면 다음 단계로 진행 가능 */}
+          {/* 3) 구문 분석 — 30% 이상이면 다음 단계로 진행 가능 */}
           {learningStep === "analysis" && (
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="text-xs text-muted-foreground">
                 {canAdvanceToTranslation
                   ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                  : `분석을 80% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
+                  : `분석을 30% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}%)`}
               </div>
               <button
                 type="button"
