@@ -613,16 +613,23 @@ export type Database = {
       }
       student_profiles: {
         Row: {
+          access_level: string | null
           actual_grade: string | null
           analysis_pass_threshold: number
           best_streak: number
+          campus: string | null
           created_at: string
           current_level: string
           current_no: number
           current_streak: number
           display_name: string | null
+          enrolled_since: string | null
+          grade_unlock: string[] | null
           hint_mode_enabled: boolean
+          homeroom_teacher_id: string | null
+          notes: string | null
           points: number
+          school_name: string | null
           start_level: string
           start_series_id: string | null
           start_unit_id: string | null
@@ -630,6 +637,7 @@ export type Database = {
           student_no: string
           teacher_id: string | null
           teacher_pin: string | null
+          textbook_publisher: string | null
           unit_workbook_mode: string
           updated_at: string
           user_id: string
@@ -637,16 +645,23 @@ export type Database = {
           word_test_time_limit_sec: number
         }
         Insert: {
+          access_level?: string | null
           actual_grade?: string | null
           analysis_pass_threshold?: number
           best_streak?: number
+          campus?: string | null
           created_at?: string
           current_level?: string
           current_no?: number
           current_streak?: number
           display_name?: string | null
+          enrolled_since?: string | null
+          grade_unlock?: string[] | null
           hint_mode_enabled?: boolean
+          homeroom_teacher_id?: string | null
+          notes?: string | null
           points?: number
+          school_name?: string | null
           start_level?: string
           start_series_id?: string | null
           start_unit_id?: string | null
@@ -654,6 +669,7 @@ export type Database = {
           student_no: string
           teacher_id?: string | null
           teacher_pin?: string | null
+          textbook_publisher?: string | null
           unit_workbook_mode?: string
           updated_at?: string
           user_id: string
@@ -661,16 +677,23 @@ export type Database = {
           word_test_time_limit_sec?: number
         }
         Update: {
+          access_level?: string | null
           actual_grade?: string | null
           analysis_pass_threshold?: number
           best_streak?: number
+          campus?: string | null
           created_at?: string
           current_level?: string
           current_no?: number
           current_streak?: number
           display_name?: string | null
+          enrolled_since?: string | null
+          grade_unlock?: string[] | null
           hint_mode_enabled?: boolean
+          homeroom_teacher_id?: string | null
+          notes?: string | null
           points?: number
+          school_name?: string | null
           start_level?: string
           start_series_id?: string | null
           start_unit_id?: string | null
@@ -678,6 +701,7 @@ export type Database = {
           student_no?: string
           teacher_id?: string | null
           teacher_pin?: string | null
+          textbook_publisher?: string | null
           unit_workbook_mode?: string
           updated_at?: string
           user_id?: string
