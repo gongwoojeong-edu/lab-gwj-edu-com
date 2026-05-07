@@ -27,7 +27,7 @@ const Login = () => {
     // 4자리만 입력해도, 전체(gwj0211)로 입력해도 모두 허용
     const raw = studentNo.trim().toLowerCase();
     const normalized = raw.startsWith("gwj") ? raw : `gwj${raw}`;
-    const parsed = loginSchema.safeParse({ studentNo: normalized, password });
+    const parsed = loginSchema.safeParse({ studentNo: normalized, password: password.trim() });
     if (!parsed.success) {
       toast({ title: parsed.error.issues[0]?.message ?? "입력 오류", variant: "destructive" });
       return;
