@@ -432,9 +432,15 @@ export const buildUnitWorkbookHtmlFor = async (
 
   let html: string;
   switch (mode) {
-    case "syntax_unit":
-      html = await buildSyntaxUnit(targetCodes, input.studentId, ctx);
+    case "syntax_unit": {
+      const passagesAll = isWord ? allPassages : await fetchPassagesByUnit(input.unitId);
+      const byCode = new Map(passagesAll.map((p) => [p.code, p]));
+      const targetPassages = targetCodes
+        .map((c) => byCode.get(c))
+        .filter((p): p is Passage => !!p);
+      html = await buildSyntaxUnit(targetPassages, input.studentId, ctx);
       break;
+    }
     case "syntax_passage":
       html = await buildSyntaxPassage(targetCodes, input.studentId, ctx);
       break;
