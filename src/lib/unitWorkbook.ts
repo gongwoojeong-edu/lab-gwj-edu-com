@@ -196,6 +196,19 @@ const buildSyntaxUnit = async (
   .lg-en { font-size: 10pt; line-height: 1.55; }
   .lg-ko { font-size: 10pt; line-height: 1.55; white-space: pre-wrap; }
   .lg-muted { color: #888; }
+  /* 뒷면 구조도 페이지 */
+  .lg-back { page-break-before: always; }
+  .lg-back .lg-section-title { margin-top: 2mm; }
+  .lg-grid {
+    min-height: 70mm;
+    background-image:
+      linear-gradient(#bbb 0.3pt, transparent 0.3pt),
+      linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
+    background-size: 4mm 4mm;
+    border: 0.5pt solid #000;
+  }
+  .lg-write { display: flex; flex-direction: column; gap: 9mm; padding: 2mm 0 0.5mm; }
+  .lg-line { border-bottom: 0.5pt solid #000; height: 0; }
 </style>
 </head><body>
 <div>
@@ -207,13 +220,37 @@ const buildSyntaxUnit = async (
     </div>
     <div class="lg-stamp">
       <div>출력: ${escapeHtml(stamp)}</div>
-      <div>지문 ${passages.length}건</div>
+      <div>지문 ${passages.length}건 · 앞면</div>
     </div>
   </div>
   <div class="lg-section-title">① 본문 (English)</div>
   <div class="lg-box">${enRows || '<div class="lg-muted">(지문 없음)</div>'}</div>
   <div class="lg-section-title">② 학생 한글해석</div>
   <div class="lg-box">${koRows || '<div class="lg-muted">(미제출)</div>'}</div>
+</div>
+
+<div class="lg-back">
+  <div class="lg-header">
+    <div>
+      <div class="lg-eyebrow">Gongwoojeong · Unit Wrap-up</div>
+      <div class="lg-title">유닛 마무리 · ${escapeHtml(ctx.unitTitle)}</div>
+      <div class="lg-meta">${escapeHtml(ctx.unitCode)} · 학생: ${sName} ${sNo}</div>
+    </div>
+    <div class="lg-stamp">
+      <div>출력: ${escapeHtml(stamp)}</div>
+      <div>구조도 · 지스트 · 영작 · 정독해석 · 재영작</div>
+    </div>
+  </div>
+  <div class="lg-section-title">① 구조도</div>
+  <div class="lg-grid"></div>
+  <div class="lg-section-title">② 지스트 (주제문장)</div>
+  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
+  <div class="lg-section-title">③ 영작</div>
+  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
+  <div class="lg-section-title">④ 정독해석</div>
+  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
+  <div class="lg-section-title">⑤ 재영작</div>
+  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
 </div>
 <script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script>
 </body></html>`;
