@@ -497,7 +497,7 @@ export const buildWordUnitCompactPrintHtml = (
 
   const body = `
 <style>
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: ${pageSizeRule}; margin: 8mm; }
   html, body { background: #fff; margin: 0; padding: 0; }
   body {
     font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
@@ -505,7 +505,7 @@ export const buildWordUnitCompactPrintHtml = (
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   * { box-sizing: border-box; }
-  .word-unit-page { width: 194mm; margin: 0 auto; page-break-after: auto; }
+  .word-unit-page { width: ${pageWidthMm}mm; margin: 0 auto; page-break-after: auto; }
   .compact-header {
     display: grid; grid-template-columns: 1fr auto; gap: 6mm; align-items: end;
     padding-bottom: 3mm; border-bottom: 2pt solid #000; margin-bottom: 3mm;
