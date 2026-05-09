@@ -767,6 +767,7 @@ const LearningResults = () => {
             studentId: userId,
             mode,
             paperSize,
+            answerKey,
             // 단어 통합 인쇄: 첫 페이지에만 학생명/로고 표시
             showStudentHeader: mode === "word_unit" ? i === 0 : true,
           });
