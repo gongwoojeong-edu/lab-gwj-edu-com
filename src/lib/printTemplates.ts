@@ -13,28 +13,40 @@ import type { ClozeSegment } from "./handoutCloze";
 import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
 // 인쇄 iframe(about:blank)에서도 무조건 잡히도록 base64 data URI로 인라인
 import gwjLogoUrl from "@/assets/gwj-edu-logo.png";
+import gwjSymbolUrl from "@/assets/gwj-symbol-transparent.png";
 
-// 로고를 base64 data URI로 캐시 — about:blank 인쇄 iframe에서도 무조건 표시
+// 로고/워터마크 심볼을 base64 data URI로 캐시 — about:blank 인쇄 iframe에서도 무조건 표시
 let __logoDataUri = "";
+let __symbolDataUri = "";
+const assetToDataUri = async (url: string): Promise<string> => {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(typeof r.result === "string" ? r.result : "");
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+};
 const ensureLogoDataUri = async (): Promise<string> => {
-  if (__logoDataUri) return __logoDataUri;
+  if (__logoDataUri && __symbolDataUri) return __logoDataUri;
   try {
-    const res = await fetch(gwjLogoUrl);
-    const blob = await res.blob();
-    __logoDataUri = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(typeof r.result === "string" ? r.result : "");
-      r.onerror = () => reject(r.error);
-      r.readAsDataURL(blob);
-    });
+    const [logo, symbol] = await Promise.all([
+      __logoDataUri ? Promise.resolve(__logoDataUri) : assetToDataUri(gwjLogoUrl),
+      __symbolDataUri ? Promise.resolve(__symbolDataUri) : assetToDataUri(gwjSymbolUrl),
+    ]);
+    __logoDataUri = logo;
+    __symbolDataUri = symbol;
   } catch {
-    __logoDataUri = "";
+    __logoDataUri = __logoDataUri || "";
+    __symbolDataUri = __symbolDataUri || "";
   }
   return __logoDataUri;
 };
 if (typeof window !== "undefined") void ensureLogoDataUri();
 export { ensureLogoDataUri };
 const absLogoUrl = (): string => __logoDataUri || gwjLogoUrl;
+const absSymbolUrl = (): string => __symbolDataUri || gwjSymbolUrl;
 
 // ============================================================
 // 학생 owner_progress 라벨 포맷터 (인쇄용)
@@ -546,7 +558,7 @@ export const buildWordUnitCompactPrintHtml = (
   .compact-meta-right { margin-left: auto; }
   .compact-watermark {
     position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
-    width: 70%; max-width: 110mm; opacity: 0.10; pointer-events: none;
+    width: 68%; max-width: 108mm; opacity: 0.055; pointer-events: none;
     z-index: 0;
   }
   .compact-logo { height: 7mm; width: auto; display: block; }
@@ -569,7 +581,7 @@ export const buildWordUnitCompactPrintHtml = (
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
-  <img class="compact-watermark" src="${absLogoUrl()}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+  <img class="compact-watermark" src="${absSymbolUrl()}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
   <div class="compact-header">
     ${showStudentHeader ? `<img class="compact-logo" src="${absLogoUrl()}" alt="공우정 영어" onerror="this.style.display='none'" />` : ""}
     <div class="compact-title">${escapeHtml(p.passageCode)}</div>
