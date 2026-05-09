@@ -706,6 +706,7 @@ const LearningResults = () => {
             unitCode: label,
             studentId: userId,
             mode,
+            paperSize,
           });
           htmls.push(html);
         } catch (e) {
