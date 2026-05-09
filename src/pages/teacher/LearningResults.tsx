@@ -796,15 +796,15 @@ const LearningResults = () => {
               .join("\n");
             return `${headPart}<body>${bodies}<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script></body></html>`;
           })();
-      launchPrintHtml(combinedHtml, { jobKey: `printAll:${userId}:${mode}` }).catch((e) =>
+      launchPrintHtml(combinedHtml, { jobKey: `printAll:${userId}:${mode}${answerKey ? ":ans" : ""}` }).catch((e) =>
         console.warn("[LearningResults] launchPrintHtml failed", e),
       );
       const isWord = mode === "word_unit";
       toast({
-        title: `${isWord ? "단어" : "구문"} 유닛 통합 워크북 ${htmls.length}건 인쇄 시작`,
-        description: isWord
-          ? "유닛 전체 단어 시험지"
-          : "앞면=영어분석+학생해석, 뒷면=구조도",
+        title: `${isWord ? "단어" : "구문"} 유닛 통합 ${answerKey ? "답지 " : ""}워크북 ${htmls.length}건 인쇄 시작`,
+        description: answerKey
+          ? "정답이 채워진 답지 버전입니다"
+          : (isWord ? "유닛 전체 단어 시험지" : "앞면=영문+해석, 뒷면=구조도"),
       });
     } catch (e) {
       const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
