@@ -256,12 +256,49 @@ export const UnitWorkbookPreviewDialog = ({
           </div>
         </div>
 
+        {/* 답지 토글 — 구문 · 유닛 통합에서만 의미 있음 */}
+        {mode === "syntax_unit" && (
+          <label
+            className={cn(
+              "flex items-start gap-2.5 rounded-md border p-3 cursor-pointer transition-colors",
+              answerKey
+                ? "border-destructive bg-destructive/5"
+                : "border-border bg-card hover:bg-muted/40",
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={answerKey}
+              onChange={(e) => setAnswerKey(e.target.checked)}
+              disabled={printing}
+              className="mt-0.5 size-4 accent-destructive"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-semibold flex items-center gap-1.5">
+                답지(정답) 모드
+                {answerKey && (
+                  <Badge className="bg-destructive text-destructive-foreground text-[10px] h-4 px-1.5">
+                    ANSWER KEY
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                앞면 ②는 모범 한글해석, 뒷면 ③영작 · ④정독해석 · ⑤재영작 칸을 정답으로 채워 인쇄합니다.
+                구조도/지스트는 DB에 정답이 없어 빈칸으로 유지됩니다.
+              </div>
+            </div>
+          </label>
+        )}
+
         {/* 요약 */}
         <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 flex items-center justify-between text-sm">
           <div>
             <span className="font-semibold">{WORKBOOK_MODE_LABEL[mode]}</span>
             <span className="text-muted-foreground"> · </span>
             <span>{completedCodes.length}개 지문</span>
+            {mode === "syntax_unit" && answerKey && (
+              <span className="ml-2 text-destructive font-bold">· 답지</span>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             예상 페이지 ≈ <b className="text-foreground">{estimatedPages}</b>p
@@ -277,7 +314,7 @@ export const UnitWorkbookPreviewDialog = ({
             취소
           </Button>
           <Button
-            onClick={() => onConfirmPrint(mode)}
+            onClick={() => onConfirmPrint(mode, { answerKey: mode === "syntax_unit" && answerKey })}
             disabled={printing || completedCodes.length === 0}
           >
             {printing ? (
