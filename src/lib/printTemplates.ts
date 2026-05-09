@@ -11,14 +11,30 @@
 // ============================================================
 import type { ClozeSegment } from "./handoutCloze";
 import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
+// 인쇄 iframe(about:blank)에서도 무조건 잡히도록 base64 data URI로 인라인
 import gwjLogoUrl from "@/assets/gwj-edu-logo.png";
 
-// 인쇄 iframe(about:blank)에서도 잡히도록 항상 절대 URL로 변환
-const absLogoUrl = (() => {
-  if (typeof window === "undefined") return gwjLogoUrl;
-  try { return new URL(gwjLogoUrl, window.location.origin).href; }
-  catch { return gwjLogoUrl; }
-})();
+// 로고를 base64 data URI로 캐시 — about:blank 인쇄 iframe에서도 무조건 표시
+let __logoDataUri = "";
+const ensureLogoDataUri = async (): Promise<string> => {
+  if (__logoDataUri) return __logoDataUri;
+  try {
+    const res = await fetch(gwjLogoUrl);
+    const blob = await res.blob();
+    __logoDataUri = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(typeof r.result === "string" ? r.result : "");
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    __logoDataUri = "";
+  }
+  return __logoDataUri;
+};
+if (typeof window !== "undefined") void ensureLogoDataUri();
+export { ensureLogoDataUri };
+const absLogoUrl = (): string => __logoDataUri || gwjLogoUrl;
 
 // ============================================================
 // 학생 owner_progress 라벨 포맷터 (인쇄용)
@@ -553,9 +569,9 @@ export const buildWordUnitCompactPrintHtml = (
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
-  <img class="compact-watermark" src="${absLogoUrl}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+  <img class="compact-watermark" src="${absLogoUrl()}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
   <div class="compact-header">
-    ${showStudentHeader ? `<img class="compact-logo" src="${absLogoUrl}" alt="공우정 영어" onerror="this.style.display='none'" />` : ""}
+    ${showStudentHeader ? `<img class="compact-logo" src="${absLogoUrl()}" alt="공우정 영어" onerror="this.style.display='none'" />` : ""}
     <div class="compact-title">${escapeHtml(p.passageCode)}</div>
     <div class="compact-meta">${modeLabel} · ${p.items.length}문항</div>
     <div class="compact-meta compact-meta-right">${

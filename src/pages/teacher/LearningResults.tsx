@@ -55,6 +55,7 @@ import {
 } from "@/lib/printPreload";
 import { errMsg } from "@/lib/errMsg";
 import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
+import { ensureLogoDataUri } from "@/lib/printTemplates";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
@@ -685,6 +686,8 @@ const LearningResults = () => {
   ) => {
     // sentence_id → unit_id 로 그룹핑 후 유닛별 통합 워크북 1장씩 인쇄
     try {
+      // 로고 base64 준비 (about:blank iframe에서도 표시되도록)
+      await ensureLogoDataUri();
       const groups = new Map<string, string[]>();
       sentenceIds.forEach((sid) => {
         const uid = codeToUnit[sid];
