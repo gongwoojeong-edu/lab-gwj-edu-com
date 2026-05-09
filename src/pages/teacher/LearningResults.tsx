@@ -107,6 +107,14 @@ const LearningResults = () => {
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
   const [printedSet, setPrintedSet] = useState<Record<string, string>>({});
+  const [wordPaperSize, setWordPaperSize] = useState<"A4" | "B5">(() => {
+    if (typeof window === "undefined") return "B5";
+    const v = window.localStorage.getItem("gwjt.print.wordPaperSize");
+    return v === "A4" ? "A4" : "B5";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("gwjt.print.wordPaperSize", wordPaperSize); } catch {}
+  }, [wordPaperSize]);
   // 한글해석 / 단어시험 보기 다이얼로그
   const [viewDialog, setViewDialog] = useState<{
     kind: "translation" | "wordTest";
@@ -673,6 +681,7 @@ const LearningResults = () => {
     userId: string,
     sentenceIds: string[],
     mode: "syntax_unit" | "word_unit" = "syntax_unit",
+    paperSize: "A4" | "B5" = wordPaperSize,
   ) => {
     // sentence_id → unit_id 로 그룹핑 후 유닛별 통합 워크북 1장씩 인쇄
     try {
@@ -697,6 +706,7 @@ const LearningResults = () => {
             unitCode: label,
             studentId: userId,
             mode,
+            paperSize,
           });
           htmls.push(html);
         } catch (e) {
@@ -915,6 +925,17 @@ const LearningResults = () => {
             </span>
           </h1>
           <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground flex items-center gap-1">
+              단어 인쇄 용지
+              <select
+                value={wordPaperSize}
+                onChange={(e) => setWordPaperSize(e.target.value === "A4" ? "A4" : "B5")}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="B5">B5 (권장)</option>
+                <option value="A4">A4</option>
+              </select>
+            </label>
             <Input
               type="date"
               value={date}

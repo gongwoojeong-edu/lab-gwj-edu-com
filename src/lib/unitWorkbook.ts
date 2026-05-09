@@ -263,6 +263,7 @@ const buildWordUnit = async (
   sentenceIds: string[],
   studentId: string,
   ctx: UnitWorkbookContext,
+  paperSize: "A4" | "B5" = "B5",
 ): Promise<string> => {
   // 단어 시험지는 학생 진행도와 무관하게 "유닛 전체 지문"의 단어를 한 장에 묶는다.
   // sentenceIds 가 일부만 들어와도, 학생이 미완료여도 모든 지문의 단어를 모은다.
@@ -284,7 +285,7 @@ const buildWordUnit = async (
     mode: "mix",
     items: merged,
   };
-  return buildWordUnitCompactPrintHtml(payload);
+  return buildWordUnitCompactPrintHtml(payload, paperSize);
 };
 
 // ============================================================
@@ -323,6 +324,8 @@ export interface BuildUnitWorkbookInput {
   studentId: string;
   /** 4종 워크북 모드 — 기본 syntax_unit (= 김재원 디자인) */
   mode?: WorkbookMode;
+  /** 단어 유닛 시험지 인쇄 용지 (기본 B5) */
+  paperSize?: "A4" | "B5";
 }
 
 /**
@@ -370,7 +373,7 @@ export const buildUnitWorkbookHtmlFor = async (
       html = await buildSyntaxPassage(targetCodes, input.studentId, ctx);
       break;
     case "word_unit":
-      html = await buildWordUnit(targetCodes, input.studentId, ctx);
+      html = await buildWordUnit(targetCodes, input.studentId, ctx, input.paperSize ?? "B5");
       break;
     case "word_passage":
       html = await buildWordPassage(targetCodes, input.studentId, ctx);
