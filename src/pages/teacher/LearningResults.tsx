@@ -107,6 +107,14 @@ const LearningResults = () => {
   const [teacherId, setTeacherId] = useState<string | null>(null);
   // 낙관적 인쇄완료 표기: `${userId}::${sentenceId}` → ISO timestamp
   const [printedSet, setPrintedSet] = useState<Record<string, string>>({});
+  const [wordPaperSize, setWordPaperSize] = useState<"A4" | "B5">(() => {
+    if (typeof window === "undefined") return "B5";
+    const v = window.localStorage.getItem("gwjt.print.wordPaperSize");
+    return v === "A4" ? "A4" : "B5";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("gwjt.print.wordPaperSize", wordPaperSize); } catch {}
+  }, [wordPaperSize]);
   // 한글해석 / 단어시험 보기 다이얼로그
   const [viewDialog, setViewDialog] = useState<{
     kind: "translation" | "wordTest";
