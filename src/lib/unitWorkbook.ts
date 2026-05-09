@@ -14,7 +14,6 @@
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import {
-  preloadAnalysisPayload,
   preloadHandoutPayload,
   preloadWordPayload,
   PrintPreloadError,
@@ -23,11 +22,9 @@ import {
   buildHandoutPrintHtml,
   buildWordPrintHtml,
   buildWordUnitCompactPrintHtml,
-  buildUnitCombinedWorkbookHtml,
-  type UnitCombinedItem,
   type WordPayload,
 } from "./printTemplates";
-import { fetchPassagesByUnit } from "./textbooks";
+import { fetchPassagesByUnit, type Passage } from "./textbooks";
 
 const escapeHtml = (s: string): string =>
   s
