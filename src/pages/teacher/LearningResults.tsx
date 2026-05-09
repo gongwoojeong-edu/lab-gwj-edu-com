@@ -751,7 +751,8 @@ const LearningResults = () => {
         const lb = unitLabelLocal[b] ?? b;
         return la.localeCompare(lb, "ko", { numeric: true, sensitivity: "base" });
       });
-      for (const unitId of sortedUnitIds) {
+      for (let i = 0; i < sortedUnitIds.length; i++) {
+        const unitId = sortedUnitIds[i];
         const label = unitLabelLocal[unitId] ?? "Unit";
         try {
           const { html } = await buildUnitWorkbookHtmlFor({
@@ -761,6 +762,8 @@ const LearningResults = () => {
             studentId: userId,
             mode,
             paperSize,
+            // 단어 통합 인쇄: 첫 페이지에만 학생명/로고 표시
+            showStudentHeader: mode === "word_unit" ? i === 0 : true,
           });
           htmls.push(html);
         } catch (e) {
