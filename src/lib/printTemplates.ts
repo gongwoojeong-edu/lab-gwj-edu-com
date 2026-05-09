@@ -464,13 +464,24 @@ export const buildWordPrintHtml = (p: WordPayload): string => {
   return wrapDoc(`Word ${p.passageCode}`, body);
 };
 
-export const buildWordUnitCompactPrintHtml = (p: WordPayload): string => {
+export type PrintPaperSize = "A4" | "B5";
+
+export const buildWordUnitCompactPrintHtml = (
+  p: WordPayload,
+  paperSize: PrintPaperSize = "B5",
+): string => {
   const stamp = nowStamp();
   const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
   const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
   const modeLabel =
     p.mode === "ko" ? "한글 채우기" : p.mode === "en" ? "영어 채우기" : "혼합";
-  const columnCount = p.items.length > 84 ? 4 : p.items.length > 36 ? 3 : 2;
+  // B5는 폭이 좁아서 컬럼 임계치를 더 낮게 잡는다
+  const columnCount = paperSize === "B5"
+    ? (p.items.length > 72 ? 3 : 2)
+    : (p.items.length > 84 ? 4 : p.items.length > 36 ? 3 : 2);
+  // B5(176×250) margin 8mm → 내용폭 160mm / A4(210×297) margin 8mm → 194mm
+  const pageWidthMm = paperSize === "B5" ? 160 : 194;
+  const pageSizeRule = paperSize === "B5" ? "B5 portrait" : "A4 portrait";
   const rowsPerColumn = Math.max(1, Math.ceil(p.items.length / columnCount));
   const columns = Array.from({ length: columnCount }, (_, col) =>
     p.items.slice(col * rowsPerColumn, (col + 1) * rowsPerColumn),
