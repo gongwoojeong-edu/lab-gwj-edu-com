@@ -498,6 +498,7 @@ export const buildWordUnitCompactPrintHtml = (
   p: WordPayload,
   paperSize: PrintPaperSize = "B5",
   showStudentHeader = true,
+  answerKey = false,
 ): string => {
   const stamp = nowStamp();
   const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
@@ -518,6 +519,10 @@ export const buildWordUnitCompactPrintHtml = (
   const blankSideOf = (i: number): "ko" | "en" =>
     p.mode === "ko" ? "ko" : p.mode === "en" ? "en" : i % 2 === 0 ? "ko" : "en";
   const renderRow = (it: { word: string; expected: string }, idx0: number): string => {
+    if (answerKey) {
+      // 답지 모드: 양쪽 모두 정답으로 채움
+      return `<div class="compact-row ans"><span class="compact-num">${idx0 + 1}.</span><span class="compact-en">${escapeHtml(it.word)}</span><span class="compact-ko">${escapeHtml(it.expected || "—")}</span></div>`;
+    }
     const side = blankSideOf(idx0);
     const en = side === "en" ? `<span class="answer-blank"></span>` : escapeHtml(it.word);
     const ko = side === "ko" ? `<span class="answer-blank"></span>` : escapeHtml(it.expected || "—");
