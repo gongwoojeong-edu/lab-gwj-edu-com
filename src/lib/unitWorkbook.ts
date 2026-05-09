@@ -548,7 +548,6 @@ export const buildUnitWorkbookHtmlFor = async (
     case "word_unit":
       html = await buildWordUnit(targetCodes, input.studentId, ctx, input.paperSize ?? "B5", input.showStudentHeader ?? true, input.answerKey ?? false);
       break;
-      break;
     case "word_passage":
       html = await buildWordPassage(targetCodes, input.studentId, ctx);
       break;
