@@ -514,7 +514,7 @@ export const buildWordUnitCompactPrintHtml = (
     display: flex; align-items: center; gap: 4mm; flex-wrap: wrap;
     padding-bottom: 1.5mm; border-bottom: 0.6pt solid #999; margin-bottom: 2.5mm;
   }
-  .compact-logo { height: 7mm; width: auto; display: block; }
+  /* .compact-logo 정의는 아래에 통합 */
   .compact-title { font-size: 10.5pt; font-weight: 800; letter-spacing: -0.01em; }
   .compact-meta { font-size: 7.5pt; color: #555; }
   .compact-meta b { color: #111; }
