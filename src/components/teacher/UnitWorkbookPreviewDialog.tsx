@@ -53,7 +53,7 @@ export interface UnitWorkbookPreviewProps {
   pendingCodes: string[];
   printing: boolean;
   /** 사용자가 선택한 모드를 받아 인쇄 실행 */
-  onConfirmPrint: (mode: WorkbookMode) => void;
+  onConfirmPrint: (mode: WorkbookMode, opts: { answerKey: boolean }) => void;
 }
 
 interface ModeCard {
