@@ -115,6 +115,7 @@ const buildSyntaxUnit = async (
   passages: Passage[],
   studentId: string,
   ctx: UnitWorkbookContext,
+  answerKey = false,
 ): Promise<string> => {
   const codes = passages.map((p) => p.code);
   const { data: trs } = await supabase
