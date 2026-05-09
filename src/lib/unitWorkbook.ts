@@ -215,7 +215,7 @@ const buildSyntaxUnit = async (
   <div class="lg-section-title">② 학생 한글해석</div>
   <div class="lg-box">${koRows || '<div class="lg-muted">(미제출)</div>'}</div>
 </div>
-<script>try{window.__LOVABLE_PRINT_READY=true;}calc(e){}</script>
+<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script>
 </body></html>`;
 };
 
