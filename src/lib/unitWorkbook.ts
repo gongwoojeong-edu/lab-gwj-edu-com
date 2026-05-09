@@ -428,6 +428,7 @@ const buildWordUnit = async (
   ctx: UnitWorkbookContext,
   paperSize: "A4" | "B5" = "B5",
   showStudentHeader = true,
+  answerKey = false,
 ): Promise<string> => {
   const seen = new Map<string, { word: string; expected: string }>();
   for (const sid of sentenceIds) {
@@ -447,7 +448,7 @@ const buildWordUnit = async (
     mode: "mix",
     items: merged,
   };
-  return buildWordUnitCompactPrintHtml(payload, paperSize, showStudentHeader);
+  return buildWordUnitCompactPrintHtml(payload, paperSize, showStudentHeader, answerKey);
 };
 
 // ============================================================
