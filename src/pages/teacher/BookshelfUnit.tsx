@@ -227,8 +227,8 @@ const BookshelfUnit = () => {
       });
       const { WORKBOOK_MODE_LABEL } = await import("@/lib/unitWorkbook");
       toast({
-        title: "워크북 인쇄 시작",
-        description: `${WORKBOOK_MODE_LABEL[mode]} · ${completedCount}개 지문`,
+        title: opts.answerKey ? "답지 인쇄 시작" : "워크북 인쇄 시작",
+        description: `${WORKBOOK_MODE_LABEL[mode]}${opts.answerKey ? " · 답지" : ""} · ${completedCount}개 지문`,
       });
       setPreviewOpen(false);
     } catch (err) {
