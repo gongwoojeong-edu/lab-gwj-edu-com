@@ -490,6 +490,8 @@ export interface BuildUnitWorkbookInput {
   paperSize?: "A4" | "B5";
   /** 단어 통합 인쇄에서 첫 페이지 외에는 학생 헤더/로고 숨김 (기본 true) */
   showStudentHeader?: boolean;
+  /** 답지 모드 — syntax_unit 뒷면을 정답(영작/정독해석/재영작)으로 채움 */
+  answerKey?: boolean;
 }
 
 /**
