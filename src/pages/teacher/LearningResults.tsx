@@ -55,6 +55,7 @@ import {
 } from "@/lib/printPreload";
 import { errMsg } from "@/lib/errMsg";
 import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
+import { ensureLogoDataUri } from "@/lib/printTemplates";
 import { toast } from "@/hooks/use-toast";
 
 interface StudentInfo {
