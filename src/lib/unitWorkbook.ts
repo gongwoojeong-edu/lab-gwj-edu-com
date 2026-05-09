@@ -324,6 +324,8 @@ export interface BuildUnitWorkbookInput {
   studentId: string;
   /** 4종 워크북 모드 — 기본 syntax_unit (= 김재원 디자인) */
   mode?: WorkbookMode;
+  /** 단어 유닛 시험지 인쇄 용지 (기본 B5) */
+  paperSize?: "A4" | "B5";
 }
 
 /**
