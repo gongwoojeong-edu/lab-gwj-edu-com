@@ -477,6 +477,7 @@ export type PrintPaperSize = "A4" | "B5";
 export const buildWordUnitCompactPrintHtml = (
   p: WordPayload,
   paperSize: PrintPaperSize = "B5",
+  showStudentHeader = true,
 ): string => {
   const stamp = nowStamp();
   const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
