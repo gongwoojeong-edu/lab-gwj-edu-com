@@ -697,14 +697,62 @@ const LearningResults = () => {
         return;
       }
       const htmls: string[] = [];
-      // 유닛 라벨 기준 오름차순 정렬 (본문1 → 본문2 → 본문3)
-      const sortedUnitIds = Array.from(groups.keys()).sort((a, b) => {
-        const la = unitLabel[a] ?? a;
-        const lb = unitLabel[b] ?? b;
+
+      // 단어 모드: 학생이 활동한 본문이 속한 "교재 전체 본문"을 모두 포함
+      // (구문 모드는 활동한 유닛만 — 분량이 너무 커지므로)
+      let queueUnitIds: string[] = Array.from(groups.keys());
+      const unitLabelLocal: Record<string, string> = { ...unitLabel };
+      if (mode === "word_unit") {
+        try {
+          const touchedUnitIds = Array.from(groups.keys());
+          const { data: tuRows } = await supabase
+            .from("textbook_units")
+            .select("textbook_id")
+            .in("id", touchedUnitIds);
+          const tbIds = Array.from(
+            new Set(((tuRows ?? []) as { textbook_id: string }[])
+              .map((r) => r.textbook_id)
+              .filter(Boolean)),
+          );
+          if (tbIds.length > 0) {
+            const { data: allUnits } = await supabase
+              .from("textbook_units")
+              .select("id, unit_no, title, textbook_id")
+              .in("textbook_id", tbIds);
+            const { data: tbRows } = await supabase
+              .from("textbooks")
+              .select("id, level, title")
+              .in("id", tbIds);
+            const tbMap = new Map<string, { level: string; title: string }>();
+            ((tbRows ?? []) as { id: string; level: string; title: string }[]).forEach(
+              (t) => tbMap.set(t.id, { level: t.level, title: t.title }),
+            );
+            const expanded: string[] = [];
+            ((allUnits ?? []) as {
+              id: string; unit_no: number; title: string; textbook_id: string;
+            }[]).forEach((u) => {
+              expanded.push(u.id);
+              if (!unitLabelLocal[u.id]) {
+                const tb = tbMap.get(u.textbook_id);
+                const tbPrefix = tb ? `[${tb.level}] ${tb.title}` : "";
+                unitLabelLocal[u.id] = `${tbPrefix} · U${u.unit_no} ${u.title}`.trim();
+              }
+            });
+            if (expanded.length > 0) queueUnitIds = expanded;
+          }
+        } catch (e) {
+          console.warn("[LearningResults] textbook expansion failed", e);
+        }
+      }
+
+      // 라벨 기준 오름차순 정렬 (본문1 → 본문2 → 본문3)
+      const sortedUnitIds = queueUnitIds.sort((a, b) => {
+        const la = unitLabelLocal[a] ?? a;
+        const lb = unitLabelLocal[b] ?? b;
         return la.localeCompare(lb, "ko", { numeric: true, sensitivity: "base" });
       });
       for (const unitId of sortedUnitIds) {
-        const label = unitLabel[unitId] ?? "Unit";
+        const label = unitLabelLocal[unitId] ?? "Unit";
         try {
           const { html } = await buildUnitWorkbookHtmlFor({
             unitId,
