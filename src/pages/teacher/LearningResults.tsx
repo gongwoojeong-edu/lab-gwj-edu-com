@@ -707,8 +707,24 @@ const LearningResults = () => {
         toast({ title: "인쇄할 워크북 생성에 실패했어요", variant: "destructive" });
         return;
       }
-      launchPrintHtmlMany(htmls, { jobKey: `printAll:${userId}:${mode}` }).catch((e) =>
-        console.warn("[LearningResults] launchPrintHtmlMany failed", e),
+      // 여러 유닛이 섞여 있어도 인쇄 작업은 하나로 합쳐서 1번만 띄운다
+      // (각 유닛의 body 만 추출해 한 문서에 이어붙임)
+      const combinedHtml = htmls.length === 1
+        ? htmls[0]
+        : (() => {
+            const first = htmls[0];
+            const headEnd = first.search(/<\/head>/i);
+            const headPart = headEnd >= 0 ? first.slice(0, headEnd + 7) : "<!DOCTYPE html><html><head></head>";
+            const bodies = htmls
+              .map((h) => {
+                const m = h.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+                return m ? m[1] : h;
+              })
+              .join("\n");
+            return `${headPart}<body>${bodies}<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script></body></html>`;
+          })();
+      launchPrintHtml(combinedHtml, { jobKey: `printAll:${userId}:${mode}` }).catch((e) =>
+        console.warn("[LearningResults] launchPrintHtml failed", e),
       );
       const isWord = mode === "word_unit";
       toast({
