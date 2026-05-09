@@ -684,6 +684,7 @@ const LearningResults = () => {
     sentenceIds: string[],
     mode: "syntax_unit" | "word_unit" = "syntax_unit",
     paperSize: "A4" | "B5" = wordPaperSize,
+    answerKey: boolean = answerKeyMode,
   ) => {
     // sentence_id → unit_id 로 그룹핑 후 유닛별 통합 워크북 1장씩 인쇄
     try {
