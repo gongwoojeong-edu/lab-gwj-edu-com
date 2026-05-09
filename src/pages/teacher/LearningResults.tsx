@@ -925,6 +925,17 @@ const LearningResults = () => {
             </span>
           </h1>
           <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground flex items-center gap-1">
+              단어 인쇄 용지
+              <select
+                value={wordPaperSize}
+                onChange={(e) => setWordPaperSize(e.target.value === "A4" ? "A4" : "B5")}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="B5">B5 (권장)</option>
+                <option value="A4">A4</option>
+              </select>
+            </label>
             <Input
               type="date"
               value={date}
