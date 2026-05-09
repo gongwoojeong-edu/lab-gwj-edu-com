@@ -22,6 +22,7 @@ import {
 import {
   buildHandoutPrintHtml,
   buildWordPrintHtml,
+  buildWordUnitCompactPrintHtml,
   buildUnitCombinedWorkbookHtml,
   type UnitCombinedItem,
   type WordPayload,
@@ -283,10 +284,7 @@ const buildWordUnit = async (
     mode: "mix",
     items: merged,
   };
-  const html = buildWordPrintHtml(payload);
-  // 단일 시험지지만 wrapMulti 로 일관되게 처리
-  const title = `유닛 단어 시험지 · ${ctx.unitTitle} · ${ctx.studentName ?? ""}`;
-  return wrapMulti(title, [html]);
+  return buildWordUnitCompactPrintHtml(payload);
 };
 
 // ============================================================
