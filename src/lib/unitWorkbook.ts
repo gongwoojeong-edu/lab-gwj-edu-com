@@ -325,6 +325,8 @@ export interface BuildUnitWorkbookInput {
   mode?: WorkbookMode;
   /** 단어 유닛 시험지 인쇄 용지 (기본 B5) */
   paperSize?: "A4" | "B5";
+  /** 단어 통합 인쇄에서 첫 페이지 외에는 학생 헤더/로고 숨김 (기본 true) */
+  showStudentHeader?: boolean;
 }
 
 /**
