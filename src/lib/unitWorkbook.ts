@@ -210,13 +210,31 @@ const buildSyntaxUnit = async (
   }
   .lg-write { display: flex; flex-direction: column; gap: 9mm; padding: 2mm 0 0.5mm; }
   .lg-line { border-bottom: 0.5pt solid #000; height: 0; }
+  /* 답지 모드 */
+  .lg-ans-banner {
+    display: inline-block; background: #c00; color: #fff;
+    font-size: 8.5pt; font-weight: 800; padding: 0.5mm 2mm;
+    border-radius: 1mm; letter-spacing: 0.05em; margin-left: 2mm;
+  }
+  .lg-ans-fill {
+    border: 0.5pt solid #000; padding: 2mm 3mm;
+    font-size: 9.5pt; line-height: 1.55;
+    background: #fff8e6;
+    white-space: pre-wrap;
+  }
+  .lg-ans-grid-note {
+    border: 0.5pt solid #000; padding: 4mm; min-height: 70mm;
+    font-size: 9pt; color: #666; text-align: center;
+    display: flex; align-items: center; justify-content: center;
+    background: #fafafa;
+  }
 </style>
 </head><body>
 <div>
   <div class="lg-header">
     <div>
-      <div class="lg-eyebrow">Gongwoojeong · Unit Workbook</div>
-      <div class="lg-title">유닛 통합 워크북 · ${escapeHtml(ctx.unitTitle)}</div>
+      <div class="lg-eyebrow">Gongwoojeong · Unit Workbook${answerKey ? " · ANSWER KEY" : ""}</div>
+      <div class="lg-title">유닛 통합 워크북 · ${escapeHtml(ctx.unitTitle)}${answerKey ? '<span class="lg-ans-banner">답지</span>' : ""}</div>
       <div class="lg-meta">${escapeHtml(ctx.unitCode)} · 학생: ${sName} ${sNo}</div>
     </div>
     <div class="lg-stamp">
@@ -226,15 +244,32 @@ const buildSyntaxUnit = async (
   </div>
   <div class="lg-section-title">① 본문 (English)</div>
   <div class="lg-box">${enRows || '<div class="lg-muted">(지문 없음)</div>'}</div>
-  <div class="lg-section-title">② 학생 한글해석</div>
-  <div class="lg-box">${koRows || '<div class="lg-muted">(미제출)</div>'}</div>
+  <div class="lg-section-title">② ${answerKey ? "모범 한글해석 (정답)" : "학생 한글해석"}</div>
+  <div class="lg-box">${
+    answerKey
+      ? (passages
+          .map((p, i) => {
+            const ko = (p.korean ?? "").trim();
+            const koHtml = ko ? escapeHtml(ko) : '<span class="lg-muted">(DB에 모범해석 없음)</span>';
+            return `
+      <div class="lg-row">
+        <div class="lg-num">${i + 1}.</div>
+        <div class="lg-body">
+          <div class="lg-code">${escapeHtml(p.code)}</div>
+          <div class="lg-ko">${koHtml}</div>
+        </div>
+      </div>`;
+          })
+          .join("") || '<div class="lg-muted">(지문 없음)</div>')
+      : (koRows || '<div class="lg-muted">(미제출)</div>')
+  }</div>
 </div>
 
 <div class="lg-back">
   <div class="lg-header">
     <div>
-      <div class="lg-eyebrow">Gongwoojeong · Unit Wrap-up</div>
-      <div class="lg-title">유닛 마무리 · ${escapeHtml(ctx.unitTitle)}</div>
+      <div class="lg-eyebrow">Gongwoojeong · Unit Wrap-up${answerKey ? " · ANSWER KEY" : ""}</div>
+      <div class="lg-title">유닛 마무리 · ${escapeHtml(ctx.unitTitle)}${answerKey ? '<span class="lg-ans-banner">답지</span>' : ""}</div>
       <div class="lg-meta">${escapeHtml(ctx.unitCode)} · 학생: ${sName} ${sNo}</div>
     </div>
     <div class="lg-stamp">
@@ -243,15 +278,40 @@ const buildSyntaxUnit = async (
     </div>
   </div>
   <div class="lg-section-title">① 구조도</div>
-  <div class="lg-grid"></div>
+  ${answerKey
+    ? '<div class="lg-ans-grid-note">구조도 정답은 DB에 저장되지 않습니다 — 화면 분석으로 대조하세요.</div>'
+    : '<div class="lg-grid"></div>'}
   <div class="lg-section-title">② 지스트 (주제문장)</div>
-  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
+  ${answerKey
+    ? '<div class="lg-ans-grid-note" style="min-height:18mm">지스트 정답은 DB에 저장되지 않습니다.</div>'
+    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
   <div class="lg-section-title">③ 영작</div>
-  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
+  ${answerKey
+    ? `<div class="lg-ans-fill">${
+        passages
+          .map((p, i) => `${i + 1}. ${escapeHtml(p.english ?? "")}`)
+          .join("\n") || '(지문 없음)'
+      }</div>`
+    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
   <div class="lg-section-title">④ 정독해석</div>
-  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
+  ${answerKey
+    ? `<div class="lg-ans-fill">${
+        passages
+          .map((p, i) => {
+            const ko = (p.korean ?? "").trim();
+            return `${i + 1}. ${ko ? escapeHtml(ko) : "(DB에 모범해석 없음)"}`;
+          })
+          .join("\n") || '(지문 없음)'
+      }</div>`
+    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
   <div class="lg-section-title">⑤ 재영작</div>
-  <div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>
+  ${answerKey
+    ? `<div class="lg-ans-fill">${
+        passages
+          .map((p, i) => `${i + 1}. ${escapeHtml(p.english ?? "")}`)
+          .join("\n") || '(지문 없음)'
+      }</div>`
+    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
 </div>
 <script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script>
 </body></html>`;
