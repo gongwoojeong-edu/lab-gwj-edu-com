@@ -697,7 +697,13 @@ const LearningResults = () => {
         return;
       }
       const htmls: string[] = [];
-      for (const [unitId] of groups) {
+      // 유닛 라벨 기준 오름차순 정렬 (본문1 → 본문2 → 본문3)
+      const sortedUnitIds = Array.from(groups.keys()).sort((a, b) => {
+        const la = unitLabel[a] ?? a;
+        const lb = unitLabel[b] ?? b;
+        return la.localeCompare(lb, "ko", { numeric: true, sensitivity: "base" });
+      });
+      for (const unitId of sortedUnitIds) {
         const label = unitLabel[unitId] ?? "Unit";
         try {
           const { html } = await buildUnitWorkbookHtmlFor({

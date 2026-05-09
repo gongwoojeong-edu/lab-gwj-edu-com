@@ -505,16 +505,26 @@ export const buildWordUnitCompactPrintHtml = (
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   * { box-sizing: border-box; }
-  .word-unit-page { width: ${pageWidthMm}mm; margin: 0 auto; page-break-after: auto; }
-  .compact-header {
-    display: flex; align-items: baseline; gap: 4mm; flex-wrap: wrap;
-    padding-bottom: 1.2mm; border-bottom: 0.6pt solid #999; margin-bottom: 2.2mm;
+  .word-unit-page {
+    width: ${pageWidthMm}mm; margin: 0 auto;
+    page-break-after: auto; page-break-inside: avoid;
+    position: relative; padding-bottom: 6mm; /* 하단 여유 — 프린터 푸터와 겹침 방지 */
   }
+  .compact-header {
+    display: flex; align-items: center; gap: 4mm; flex-wrap: wrap;
+    padding-bottom: 1.5mm; border-bottom: 0.6pt solid #999; margin-bottom: 2.5mm;
+  }
+  .compact-logo { height: 7mm; width: auto; display: block; }
   .compact-title { font-size: 10.5pt; font-weight: 800; letter-spacing: -0.01em; }
   .compact-meta { font-size: 7.5pt; color: #555; }
   .compact-meta b { color: #111; }
   .compact-meta-right { margin-left: auto; }
-  .compact-grid { display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 2mm 5mm; }
+  .compact-watermark {
+    position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
+    width: 70%; max-width: 110mm; opacity: 0.06; pointer-events: none;
+    z-index: 0;
+  }
+  .compact-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 2mm 5mm; }
   .compact-col { display: flex; flex-direction: column; }
   .compact-row {
     display: grid; grid-template-columns: 5mm minmax(0, 1fr) minmax(0, 1fr);
@@ -523,20 +533,22 @@ export const buildWordUnitCompactPrintHtml = (
     break-inside: avoid;
   }
   /* 행 구분선을 약하게 — 짝수행만 옅게 */
-  .compact-col .compact-row:nth-child(even) { background: #f6f6f6; }
+  .compact-col .compact-row:nth-child(even) { background: rgba(246,246,246,0.85); }
   .compact-num { font-size: 7pt; color: #888; text-align: right; padding-right: 0.5mm; }
   .compact-en { min-width: 0; font-size: ${columnCount >= 4 ? "7.7pt" : "8.7pt"}; font-weight: 700; overflow-wrap: anywhere; }
   .compact-ko { min-width: 0; font-size: ${columnCount >= 4 ? "7.2pt" : "8pt"}; color: #222; overflow-wrap: anywhere; }
   .answer-blank { display: inline-block; width: 100%; min-width: 12mm; height: 1em; border-bottom: 0.4pt solid #555; }
   .compact-empty { padding: 24mm; text-align: center; font-size: 11pt; color: #555; }
-  .word-unit-page + .word-unit-page { margin-top: 4mm; }
+  .word-unit-page + .word-unit-page { margin-top: 4mm; page-break-before: always; }
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
+  <img class="compact-watermark" src="/gwj-edu-logo.png" alt="" aria-hidden="true" />
   <div class="compact-header">
+    <img class="compact-logo" src="/gwj-edu-logo.png" alt="공우정 영어" />
     <div class="compact-title">${escapeHtml(p.passageCode)}</div>
     <div class="compact-meta">${modeLabel} · ${p.items.length}문항</div>
-    <div class="compact-meta compact-meta-right">학생 <b>${sName}</b> ${sNo} · 점수 ___/${p.items.length}</div>
+    <div class="compact-meta compact-meta-right">학생 <b>${sName}</b> ${sNo} · 점수 ___/${p.items.length} · ${stamp}</div>
   </div>
   ${
     p.items.length === 0
