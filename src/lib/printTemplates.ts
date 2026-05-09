@@ -558,7 +558,7 @@ export const buildWordUnitCompactPrintHtml = (
   .compact-meta-right { margin-left: auto; }
   .compact-watermark {
     position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
-    width: 70%; max-width: 110mm; opacity: 0.10; pointer-events: none;
+    width: 68%; max-width: 108mm; opacity: 0.055; pointer-events: none;
     z-index: 0;
   }
   .compact-logo { height: 7mm; width: auto; display: block; }
@@ -581,7 +581,7 @@ export const buildWordUnitCompactPrintHtml = (
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
-  <img class="compact-watermark" src="${absLogoUrl()}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+  <img class="compact-watermark" src="${absSymbolUrl()}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
   <div class="compact-header">
     ${showStudentHeader ? `<img class="compact-logo" src="${absLogoUrl()}" alt="공우정 영어" onerror="this.style.display='none'" />` : ""}
     <div class="compact-title">${escapeHtml(p.passageCode)}</div>
