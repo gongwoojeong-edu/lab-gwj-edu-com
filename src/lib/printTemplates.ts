@@ -577,7 +577,6 @@ export const buildWordUnitCompactPrintHtml = (
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
-  <img class="compact-watermark" src="${absSymbolUrl()}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
   <div class="compact-header">
     ${showStudentHeader ? `<img class="compact-logo" src="${absLogoUrl()}" alt="공우정 영어" onerror="this.style.display='none'" />` : ""}
     <div class="compact-title">${escapeHtml(p.passageCode)}</div>
