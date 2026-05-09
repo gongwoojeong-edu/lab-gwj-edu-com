@@ -13,11 +13,9 @@ import type { ClozeSegment } from "./handoutCloze";
 import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
 // 인쇄 iframe(about:blank)에서도 무조건 잡히도록 base64 data URI로 인라인
 import gwjLogoUrl from "@/assets/gwj-edu-logo.png";
-import gwjSymbolUrl from "@/assets/gwj-symbol-transparent.png";
 
-// 로고/워터마크 심볼을 base64 data URI로 캐시 — about:blank 인쇄 iframe에서도 무조건 표시
+// 로고를 base64 data URI로 캐시 — about:blank 인쇄 iframe에서도 무조건 표시
 let __logoDataUri = "";
-let __symbolDataUri = "";
 const assetToDataUri = async (url: string): Promise<string> => {
   const res = await fetch(url);
   const blob = await res.blob();
@@ -29,24 +27,18 @@ const assetToDataUri = async (url: string): Promise<string> => {
   });
 };
 const ensureLogoDataUri = async (): Promise<string> => {
-  if (__logoDataUri && __symbolDataUri) return __logoDataUri;
+  if (__logoDataUri) return __logoDataUri;
   try {
-    const [logo, symbol] = await Promise.all([
-      __logoDataUri ? Promise.resolve(__logoDataUri) : assetToDataUri(gwjLogoUrl),
-      __symbolDataUri ? Promise.resolve(__symbolDataUri) : assetToDataUri(gwjSymbolUrl),
-    ]);
-    __logoDataUri = logo;
-    __symbolDataUri = symbol;
+    __logoDataUri = await assetToDataUri(gwjLogoUrl);
   } catch {
-    __logoDataUri = __logoDataUri || "";
-    __symbolDataUri = __symbolDataUri || "";
+    __logoDataUri = "";
   }
   return __logoDataUri;
 };
 if (typeof window !== "undefined") void ensureLogoDataUri();
 export { ensureLogoDataUri };
 const absLogoUrl = (): string => __logoDataUri || gwjLogoUrl;
-const absSymbolUrl = (): string => __symbolDataUri || gwjSymbolUrl;
+
 
 // ============================================================
 // 학생 owner_progress 라벨 포맷터 (인쇄용)
