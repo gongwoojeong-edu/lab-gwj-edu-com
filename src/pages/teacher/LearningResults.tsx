@@ -1059,19 +1059,21 @@ const LearningResults = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handlePrintAll(userId, sentenceIds, "syntax_unit")}
-                        title="구문 · 유닛 통합 워크북 (영어분석+해석)"
+                        title={answerKeyMode ? "구문 · 유닛 통합 답지 (정답 채워짐)" : "구문 · 유닛 통합 워크북 (영어분석+해석)"}
+                        className={answerKeyMode ? "border-destructive text-destructive" : ""}
                       >
                         <Printer className="size-3.5 mr-1" />
-                        구문 전체
+                        구문 전체{answerKeyMode ? " 답지" : ""}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handlePrintAll(userId, sentenceIds, "word_unit")}
-                        title="단어 · 유닛 통합 시험지"
+                        title={answerKeyMode ? "단어 · 유닛 통합 답지 (정답 채워짐)" : "단어 · 유닛 통합 시험지"}
+                        className={answerKeyMode ? "border-destructive text-destructive" : ""}
                       >
                         <Printer className="size-3.5 mr-1" />
-                        단어 전체
+                        단어 전체{answerKeyMode ? " 답지" : ""}
                       </Button>
                     </div>
                   </div>
