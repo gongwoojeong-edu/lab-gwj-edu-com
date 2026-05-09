@@ -116,6 +116,7 @@ const LearningResults = () => {
   useEffect(() => {
     try { window.localStorage.setItem("gwjt.print.wordPaperSize", wordPaperSize); } catch {}
   }, [wordPaperSize]);
+  const [answerKeyMode, setAnswerKeyMode] = useState(false);
   // 한글해석 / 단어시험 보기 다이얼로그
   const [viewDialog, setViewDialog] = useState<{
     kind: "translation" | "wordTest";
