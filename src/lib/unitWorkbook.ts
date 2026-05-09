@@ -263,7 +263,8 @@ const buildWordUnit = async (
   studentId: string,
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
-  // 모든 지문의 단어를 모아서 중복 제거
+  // 단어 시험지는 학생 진행도와 무관하게 "유닛 전체 지문"의 단어를 한 장에 묶는다.
+  // sentenceIds 가 일부만 들어와도, 학생이 미완료여도 모든 지문의 단어를 모은다.
   const seen = new Map<string, { word: string; expected: string }>();
   for (const sid of sentenceIds) {
     const items = await collectWordItems(sid, studentId);
