@@ -569,17 +569,24 @@ export const buildWordUnitCompactPrintHtml = (
   .answer-blank { display: inline-block; width: 100%; min-width: 12mm; height: 1em; border-bottom: 0.4pt solid #555; }
   .compact-empty { padding: 20mm; text-align: center; font-size: 11pt; color: #555; }
   .word-unit-page + .word-unit-page { margin-top: 2.5mm; page-break-before: always; }
+  .ans-banner {
+    display: inline-block; background: #c00; color: #fff;
+    font-size: 7.5pt; font-weight: 800; padding: 0.3mm 1.6mm;
+    border-radius: 1mm; letter-spacing: 0.05em; margin-left: 1.5mm;
+  }
+  .compact-col .compact-row.ans { background: #fff8e6 !important; }
+  .compact-row.ans .compact-en, .compact-row.ans .compact-ko { color: #b80000; }
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
   <div class="compact-header">
     ${showStudentHeader ? `<img class="compact-logo" src="${absLogoUrl()}" alt="공우정 영어" onerror="this.style.display='none'" />` : ""}
-    <div class="compact-title">${escapeHtml(p.passageCode)}</div>
-    <div class="compact-meta">${modeLabel} · ${p.items.length}문항</div>
+    <div class="compact-title">${escapeHtml(p.passageCode)}${answerKey ? '<span class="ans-banner">답지</span>' : ""}</div>
+    <div class="compact-meta">${modeLabel} · ${p.items.length}문항${answerKey ? " · ANSWER KEY" : ""}</div>
     <div class="compact-meta compact-meta-right">${
       showStudentHeader
-        ? `학생 <b>${sName}</b> ${sNo} · 점수 ___/${p.items.length} · ${stamp}`
-        : `점수 ___/${p.items.length}`
+        ? `학생 <b>${sName}</b> ${sNo} · ${answerKey ? "정답" : `점수 ___/${p.items.length}`} · ${stamp}`
+        : (answerKey ? "정답" : `점수 ___/${p.items.length}`)
     }</div>
   </div>
   ${
