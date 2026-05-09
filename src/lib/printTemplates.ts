@@ -526,7 +526,7 @@ export const buildWordUnitCompactPrintHtml = (
 
   const body = `
 <style>
-  @page { size: ${pageSizeRule}; margin: 8mm; }
+  @page { size: ${pageSizeRule}; margin: 6mm 7mm; }
   html, body { background: #fff; margin: 0; padding: 0; }
   body {
     font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
@@ -537,35 +537,33 @@ export const buildWordUnitCompactPrintHtml = (
   .word-unit-page {
     width: ${pageWidthMm}mm; margin: 0 auto;
     page-break-after: auto; page-break-inside: avoid;
-    position: relative; padding-bottom: 6mm; /* 하단 여유 — 프린터 푸터와 겹침 방지 */
+    position: relative; padding-bottom: 3mm;
   }
   .compact-header {
-    display: flex; align-items: center; gap: 4mm; flex-wrap: wrap;
-    padding-bottom: 1.5mm; border-bottom: 0.6pt solid #999; margin-bottom: 2.5mm;
+    display: flex; align-items: center; gap: 3mm; flex-wrap: wrap;
+    padding-bottom: 0.8mm; border-bottom: 0.5pt solid #999; margin-bottom: 1.5mm;
   }
-  /* .compact-logo 정의는 아래에 통합 */
-  .compact-title { font-size: 10.5pt; font-weight: 800; letter-spacing: -0.01em; }
-  .compact-meta { font-size: 7.5pt; color: #555; }
+  .compact-title { font-size: 10pt; font-weight: 800; letter-spacing: -0.01em; }
+  .compact-meta { font-size: 7pt; color: #555; }
   .compact-meta b { color: #111; }
   .compact-meta-right { margin-left: auto; }
   .compact-watermark { display: none !important; }
-  .compact-logo { height: 7mm; width: auto; display: block; }
-  .compact-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 2mm 5mm; }
+  .compact-logo { height: 6mm; width: auto; display: block; }
+  .compact-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 1mm 4mm; }
   .compact-col { display: flex; flex-direction: column; }
   .compact-row {
-    display: grid; grid-template-columns: 5mm minmax(0, 1fr) minmax(0, 1fr);
-    gap: 1.5mm; align-items: end; min-height: ${columnCount >= 4 ? "5.6mm" : "6mm"};
-    padding: 0.6mm 0;
+    display: grid; grid-template-columns: 4.5mm minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.2mm; align-items: end; min-height: ${columnCount >= 4 ? "4.6mm" : "5mm"};
+    padding: 0.2mm 0;
     break-inside: avoid;
   }
-  /* 행 구분선을 약하게 — 짝수행만 옅게 */
   .compact-col .compact-row:nth-child(even) { background: rgba(246,246,246,0.85); }
-  .compact-num { font-size: 7pt; color: #888; text-align: right; padding-right: 0.5mm; }
-  .compact-en { min-width: 0; font-size: ${columnCount >= 4 ? "7.7pt" : "8.7pt"}; font-weight: 700; overflow-wrap: anywhere; }
-  .compact-ko { min-width: 0; font-size: ${columnCount >= 4 ? "7.2pt" : "8pt"}; color: #222; overflow-wrap: anywhere; }
+  .compact-num { font-size: 6.5pt; color: #888; text-align: right; padding-right: 0.5mm; }
+  .compact-en { min-width: 0; font-size: ${columnCount >= 4 ? "7.5pt" : "8.4pt"}; font-weight: 700; overflow-wrap: anywhere; line-height: 1.15; }
+  .compact-ko { min-width: 0; font-size: ${columnCount >= 4 ? "7pt" : "7.8pt"}; color: #222; overflow-wrap: anywhere; line-height: 1.15; }
   .answer-blank { display: inline-block; width: 100%; min-width: 12mm; height: 1em; border-bottom: 0.4pt solid #555; }
-  .compact-empty { padding: 24mm; text-align: center; font-size: 11pt; color: #555; }
-  .word-unit-page + .word-unit-page { margin-top: 4mm; page-break-before: always; }
+  .compact-empty { padding: 20mm; text-align: center; font-size: 11pt; color: #555; }
+  .word-unit-page + .word-unit-page { margin-top: 2.5mm; page-break-before: always; }
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
