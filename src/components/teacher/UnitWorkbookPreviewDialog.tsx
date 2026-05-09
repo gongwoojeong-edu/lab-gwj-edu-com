@@ -83,10 +83,14 @@ export const UnitWorkbookPreviewDialog = ({
   onConfirmPrint,
 }: UnitWorkbookPreviewProps) => {
   const [mode, setMode] = useState<WorkbookMode>(defaultMode);
+  const [answerKey, setAnswerKey] = useState(false);
 
   // 다이얼로그가 열릴 때마다 기본 모드로 리셋
   useEffect(() => {
-    if (open) setMode(defaultMode);
+    if (open) {
+      setMode(defaultMode);
+      setAnswerKey(false);
+    }
   }, [open, defaultMode]);
 
   // 예상 페이지 추정
