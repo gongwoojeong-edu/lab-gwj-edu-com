@@ -200,7 +200,10 @@ const BookshelfUnit = () => {
   };
 
   // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행 (모달에서 선택한 mode 사용)
-  const handleConfirmPrintWorkbook = async (mode: import("@/lib/unitWorkbook").WorkbookMode) => {
+  const handleConfirmPrintWorkbook = async (
+    mode: import("@/lib/unitWorkbook").WorkbookMode,
+    opts: { answerKey: boolean } = { answerKey: false },
+  ) => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
     if (!workbookSummary || workbookSummary.completed === 0) {
       toast({ title: "완료한 지문이 없어요", variant: "destructive" });
@@ -215,9 +218,10 @@ const BookshelfUnit = () => {
         unitCode,
         studentId: workbookStudentId,
         mode,
+        answerKey: opts.answerKey,
       });
       await launchPrintHtml(html, {
-        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}:${mode}`,
+        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}:${mode}${opts.answerKey ? ":ans" : ""}`,
         loadTimeoutMs: 12000,
         cleanupAfterMs: 2500,
       });
