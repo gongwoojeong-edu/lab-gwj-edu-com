@@ -556,11 +556,7 @@ export const buildWordUnitCompactPrintHtml = (
   .compact-meta { font-size: 7.5pt; color: #555; }
   .compact-meta b { color: #111; }
   .compact-meta-right { margin-left: auto; }
-  .compact-watermark {
-    position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
-    width: 68%; max-width: 108mm; opacity: 0.055; pointer-events: none;
-    z-index: 0;
-  }
+  .compact-watermark { display: none !important; }
   .compact-logo { height: 7mm; width: auto; display: block; }
   .compact-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 2mm 5mm; }
   .compact-col { display: flex; flex-direction: column; }
