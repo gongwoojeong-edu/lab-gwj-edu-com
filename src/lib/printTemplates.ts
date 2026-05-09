@@ -11,6 +11,14 @@
 // ============================================================
 import type { ClozeSegment } from "./handoutCloze";
 import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
+import gwjLogoUrl from "@/assets/gwj-edu-logo.png";
+
+// 인쇄 iframe(about:blank)에서도 잡히도록 항상 절대 URL로 변환
+const absLogoUrl = (() => {
+  if (typeof window === "undefined") return gwjLogoUrl;
+  try { return new URL(gwjLogoUrl, window.location.origin).href; }
+  catch { return gwjLogoUrl; }
+})();
 
 // ============================================================
 // 학생 owner_progress 라벨 포맷터 (인쇄용)
@@ -521,12 +529,10 @@ export const buildWordUnitCompactPrintHtml = (
   .compact-meta-right { margin-left: auto; }
   .compact-watermark {
     position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
-    width: 70%; max-width: 110mm; opacity: 0.08; pointer-events: none;
+    width: 70%; max-width: 110mm; opacity: 0.10; pointer-events: none;
     z-index: 0;
-    /* 흰색 배경을 시각적으로 제거 (로고가 흰 배경 PNG일 때) */
-    mix-blend-mode: multiply;
   }
-  .compact-logo { height: 7mm; width: auto; display: block; mix-blend-mode: multiply; }
+  .compact-logo { height: 7mm; width: auto; display: block; }
   .compact-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 2mm 5mm; }
   .compact-col { display: flex; flex-direction: column; }
   .compact-row {
@@ -546,9 +552,9 @@ export const buildWordUnitCompactPrintHtml = (
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
-  <img class="compact-watermark" src="${typeof window !== "undefined" ? window.location.origin : ""}/gwj-edu-logo.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+  <img class="compact-watermark" src="${absLogoUrl}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
   <div class="compact-header">
-    <img class="compact-logo" src="${typeof window !== "undefined" ? window.location.origin : ""}/gwj-edu-logo.png" alt="공우정 영어" onerror="this.style.display='none'" />
+    <img class="compact-logo" src="${absLogoUrl}" alt="공우정 영어" onerror="this.style.display='none'" />
     <div class="compact-title">${escapeHtml(p.passageCode)}</div>
     <div class="compact-meta">${modeLabel} · ${p.items.length}문항</div>
     <div class="compact-meta compact-meta-right">학생 <b>${sName}</b> ${sNo} · 점수 ___/${p.items.length} · ${stamp}</div>
