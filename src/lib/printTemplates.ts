@@ -464,6 +464,87 @@ export const buildWordPrintHtml = (p: WordPayload): string => {
   return wrapDoc(`Word ${p.passageCode}`, body);
 };
 
+export const buildWordUnitCompactPrintHtml = (p: WordPayload): string => {
+  const stamp = nowStamp();
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
+  const modeLabel =
+    p.mode === "ko" ? "한글 채우기" : p.mode === "en" ? "영어 채우기" : "혼합";
+  const columnCount = p.items.length > 84 ? 4 : p.items.length > 36 ? 3 : 2;
+  const rowsPerColumn = Math.max(1, Math.ceil(p.items.length / columnCount));
+  const columns = Array.from({ length: columnCount }, (_, col) =>
+    p.items.slice(col * rowsPerColumn, (col + 1) * rowsPerColumn),
+  );
+  const blankSideOf = (i: number): "ko" | "en" =>
+    p.mode === "ko" ? "ko" : p.mode === "en" ? "en" : i % 2 === 0 ? "ko" : "en";
+  const renderRow = (it: { word: string; expected: string }, idx0: number): string => {
+    const side = blankSideOf(idx0);
+    const en = side === "en" ? `<span class="answer-blank"></span>` : escapeHtml(it.word);
+    const ko = side === "ko" ? `<span class="answer-blank"></span>` : escapeHtml(it.expected || "—");
+    return `<div class="compact-row"><span class="compact-num">${idx0 + 1}.</span><span class="compact-en">${en}</span><span class="compact-ko">${ko}</span></div>`;
+  };
+
+  const body = `
+<style>
+  @page { size: A4 portrait; margin: 8mm; }
+  html, body { background: #fff; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+    color: #000; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  * { box-sizing: border-box; }
+  .word-unit-page { width: 194mm; margin: 0 auto; page-break-after: auto; }
+  .compact-header {
+    display: grid; grid-template-columns: 1fr auto; gap: 6mm; align-items: end;
+    padding-bottom: 3mm; border-bottom: 2pt solid #000; margin-bottom: 3mm;
+  }
+  .compact-eyebrow { font-size: 7pt; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+  .compact-title { font-size: 13pt; font-weight: 900; margin-top: 0.5mm; }
+  .compact-meta { font-size: 8pt; color: #333; line-height: 1.45; }
+  .compact-grid { display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 3.2mm; }
+  .compact-col { display: flex; flex-direction: column; }
+  .compact-row {
+    display: grid; grid-template-columns: 5.5mm minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.2mm; align-items: end; min-height: ${columnCount >= 4 ? "5.7mm" : "6.2mm"};
+    border-bottom: 0.35pt solid #111; padding: 0.75mm 0 0.65mm;
+    break-inside: avoid;
+  }
+  .compact-num { font-size: 7pt; color: #444; text-align: right; padding-right: 0.5mm; }
+  .compact-en { min-width: 0; font-size: ${columnCount >= 4 ? "7.7pt" : "8.7pt"}; font-weight: 800; overflow-wrap: anywhere; }
+  .compact-ko { min-width: 0; font-size: ${columnCount >= 4 ? "7.2pt" : "8pt"}; color: #222; overflow-wrap: anywhere; }
+  .answer-blank { display: inline-block; width: 100%; min-width: 12mm; height: 1em; border-bottom: 0.45pt solid #000; }
+  .compact-empty { padding: 24mm; text-align: center; font-size: 11pt; color: #555; }
+  @media print { body { background: #fff !important; } }
+</style>
+<div class="word-unit-page">
+  <div class="compact-header">
+    <div>
+      <div class="compact-eyebrow">Gongwoojeong · Unit Word Sheet</div>
+      <div class="compact-title">유닛 전체 단어 시험지</div>
+      <div class="compact-meta">${escapeHtml(p.passageCode)} · ${modeLabel} · ${p.items.length}문항</div>
+    </div>
+    <div class="compact-meta" style="text-align:right">
+      <div>학생: <b>${sName}</b> ${sNo}</div>
+      <div>출력: ${stamp}</div>
+      <div>점수: ___ / ${p.items.length}</div>
+    </div>
+  </div>
+  ${
+    p.items.length === 0
+      ? `<div class="compact-empty">출제할 단어가 없습니다.</div>`
+      : `<div class="compact-grid">${columns
+          .map((col, colIdx) => `<div class="compact-col">${col
+            .map((it, i) => renderRow(it, colIdx * rowsPerColumn + i))
+            .join("")}</div>`)
+          .join("")}</div>`
+  }
+</div>
+`;
+
+  return `<!DOCTYPE html><html lang="ko"><head><title>${escapeHtml(`Unit Words ${p.passageCode}`)}</title><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body>${body}<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script></body></html>`;
+};
+
 // ============================================================
 // 분석 채점본 (정적, Index 임베드 없음)
 // ============================================================
