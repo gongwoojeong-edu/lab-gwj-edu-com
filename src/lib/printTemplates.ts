@@ -11,14 +11,9 @@
 // ============================================================
 import type { ClozeSegment } from "./handoutCloze";
 import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
-import gwjLogoUrl from "@/assets/gwj-edu-logo.png";
-
-// 인쇄 iframe(about:blank)에서도 잡히도록 항상 절대 URL로 변환
-const absLogoUrl = (() => {
-  if (typeof window === "undefined") return gwjLogoUrl;
-  try { return new URL(gwjLogoUrl, window.location.origin).href; }
-  catch { return gwjLogoUrl; }
-})();
+// 인쇄 iframe(about:blank)에서도 무조건 잡히도록 base64 data URI로 인라인
+import gwjLogoUrl from "@/assets/gwj-edu-logo.png?inline";
+const absLogoUrl = gwjLogoUrl;
 
 // ============================================================
 // 학생 owner_progress 라벨 포맷터 (인쇄용)
