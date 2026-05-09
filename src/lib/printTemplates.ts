@@ -552,9 +552,9 @@ export const buildWordUnitCompactPrintHtml = (
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
-  <img class="compact-watermark" src="${typeof window !== "undefined" ? window.location.origin : ""}/gwj-edu-logo.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+  <img class="compact-watermark" src="${absLogoUrl}" alt="" aria-hidden="true" onerror="this.style.display='none'" />
   <div class="compact-header">
-    <img class="compact-logo" src="${typeof window !== "undefined" ? window.location.origin : ""}/gwj-edu-logo.png" alt="공우정 영어" onerror="this.style.display='none'" />
+    <img class="compact-logo" src="${absLogoUrl}" alt="공우정 영어" onerror="this.style.display='none'" />
     <div class="compact-title">${escapeHtml(p.passageCode)}</div>
     <div class="compact-meta">${modeLabel} · ${p.items.length}문항</div>
     <div class="compact-meta compact-meta-right">학생 <b>${sName}</b> ${sNo} · 점수 ___/${p.items.length} · ${stamp}</div>
