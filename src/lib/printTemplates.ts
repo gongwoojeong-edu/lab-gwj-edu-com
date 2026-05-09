@@ -529,12 +529,10 @@ export const buildWordUnitCompactPrintHtml = (
   .compact-meta-right { margin-left: auto; }
   .compact-watermark {
     position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
-    width: 70%; max-width: 110mm; opacity: 0.08; pointer-events: none;
+    width: 70%; max-width: 110mm; opacity: 0.10; pointer-events: none;
     z-index: 0;
-    /* 흰색 배경을 시각적으로 제거 (로고가 흰 배경 PNG일 때) */
-    mix-blend-mode: multiply;
   }
-  .compact-logo { height: 7mm; width: auto; display: block; mix-blend-mode: multiply; }
+  .compact-logo { height: 7mm; width: auto; display: block; }
   .compact-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 2mm 5mm; }
   .compact-col { display: flex; flex-direction: column; }
   .compact-row {
