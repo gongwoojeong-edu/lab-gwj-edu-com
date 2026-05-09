@@ -498,6 +498,7 @@ export const buildWordUnitCompactPrintHtml = (
   p: WordPayload,
   paperSize: PrintPaperSize = "B5",
   showStudentHeader = true,
+  answerKey = false,
 ): string => {
   const stamp = nowStamp();
   const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
@@ -518,6 +519,10 @@ export const buildWordUnitCompactPrintHtml = (
   const blankSideOf = (i: number): "ko" | "en" =>
     p.mode === "ko" ? "ko" : p.mode === "en" ? "en" : i % 2 === 0 ? "ko" : "en";
   const renderRow = (it: { word: string; expected: string }, idx0: number): string => {
+    if (answerKey) {
+      // 답지 모드: 양쪽 모두 정답으로 채움
+      return `<div class="compact-row ans"><span class="compact-num">${idx0 + 1}.</span><span class="compact-en">${escapeHtml(it.word)}</span><span class="compact-ko">${escapeHtml(it.expected || "—")}</span></div>`;
+    }
     const side = blankSideOf(idx0);
     const en = side === "en" ? `<span class="answer-blank"></span>` : escapeHtml(it.word);
     const ko = side === "ko" ? `<span class="answer-blank"></span>` : escapeHtml(it.expected || "—");
@@ -564,17 +569,24 @@ export const buildWordUnitCompactPrintHtml = (
   .answer-blank { display: inline-block; width: 100%; min-width: 12mm; height: 1em; border-bottom: 0.4pt solid #555; }
   .compact-empty { padding: 20mm; text-align: center; font-size: 11pt; color: #555; }
   .word-unit-page + .word-unit-page { margin-top: 2.5mm; page-break-before: always; }
+  .ans-banner {
+    display: inline-block; background: #c00; color: #fff;
+    font-size: 7.5pt; font-weight: 800; padding: 0.3mm 1.6mm;
+    border-radius: 1mm; letter-spacing: 0.05em; margin-left: 1.5mm;
+  }
+  .compact-col .compact-row.ans { background: #fff8e6 !important; }
+  .compact-row.ans .compact-en, .compact-row.ans .compact-ko { color: #b80000; }
   @media print { body { background: #fff !important; } }
 </style>
 <div class="word-unit-page">
   <div class="compact-header">
     ${showStudentHeader ? `<img class="compact-logo" src="${absLogoUrl()}" alt="공우정 영어" onerror="this.style.display='none'" />` : ""}
-    <div class="compact-title">${escapeHtml(p.passageCode)}</div>
-    <div class="compact-meta">${modeLabel} · ${p.items.length}문항</div>
+    <div class="compact-title">${escapeHtml(p.passageCode)}${answerKey ? '<span class="ans-banner">답지</span>' : ""}</div>
+    <div class="compact-meta">${modeLabel} · ${p.items.length}문항${answerKey ? " · ANSWER KEY" : ""}</div>
     <div class="compact-meta compact-meta-right">${
       showStudentHeader
-        ? `학생 <b>${sName}</b> ${sNo} · 점수 ___/${p.items.length} · ${stamp}`
-        : `점수 ___/${p.items.length}`
+        ? `학생 <b>${sName}</b> ${sNo} · ${answerKey ? "정답" : `점수 ___/${p.items.length}`} · ${stamp}`
+        : (answerKey ? "정답" : `점수 ___/${p.items.length}`)
     }</div>
   </div>
   ${

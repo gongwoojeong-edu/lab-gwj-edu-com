@@ -116,6 +116,7 @@ const LearningResults = () => {
   useEffect(() => {
     try { window.localStorage.setItem("gwjt.print.wordPaperSize", wordPaperSize); } catch {}
   }, [wordPaperSize]);
+  const [answerKeyMode, setAnswerKeyMode] = useState(false);
   // 한글해석 / 단어시험 보기 다이얼로그
   const [viewDialog, setViewDialog] = useState<{
     kind: "translation" | "wordTest";
@@ -683,6 +684,7 @@ const LearningResults = () => {
     sentenceIds: string[],
     mode: "syntax_unit" | "word_unit" = "syntax_unit",
     paperSize: "A4" | "B5" = wordPaperSize,
+    answerKey: boolean = answerKeyMode,
   ) => {
     // sentence_id → unit_id 로 그룹핑 후 유닛별 통합 워크북 1장씩 인쇄
     try {
@@ -765,6 +767,7 @@ const LearningResults = () => {
             studentId: userId,
             mode,
             paperSize,
+            answerKey,
             // 단어 통합 인쇄: 첫 페이지에만 학생명/로고 표시
             showStudentHeader: mode === "word_unit" ? i === 0 : true,
           });
@@ -793,15 +796,15 @@ const LearningResults = () => {
               .join("\n");
             return `${headPart}<body>${bodies}<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script></body></html>`;
           })();
-      launchPrintHtml(combinedHtml, { jobKey: `printAll:${userId}:${mode}` }).catch((e) =>
+      launchPrintHtml(combinedHtml, { jobKey: `printAll:${userId}:${mode}${answerKey ? ":ans" : ""}` }).catch((e) =>
         console.warn("[LearningResults] launchPrintHtml failed", e),
       );
       const isWord = mode === "word_unit";
       toast({
-        title: `${isWord ? "단어" : "구문"} 유닛 통합 워크북 ${htmls.length}건 인쇄 시작`,
-        description: isWord
-          ? "유닛 전체 단어 시험지"
-          : "앞면=영어분석+학생해석, 뒷면=구조도",
+        title: `${isWord ? "단어" : "구문"} 유닛 통합 ${answerKey ? "답지 " : ""}워크북 ${htmls.length}건 인쇄 시작`,
+        description: answerKey
+          ? "정답이 채워진 답지 버전입니다"
+          : (isWord ? "유닛 전체 단어 시험지" : "앞면=영문+해석, 뒷면=구조도"),
       });
     } catch (e) {
       const msg = e instanceof PrintPreloadError ? printStageMessage(e.stage) : errMsg(e);
@@ -985,6 +988,22 @@ const LearningResults = () => {
             </span>
           </h1>
           <div className="flex items-center gap-2">
+            <label
+              className={`text-xs flex items-center gap-1.5 px-2.5 h-9 rounded-md border cursor-pointer transition-colors ${
+                answerKeyMode
+                  ? "border-destructive bg-destructive/10 text-destructive font-bold"
+                  : "border-input bg-background text-muted-foreground hover:bg-muted/40"
+              }`}
+              title="켜면 모든 인쇄가 정답 채워진 답지 버전으로 출력됩니다"
+            >
+              <input
+                type="checkbox"
+                checked={answerKeyMode}
+                onChange={(e) => setAnswerKeyMode(e.target.checked)}
+                className="size-3.5 accent-destructive"
+              />
+              답지 모드
+            </label>
             <label className="text-xs text-muted-foreground flex items-center gap-1">
               단어 인쇄 용지
               <select
@@ -1040,19 +1059,21 @@ const LearningResults = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handlePrintAll(userId, sentenceIds, "syntax_unit")}
-                        title="구문 · 유닛 통합 워크북 (영어분석+해석)"
+                        title={answerKeyMode ? "구문 · 유닛 통합 답지 (정답 채워짐)" : "구문 · 유닛 통합 워크북 (영어분석+해석)"}
+                        className={answerKeyMode ? "border-destructive text-destructive" : ""}
                       >
                         <Printer className="size-3.5 mr-1" />
-                        구문 전체
+                        구문 전체{answerKeyMode ? " 답지" : ""}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handlePrintAll(userId, sentenceIds, "word_unit")}
-                        title="단어 · 유닛 통합 시험지"
+                        title={answerKeyMode ? "단어 · 유닛 통합 답지 (정답 채워짐)" : "단어 · 유닛 통합 시험지"}
+                        className={answerKeyMode ? "border-destructive text-destructive" : ""}
                       >
                         <Printer className="size-3.5 mr-1" />
-                        단어 전체
+                        단어 전체{answerKeyMode ? " 답지" : ""}
                       </Button>
                     </div>
                   </div>
