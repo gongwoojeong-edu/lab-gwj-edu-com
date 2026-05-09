@@ -538,7 +538,7 @@ export const buildUnitWorkbookHtmlFor = async (
       const targetPassages = targetCodes
         .map((c) => byCode.get(c))
         .filter((p): p is Passage => !!p);
-      html = await buildSyntaxUnit(targetPassages, input.studentId, ctx);
+      html = await buildSyntaxUnit(targetPassages, input.studentId, ctx, input.answerKey ?? false);
       break;
     }
     case "syntax_passage":
