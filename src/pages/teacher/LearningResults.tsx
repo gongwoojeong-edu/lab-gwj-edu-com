@@ -988,6 +988,22 @@ const LearningResults = () => {
             </span>
           </h1>
           <div className="flex items-center gap-2">
+            <label
+              className={`text-xs flex items-center gap-1.5 px-2.5 h-9 rounded-md border cursor-pointer transition-colors ${
+                answerKeyMode
+                  ? "border-destructive bg-destructive/10 text-destructive font-bold"
+                  : "border-input bg-background text-muted-foreground hover:bg-muted/40"
+              }`}
+              title="켜면 모든 인쇄가 정답 채워진 답지 버전으로 출력됩니다"
+            >
+              <input
+                type="checkbox"
+                checked={answerKeyMode}
+                onChange={(e) => setAnswerKeyMode(e.target.checked)}
+                className="size-3.5 accent-destructive"
+              />
+              답지 모드
+            </label>
             <label className="text-xs text-muted-foreground flex items-center gap-1">
               단어 인쇄 용지
               <select
