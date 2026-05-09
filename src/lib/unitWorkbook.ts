@@ -14,7 +14,6 @@
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import {
-  preloadAnalysisPayload,
   preloadHandoutPayload,
   preloadWordPayload,
   PrintPreloadError,
@@ -23,11 +22,9 @@ import {
   buildHandoutPrintHtml,
   buildWordPrintHtml,
   buildWordUnitCompactPrintHtml,
-  buildUnitCombinedWorkbookHtml,
-  type UnitCombinedItem,
   type WordPayload,
 } from "./printTemplates";
-import { fetchPassagesByUnit } from "./textbooks";
+import { fetchPassagesByUnit, type Passage } from "./textbooks";
 
 const escapeHtml = (s: string): string =>
   s
@@ -111,47 +108,115 @@ interface UnitWorkbookContext {
 }
 
 // ============================================================
-// 1) 구문 · 유닛 통합 — 기존 buildUnitOnlyCombined (= 김재원 디자인)
+// 1) 구문 · 유닛 통합 — [레거시] 영문 한 유닛 전체 + 학생 한글해석
+//    분석 채점본/구조도 페이지 없음 — 화면으로 첨삭하므로 인쇄에는 불필요
 // ============================================================
 const buildSyntaxUnit = async (
-  sentenceIds: string[],
+  passages: Passage[],
   studentId: string,
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
-  const items: UnitCombinedItem[] = [];
-  for (const sid of sentenceIds) {
-    let analysis;
-    try {
-      analysis = await preloadAnalysisPayload({
-        sentenceId: sid,
-        studentId,
-        mode: "marked",
-      });
-    } catch {
-      continue; // 분석 데이터가 없는 문장은 통합본에서 제외
-    }
-    const { data: t } = await supabase
-      .from("sentence_translations")
-      .select("text")
-      .eq("user_id", studentId)
-      .eq("sentence_id", sid)
-      .order("submitted_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    items.push({
-      passageCode: sid,
-      analysis,
-      studentTranslation: (t?.text as string | undefined) ?? "",
-    });
-  }
-
-  return buildUnitCombinedWorkbookHtml({
-    unitTitle: ctx.unitTitle,
-    unitCode: ctx.unitCode,
-    studentName: ctx.studentName,
-    studentNo: ctx.studentNo,
-    items,
+  const codes = passages.map((p) => p.code);
+  const { data: trs } = await supabase
+    .from("sentence_translations")
+    .select("sentence_id, text, submitted_at")
+    .eq("user_id", studentId)
+    .in("sentence_id", codes)
+    .order("submitted_at", { ascending: false });
+  const transMap = new Map<string, string>();
+  (trs ?? []).forEach((r) => {
+    const sid = r.sentence_id as string;
+    if (!transMap.has(sid)) transMap.set(sid, (r.text as string) ?? "");
   });
+
+  const sName = ctx.studentName ? escapeHtml(ctx.studentName) : "_______";
+  const sNo = ctx.studentNo ? `(${escapeHtml(ctx.studentNo)})` : "";
+  const stamp = new Date().toLocaleString("ko-KR", { hour12: false });
+
+  const enRows = passages
+    .map((p, i) => `
+      <div class="lg-row">
+        <div class="lg-num">${i + 1}.</div>
+        <div class="lg-body">
+          <div class="lg-code">${escapeHtml(p.code)}</div>
+          <div class="lg-en">${escapeHtml(p.english ?? "")}</div>
+        </div>
+      </div>`)
+    .join("");
+
+  const koRows = passages
+    .map((p, i) => {
+      const ko = (transMap.get(p.code) ?? "").trim();
+      const koHtml = ko
+        ? escapeHtml(ko)
+        : '<span class="lg-muted">(미제출)</span>';
+      return `
+      <div class="lg-row">
+        <div class="lg-num">${i + 1}.</div>
+        <div class="lg-body">
+          <div class="lg-code">${escapeHtml(p.code)}</div>
+          <div class="lg-ko">${koHtml}</div>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html><html lang="ko"><head>
+<meta charset="utf-8" />
+<title>${escapeHtml(`UnitWorkbook ${ctx.unitCode}`)}</title>
+<style>
+  @page { size: B5 portrait; margin: 10mm; }
+  html, body { background: #fff; margin: 0; padding: 0; color: #000; }
+  body {
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+    font-size: 10.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  * { box-sizing: border-box; }
+  .lg-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 1pt solid #000; padding-bottom: 2mm; margin-bottom: 3mm;
+  }
+  .lg-eyebrow { font-size: 8pt; color: #666; letter-spacing: 0.05em; }
+  .lg-title { font-size: 13pt; font-weight: 700; margin-top: 0.5mm; }
+  .lg-meta { font-size: 8.5pt; color: #333; margin-top: 0.5mm; }
+  .lg-stamp { font-size: 7.5pt; color: #888; text-align: right; }
+  .lg-section-title {
+    font-size: 9.5pt; font-weight: 700; margin: 3mm 0 1.5mm;
+    border-left: 2pt solid #000; padding-left: 2mm;
+  }
+  .lg-box { border: 0.5pt solid #000; padding: 2mm 3mm; }
+  .lg-row { display: flex; gap: 2mm; padding: 1mm 0; border-bottom: 0.3pt dashed #bbb; }
+  .lg-row:last-child { border-bottom: none; }
+  .lg-num { font-weight: 700; font-size: 9pt; min-width: 5mm; padding-top: 0.5mm; }
+  .lg-body { flex: 1; min-width: 0; }
+  .lg-code {
+    font-size: 6.5pt; color: #888; letter-spacing: -0.02em;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; margin-bottom: 0.3mm;
+  }
+  .lg-en { font-size: 10pt; line-height: 1.55; }
+  .lg-ko { font-size: 10pt; line-height: 1.55; white-space: pre-wrap; }
+  .lg-muted { color: #888; }
+</style>
+</head><body>
+<div>
+  <div class="lg-header">
+    <div>
+      <div class="lg-eyebrow">Gongwoojeong · Unit Workbook</div>
+      <div class="lg-title">유닛 통합 워크북 · ${escapeHtml(ctx.unitTitle)}</div>
+      <div class="lg-meta">${escapeHtml(ctx.unitCode)} · 학생: ${sName} ${sNo}</div>
+    </div>
+    <div class="lg-stamp">
+      <div>출력: ${escapeHtml(stamp)}</div>
+      <div>지문 ${passages.length}건</div>
+    </div>
+  </div>
+  <div class="lg-section-title">① 본문 (English)</div>
+  <div class="lg-box">${enRows || '<div class="lg-muted">(지문 없음)</div>'}</div>
+  <div class="lg-section-title">② 학생 한글해석</div>
+  <div class="lg-box">${koRows || '<div class="lg-muted">(미제출)</div>'}</div>
+</div>
+<script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script>
+</body></html>`;
 };
 
 // ============================================================
@@ -367,9 +432,15 @@ export const buildUnitWorkbookHtmlFor = async (
 
   let html: string;
   switch (mode) {
-    case "syntax_unit":
-      html = await buildSyntaxUnit(targetCodes, input.studentId, ctx);
+    case "syntax_unit": {
+      const passagesAll = isWord ? allPassages : await fetchPassagesByUnit(input.unitId);
+      const byCode = new Map(passagesAll.map((p) => [p.code, p]));
+      const targetPassages = targetCodes
+        .map((c) => byCode.get(c))
+        .filter((p): p is Passage => !!p);
+      html = await buildSyntaxUnit(targetPassages, input.studentId, ctx);
       break;
+    }
     case "syntax_passage":
       html = await buildSyntaxPassage(targetCodes, input.studentId, ctx);
       break;
