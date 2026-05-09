@@ -263,7 +263,8 @@ const buildWordUnit = async (
   studentId: string,
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
-  // 모든 지문의 단어를 모아서 중복 제거
+  // 단어 시험지는 학생 진행도와 무관하게 "유닛 전체 지문"의 단어를 한 장에 묶는다.
+  // sentenceIds 가 일부만 들어와도, 학생이 미완료여도 모든 지문의 단어를 모은다.
   const seen = new Map<string, { word: string; expected: string }>();
   for (const sid of sentenceIds) {
     const items = await collectWordItems(sid, studentId);
@@ -344,10 +345,15 @@ export const buildUnitWorkbookHtmlFor = async (
   const studentName = (sp?.display_name as string | null) ?? null;
   const studentNo = (sp?.student_no as string | null) ?? null;
 
-  // 진행상황
+  // 진행상황 (구문 워크북에서만 "완료된 지문"으로 필터)
   const summary = await summarizeUnitProgress(input.unitId, input.studentId);
-  if (summary.completedCodes.length === 0) {
-    throw new Error("아직 완료한 지문이 없어요.");
+  const isWord = mode === "word_unit" || mode === "word_passage";
+  // 단어 시험지는 진행도 무관하게 유닛 전체 지문을 사용
+  const allPassages = isWord ? await fetchPassagesByUnit(input.unitId) : [];
+  const allCodes = allPassages.map((p) => p.code);
+  const targetCodes = isWord ? allCodes : summary.completedCodes;
+  if (targetCodes.length === 0) {
+    throw new Error(isWord ? "이 유닛에 지문이 없어요." : "아직 완료한 지문이 없어요.");
   }
 
   const ctx: UnitWorkbookContext = {
@@ -360,18 +366,18 @@ export const buildUnitWorkbookHtmlFor = async (
   let html: string;
   switch (mode) {
     case "syntax_unit":
-      html = await buildSyntaxUnit(summary.completedCodes, input.studentId, ctx);
+      html = await buildSyntaxUnit(targetCodes, input.studentId, ctx);
       break;
     case "syntax_passage":
-      html = await buildSyntaxPassage(summary.completedCodes, input.studentId, ctx);
+      html = await buildSyntaxPassage(targetCodes, input.studentId, ctx);
       break;
     case "word_unit":
-      html = await buildWordUnit(summary.completedCodes, input.studentId, ctx);
+      html = await buildWordUnit(targetCodes, input.studentId, ctx);
       break;
     case "word_passage":
-      html = await buildWordPassage(summary.completedCodes, input.studentId, ctx);
+      html = await buildWordPassage(targetCodes, input.studentId, ctx);
       break;
   }
 
-  return { html, completedCount: summary.completedCodes.length, mode };
+  return { html, completedCount: targetCodes.length, mode };
 };
