@@ -514,16 +514,19 @@ export const buildWordUnitCompactPrintHtml = (
     display: flex; align-items: center; gap: 4mm; flex-wrap: wrap;
     padding-bottom: 1.5mm; border-bottom: 0.6pt solid #999; margin-bottom: 2.5mm;
   }
-  .compact-logo { height: 7mm; width: auto; display: block; }
+  /* .compact-logo 정의는 아래에 통합 */
   .compact-title { font-size: 10.5pt; font-weight: 800; letter-spacing: -0.01em; }
   .compact-meta { font-size: 7.5pt; color: #555; }
   .compact-meta b { color: #111; }
   .compact-meta-right { margin-left: auto; }
   .compact-watermark {
     position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%);
-    width: 70%; max-width: 110mm; opacity: 0.06; pointer-events: none;
+    width: 70%; max-width: 110mm; opacity: 0.08; pointer-events: none;
     z-index: 0;
+    /* 흰색 배경을 시각적으로 제거 (로고가 흰 배경 PNG일 때) */
+    mix-blend-mode: multiply;
   }
+  .compact-logo { height: 7mm; width: auto; display: block; mix-blend-mode: multiply; }
   .compact-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(${columnCount}, minmax(0, 1fr)); gap: 2mm 5mm; }
   .compact-col { display: flex; flex-direction: column; }
   .compact-row {
