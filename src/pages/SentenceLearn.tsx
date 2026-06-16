@@ -56,6 +56,13 @@ import {
   subscribeMyRequest,
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
+import {
+  createApprovalRequest,
+  fetchLatestApproval,
+  subscribeMyApproval,
+  type SentenceApproval,
+} from "@/lib/sentenceApprovals";
+import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel";
 import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
