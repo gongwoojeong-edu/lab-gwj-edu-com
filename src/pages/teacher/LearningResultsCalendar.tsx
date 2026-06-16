@@ -561,7 +561,8 @@ const EventDetailDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        {sentenceText && (
+        const showEnglish = sentenceText && (event.kind === "analysis" || event.kind === "translation");
+        {showEnglish && (
           <div className="p-3 rounded-md border bg-primary/5">
             <div className="text-[11px] text-muted-foreground mb-1">영문 원문</div>
             <div className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{sentenceText}</div>
