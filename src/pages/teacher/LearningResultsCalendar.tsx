@@ -54,6 +54,47 @@ const KIND_META: Record<EventKind, { icon: any; bg: string; text: string; ko: st
   handout:      { icon: FileText,  bg: "bg-rose-50 hover:bg-rose-100 border-rose-200",       text: "text-rose-700",   ko: "인쇄채점" },
 };
 
+const EventItem = ({
+  event,
+  gradeBySid,
+  onClick,
+}: {
+  event: CalEvent;
+  gradeBySid: Record<string, { grade: ApprovalGrade | null; memo: string | null }>;
+  onClick: (e: CalEvent) => void;
+}) => {
+  const M = KIND_META[event.kind];
+  const Icon = M.icon;
+  const g = event.sentence_id ? gradeBySid[event.sentence_id] : null;
+  const showGrade = g?.grade && (event.kind === "analysis" || event.kind === "translation");
+  return (
+    <button
+      onClick={() => onClick(event)}
+      className={cn(
+        "w-full text-left rounded border px-1 py-0.5 leading-tight transition-colors",
+        M.bg,
+      )}
+      title={`${KIND_META[event.kind].ko} · ${event.label}${showGrade ? ` · ${GRADE_LABEL[g!.grade!]}` : ""}`}
+    >
+      <div className={cn("flex items-center gap-0.5 font-medium truncate", M.text)}>
+        <Icon className="size-3 shrink-0" />
+        <span className="truncate">{fmtHM(event.ts)} {event.label}</span>
+        {showGrade && (
+          <span
+            className={cn(
+              "ml-auto shrink-0 px-1 rounded text-[9px] font-bold",
+              GRADE_BADGE_CLASS[g!.grade!],
+            )}
+          >
+            {GRADE_LABEL[g!.grade!]}
+          </span>
+        )}
+      </div>
+      <div className="text-[10px] text-muted-foreground truncate">{event.meta}</div>
+    </button>
+  );
+};
+
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const fmtHM = (iso: string) => {
   const d = new Date(iso);
@@ -405,11 +446,13 @@ const LearningResultsCalendar = () => {
                 {cells.map((c) => {
                   const events = c.day ? (eventsByDate[c.key] ?? []) : [];
                   const isToday = c.day && c.key === toDateKey(new Date().toISOString());
+                  const visible = events.slice(0, 3);
+                  const hidden = events.slice(3);
                   return (
                     <div
                       key={c.key}
                       className={cn(
-                        "min-h-[110px] border rounded-md p-1 text-xs flex flex-col",
+                        "min-h-[110px] max-h-[110px] border rounded-md p-1 text-xs flex flex-col",
                         c.day ? "bg-card" : "bg-muted/30 border-dashed",
                         isToday && "ring-2 ring-primary/60",
                       )}
@@ -417,40 +460,27 @@ const LearningResultsCalendar = () => {
                       {c.day && (
                         <>
                           <div className="text-[11px] font-semibold text-muted-foreground mb-0.5 px-0.5">{c.day}</div>
-                          <div className="flex-1 overflow-y-auto space-y-0.5 pr-0.5">
-                            {events.map((e) => {
-                              const M = KIND_META[e.kind];
-                              const Icon = M.icon;
-                              const g = e.sentence_id ? gradeBySid[e.sentence_id] : null;
-                              const showGrade = g?.grade && (e.kind === "analysis" || e.kind === "translation");
-                              return (
-                                <button
-                                  key={e.id}
-                                  onClick={() => setOpenEvent(e)}
-                                  className={cn(
-                                    "w-full text-left rounded border px-1 py-0.5 leading-tight transition-colors",
-                                    M.bg,
-                                  )}
-                                  title={`${KIND_META[e.kind].ko} · ${e.label}${showGrade ? ` · ${GRADE_LABEL[g!.grade!]}` : ""}`}
-                                >
-                                  <div className={cn("flex items-center gap-0.5 font-medium truncate", M.text)}>
-                                    <Icon className="size-3 shrink-0" />
-                                    <span className="truncate">{fmtHM(e.ts)} {e.label}</span>
-                                    {showGrade && (
-                                      <span
-                                        className={cn(
-                                          "ml-auto shrink-0 px-1 rounded text-[9px] font-bold",
-                                          GRADE_BADGE_CLASS[g!.grade!],
-                                        )}
-                                      >
-                                        {GRADE_LABEL[g!.grade!]}
-                                      </span>
-                                    )}
+                          <div className="flex-1 overflow-hidden space-y-0.5 pr-0.5">
+                            {visible.map((e) => (
+                              <EventItem key={e.id} event={e} gradeBySid={gradeBySid} onClick={setOpenEvent} />
+                            ))}
+                            {hidden.length > 0 && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="w-full text-center text-[10px] font-medium text-primary hover:underline py-0.5">
+                                    +{hidden.length}개 더 보기
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-72 p-2 space-y-1 max-h-[360px] overflow-y-auto" align="start">
+                                  <div className="text-[11px] font-semibold text-muted-foreground mb-1">
+                                    {c.day}일 전체 이력 ({events.length}건)
                                   </div>
-                                  <div className="text-[10px] text-muted-foreground truncate">{e.meta}</div>
-                                </button>
-                              );
-                            })}
+                                  {events.map((e) => (
+                                    <EventItem key={e.id} event={e} gradeBySid={gradeBySid} onClick={setOpenEvent} />
+                                  ))}
+                                </PopoverContent>
+                              </Popover>
+                            )}
                           </div>
                         </>
                       )}
