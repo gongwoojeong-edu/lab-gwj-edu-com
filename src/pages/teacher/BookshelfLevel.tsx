@@ -45,10 +45,13 @@ import {
   updateSeries,
   deleteSeries,
   moveSeriesToLevel,
+  reorderSeriesInLevel,
   type Series,
 } from "@/lib/textbooks";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
+import { ReorderButtons } from "@/components/teacher/ReorderButtons";
+import { swapListOrder } from "@/lib/bookshelfOrder";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -87,6 +90,7 @@ const BookshelfLevel = () => {
   // 다중 선택 + 이동
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -250,6 +254,27 @@ const BookshelfLevel = () => {
     }
   };
 
+  const handleMoveSeries = async (fromIdx: number, toIdx: number) => {
+    if (reorderingId) return;
+    const next = swapListOrder(seriesList, fromIdx, toIdx);
+    const moving = seriesList[fromIdx];
+    if (!moving) return;
+    setReorderingId(moving.id);
+    try {
+      await reorderSeriesInLevel(next.map((s) => s.id));
+      setSeriesList(next.map((s, i) => ({ ...s, series_no: i + 1 })));
+      toast({ title: "시리즈 순서가 변경되었습니다" });
+    } catch (e) {
+      toast({
+        title: "순서 변경 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -322,7 +347,7 @@ const BookshelfLevel = () => {
           </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {seriesList.map((s) => {
+            {seriesList.map((s, idx) => {
               const st = stats[s.id];
               const checked = selectedIds.has(s.id);
               return (
@@ -334,6 +359,14 @@ const BookshelfLevel = () => {
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
+                    <ReorderButtons
+                      onMoveUp={() => void handleMoveSeries(idx, idx - 1)}
+                      onMoveDown={() => void handleMoveSeries(idx, idx + 1)}
+                      disableUp={idx === 0}
+                      disableDown={idx === seriesList.length - 1}
+                      saving={reorderingId === s.id}
+                      className="mt-1 shrink-0"
+                    />
                     <Checkbox
                       checked={checked}
                       onCheckedChange={() => toggleSel(s.id)}

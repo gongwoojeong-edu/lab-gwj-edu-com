@@ -55,6 +55,30 @@ export const buildTokensFromEnglish = (english: string): SentenceToken[] => {
   return out;
 };
 
+const textFromTokens = (tokens: SentenceToken[]): string => tokens.map((t) => t.text).join("");
+
+const normalizeForCompare = (s: string): string =>
+  s
+    .replace(/[\u2018\u2019']/g, "'")
+    .replace(/[\u201C\u201D"]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+/** DB tokens가 현재 english 본문과 일치하는지 (옛 분석 캐시 누수 방지) */
+export const tokensMatchEnglish = (tokens: SentenceToken[], english: string): boolean => {
+  if (tokens.length === 0) return false;
+  return (
+    normalizeForCompare(textFromTokens(tokens)) ===
+    normalizeForCompare(stripKoreanFromEnglishSource(english))
+  );
+};
+
+const resolveTokens = (dbTokens: SentenceToken[], english: string): SentenceToken[] => {
+  if (dbTokens.length > 0 && tokensMatchEnglish(dbTokens, english)) return dbTokens;
+  return buildTokensFromEnglish(english);
+};
+
 interface PassageRow {
   id: string;
   textbook_id: string;
@@ -79,8 +103,7 @@ let hydrating: Promise<void> | null = null;
 const rowToSentence = (row: PassageRow, level: LevelCode): Sentence => {
   const dbTokens = row.tokens ?? [];
   const english = stripKoreanFromEnglishSource(row.english);
-  const tokens =
-    dbTokens.length > 0 ? dbTokens : buildTokensFromEnglish(english);
+  const tokens = resolveTokens(dbTokens, english);
   return {
     id: row.code,
     no: row.passage_no,
@@ -159,24 +182,31 @@ export const invalidateSentenceCache = () => {
 
 const applyCachedRowsToSentences = (rows: SsCacheRow[]) => {
   for (const r of rows) {
+    const english = stripKoreanFromEnglishSource(r.english);
     const idx = SENTENCES.findIndex((s) => s.id === r.code);
     if (idx >= 0) {
+      const prev = SENTENCES[idx];
+      const tokens =
+        prev.tokens?.length && tokensMatchEnglish(prev.tokens, english)
+          ? prev.tokens
+          : buildTokensFromEnglish(english);
       SENTENCES[idx] = {
-        ...SENTENCES[idx],
+        ...prev,
         no: r.no,
         level: r.level,
-        english: r.english,
-        korean: r.korean ?? SENTENCES[idx].korean,
+        english,
+        korean: r.korean ?? prev.korean,
+        tokens,
       };
     } else {
       SENTENCES.push({
         id: r.code,
         no: r.no,
         level: r.level,
-        english: r.english,
+        english,
         korean: r.korean ?? "",
         structureTags: [],
-        tokens: buildTokensFromEnglish(r.english),
+        tokens: buildTokensFromEnglish(english),
       });
     }
   }
@@ -247,14 +277,21 @@ export const hydrateSentencesFromDb = async (
             korean: row.korean ?? null,
           });
         }
-        // tokens 미포함 select 인 경우, 정적 SENTENCES 의 tokens 보존
+        // tokens 미포함 select — english만 갱신, tokens는 본문과 불일치 시 재생성
         if (!includeTokens && idx >= 0) {
+          const prev = SENTENCES[idx];
+          const english = stripKoreanFromEnglishSource(row.english);
+          const tokens =
+            prev.tokens?.length && tokensMatchEnglish(prev.tokens, english)
+              ? prev.tokens
+              : buildTokensFromEnglish(english);
           SENTENCES[idx] = {
-            ...SENTENCES[idx],
+            ...prev,
             no: row.passage_no,
             level,
-            english: stripKoreanFromEnglishSource(row.english),
-            korean: row.korean ?? SENTENCES[idx].korean,
+            english,
+            korean: row.korean ?? prev.korean,
+            tokens,
           };
           continue;
         }
@@ -280,6 +317,38 @@ export const hydrateSentencesFromDb = async (
   return hydrating;
 };
 
+/** Passage 객체 → SENTENCES 전역 캐시에 완전 반영 (tokens 포함). 편집기에서 올바른 지문 보장용. */
+export const upsertSentenceFromPassage = (
+  passage: {
+    code: string;
+    passage_no: number;
+    english: string;
+    korean: string | null;
+    tokens: SentenceToken[] | null;
+  },
+  level: LevelCode,
+): number => {
+  const english = stripKoreanFromEnglishSource(passage.english);
+  const dbTokens = passage.tokens ?? [];
+  const tokens = resolveTokens(dbTokens, english);
+  const next: Sentence = {
+    id: passage.code,
+    no: passage.passage_no,
+    level,
+    english,
+    korean: passage.korean ?? "",
+    structureTags: [],
+    tokens,
+  };
+  const idx = SENTENCES.findIndex((s) => s.id === passage.code);
+  if (idx >= 0) {
+    SENTENCES[idx] = next;
+    return idx;
+  }
+  SENTENCES.push(next);
+  return SENTENCES.length - 1;
+};
+
 /** DB row 1건 → Sentence (편집창 등에서 직접 사용) */
 export const loadSentenceByCode = async (
   code: string,
@@ -291,7 +360,19 @@ export const loadSentenceByCode = async (
     .maybeSingle();
   if (error || !data) return null;
   const row = data as unknown as PassageRow & { textbook: { level: string } };
-  return rowToSentence(row, (row.textbook?.level ?? "L01") as LevelCode);
+  const level = (row.textbook?.level ?? "L01") as LevelCode;
+  const sentence = rowToSentence(row, level);
+  upsertSentenceFromPassage(
+    {
+      code: row.code,
+      passage_no: row.passage_no,
+      english: row.english,
+      korean: row.korean,
+      tokens: row.tokens,
+    },
+    level,
+  );
+  return sentence;
 };
 
 /** 편집창에서 분석 결과 저장 */

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import type { LevelCode } from "@/lib/levels";
 import type { SentenceToken } from "@/data/sentences";
+import { reorderNumberedRows, sortPassages } from "@/lib/bookshelfOrder";
 
 // ============================================================
 // 타입
@@ -456,7 +457,27 @@ export const fetchPassagesByUnit = async (unitId: string): Promise<Passage[]> =>
     .eq("unit_id", unitId)
     .order("passage_no");
   if (error) throw error;
-  return (data ?? []).map((r) => mapPassageRow(r as Record<string, unknown>));
+  return sortPassages((data ?? []).map((r) => mapPassageRow(r as Record<string, unknown>)));
+};
+
+export const reorderPassagesInUnit = async (orderedIds: string[]): Promise<void> => {
+  if (orderedIds.length === 0) return;
+  await reorderNumberedRows("textbook_passages", "passage_no", orderedIds);
+};
+
+export const reorderSeriesInLevel = async (orderedIds: string[]): Promise<void> => {
+  if (orderedIds.length === 0) return;
+  await reorderNumberedRows("textbook_series", "series_no", orderedIds);
+};
+
+export const reorderTextbooksInSeries = async (orderedIds: string[]): Promise<void> => {
+  if (orderedIds.length === 0) return;
+  await reorderNumberedRows("textbooks", "volume_no", orderedIds);
+};
+
+export const reorderUnitsInTextbook = async (orderedIds: string[]): Promise<void> => {
+  if (orderedIds.length === 0) return;
+  await reorderNumberedRows("textbook_units", "unit_no", orderedIds);
 };
 
 export const fetchPassageByCode = async (code: string): Promise<Passage | null> => {

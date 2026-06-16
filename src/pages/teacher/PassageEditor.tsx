@@ -5,7 +5,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Loader2, Eye, EyeOff, RotateCcw } from "lucide-react";
 import Index from "@/pages/Index";
-import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
+import {
+  hydrateSentencesFromDb,
+  setPassageReady,
+  tokensMatchEnglish,
+  upsertSentenceFromPassage,
+} from "@/lib/sentenceSource";
+import type { LevelCode } from "@/lib/levels";
 import { fetchPassageByCode, clearPassageDerivedCache, type Passage } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 
@@ -23,16 +29,29 @@ const PassageEditor = () => {
   const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
-    if (!passageCode) return;
+    if (!passageCode || !level) return;
     setLoading(true);
     (async () => {
-      // 새 교재/지문이 추가됐을 수 있으므로 강제 재 hydrate (캐시된 SENTENCES 갱신)
-      await hydrateSentencesFromDb(true);
-      const p = await fetchPassageByCode(passageCode);
+      let p = await fetchPassageByCode(passageCode);
+      if (p) {
+        // DB tokens가 다른 본문(옛 지문) 분석이면 자동 정리
+        if (p.tokens?.length && !tokensMatchEnglish(p.tokens, p.english)) {
+          await clearPassageDerivedCache(p.id, p.code);
+          p = { ...p, tokens: null };
+          toast({
+            title: "본문과 맞지 않는 분석 캐시를 정리했습니다",
+            description: "이전 지문의 분석 데이터가 남아 있어 초기화했습니다. 정답을 다시 입력해 주세요.",
+          });
+        }
+        // 편집기는 반드시 이 지문 본문·토큰을 사용 (SENTENCES 캐시 충돌/누락 방지)
+        upsertSentenceFromPassage(p, level as LevelCode);
+      } else {
+        await hydrateSentencesFromDb(true);
+      }
       setPassage(p);
       setLoading(false);
     })();
-  }, [passageCode]);
+  }, [passageCode, level]);
 
   const togglePublish = async () => {
     if (!passageCode || !passage) return;
@@ -183,6 +202,7 @@ const PassageEditor = () => {
           </div>
           <div className="max-h-[calc(100vh-220px)] overflow-auto">
             <Index
+              key={passage.id}
               embedMode
               embedSentenceId={passage.code}
               showStaffToolbar

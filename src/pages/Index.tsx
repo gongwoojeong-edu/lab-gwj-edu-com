@@ -34,6 +34,7 @@ import {
   type EtcAnswer,
   type WordAnswer,
 } from "@/data/sentences";
+import { loadSentenceByCode } from "@/lib/sentenceSource";
 import { cn } from "@/lib/utils";
 import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save } from "lucide-react";
 import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
@@ -239,12 +240,37 @@ const arraysEqualSet = <T,>(a: T[], b: T[]) =>
 // 수식 화살표 SVG overlay — source/target token DOM 좌표를 측정해 곡선 path 렌더
 // ============================================================
 const OWNER_KEY_SEPARATOR_CONST = "::";
+const SPAN_PREFIX_CONST = "span";
+
 const ownerIdToWordIdx = (ownerId: string): number | null => {
   // 단일 토큰 owner: `${tokenId}::${idx}` → 마지막 segment가 idx
   const parts = ownerId.split(OWNER_KEY_SEPARATOR_CONST);
   const last = parts[parts.length - 1];
   const n = Number(last);
   return Number.isFinite(n) ? n : null;
+};
+
+/** 마스터키 owner_id → 본문 wordUnits 인덱스 목록 (위치 힌트 음영용, 정답 내용은 노출하지 않음) */
+const ownerIdToSelectionIndices = (
+  ownerId: string,
+  wordUnits: { tokenId?: string | null }[],
+): number[] => {
+  if (ownerId.startsWith(`${SPAN_PREFIX_CONST}${OWNER_KEY_SEPARATOR_CONST}`)) {
+    const parts = ownerId.split(OWNER_KEY_SEPARATOR_CONST);
+    const range = parts[2];
+    if (!range) return [];
+    const [s, e] = range.split("-").map((n) => Number(n));
+    if (!Number.isFinite(s) || !Number.isFinite(e)) return [];
+    const out: number[] = [];
+    for (let i = s; i <= e; i++) out.push(i);
+    return out;
+  }
+  const idx = ownerIdToWordIdx(ownerId);
+  if (idx !== null) return [idx];
+  const parts = ownerId.split(OWNER_KEY_SEPARATOR_CONST);
+  const tid = parts.length > 1 ? parts.slice(0, -1).join(OWNER_KEY_SEPARATOR_CONST) : ownerId;
+  const found = wordUnits.findIndex((u) => u.tokenId === tid);
+  return found >= 0 ? [found] : [];
 };
 
 type ArrowKind = "modifier" | "referent";
@@ -414,7 +440,8 @@ interface IndexProps {
    * 학생 모드: 정답 라벨 노출 차단.
    * - localStorage/cloud customAnswers hydrate 차단
    * - 정답 입력 모드, 선생님 모드 배지, AdminHintToggle 등 admin UI 숨김
-   * - 학생이 클릭한 owner만 progress가 채워짐 → 클릭 전엔 어떤 라벨/배지도 안 보임
+   * - 학생이 클릭한 owner만 progress가 채워짐 → 클릭 전엔 품사/배지 미노출
+   * - 마스터키가 있으면 owner 위치만 옅은 음영으로 힌트 (정답 내용은 숨김)
    */
   studentMode?: boolean;
   /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용. meta.hasMaster 로 라벨 결정 */
@@ -477,7 +504,13 @@ const Index = ({
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const { displayStudent: levelDisplay } = useLevelLabels();
-  const [sentenceIdx, setSentenceIdx] = useState(0);
+  const [sentenceIdx, setSentenceIdx] = useState(() => {
+    if (embedSentenceId) {
+      const idx = SENTENCES.findIndex((s) => s.id === embedSentenceId);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  });
   const [autoLoading, setAutoLoading] = useState(true);
   const [allDone, setAllDone] = useState(false);
   const sentence = SENTENCES[sentenceIdx];
@@ -488,24 +521,40 @@ const Index = ({
     let cancelled = false;
     setAutoLoading(true);
 
-    if (embedSentenceId) {
-      const idx = SENTENCES.findIndex((s) => s.id === embedSentenceId);
+    const pickById = (id: string): boolean => {
+      const idx = SENTENCES.findIndex((s) => s.id === id);
       if (idx >= 0) {
         setSentenceIdx(idx);
         setAutoLoading(false);
-        return;
+        return true;
       }
+      return false;
+    };
+
+    if (embedSentenceId) {
+      if (pickById(embedSentenceId)) return;
+      void loadSentenceByCode(embedSentenceId).then((s) => {
+        if (cancelled) return;
+        if (s && pickById(embedSentenceId)) return;
+        setAutoLoading(false);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
     const params = new URLSearchParams(window.location.search);
     const requestedId = params.get("sentence");
     if (requestedId) {
-      const idx = SENTENCES.findIndex((s) => s.id === requestedId);
-      if (idx >= 0) {
-        setSentenceIdx(idx);
+      if (pickById(requestedId)) return;
+      void loadSentenceByCode(requestedId).then((s) => {
+        if (cancelled) return;
+        if (s && pickById(requestedId)) return;
         setAutoLoading(false);
-        return;
-      }
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
     void import("@/lib/nextSentence").then(({ resolveNextSentence }) =>
@@ -624,7 +673,7 @@ const Index = ({
   // 본인 입력한 분석 결과는 학생 모드에서도 항상 표시되어야 한다.
   // (마스터키/타인 정답은 RLS로 자동 격리됨 → user_id=auth.uid() 본인 행만 hydrate)
   const showTeacherAnnotations = true;
-  // 마스터키 owner_id 집합 — 학생 화면 분석률의 분모 계산에만 사용 (정답 본문은 사용 안 함)
+  // 마스터키 owner_id 집합 — hasMaster 판정 + 학생 화면 위치 힌트(옅은 음영)용 (품사/배지는 노출 안 함)
   const [masterOwnerIds, setMasterOwnerIds] = useState<Set<string>>(new Set());
 
   // ===== 학습 흐름 (Cloud) =====
@@ -2339,6 +2388,20 @@ const Index = ({
     return m;
   }, [completedOwnersByIndex]);
 
+  // 선생님 마스터키 owner → 본문 인덱스 (학생 모드 위치 힌트)
+  const masterOwnersByIndex = useMemo(() => {
+    const m: Record<number, string[]> = {};
+    masterOwnerIds.forEach((ownerId) => {
+      ownerIdToSelectionIndices(ownerId, wordUnits).forEach((index) => {
+        if (!m[index]) m[index] = [];
+        m[index].push(ownerId);
+      });
+    });
+    return m;
+  }, [masterOwnerIds, wordUnits]);
+
+  const showMasterGuide = studentMode && !compareMode && masterOwnerIds.size > 0;
+
   // 병렬(parallel) owner 판별 — `기타 > 접속 > 병렬`
   const isParallelProgress = (p: WordProgress | undefined): boolean => {
     if (!p) return false;
@@ -2681,7 +2744,14 @@ const Index = ({
         {/* 학생용 미니 툴바 — embedMode + studentMode + 비교모드 아닐 때만 */}
         {embedMode && studentMode && !compareMode && (
           <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-            <KoreanHintButton korean={sentence.korean} />
+            <div className="flex flex-col gap-1">
+              <KoreanHintButton korean={sentence.korean} />
+              {showMasterGuide && (
+                <p className="text-[11px] text-primary/80 font-kr">
+                  옅은 보라 음영 = 선생님이 지정한 분석 위치 (품사·배지는 표시하지 않음)
+                </p>
+              )}
+            </div>
             <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -2802,16 +2872,24 @@ const Index = ({
                 idx < wordUnits.length - 1 ? completedOwnersByIndex[idx + 1] ?? [] : [];
               const sharedWithPrev = ownersHere.find((o) => ownersPrev.includes(o) && progressMap[o]?.completed);
               const sharedWithNext = ownersHere.find((o) => ownersNext.includes(o) && progressMap[o]?.completed);
+              const masterOwnersHere = masterOwnersByIndex[idx] ?? [];
+              const masterOwnersPrev = idx > 0 ? masterOwnersByIndex[idx - 1] ?? [] : [];
+              const masterOwnersNext =
+                idx < wordUnits.length - 1 ? masterOwnersByIndex[idx + 1] ?? [] : [];
+              const masterSharedWithPrev = masterOwnersHere.find((o) => masterOwnersPrev.includes(o));
+              const masterSharedWithNext = masterOwnersHere.find((o) => masterOwnersNext.includes(o));
 
               // 구두점/괄호: 비대화형 (단, 인접 완료 layer 사이면 그 자체에 보라 배경)
               if (punct) {
                 const fillBg = showTeacherAnnotations && sharedWithPrev && sharedWithNext;
+                const masterFillBg = showMasterGuide && masterSharedWithPrev && masterSharedWithNext;
                 return (
                   <span
                     key={idx}
                     className={cn(
                       "text-base font-medium text-foreground self-end leading-tight px-0.5 py-0.5",
                       fillBg && "bg-primary/[0.07] border-b border-primary/20",
+                      !fillBg && masterFillBg && "bg-primary/[0.05] border-b border-primary/15",
                     )}
                     aria-hidden
                   >
@@ -2836,6 +2914,8 @@ const Index = ({
                const ownerAnswer = ownerId && ownerToken ? getMergedAnswerForOwner(ownerId, ownerToken) : undefined;
               const completedIndices = ownerId ? completedSelectionMap[ownerId] ?? [] : [];
               const isCompleted = completedIndices.includes(idx) && !!wp?.completed;
+              const isMasterGuideHere =
+                showMasterGuide && masterOwnersHere.length > 0 && !isCompleted;
               const selStart = completedIndices[0];
               const selEnd = completedIndices[completedIndices.length - 1];
               const isFirstOfSelection = isCompleted && idx === selStart;
@@ -3025,6 +3105,8 @@ const Index = ({
                       wordTextColorClass,
                       hintWrongOwnerIds && ownerId && hintWrongOwnerIds.has(ownerId) &&
                         "ring-2 ring-amber-500/60 ring-offset-1 rounded-md bg-amber-500/5",
+                      isMasterGuideHere &&
+                        "rounded-sm bg-primary/[0.07] ring-1 ring-primary/20",
                       // 비교 모드 — 자동/수동 diff: 빨강 음영
                       compareMode && diffOwnerIds && ownerId && diffOwnerIds.has(ownerId) &&
                         "ring-2 ring-destructive/70 rounded-md bg-destructive/15 [print-color-adjust:exact] [-webkit-print-color-adjust:exact]",
@@ -3133,6 +3215,7 @@ const Index = ({
                         "px-1 py-0.5 text-[16px] font-medium tracking-tight leading-tight text-foreground transition-colors",
                         // 안쪽 완료 (수식어/부속/일반 동일) — 진한 보라 음영 + 얇은 하단 보더
                         innerCompleteBg && "bg-primary/15 border-b border-primary/30",
+                        isMasterGuideHere && !innerCompleteBg && "bg-primary/[0.07] border-b border-primary/15",
                         // clause(절)면 텍스트만 살짝 dim
                         isCompleted && !isSelected && isClauseSelection &&
                           "text-foreground/80",
@@ -3208,6 +3291,14 @@ const Index = ({
                 return !!op && op.completed && isClauseProgress(op);
               });
               const clauseSpacerUnderline = clauseSharedOwner ? clauseUnderlineClass : "";
+              const masterSharedOwners = !isLastWord
+                ? masterOwnersHere.filter((o) => masterOwnersNext.includes(o))
+                : [];
+              const masterSpacerBridge =
+                showMasterGuide &&
+                masterSharedOwners.length > 0 &&
+                !spacerSelectedBridge &&
+                !spacerCompletedBridge;
               const spacerNode = !isLastWord ? (
                 <span
                   key={`sp-${idx}`}
@@ -3215,6 +3306,7 @@ const Index = ({
                     "inline-flex items-end self-end leading-none",
                     spacerSelectedBridge && "bg-primary/25",
                     spacerCompletedBridge && "bg-primary/[0.07] border-b border-primary/20",
+                    masterSpacerBridge && "bg-primary/[0.05] border-b border-primary/15",
                     clauseSpacerUnderline,
                   )}
                   style={spacerBgImage ? { backgroundImage: spacerBgImage } : undefined}

@@ -62,6 +62,7 @@ import {
   bulkInsertPassages,
   splitPassageText,
   moveUnitToTextbook,
+  reorderUnitsInTextbook,
   fetchAllSeries,
   type Series,
   type Textbook,
@@ -70,6 +71,8 @@ import {
 } from "@/lib/textbooks";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
+import { ReorderButtons } from "@/components/teacher/ReorderButtons";
+import { swapListOrder } from "@/lib/bookshelfOrder";
 import { cn } from "@/lib/utils";
 import { errMsg } from "@/lib/errMsg";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
@@ -191,6 +194,7 @@ const BookshelfVolume = () => {
   const { display: levelDisplay } = useLevelLabels();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [allTextbooks, setAllTextbooks] = useState<
     Array<{ id: string; title: string; volume_no: number; series_id: string }>
   >([]);
@@ -544,6 +548,27 @@ const BookshelfVolume = () => {
     }
   };
 
+  const handleMoveUnit = async (fromIdx: number, toIdx: number) => {
+    if (reorderingId || !textbook) return;
+    const next = swapListOrder(units, fromIdx, toIdx);
+    const moving = units[fromIdx];
+    if (!moving) return;
+    setReorderingId(moving.id);
+    try {
+      await reorderUnitsInTextbook(next.map((u) => u.id));
+      setUnits(next.map((u, i) => ({ ...u, unit_no: i + 1 })));
+      toast({ title: "유닛 순서가 변경되었습니다" });
+    } catch (e) {
+      toast({
+        title: "순서 변경 실패",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -639,7 +664,7 @@ const BookshelfVolume = () => {
           </Card>
         ) : (
           <div className="grid gap-3">
-            {units.map((u) => {
+            {units.map((u, idx) => {
               const checked = selectedIds.has(u.id);
               return (
                 <Card
@@ -651,6 +676,14 @@ const BookshelfVolume = () => {
                 >
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <ReorderButtons
+                        onMoveUp={() => void handleMoveUnit(idx, idx - 1)}
+                        onMoveDown={() => void handleMoveUnit(idx, idx + 1)}
+                        disableUp={idx === 0}
+                        disableDown={idx === units.length - 1}
+                        saving={reorderingId === u.id}
+                        className="mt-1 shrink-0"
+                      />
                       <Checkbox
                         checked={checked}
                         onCheckedChange={() => toggleSel(u.id)}

@@ -41,6 +41,7 @@ import {
   fetchTextbook,
   fetchUnit,
   fetchPassagesByUnit,
+  reorderPassagesInUnit,
   deletePassage,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
@@ -58,6 +59,8 @@ import {
 } from "@/lib/textbooks";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
+import { ReorderButtons } from "@/components/teacher/ReorderButtons";
+import { swapListOrder } from "@/lib/bookshelfOrder";
 import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { launchPrintHtml } from "@/lib/printLauncher";
@@ -135,6 +138,7 @@ const BookshelfUnit = () => {
     Array<{ id: string; title: string; volume_no: number; series_id: string }>
   >([]);
   const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -509,6 +513,23 @@ const BookshelfUnit = () => {
       toast({ title: "인쇄 실패", description: msg, variant: "destructive" });
     } finally {
       setPrintingCode(null);
+    }
+  };
+
+  const handleMovePassage = async (fromIdx: number, toIdx: number) => {
+    if (!unit || reorderingId) return;
+    const next = swapListOrder(passages, fromIdx, toIdx);
+    const moving = passages[fromIdx];
+    if (!moving) return;
+    setReorderingId(moving.id);
+    try {
+      await reorderPassagesInUnit(next.map((p) => p.id));
+      setPassages(next.map((p, i) => ({ ...p, passage_no: i + 1 })));
+      toast({ title: "지문 순서가 변경되었습니다" });
+    } catch (e) {
+      toast({ title: "순서 변경 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setReorderingId(null);
     }
   };
 
@@ -939,6 +960,7 @@ const BookshelfUnit = () => {
                       aria-label="전체 선택"
                     />
                   </th>
+                  <th className="py-2 px-3 w-12">순서</th>
                   <th className="py-2 px-3 w-12">#</th>
                   <th className="py-2 px-3 w-44">코드</th>
                   <th className="py-2 px-3">본문 (미리보기)</th>
@@ -951,7 +973,7 @@ const BookshelfUnit = () => {
                 {passages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="py-12 text-center text-sm text-muted-foreground"
                     >
                       아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
@@ -959,7 +981,7 @@ const BookshelfUnit = () => {
                     </td>
                   </tr>
                 ) : (
-                  passages.map((p) => {
+                  passages.map((p, idx) => {
                     const ready = p.analysis_status === "ready";
                     const wordCount = extractedMap[p.code] ?? 0;
                     const hasExtracted = wordCount > 0;
@@ -977,6 +999,15 @@ const BookshelfUnit = () => {
                             checked={checked}
                             onCheckedChange={() => toggleSel(p.id)}
                             aria-label="지문 선택"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <ReorderButtons
+                            onMoveUp={() => void handleMovePassage(idx, idx - 1)}
+                            onMoveDown={() => void handleMovePassage(idx, idx + 1)}
+                            disableUp={idx === 0}
+                            disableDown={idx === passages.length - 1}
+                            saving={reorderingId === p.id}
                           />
                         </td>
                         <td className="py-2 px-3 font-mono text-xs">{p.passage_no}</td>
