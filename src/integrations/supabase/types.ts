@@ -431,6 +431,51 @@ export type Database = {
         }
         Relationships: []
       }
+      sentence_approvals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attempt_no: number
+          created_at: string
+          grade: string | null
+          id: string
+          memo: string | null
+          requested_at: string
+          sentence_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempt_no?: number
+          created_at?: string
+          grade?: string | null
+          id?: string
+          memo?: string | null
+          requested_at?: string
+          sentence_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempt_no?: number
+          created_at?: string
+          grade?: string | null
+          id?: string
+          memo?: string | null
+          requested_at?: string
+          sentence_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sentence_attempt_logs: {
         Row: {
           analysis_match_rate: number
@@ -489,6 +534,8 @@ export type Database = {
           created_at: string
           id: string
           last_activity_at: string | null
+          last_grade: string | null
+          last_memo: string | null
           passed_at: string | null
           pre_done: boolean
           sentence_id: string
@@ -504,6 +551,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_activity_at?: string | null
+          last_grade?: string | null
+          last_memo?: string | null
           passed_at?: string | null
           pre_done?: boolean
           sentence_id: string
@@ -519,6 +568,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_activity_at?: string | null
+          last_grade?: string | null
+          last_memo?: string | null
           passed_at?: string | null
           pre_done?: boolean
           sentence_id?: string

@@ -18,6 +18,7 @@ import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen,
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { GRADE_LABEL, GRADE_BADGE_CLASS, type ApprovalGrade } from "@/lib/sentenceApprovals";
 
 interface StudentRow {
   user_id: string;
@@ -88,6 +89,7 @@ const LearningResultsCalendar = () => {
   const [selectedStudent, setSelectedStudent] = useState<string | null>(searchParams.get("student"));
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [eventsByDate, setEventsByDate] = useState<Record<string, CalEvent[]>>({});
+  const [gradeBySid, setGradeBySid] = useState<Record<string, { grade: ApprovalGrade | null; memo: string | null }>>({});
   const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -205,6 +207,23 @@ const LearningResultsCalendar = () => {
             .gte("test_date", dateStart)
             .lt("test_date", dateEnd),
         ]);
+
+        // sentence_progress 의 마지막 등급/메모 (선생님 승인 결과) — 본 학생 전체 한 번에 가져오기
+        const { data: progRows } = await supabase
+          .from("sentence_progress")
+          .select("sentence_id, last_grade, last_memo")
+          .eq("user_id", selectedStudent);
+        const gradeMap: Record<string, { grade: ApprovalGrade | null; memo: string | null }> = {};
+        ((progRows as any[]) ?? []).forEach((r) => {
+          if (r.last_grade || r.last_memo) {
+            gradeMap[r.sentence_id] = {
+              grade: (r.last_grade as ApprovalGrade) ?? null,
+              memo: r.last_memo ?? null,
+            };
+          }
+        });
+        setGradeBySid(gradeMap);
+
 
         const grouped: Record<string, CalEvent[]> = {};
         const push = (e: CalEvent) => {
@@ -395,6 +414,8 @@ const LearningResultsCalendar = () => {
                             {events.map((e) => {
                               const M = KIND_META[e.kind];
                               const Icon = M.icon;
+                              const g = e.sentence_id ? gradeBySid[e.sentence_id] : null;
+                              const showGrade = g?.grade && (e.kind === "analysis" || e.kind === "translation");
                               return (
                                 <button
                                   key={e.id}
@@ -403,11 +424,21 @@ const LearningResultsCalendar = () => {
                                     "w-full text-left rounded border px-1 py-0.5 leading-tight transition-colors",
                                     M.bg,
                                   )}
-                                  title={`${KIND_META[e.kind].ko} · ${e.label}`}
+                                  title={`${KIND_META[e.kind].ko} · ${e.label}${showGrade ? ` · ${GRADE_LABEL[g!.grade!]}` : ""}`}
                                 >
                                   <div className={cn("flex items-center gap-0.5 font-medium truncate", M.text)}>
                                     <Icon className="size-3 shrink-0" />
                                     <span className="truncate">{fmtHM(e.ts)} {e.label}</span>
+                                    {showGrade && (
+                                      <span
+                                        className={cn(
+                                          "ml-auto shrink-0 px-1 rounded text-[9px] font-bold",
+                                          GRADE_BADGE_CLASS[g!.grade!],
+                                        )}
+                                      >
+                                        {GRADE_LABEL[g!.grade!]}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-[10px] text-muted-foreground truncate">{e.meta}</div>
                                 </button>
@@ -428,6 +459,7 @@ const LearningResultsCalendar = () => {
       <EventDetailDialog
         event={openEvent}
         studentId={selectedStudent}
+        gradeInfo={openEvent?.sentence_id ? gradeBySid[openEvent.sentence_id] ?? null : null}
         onClose={() => setOpenEvent(null)}
       />
     </TeacherLayout>
@@ -438,10 +470,12 @@ const LearningResultsCalendar = () => {
 const EventDetailDialog = ({
   event,
   studentId,
+  gradeInfo,
   onClose,
 }: {
   event: CalEvent | null;
   studentId: string | null;
+  gradeInfo: { grade: ApprovalGrade | null; memo: string | null } | null;
   onClose: () => void;
 }) => {
   const open = !!event;
@@ -465,6 +499,18 @@ const EventDetailDialog = ({
             </span>
           </DialogTitle>
         </DialogHeader>
+
+        {gradeInfo?.grade && (
+          <div className="flex items-start gap-2 p-3 rounded-md border bg-card/60">
+            <span className={cn("px-2 py-0.5 rounded text-xs font-bold shrink-0", GRADE_BADGE_CLASS[gradeInfo.grade])}>
+              {GRADE_LABEL[gradeInfo.grade]}
+            </span>
+            <div className="text-sm">
+              <div className="text-[11px] text-muted-foreground">선생님 평가 · 메모</div>
+              <div className="whitespace-pre-wrap">{gradeInfo.memo || <span className="text-muted-foreground italic">메모 없음</span>}</div>
+            </div>
+          </div>
+        )}
 
         <DetailBody event={event} studentId={studentId} />
       </DialogContent>

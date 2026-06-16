@@ -56,6 +56,13 @@ import {
   subscribeMyRequest,
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
+import {
+  createApprovalRequest,
+  fetchLatestApproval,
+  subscribeMyApproval,
+  type SentenceApproval,
+} from "@/lib/sentenceApprovals";
+import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel";
 import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -133,6 +140,10 @@ const SentenceLearn = () => {
   const [openRequest, setOpenRequest] = useState<AnalysisReviewRequest | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [currentAttemptNo, setCurrentAttemptNo] = useState(1);
+
+  // 한글해석 제출 후 선생님 승인 게이트
+  const [pendingApproval, setPendingApproval] = useState<SentenceApproval | null>(null);
+  const [submittedTranslation, setSubmittedTranslation] = useState<string>("");
 
   // sentence 변경 시 마스터 로드 게이트 리셋 + 800ms 안전망(외부 fetch가 어떤 이유로 늦거나 실패해도 진행 가능)
   useEffect(() => {
@@ -224,6 +235,12 @@ const SentenceLearn = () => {
       // 현재 attempt에 대한 미해결 요청(있으면 표시)
       const openReq = await fetchOpenRequest(found.id, nextAttemptNo);
       if (mounted) setOpenRequest(openReq);
+
+      // 한글해석 제출 후 선생님 승인 대기 행 hydrate (pass 전 sentence_progress.status는 pending)
+      const latestApproval = await fetchLatestApproval(found.id, currentUserId ?? undefined);
+      if (mounted && latestApproval && latestApproval.status === "pending") {
+        setPendingApproval(latestApproval);
+      }
 
       // 특별과제의 단계 포함 여부 — 없으면 기본(모두 true)
       // 학생×지문 override (skip_pre)가 켜져 있으면 단어학습(pre)을 OFF로 강제
@@ -360,6 +377,44 @@ const SentenceLearn = () => {
     });
     return unsub;
   }, [sentence, currentAttemptNo]);
+
+  // 한글해석 승인 대기 행 실시간 구독 — 다른 기기/세션에서 승인되면 즉시 진행
+  useEffect(() => {
+    if (!sentence) return;
+    let cancelled = false;
+    (async () => {
+      const uid = await getCurrentUserId();
+      if (!uid || cancelled) return;
+      const unsub = subscribeMyApproval(sentence.id, uid, (row) => {
+        setPendingApproval((prev) => {
+          if (row.status === "approved") {
+            if (prev && prev.id === row.id) return null;
+            return prev;
+          }
+          if (row.status === "pending") return row;
+          return prev;
+        });
+        if (row.status === "approved") {
+          // 다른 세션/탭에서 승인된 경우에 대비 — 알림 후 학습 홈으로
+          toast({
+            title: "✅ 선생님이 승인했어요",
+            description: "다음 문장으로 이동합니다",
+          });
+          setTimeout(() => navigate("/learn"), 700);
+        }
+      });
+      if (cancelled) unsub();
+      else (window as any).__sa_unsub__ = unsub;
+    })();
+    return () => {
+      cancelled = true;
+      const u = (window as any).__sa_unsub__;
+      if (typeof u === "function") {
+        u();
+        (window as any).__sa_unsub__ = null;
+      }
+    };
+  }, [sentence, navigate]);
 
   const stepStates = useMemo(
     () => ({
@@ -1114,7 +1169,26 @@ const SentenceLearn = () => {
           </Card>
         )}
 
-        {step === "translation" && (
+        {step === "translation" && pendingApproval && (
+          <ApprovalWaitingPanel
+            approvalId={pendingApproval.id}
+            sentenceId={sentence.id}
+            englishSentence={sentence.english}
+            studentTranslation={submittedTranslation || null}
+            onApproved={(grade) => {
+              setPendingApproval(null);
+              if (grade === "redo") {
+                toast({
+                  title: "재학습으로 분류됐어요",
+                  description: "이 문장은 다시 학습 대상이 됩니다",
+                });
+              }
+              navigate("/learn");
+            }}
+          />
+        )}
+
+        {step === "translation" && !pendingApproval && (
           <div className="space-y-3">
             <div className="text-xs text-muted-foreground px-1">
               ⚠ 이 단계에서는 이전 단계로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
@@ -1122,24 +1196,23 @@ const SentenceLearn = () => {
             <TranslationStep
               sentenceId={sentence.id}
               englishSentence={sentence.english}
-              onSubmitted={async () => {
+              onSubmitted={async (submittedText) => {
                 try {
-                  // 정책: 한글해석 제출까지 도달 = 단어→분석→해석 모든 단계 통과.
-                  // 학생은 분석 단계를 거치지 않고는 해석 화면에 진입할 수 없으므로,
-                  // 해석 제출 시점에 sentence_progress를 PASS로 확정한다.
-                  // (이전 버그: recordAttempt가 분석을 재채점하여 점수가 낮으면
-                  //  analysis_done=false / status=fail 로 덮어써 다음 문장으로 못 넘어감)
+                  // 정책 변경: 한글해석 제출 = 모든 단계 학습 완료지만,
+                  // status=pass 확정은 '선생님 승인 + 평가 등급 입력' 후로 미룬다.
+                  // 따라서 여기서는 단계 플래그만 true 로 두고 status 는 pending 유지.
                   await upsertSentenceProgress(sentence.id, {
                     translation_done: true,
                     analysis_done: true,
                     word_test_done: true,
-                    status: "pass",
-                    passed_at: new Date().toISOString(),
                   });
                   setTranslationDone(true);
-                  // attempt log는 채점 기록 보존용으로 그대로 남김 (status 덮어쓰기는 위에서 차단됨)
                   await recordAttempt(testWordResultForFinalSubmit());
-                  navigate("/learn");
+
+                  // 선생님 승인 요청 행 생성 (이미 pending 이면 재사용)
+                  const ap = await createApprovalRequest(sentence.id);
+                  setSubmittedTranslation(submittedText);
+                  setPendingApproval(ap);
                 } catch (e) {
                   toast({
                     title: "저장 실패",
