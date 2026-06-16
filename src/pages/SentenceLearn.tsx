@@ -141,6 +141,10 @@ const SentenceLearn = () => {
   const [requesting, setRequesting] = useState(false);
   const [currentAttemptNo, setCurrentAttemptNo] = useState(1);
 
+  // 한글해석 제출 후 선생님 승인 게이트
+  const [pendingApproval, setPendingApproval] = useState<SentenceApproval | null>(null);
+  const [submittedTranslation, setSubmittedTranslation] = useState<string>("");
+
   // sentence 변경 시 마스터 로드 게이트 리셋 + 800ms 안전망(외부 fetch가 어떤 이유로 늦거나 실패해도 진행 가능)
   useEffect(() => {
     setAnalysisMasterLoaded(false);
