@@ -20,6 +20,12 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { GRADE_LABEL, GRADE_BADGE_CLASS, type ApprovalGrade } from "@/lib/sentenceApprovals";
 import { PostHocGradeDialog } from "@/components/teacher/PostHocGradeDialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
 
 interface StudentRow {
   user_id: string;
