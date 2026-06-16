@@ -114,19 +114,20 @@ export const approveSentenceRequest = async (input: {
   const userId = await getCurrentUserId();
   if (!userId) return;
 
-  const update: Record<string, unknown> = {
-    last_grade: input.grade,
-    last_memo: input.memo?.trim() || null,
+  const baseUpdate = {
+    last_grade: input.grade as string,
+    last_memo: (input.memo?.trim() || null) as string | null,
   };
-  if (isPass) {
-    update.status = "pass";
-    update.passed_at = nowIso;
-    update.translation_done = true;
-    update.analysis_done = true;
-    update.word_test_done = true;
-  } else {
-    update.status = "fail";
-  }
+  const update = isPass
+    ? {
+        ...baseUpdate,
+        status: "pass",
+        passed_at: nowIso,
+        translation_done: true,
+        analysis_done: true,
+        word_test_done: true,
+      }
+    : { ...baseUpdate, status: "fail" };
 
   await supabase
     .from("sentence_progress")
