@@ -591,13 +591,24 @@ const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string |
   const sid = event.sentence_id;
 
   if (event.kind === "analysis") {
-    const diff = Array.isArray(p.owner_diff) ? p.owner_diff : [];
+    const rawDiff = Array.isArray(p.owner_diff) ? p.owner_diff : [];
+    const noMaster = rawDiff.some((d: any) => d?.noMaster === true || d?.owner_id === "__no_master__");
+    const teacherMark = rawDiff.find((d: any) => d?.teacherApproved === true || d?.owner_id === "__teacher_approved__");
+    const diff = rawDiff.filter((d: any) => !d?.noMaster && d?.owner_id !== "__no_master__" && !d?.teacherApproved && d?.owner_id !== "__teacher_approved__");
     return (
       <div className="space-y-3 text-sm">
-        <div className="flex gap-4">
-          <div><span className="text-muted-foreground">정답률:</span> <b>{Math.round(Number(p.analysis_match_rate || 0) * 100)}%</b></div>
+        {noMaster && (
+          <div className="p-3 rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs">
+            ⚠️ 이 문장에는 <b>마스터 분석</b>이 등록되어 있지 않아 자동 채점이 불가능합니다. (정답률 0%는 실제 오답이 아니라 비교 대상 부재를 의미합니다)
+          </div>
+        )}
+        <div className="flex gap-4 flex-wrap">
+          {!noMaster && (
+            <div><span className="text-muted-foreground">정답률:</span> <b>{Math.round(Number(p.analysis_match_rate || 0) * 100)}%</b></div>
+          )}
           <div><span className="text-muted-foreground">시도:</span> {p.attempt_no}회 ({p.attempt_source})</div>
-          <div><span className="text-muted-foreground">통과:</span> {p.analysis_passed ? "✓" : "—"}</div>
+          <div><span className="text-muted-foreground">통과:</span> {p.analysis_passed ? "✓" : noMaster ? "마스터 없음" : "—"}</div>
+          {teacherMark && <div className="text-emerald-700">✓ 선생님 승인됨</div>}
         </div>
         {p.translation_text && (
           <div>
@@ -605,14 +616,16 @@ const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string |
             <div className="p-2 rounded bg-muted whitespace-pre-wrap">{p.translation_text}</div>
           </div>
         )}
-        <div>
-          <div className="text-xs text-muted-foreground mb-1">owner_diff (학생 분석 결과)</div>
-          {diff.length === 0 ? (
-            <div className="text-muted-foreground italic">기록 없음</div>
-          ) : (
-            <pre className="p-2 rounded bg-muted text-xs overflow-auto max-h-[280px]">{JSON.stringify(diff, null, 2)}</pre>
-          )}
-        </div>
+        {!noMaster && (
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">owner_diff (학생 분석 결과)</div>
+            {diff.length === 0 ? (
+              <div className="text-muted-foreground italic">기록 없음</div>
+            ) : (
+              <pre className="p-2 rounded bg-muted text-xs overflow-auto max-h-[280px]">{JSON.stringify(diff, null, 2)}</pre>
+            )}
+          </div>
+        )}
         {sid && studentId && (
           <div className="pt-2 border-t flex justify-end">
             <Button asChild size="sm">
