@@ -462,6 +462,9 @@ const LearningResultsCalendar = () => {
         studentId={selectedStudent}
         gradeInfo={openEvent?.sentence_id ? gradeBySid[openEvent.sentence_id] ?? null : null}
         onClose={() => setOpenEvent(null)}
+        onGradeSaved={(sid, grade, memo) => {
+          setGradeBySid((prev) => ({ ...prev, [sid]: { grade, memo } }));
+        }}
       />
     </TeacherLayout>
   );
