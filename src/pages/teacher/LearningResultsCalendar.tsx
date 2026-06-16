@@ -452,36 +452,36 @@ const LearningResultsCalendar = () => {
                     <div
                       key={c.key}
                       className={cn(
-                        "min-h-[110px] max-h-[110px] border rounded-md p-1 text-xs flex flex-col",
+                        "h-[130px] border rounded-md p-1 text-xs flex flex-col",
                         c.day ? "bg-card" : "bg-muted/30 border-dashed",
                         isToday && "ring-2 ring-primary/60",
                       )}
                     >
                       {c.day && (
                         <>
-                          <div className="text-[11px] font-semibold text-muted-foreground mb-0.5 px-0.5">{c.day}</div>
+                          <div className="text-[11px] font-semibold text-muted-foreground mb-0.5 px-0.5 shrink-0">{c.day}</div>
                           <div className="flex-1 overflow-hidden space-y-0.5 pr-0.5">
                             {visible.map((e) => (
                               <EventItem key={e.id} event={e} gradeBySid={gradeBySid} onClick={setOpenEvent} />
                             ))}
-                            {hidden.length > 0 && (
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="w-full text-center text-[10px] font-medium text-primary hover:underline py-0.5">
-                                    +{hidden.length}개 더 보기
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-72 p-2 space-y-1 max-h-[360px] overflow-y-auto" align="start">
-                                  <div className="text-[11px] font-semibold text-muted-foreground mb-1">
-                                    {c.day}일 전체 이력 ({events.length}건)
-                                  </div>
-                                  {events.map((e) => (
-                                    <EventItem key={e.id} event={e} gradeBySid={gradeBySid} onClick={setOpenEvent} />
-                                  ))}
-                                </PopoverContent>
-                              </Popover>
-                            )}
                           </div>
+                          {hidden.length > 0 && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="w-full shrink-0 text-center text-[10px] font-medium text-primary hover:underline py-0.5">
+                                  +{hidden.length}개 더 보기
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-72 p-2 space-y-1 max-h-[360px] overflow-y-auto" align="start">
+                                <div className="text-[11px] font-semibold text-muted-foreground mb-1">
+                                  {c.day}일 전체 이력 ({events.length}건)
+                                </div>
+                                {events.map((e) => (
+                                  <EventItem key={e.id} event={e} gradeBySid={gradeBySid} onClick={setOpenEvent} />
+                                ))}
+                              </PopoverContent>
+                            </Popover>
+                          )}
                         </>
                       )}
                     </div>
