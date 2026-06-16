@@ -315,7 +315,7 @@ const LearningResultsCalendar = () => {
             ts: r.taken_at,
             sentence_id: r.sentence_id,
             label: `${shortSid(r.sentence_id)} 단어시험`,
-            meta: `${correct}/${total} (${Math.round(Number(r.score || 0) * 100)}%)${r.passed ? " ✓" : ""}`,
+            meta: `${Math.round(Number(r.score || 0) * 100)}%${r.passed ? " ✓" : ""}`,
             payload: r,
           });
         });
