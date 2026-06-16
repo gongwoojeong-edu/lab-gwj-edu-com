@@ -414,6 +414,8 @@ const LearningResultsCalendar = () => {
                             {events.map((e) => {
                               const M = KIND_META[e.kind];
                               const Icon = M.icon;
+                              const g = e.sentence_id ? gradeBySid[e.sentence_id] : null;
+                              const showGrade = g?.grade && (e.kind === "analysis" || e.kind === "translation");
                               return (
                                 <button
                                   key={e.id}
@@ -422,11 +424,21 @@ const LearningResultsCalendar = () => {
                                     "w-full text-left rounded border px-1 py-0.5 leading-tight transition-colors",
                                     M.bg,
                                   )}
-                                  title={`${KIND_META[e.kind].ko} · ${e.label}`}
+                                  title={`${KIND_META[e.kind].ko} · ${e.label}${showGrade ? ` · ${GRADE_LABEL[g!.grade!]}` : ""}`}
                                 >
                                   <div className={cn("flex items-center gap-0.5 font-medium truncate", M.text)}>
                                     <Icon className="size-3 shrink-0" />
                                     <span className="truncate">{fmtHM(e.ts)} {e.label}</span>
+                                    {showGrade && (
+                                      <span
+                                        className={cn(
+                                          "ml-auto shrink-0 px-1 rounded text-[9px] font-bold",
+                                          GRADE_BADGE_CLASS[g!.grade!],
+                                        )}
+                                      >
+                                        {GRADE_LABEL[g!.grade!]}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-[10px] text-muted-foreground truncate">{e.meta}</div>
                                 </button>
