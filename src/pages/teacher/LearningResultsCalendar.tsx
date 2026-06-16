@@ -306,9 +306,6 @@ const LearningResultsCalendar = () => {
         });
 
         ((wtrR.data as any[]) ?? []).forEach((r) => {
-          const items = Array.isArray(r.items) ? r.items : [];
-          const total = items.length || 1;
-          const correct = Math.round(Number(r.score || 0) * total);
           push({
             id: `wtr-${r.id}`,
             kind: "word_test",
