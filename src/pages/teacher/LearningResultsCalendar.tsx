@@ -548,6 +548,7 @@ const EventDetailDialog = ({
     event.kind === "translation" ? !!p.text :
     false;
   const canGrade = !!(studentId && event.sentence_id && (event.kind === "analysis" || event.kind === "translation") && hasKoreanText);
+  const showEnglish = !!(sentenceText && (event.kind === "analysis" || event.kind === "translation"));
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -561,7 +562,6 @@ const EventDetailDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        const showEnglish = sentenceText && (event.kind === "analysis" || event.kind === "translation");
         {showEnglish && (
           <div className="p-3 rounded-md border bg-primary/5">
             <div className="text-[11px] text-muted-foreground mb-1">영문 원문</div>
