@@ -89,6 +89,7 @@ const LearningResultsCalendar = () => {
   const [selectedStudent, setSelectedStudent] = useState<string | null>(searchParams.get("student"));
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [eventsByDate, setEventsByDate] = useState<Record<string, CalEvent[]>>({});
+  const [gradeBySid, setGradeBySid] = useState<Record<string, { grade: ApprovalGrade | null; memo: string | null }>>({});
   const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
