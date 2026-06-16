@@ -1169,7 +1169,26 @@ const SentenceLearn = () => {
           </Card>
         )}
 
-        {step === "translation" && (
+        {step === "translation" && pendingApproval && (
+          <ApprovalWaitingPanel
+            approvalId={pendingApproval.id}
+            sentenceId={sentence.id}
+            englishSentence={sentence.english}
+            studentTranslation={submittedTranslation || null}
+            onApproved={(grade) => {
+              setPendingApproval(null);
+              if (grade === "redo") {
+                toast({
+                  title: "재학습으로 분류됐어요",
+                  description: "이 문장은 다시 학습 대상이 됩니다",
+                });
+              }
+              navigate("/learn");
+            }}
+          />
+        )}
+
+        {step === "translation" && !pendingApproval && (
           <div className="space-y-3">
             <div className="text-xs text-muted-foreground px-1">
               ⚠ 이 단계에서는 이전 단계로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
@@ -1177,24 +1196,23 @@ const SentenceLearn = () => {
             <TranslationStep
               sentenceId={sentence.id}
               englishSentence={sentence.english}
-              onSubmitted={async () => {
+              onSubmitted={async (submittedText) => {
                 try {
-                  // 정책: 한글해석 제출까지 도달 = 단어→분석→해석 모든 단계 통과.
-                  // 학생은 분석 단계를 거치지 않고는 해석 화면에 진입할 수 없으므로,
-                  // 해석 제출 시점에 sentence_progress를 PASS로 확정한다.
-                  // (이전 버그: recordAttempt가 분석을 재채점하여 점수가 낮으면
-                  //  analysis_done=false / status=fail 로 덮어써 다음 문장으로 못 넘어감)
+                  // 정책 변경: 한글해석 제출 = 모든 단계 학습 완료지만,
+                  // status=pass 확정은 '선생님 승인 + 평가 등급 입력' 후로 미룬다.
+                  // 따라서 여기서는 단계 플래그만 true 로 두고 status 는 pending 유지.
                   await upsertSentenceProgress(sentence.id, {
                     translation_done: true,
                     analysis_done: true,
                     word_test_done: true,
-                    status: "pass",
-                    passed_at: new Date().toISOString(),
                   });
                   setTranslationDone(true);
-                  // attempt log는 채점 기록 보존용으로 그대로 남김 (status 덮어쓰기는 위에서 차단됨)
                   await recordAttempt(testWordResultForFinalSubmit());
-                  navigate("/learn");
+
+                  // 선생님 승인 요청 행 생성 (이미 pending 이면 재사용)
+                  const ap = await createApprovalRequest(sentence.id);
+                  setSubmittedTranslation(submittedText);
+                  setPendingApproval(ap);
                 } catch (e) {
                   toast({
                     title: "저장 실패",
