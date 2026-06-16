@@ -459,6 +459,7 @@ const LearningResultsCalendar = () => {
       <EventDetailDialog
         event={openEvent}
         studentId={selectedStudent}
+        gradeInfo={openEvent?.sentence_id ? gradeBySid[openEvent.sentence_id] ?? null : null}
         onClose={() => setOpenEvent(null)}
       />
     </TeacherLayout>
@@ -469,6 +470,7 @@ const LearningResultsCalendar = () => {
 const EventDetailDialog = ({
   event,
   studentId,
+  gradeInfo,
   onClose,
 }: {
   event: CalEvent | null;
