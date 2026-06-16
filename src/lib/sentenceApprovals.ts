@@ -91,6 +91,9 @@ export const approveSentenceRequest = async (input: {
   sentenceId: string;
   grade: ApprovalGrade;
   memo?: string;
+  /** 대상 학생 user_id. 선생님이 승인하는 경우 반드시 전달.
+   *  미전달 시 현재 세션 사용자(학생 본인 PIN 흐름)로 폴백. */
+  studentUserId?: string;
 }): Promise<void> => {
   const approverId = await getCurrentUserId();
   const nowIso = new Date().toISOString();
@@ -111,8 +114,8 @@ export const approveSentenceRequest = async (input: {
   // 2) sentence_progress 마지막 등급/메모 반영
   //    redo 등급은 PASS 처리하지 않고 fail 로 돌려보냄 (학생 재시도).
   const isPass = input.grade !== "redo";
-  const userId = await getCurrentUserId();
-  if (!userId) return;
+  const targetUserId = input.studentUserId ?? approverId;
+  if (!targetUserId) return;
 
   const baseUpdate = {
     last_grade: input.grade as string,
@@ -132,8 +135,34 @@ export const approveSentenceRequest = async (input: {
   await supabase
     .from("sentence_progress")
     .update(update)
-    .eq("user_id", userId)
+    .eq("user_id", targetUserId)
     .eq("sentence_id", input.sentenceId);
+};
+
+/** 선생님 대시보드: pending 상태 전체 목록 */
+export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
+  const { data, error } = await supabase
+    .from("sentence_approvals")
+    .select("*")
+    .eq("status", "pending")
+    .order("requested_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SentenceApproval[];
+};
+
+/** 선생님 대시보드 실시간 구독: 모든 변동 시 콜백 */
+export const subscribeAllApprovals = (onChange: () => void) => {
+  const channel = supabase
+    .channel(`sa_all_${Math.random().toString(36).slice(2)}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "sentence_approvals" },
+      () => onChange(),
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
 };
 
 /** 학생 화면용: 본인 해당 문장 변동 실시간 구독 */
