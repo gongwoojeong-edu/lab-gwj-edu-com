@@ -24,6 +24,7 @@ import {
   LogOut,
   Inbox,
   FolderArchive,
+  CalendarDays,
   AlertTriangle,
   Plug,
 } from "lucide-react";
