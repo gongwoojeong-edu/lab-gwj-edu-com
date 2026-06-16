@@ -1122,9 +1122,20 @@ const SentenceLearn = () => {
               englishSentence={sentence.english}
               onSubmitted={async () => {
                 try {
-                  await upsertSentenceProgress(sentence.id, { translation_done: true });
+                  // 정책: 한글해석 제출까지 도달 = 단어→분석→해석 모든 단계 통과.
+                  // 학생은 분석 단계를 거치지 않고는 해석 화면에 진입할 수 없으므로,
+                  // 해석 제출 시점에 sentence_progress를 PASS로 확정한다.
+                  // (이전 버그: recordAttempt가 분석을 재채점하여 점수가 낮으면
+                  //  analysis_done=false / status=fail 로 덮어써 다음 문장으로 못 넘어감)
+                  await upsertSentenceProgress(sentence.id, {
+                    translation_done: true,
+                    analysis_done: true,
+                    word_test_done: true,
+                    status: "pass",
+                    passed_at: new Date().toISOString(),
+                  });
                   setTranslationDone(true);
-                  // 한글해석 제출 시점에 attempt log + status 일괄 기록
+                  // attempt log는 채점 기록 보존용으로 그대로 남김 (status 덮어쓰기는 위에서 차단됨)
                   await recordAttempt(testWordResultForFinalSubmit());
                   navigate("/learn");
                 } catch (e) {
