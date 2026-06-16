@@ -192,6 +192,22 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/approvals" className={({ isActive }) => linkCls(isActive)}>
+                    <ShieldCheck className="size-4" />
+                    {!collapsed && <span>승인 대기</span>}
+                    {approvalCount > 0 && (
+                      <span className={cn(
+                        "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center",
+                        collapsed && "absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 ml-0",
+                      )}>
+                        {approvalCount}
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
                   <NavLink to="/teacher/inbox" className={({ isActive }) => linkCls(isActive)}>
                     <Inbox className="size-4" />
                     {!collapsed && <span>요청확인</span>}
