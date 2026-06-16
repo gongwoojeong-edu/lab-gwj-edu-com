@@ -171,6 +171,14 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/results-calendar" className={({ isActive }) => linkCls(isActive)}>
+                    <CalendarDays className="size-4" />
+                    {!collapsed && <span>학습결과(월간)</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
                   <NavLink to="/teacher/assignments" end className={({ isActive }) => linkCls(isActive)}>
                     <ClipboardList className="size-4" />
                     {!collapsed && <span>특별과제</span>}
