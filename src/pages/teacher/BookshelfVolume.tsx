@@ -1205,6 +1205,18 @@ const BookshelfVolume = () => {
           void reload();
         }}
       />
+
+      <MergeUnitsDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        selectedUnits={units.filter((u) => selectedIds.has(u.id))}
+        passageCountMap={passageCountMap}
+        firstSentenceMap={firstSentenceMap}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
     </TeacherLayout>
   );
 };
