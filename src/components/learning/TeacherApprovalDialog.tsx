@@ -155,20 +155,22 @@ export const TeacherApprovalDialog = ({
           </div>
         )}
 
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-            <Lock className="w-3 h-3" /> 선생님 PIN
+        {!skipPin && (
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+              <Lock className="w-3 h-3" /> 선생님 PIN
+            </div>
+            <Input
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="••••"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="text-center text-xl tracking-[0.5em] font-mono"
+              autoFocus
+            />
           </div>
-          <Input
-            inputMode="numeric"
-            maxLength={6}
-            placeholder="••••"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="text-center text-xl tracking-[0.5em] font-mono"
-            autoFocus
-          />
-        </div>
+        )}
 
         <div className="space-y-2">
           <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
