@@ -650,6 +650,15 @@ const BookshelfVolume = () => {
                 <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
                   <ArrowRight className="size-4 mr-1" /> 다른 권으로 이동
                 </Button>
+                {selectedIds.size >= 2 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMergeOpen(true)}
+                  >
+                    <Combine className="size-4 mr-1" /> 유닛 합치기
+                  </Button>
+                )}
               </>
             )}
             <Button variant="outline" onClick={openBulkCreate}>
