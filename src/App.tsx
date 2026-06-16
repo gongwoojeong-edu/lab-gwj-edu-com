@@ -235,6 +235,14 @@ const App = () => (
               }
             />
             <Route
+              path="/teacher/results-calendar"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <LearningResultsCalendar />
+                </RequireAuth>
+              }
+            />
+            <Route
               path="/teacher/handout/:passageCode"
               element={
                 <RequireAuth requireRole="teacher">
