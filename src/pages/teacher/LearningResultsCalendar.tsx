@@ -545,7 +545,12 @@ const EventDetailDialog = ({
     );
   }
   const M = KIND_META[event.kind];
-  const canGrade = !!(studentId && event.sentence_id);
+  const p = event.payload || {};
+  const hasKoreanText =
+    event.kind === "analysis" ? !!p.translation_text :
+    event.kind === "translation" ? !!p.text :
+    false;
+  const canGrade = !!(studentId && event.sentence_id && (event.kind === "analysis" || event.kind === "translation") && hasKoreanText);
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
