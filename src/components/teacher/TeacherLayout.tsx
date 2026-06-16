@@ -51,6 +51,7 @@ const TeacherSidebarInner = () => {
   const { display: levelDisplay } = useLevelLabels();
   const pendingCount = usePendingReviewCount();
   const printCount = usePendingPrintCount();
+  const approvalCount = usePendingApprovalsCount();
 
   const isActive = (to: string, exact = false) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
