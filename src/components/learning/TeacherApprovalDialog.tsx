@@ -65,6 +65,10 @@ export const TeacherApprovalDialog = ({
     setPin("");
     setGrade(null);
     setMemo("");
+    if (skipPin) {
+      setStoredPin("__skip__");
+      return;
+    }
     let mounted = true;
     fetchTeacherPin()
       .then((p) => mounted && setStoredPin(p))
@@ -72,7 +76,7 @@ export const TeacherApprovalDialog = ({
     return () => {
       mounted = false;
     };
-  }, [open]);
+  }, [open, skipPin]);
 
   const submit = async () => {
     if (saving) return;
@@ -80,28 +84,30 @@ export const TeacherApprovalDialog = ({
       toast({ title: "평가 등급을 선택하세요", variant: "destructive" });
       return;
     }
-    let pinToCheck = storedPin;
-    if (!pinToCheck) {
-      pinToCheck = await fetchTeacherPin().catch(() => null);
-      setStoredPin(pinToCheck);
-    }
-    if (!pinToCheck) {
-      toast({
-        title: "PIN이 설정되지 않았어요",
-        description: "선생님께 패스키 설정을 요청하세요.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (pin.trim() !== pinToCheck.trim()) {
-      toast({ title: "PIN이 일치하지 않습니다", variant: "destructive" });
-      setPin("");
-      return;
+    if (!skipPin) {
+      let pinToCheck = storedPin;
+      if (!pinToCheck) {
+        pinToCheck = await fetchTeacherPin().catch(() => null);
+        setStoredPin(pinToCheck);
+      }
+      if (!pinToCheck) {
+        toast({
+          title: "PIN이 설정되지 않았어요",
+          description: "선생님께 패스키 설정을 요청하세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (pin.trim() !== pinToCheck.trim()) {
+        toast({ title: "PIN이 일치하지 않습니다", variant: "destructive" });
+        setPin("");
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      await approveSentenceRequest({ approvalId, sentenceId, grade, memo });
+      await approveSentenceRequest({ approvalId, sentenceId, grade, memo, studentUserId });
       toast({
         title: `승인 완료 — ${GRADE_LABEL[grade]}`,
         description: grade === "redo" ? "재학습으로 분류됐어요" : "다음 문장으로 진행합니다",
