@@ -678,38 +678,22 @@ const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string |
 
   if (event.kind === "word_test") {
     const items = Array.isArray(p.items) ? p.items : [];
+    const total = items.length || 1;
+    const correct = items.filter((it: any) => it.correct ?? it.passed ?? it.isCorrect ?? false).length;
+    const wrong = items.length - correct;
     return (
       <div className="space-y-3 text-sm">
-        <div className="flex gap-4">
-          <div><span className="text-muted-foreground">점수:</span> <b>{Math.round(Number(p.score || 0) * 100)}%</b></div>
-          <div><span className="text-muted-foreground">시도:</span> {p.attempt_no}회 ({p.mode})</div>
+        <div className="flex gap-4 flex-wrap">
+          <div><span className="text-muted-foreground">성취도:</span> <b>{Math.round(Number(p.score || 0) * 100)}%</b></div>
           <div><span className="text-muted-foreground">통과:</span> {p.passed ? "✓" : "—"}</div>
         </div>
-        <div>
-          <div className="text-xs text-muted-foreground mb-1">문항 ({items.length})</div>
-          <div className="border rounded divide-y max-h-[400px] overflow-auto">
-            {items.map((it: any, i: number) => {
-              const correct = it.correct ?? it.passed ?? it.isCorrect ?? false;
-              return (
-                <div key={i} className="flex items-center gap-2 px-2 py-1.5 text-xs">
-                  <span className={cn("w-5 text-center", correct ? "text-emerald-600" : "text-rose-600")}>
-                    {correct ? "✓" : "✗"}
-                  </span>
-                  <span className="font-mono">{it.en ?? it.english ?? it.word ?? "—"}</span>
-                  <span className="text-muted-foreground">→</span>
-                  <span>{it.ko ?? it.korean ?? it.meaning ?? ""}</span>
-                  {it.answer != null && (
-                    <span className="ml-auto text-muted-foreground">학생: <b>{String(it.answer)}</b></span>
-                  )}
-                </div>
-              );
-            })}
-            {items.length === 0 && <div className="p-3 text-muted-foreground italic">문항 기록 없음</div>}
-          </div>
+        <div className="flex gap-4 flex-wrap text-xs text-muted-foreground">
+          <div>맞은 단어: <b className="text-foreground">{correct}</b> / {total}</div>
+          <div>틀린 단어: <b className="text-foreground">{wrong}</b></div>
         </div>
         {Array.isArray(p.wrong_words) && p.wrong_words.length > 0 && (
           <div>
-            <div className="text-xs text-muted-foreground mb-1">오답 단어</div>
+            <div className="text-xs text-muted-foreground mb-1">틀린 단어</div>
             <div className="flex flex-wrap gap-1">
               {p.wrong_words.map((w: any, i: number) => (
                 <Badge key={i} variant="destructive">{typeof w === "string" ? w : (w.en ?? w.word ?? JSON.stringify(w))}</Badge>
