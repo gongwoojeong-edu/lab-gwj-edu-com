@@ -500,6 +500,18 @@ const EventDetailDialog = ({
           </DialogTitle>
         </DialogHeader>
 
+        {gradeInfo?.grade && (
+          <div className="flex items-start gap-2 p-3 rounded-md border bg-card/60">
+            <span className={cn("px-2 py-0.5 rounded text-xs font-bold shrink-0", GRADE_BADGE_CLASS[gradeInfo.grade])}>
+              {GRADE_LABEL[gradeInfo.grade]}
+            </span>
+            <div className="text-sm">
+              <div className="text-[11px] text-muted-foreground">선생님 평가 · 메모</div>
+              <div className="whitespace-pre-wrap">{gradeInfo.memo || <span className="text-muted-foreground italic">메모 없음</span>}</div>
+            </div>
+          </div>
+        )}
+
         <DetailBody event={event} studentId={studentId} />
       </DialogContent>
     </Dialog>
