@@ -475,6 +475,7 @@ const EventDetailDialog = ({
 }: {
   event: CalEvent | null;
   studentId: string | null;
+  gradeInfo: { grade: ApprovalGrade | null; memo: string | null } | null;
   onClose: () => void;
 }) => {
   const open = !!event;
