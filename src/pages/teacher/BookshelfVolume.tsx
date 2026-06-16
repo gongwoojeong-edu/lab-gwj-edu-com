@@ -196,6 +196,7 @@ const BookshelfVolume = () => {
   const { display: levelDisplay } = useLevelLabels();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [allTextbooks, setAllTextbooks] = useState<
     Array<{ id: string; title: string; volume_no: number; series_id: string }>
