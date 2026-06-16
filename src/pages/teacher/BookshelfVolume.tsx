@@ -45,6 +45,7 @@ import {
   Layers,
   FileSignature,
   ListPlus,
+  Combine,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -71,6 +72,7 @@ import {
 } from "@/lib/textbooks";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
+import { MergeUnitsDialog } from "@/components/teacher/MergeUnitsDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
 import { swapListOrder } from "@/lib/bookshelfOrder";
 import { cn } from "@/lib/utils";
@@ -194,6 +196,7 @@ const BookshelfVolume = () => {
   const { display: levelDisplay } = useLevelLabels();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [allTextbooks, setAllTextbooks] = useState<
     Array<{ id: string; title: string; volume_no: number; series_id: string }>
@@ -647,6 +650,15 @@ const BookshelfVolume = () => {
                 <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
                   <ArrowRight className="size-4 mr-1" /> 다른 권으로 이동
                 </Button>
+                {selectedIds.size >= 2 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMergeOpen(true)}
+                  >
+                    <Combine className="size-4 mr-1" /> 유닛 합치기
+                  </Button>
+                )}
               </>
             )}
             <Button variant="outline" onClick={openBulkCreate}>
@@ -1188,6 +1200,18 @@ const BookshelfVolume = () => {
         selectedIds={Array.from(selectedIds)}
         targets={moveTargets}
         onMove={handleMove}
+        onDone={() => {
+          clearSel();
+          void reload();
+        }}
+      />
+
+      <MergeUnitsDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        selectedUnits={units.filter((u) => selectedIds.has(u.id))}
+        passageCountMap={passageCountMap}
+        firstSentenceMap={firstSentenceMap}
         onDone={() => {
           clearSel();
           void reload();
