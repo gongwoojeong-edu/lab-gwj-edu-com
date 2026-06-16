@@ -521,6 +521,21 @@ const EventDetailDialog = ({
   onGradeSaved: (sentenceId: string, grade: ApprovalGrade, memo: string | null) => void;
 }) => {
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
+  const [sentenceText, setSentenceText] = useState<string | null>(null);
+  const sid = event?.sentence_id ?? null;
+  useEffect(() => {
+    if (!sid) { setSentenceText(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("user_sentences")
+        .select("text")
+        .eq("id", sid)
+        .maybeSingle();
+      if (!cancelled) setSentenceText(data?.text ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [sid]);
   const open = !!event;
   if (!event) {
     return (
@@ -543,6 +558,14 @@ const EventDetailDialog = ({
             </span>
           </DialogTitle>
         </DialogHeader>
+
+        {sentenceText && (
+          <div className="p-3 rounded-md border bg-primary/5">
+            <div className="text-[11px] text-muted-foreground mb-1">영문 원문</div>
+            <div className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{sentenceText}</div>
+          </div>
+        )}
+
 
         {gradeInfo?.grade ? (
           <div className="flex items-start gap-2 p-3 rounded-md border bg-card/60">
