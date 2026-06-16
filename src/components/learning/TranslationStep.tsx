@@ -75,7 +75,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
       setPreviousText(text.trim());
       setSubmitted(true);
       toast({ title: "해석 저장 완료" });
-      onSubmitted();
+      onSubmitted(text.trim());
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
     } finally {
