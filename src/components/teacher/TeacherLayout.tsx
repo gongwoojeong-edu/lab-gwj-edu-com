@@ -65,6 +65,7 @@ const TeacherSidebarInner = () => {
   const learnMgmtActive =
     pathname.startsWith("/teacher/students") ||
     pathname.startsWith("/teacher/results") ||
+    pathname.startsWith("/teacher/results-calendar") ||
     pathname.startsWith("/teacher/assignments") ||
     pathname.startsWith("/teacher/inbox") ||
     pathname.startsWith("/teacher/print-queue") ||
