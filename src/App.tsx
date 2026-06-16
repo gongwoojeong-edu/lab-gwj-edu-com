@@ -292,6 +292,15 @@ const App = () => (
               }
             />
             <Route
+              path="/teacher/approvals"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <PendingApprovals />
+                </RequireAuth>
+              }
+            />
+
+            <Route
               path="/teacher/integrations"
               element={
                 <RequireAuth requireRole="teacher">
