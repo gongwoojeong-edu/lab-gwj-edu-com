@@ -36,14 +36,14 @@ export const reorderNumberedRows = async (
   for (let i = 0; i < orderedIds.length; i++) {
     const { error } = await supabase
       .from(table)
-      .update({ [noField]: TEMP + i })
+      .update({ [noField]: TEMP + i } as never)
       .eq("id", orderedIds[i]);
     if (error) throw error;
   }
   for (let i = 0; i < orderedIds.length; i++) {
     const { error } = await supabase
       .from(table)
-      .update({ [noField]: i + 1 })
+      .update({ [noField]: i + 1 } as never)
       .eq("id", orderedIds[i]);
     if (error) throw error;
   }
