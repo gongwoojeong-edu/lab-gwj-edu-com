@@ -14,11 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { GRADE_LABEL, GRADE_BADGE_CLASS, type ApprovalGrade } from "@/lib/sentenceApprovals";
+import { PostHocGradeDialog } from "@/components/teacher/PostHocGradeDialog";
 
 interface StudentRow {
   user_id: string;
@@ -461,6 +462,9 @@ const LearningResultsCalendar = () => {
         studentId={selectedStudent}
         gradeInfo={openEvent?.sentence_id ? gradeBySid[openEvent.sentence_id] ?? null : null}
         onClose={() => setOpenEvent(null)}
+        onGradeSaved={(sid, grade, memo) => {
+          setGradeBySid((prev) => ({ ...prev, [sid]: { grade, memo } }));
+        }}
       />
     </TeacherLayout>
   );
@@ -472,12 +476,15 @@ const EventDetailDialog = ({
   studentId,
   gradeInfo,
   onClose,
+  onGradeSaved,
 }: {
   event: CalEvent | null;
   studentId: string | null;
   gradeInfo: { grade: ApprovalGrade | null; memo: string | null } | null;
   onClose: () => void;
+  onGradeSaved: (sentenceId: string, grade: ApprovalGrade, memo: string | null) => void;
 }) => {
+  const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const open = !!event;
   if (!event) {
     return (
@@ -487,6 +494,7 @@ const EventDetailDialog = ({
     );
   }
   const M = KIND_META[event.kind];
+  const canGrade = !!(studentId && event.sentence_id);
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -500,19 +508,43 @@ const EventDetailDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        {gradeInfo?.grade && (
+        {gradeInfo?.grade ? (
           <div className="flex items-start gap-2 p-3 rounded-md border bg-card/60">
             <span className={cn("px-2 py-0.5 rounded text-xs font-bold shrink-0", GRADE_BADGE_CLASS[gradeInfo.grade])}>
               {GRADE_LABEL[gradeInfo.grade]}
             </span>
-            <div className="text-sm">
+            <div className="text-sm flex-1">
               <div className="text-[11px] text-muted-foreground">선생님 평가 · 메모</div>
               <div className="whitespace-pre-wrap">{gradeInfo.memo || <span className="text-muted-foreground italic">메모 없음</span>}</div>
             </div>
+            {canGrade && (
+              <Button size="sm" variant="outline" onClick={() => setGradeDialogOpen(true)}>
+                <PencilLine className="w-3.5 h-3.5 mr-1" /> 수정
+              </Button>
+            )}
           </div>
-        )}
+        ) : canGrade ? (
+          <div className="flex items-center justify-between gap-2 p-3 rounded-md border border-dashed bg-muted/30">
+            <div className="text-sm text-muted-foreground">아직 선생님 평가가 없습니다 (이미 통과된 문장).</div>
+            <Button size="sm" variant="outline" onClick={() => setGradeDialogOpen(true)}>
+              <PencilLine className="w-3.5 h-3.5 mr-1" /> 사후 평가 입력
+            </Button>
+          </div>
+        ) : null}
 
         <DetailBody event={event} studentId={studentId} />
+
+        {canGrade && (
+          <PostHocGradeDialog
+            open={gradeDialogOpen}
+            onOpenChange={setGradeDialogOpen}
+            studentUserId={studentId!}
+            sentenceId={event.sentence_id!}
+            initialGrade={gradeInfo?.grade ?? null}
+            initialMemo={gradeInfo?.memo ?? null}
+            onSaved={(g, m) => onGradeSaved(event.sentence_id!, g, m)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
