@@ -72,6 +72,7 @@ import {
 } from "@/lib/textbooks";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
+import { MergeUnitsDialog } from "@/components/teacher/MergeUnitsDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
 import { swapListOrder } from "@/lib/bookshelfOrder";
 import { cn } from "@/lib/utils";
