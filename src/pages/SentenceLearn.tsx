@@ -378,6 +378,44 @@ const SentenceLearn = () => {
     return unsub;
   }, [sentence, currentAttemptNo]);
 
+  // 한글해석 승인 대기 행 실시간 구독 — 다른 기기/세션에서 승인되면 즉시 진행
+  useEffect(() => {
+    if (!sentence) return;
+    let cancelled = false;
+    (async () => {
+      const uid = await getCurrentUserId();
+      if (!uid || cancelled) return;
+      const unsub = subscribeMyApproval(sentence.id, uid, (row) => {
+        setPendingApproval((prev) => {
+          if (row.status === "approved") {
+            if (prev && prev.id === row.id) return null;
+            return prev;
+          }
+          if (row.status === "pending") return row;
+          return prev;
+        });
+        if (row.status === "approved") {
+          // 다른 세션/탭에서 승인된 경우에 대비 — 알림 후 학습 홈으로
+          toast({
+            title: "✅ 선생님이 승인했어요",
+            description: "다음 문장으로 이동합니다",
+          });
+          setTimeout(() => navigate("/learn"), 700);
+        }
+      });
+      if (cancelled) unsub();
+      else (window as any).__sa_unsub__ = unsub;
+    })();
+    return () => {
+      cancelled = true;
+      const u = (window as any).__sa_unsub__;
+      if (typeof u === "function") {
+        u();
+        (window as any).__sa_unsub__ = null;
+      }
+    };
+  }, [sentence, navigate]);
+
   const stepStates = useMemo(
     () => ({
       pre: { done: preDone, locked: analysisDone || translationDone, skipped: !skipFlags.pre },
