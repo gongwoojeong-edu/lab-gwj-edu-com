@@ -213,7 +213,7 @@ export const TeacherApprovalDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
-          <Button onClick={submit} disabled={saving || pin.length < 4 || !grade}>
+          <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
             {saving ? "저장 중..." : "승인하고 다음 문장으로"}
           </Button>
         </DialogFooter>
