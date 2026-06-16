@@ -26,6 +26,7 @@ import {
   FolderArchive,
   CalendarDays,
   AlertTriangle,
+  ShieldCheck,
   Plug,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
