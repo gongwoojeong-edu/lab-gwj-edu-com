@@ -109,14 +109,14 @@ const LearningResultsCalendar = () => {
       try {
         const { data, error } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no, current_class")
+          .select("user_id, display_name, student_no, current_level")
           .order("display_name", { ascending: true });
         if (error) throw error;
         const rows = (data ?? []).map((r: any) => ({
           user_id: r.user_id,
           display_name: r.display_name,
           student_no: r.student_no,
-          className: r.current_class ?? null,
+          className: r.current_level ?? null,
         })) as StudentRow[];
         setStudents(rows);
         if (!selectedStudent && rows.length > 0) {
