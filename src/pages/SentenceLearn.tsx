@@ -473,8 +473,10 @@ const SentenceLearn = () => {
       });
 
       // 복습(이미 PASS한 sentence) 진입 시 status를 fail로 덮어쓰지 않음 — attempt만 누적
-      const isReviewOfPassed = previousStatus === "pass";
-      if (isReviewOfPassed && !overallPass) {
+      // 또한 한글해석 제출 직전에 이미 PASS 처리된 경우(translation onSubmitted)도 동일하게 보호
+      const existingProg = await fetchSentenceProgress(sentence.id);
+      const alreadyPass = previousStatus === "pass" || existingProg?.status === "pass";
+      if (alreadyPass && !overallPass) {
         // 복습 실패: status 유지(PASS), word_test_done만 갱신
         await upsertSentenceProgress(sentence.id, {
           word_test_done: wordTestPassed,
