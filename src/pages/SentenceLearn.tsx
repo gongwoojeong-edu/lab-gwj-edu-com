@@ -236,6 +236,12 @@ const SentenceLearn = () => {
       const openReq = await fetchOpenRequest(found.id, nextAttemptNo);
       if (mounted) setOpenRequest(openReq);
 
+      // 한글해석 제출 후 선생님 승인 대기 행 hydrate (pass 전 sentence_progress.status는 pending)
+      const latestApproval = await fetchLatestApproval(found.id, currentUserId ?? undefined);
+      if (mounted && latestApproval && latestApproval.status === "pending") {
+        setPendingApproval(latestApproval);
+      }
+
       // 특별과제의 단계 포함 여부 — 없으면 기본(모두 true)
       // 학생×지문 override (skip_pre)가 켜져 있으면 단어학습(pre)을 OFF로 강제
       const overrideSkipPre = !!overrideRes?.skip_pre;
