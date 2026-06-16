@@ -1170,23 +1170,9 @@ const SentenceLearn = () => {
         )}
 
         {step === "translation" && pendingApproval && (
-          <ApprovalWaitingPanel
-            approvalId={pendingApproval.id}
-            sentenceId={sentence.id}
-            englishSentence={sentence.english}
-            studentTranslation={submittedTranslation || null}
-            onApproved={(grade) => {
-              setPendingApproval(null);
-              if (grade === "redo") {
-                toast({
-                  title: "재학습으로 분류됐어요",
-                  description: "이 문장은 다시 학습 대상이 됩니다",
-                });
-              }
-              navigate("/learn");
-            }}
-          />
+          <ApprovalWaitingPanel studentTranslation={submittedTranslation || null} />
         )}
+
 
         {step === "translation" && !pendingApproval && (
           <div className="space-y-3">

@@ -28,21 +28,28 @@ interface Props {
   /** 학생 한글해석 (참고용 표시) */
   studentTranslation?: string | null;
   englishSentence?: string;
+  /** 대상 학생 user_id (선생님 화면에서 승인할 때 필수) */
+  studentUserId?: string;
+  /** true 면 PIN 입력을 생략 (선생님 로그인 상태에서 사용) */
+  skipPin?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApproved: (grade: ApprovalGrade) => void;
 }
 
 /**
- * 한글해석 제출 직후 선생님이 즉시 승인하는 다이얼로그.
- * 선생님 PIN + 5단계 등급(매우잘함/잘함/보통/미흡/재학습) + 메모.
- * 학원 공용 PC 트래픽 패턴 — 학생 세션 그대로 사용, PIN 으로 게이트.
+ * 한글해석 제출 후 선생님이 승인하는 다이얼로그.
+ * 5단계 등급(매우잘함/잘함/보통/미흡/재학습) + 메모.
+ * - 학생 PIN 흐름: skipPin=false, studentUserId 미전달 (현재 세션 = 학생 본인)
+ * - 선생님 승인 페이지: skipPin=true, studentUserId 전달
  */
 export const TeacherApprovalDialog = ({
   approvalId,
   sentenceId,
   studentTranslation,
   englishSentence,
+  studentUserId,
+  skipPin = false,
   open,
   onOpenChange,
   onApproved,
@@ -58,6 +65,10 @@ export const TeacherApprovalDialog = ({
     setPin("");
     setGrade(null);
     setMemo("");
+    if (skipPin) {
+      setStoredPin("__skip__");
+      return;
+    }
     let mounted = true;
     fetchTeacherPin()
       .then((p) => mounted && setStoredPin(p))
@@ -65,7 +76,7 @@ export const TeacherApprovalDialog = ({
     return () => {
       mounted = false;
     };
-  }, [open]);
+  }, [open, skipPin]);
 
   const submit = async () => {
     if (saving) return;
@@ -73,28 +84,30 @@ export const TeacherApprovalDialog = ({
       toast({ title: "평가 등급을 선택하세요", variant: "destructive" });
       return;
     }
-    let pinToCheck = storedPin;
-    if (!pinToCheck) {
-      pinToCheck = await fetchTeacherPin().catch(() => null);
-      setStoredPin(pinToCheck);
-    }
-    if (!pinToCheck) {
-      toast({
-        title: "PIN이 설정되지 않았어요",
-        description: "선생님께 패스키 설정을 요청하세요.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (pin.trim() !== pinToCheck.trim()) {
-      toast({ title: "PIN이 일치하지 않습니다", variant: "destructive" });
-      setPin("");
-      return;
+    if (!skipPin) {
+      let pinToCheck = storedPin;
+      if (!pinToCheck) {
+        pinToCheck = await fetchTeacherPin().catch(() => null);
+        setStoredPin(pinToCheck);
+      }
+      if (!pinToCheck) {
+        toast({
+          title: "PIN이 설정되지 않았어요",
+          description: "선생님께 패스키 설정을 요청하세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (pin.trim() !== pinToCheck.trim()) {
+        toast({ title: "PIN이 일치하지 않습니다", variant: "destructive" });
+        setPin("");
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      await approveSentenceRequest({ approvalId, sentenceId, grade, memo });
+      await approveSentenceRequest({ approvalId, sentenceId, grade, memo, studentUserId });
       toast({
         title: `승인 완료 — ${GRADE_LABEL[grade]}`,
         description: grade === "redo" ? "재학습으로 분류됐어요" : "다음 문장으로 진행합니다",
@@ -142,20 +155,22 @@ export const TeacherApprovalDialog = ({
           </div>
         )}
 
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-            <Lock className="w-3 h-3" /> 선생님 PIN
+        {!skipPin && (
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+              <Lock className="w-3 h-3" /> 선생님 PIN
+            </div>
+            <Input
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="••••"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="text-center text-xl tracking-[0.5em] font-mono"
+              autoFocus
+            />
           </div>
-          <Input
-            inputMode="numeric"
-            maxLength={6}
-            placeholder="••••"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="text-center text-xl tracking-[0.5em] font-mono"
-            autoFocus
-          />
-        </div>
+        )}
 
         <div className="space-y-2">
           <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
@@ -198,7 +213,7 @@ export const TeacherApprovalDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
-          <Button onClick={submit} disabled={saving || pin.length < 4 || !grade}>
+          <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
             {saving ? "저장 중..." : "승인하고 다음 문장으로"}
           </Button>
         </DialogFooter>

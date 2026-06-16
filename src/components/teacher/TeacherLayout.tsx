@@ -26,6 +26,7 @@ import {
   FolderArchive,
   CalendarDays,
   AlertTriangle,
+  ShieldCheck,
   Plug,
 } from "lucide-react";
 import { signOut, useAuth } from "@/hooks/useAuth";
@@ -36,6 +37,7 @@ import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { cn } from "@/lib/utils";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
+import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 
 interface Props {
@@ -49,6 +51,7 @@ const TeacherSidebarInner = () => {
   const { display: levelDisplay } = useLevelLabels();
   const pendingCount = usePendingReviewCount();
   const printCount = usePendingPrintCount();
+  const approvalCount = usePendingApprovalsCount();
 
   const isActive = (to: string, exact = false) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -67,6 +70,7 @@ const TeacherSidebarInner = () => {
     pathname.startsWith("/teacher/results") ||
     pathname.startsWith("/teacher/results-calendar") ||
     pathname.startsWith("/teacher/assignments") ||
+    pathname.startsWith("/teacher/approvals") ||
     pathname.startsWith("/teacher/inbox") ||
     pathname.startsWith("/teacher/print-queue") ||
     pathname.startsWith("/teacher/requests");
@@ -183,6 +187,22 @@ const TeacherSidebarInner = () => {
                   <NavLink to="/teacher/assignments" end className={({ isActive }) => linkCls(isActive)}>
                     <ClipboardList className="size-4" />
                     {!collapsed && <span>특별과제</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/approvals" className={({ isActive }) => linkCls(isActive)}>
+                    <ShieldCheck className="size-4" />
+                    {!collapsed && <span>승인 대기</span>}
+                    {approvalCount > 0 && (
+                      <span className={cn(
+                        "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center",
+                        collapsed && "absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 ml-0",
+                      )}>
+                        {approvalCount}
+                      </span>
+                    )}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

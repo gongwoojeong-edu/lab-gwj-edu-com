@@ -12,6 +12,7 @@ import StudentHome from "./pages/StudentHome.tsx";
 import SentenceLearn from "./pages/SentenceLearn.tsx";
 import TeacherHome from "./pages/teacher/TeacherHome.tsx";
 import StalledStudents from "./pages/teacher/StalledStudents.tsx";
+import PendingApprovals from "./pages/teacher/PendingApprovals.tsx";
 import Integrations from "./pages/teacher/Integrations.tsx";
 import Bookshelf from "./pages/teacher/Bookshelf.tsx";
 import BookshelfLevel from "./pages/teacher/BookshelfLevel.tsx";
@@ -290,6 +291,15 @@ const App = () => (
                 </RequireAuth>
               }
             />
+            <Route
+              path="/teacher/approvals"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <PendingApprovals />
+                </RequireAuth>
+              }
+            />
+
             <Route
               path="/teacher/integrations"
               element={
