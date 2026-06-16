@@ -37,6 +37,7 @@ import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { cn } from "@/lib/utils";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
+import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 
 interface Props {
