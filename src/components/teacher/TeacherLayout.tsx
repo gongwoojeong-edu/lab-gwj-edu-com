@@ -24,6 +24,7 @@ import {
   LogOut,
   Inbox,
   FolderArchive,
+  CalendarDays,
   AlertTriangle,
   Plug,
 } from "lucide-react";
@@ -64,6 +65,7 @@ const TeacherSidebarInner = () => {
   const learnMgmtActive =
     pathname.startsWith("/teacher/students") ||
     pathname.startsWith("/teacher/results") ||
+    pathname.startsWith("/teacher/results-calendar") ||
     pathname.startsWith("/teacher/assignments") ||
     pathname.startsWith("/teacher/inbox") ||
     pathname.startsWith("/teacher/print-queue") ||
@@ -165,6 +167,14 @@ const TeacherSidebarInner = () => {
                   <NavLink to="/teacher/results" className={({ isActive }) => linkCls(isActive)}>
                     <FolderArchive className="size-4" />
                     {!collapsed && <span>학습결과</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/results-calendar" className={({ isActive }) => linkCls(isActive)}>
+                    <CalendarDays className="size-4" />
+                    {!collapsed && <span>학습결과(월간)</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

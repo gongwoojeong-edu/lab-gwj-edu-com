@@ -23,6 +23,7 @@ import Assignments from "./pages/teacher/Assignments.tsx";
 import AssignmentsPast from "./pages/teacher/AssignmentsPast.tsx";
 import PrintQueue from "./pages/teacher/PrintQueue.tsx";
 import LearningResults from "./pages/teacher/LearningResults.tsx";
+import LearningResultsCalendar from "./pages/teacher/LearningResultsCalendar.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
 import HandoutPage from "./pages/Handout.tsx";
 import HandoutWord from "./pages/HandoutWord.tsx";
@@ -230,6 +231,14 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <LearningResults />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/results-calendar"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <LearningResultsCalendar />
                 </RequireAuth>
               }
             />
