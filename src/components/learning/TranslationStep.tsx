@@ -10,7 +10,7 @@ import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 interface Props {
   sentenceId: string;
   englishSentence: string;
-  onSubmitted: () => void;
+  onSubmitted: (submittedText: string) => void;
 }
 
 /**
