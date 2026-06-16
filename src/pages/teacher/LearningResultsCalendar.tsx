@@ -208,6 +208,23 @@ const LearningResultsCalendar = () => {
             .lt("test_date", dateEnd),
         ]);
 
+        // sentence_progress 의 마지막 등급/메모 (선생님 승인 결과) — 본 학생 전체 한 번에 가져오기
+        const { data: progRows } = await supabase
+          .from("sentence_progress")
+          .select("sentence_id, last_grade, last_memo")
+          .eq("user_id", selectedStudent);
+        const gradeMap: Record<string, { grade: ApprovalGrade | null; memo: string | null }> = {};
+        ((progRows as any[]) ?? []).forEach((r) => {
+          if (r.last_grade || r.last_memo) {
+            gradeMap[r.sentence_id] = {
+              grade: (r.last_grade as ApprovalGrade) ?? null,
+              memo: r.last_memo ?? null,
+            };
+          }
+        });
+        setGradeBySid(gradeMap);
+
+
         const grouped: Record<string, CalEvent[]> = {};
         const push = (e: CalEvent) => {
           const k = toDateKey(e.ts);
