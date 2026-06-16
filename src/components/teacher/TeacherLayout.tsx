@@ -70,6 +70,7 @@ const TeacherSidebarInner = () => {
     pathname.startsWith("/teacher/results") ||
     pathname.startsWith("/teacher/results-calendar") ||
     pathname.startsWith("/teacher/assignments") ||
+    pathname.startsWith("/teacher/approvals") ||
     pathname.startsWith("/teacher/inbox") ||
     pathname.startsWith("/teacher/print-queue") ||
     pathname.startsWith("/teacher/requests");
