@@ -602,7 +602,7 @@ const EventDetailDialog = ({
           </div>
         ) : null}
 
-        <DetailBody event={event} studentId={studentId} />
+        <DetailBody event={event} studentId={studentId} onRegraded={onRegraded} />
 
         {canGrade && (
           <PostHocGradeDialog
