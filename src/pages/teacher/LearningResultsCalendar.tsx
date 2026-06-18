@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { hasMasterForSentence } from "@/lib/masterAvailability";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { GRADE_LABEL, GRADE_BADGE_CLASS, type ApprovalGrade } from "@/lib/sentenceApprovals";
@@ -618,14 +619,29 @@ const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string |
 
   if (event.kind === "analysis") {
     const rawDiff = Array.isArray(p.owner_diff) ? p.owner_diff : [];
-    const noMaster = rawDiff.some((d: any) => d?.noMaster === true || d?.owner_id === "__no_master__");
+    const noMasterAtLog = rawDiff.some((d: any) => d?.noMaster === true || d?.owner_id === "__no_master__");
     const teacherMark = rawDiff.find((d: any) => d?.teacherApproved === true || d?.owner_id === "__teacher_approved__");
     const diff = rawDiff.filter((d: any) => !d?.noMaster && d?.owner_id !== "__no_master__" && !d?.teacherApproved && d?.owner_id !== "__teacher_approved__");
+    // 기록 시점에는 마스터가 없었더라도, 현재 마스터가 등록돼 있으면 안내 문구를 바꾼다.
+    const [masterNow, setMasterNow] = useState<boolean | null>(null);
+    useEffect(() => {
+      let alive = true;
+      if (noMasterAtLog && sid) {
+        hasMasterForSentence(sid).then((ok) => { if (alive) setMasterNow(ok); });
+      }
+      return () => { alive = false; };
+    }, [sid, noMasterAtLog]);
+    const noMaster = noMasterAtLog && masterNow !== true;
     return (
       <div className="space-y-3 text-sm">
         {noMaster && (
           <div className="p-3 rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs">
             ⚠️ 이 문장에는 <b>마스터 분석</b>이 등록되어 있지 않아 자동 채점이 불가능합니다. (정답률 0%는 실제 오답이 아니라 비교 대상 부재를 의미합니다)
+          </div>
+        )}
+        {noMasterAtLog && masterNow === true && (
+          <div className="p-3 rounded border border-sky-300 bg-sky-50 text-sky-900 text-xs">
+            ℹ️ 이 기록 당시에는 <b>마스터 분석이 없어</b> 자동 채점이 불가능했습니다. 현재는 마스터키가 등록되어 있으므로, 학생이 <b>다시 시도</b>하면 정상 채점됩니다. (저장된 0%는 과거 시점 값)
           </div>
         )}
         <div className="flex gap-4 flex-wrap">
