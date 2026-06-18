@@ -125,9 +125,11 @@ const SentenceLearn = () => {
     translation: true,
     wordtest: true,
   });
-  const ANALYSIS_GATE = 0.3;
+  const ANALYSIS_GATE = 0.6;
+  // 학생 프로필 임계값 우선 — 없으면 기본 60%
+  const analysisGate = profile?.analysis_pass_threshold ?? ANALYSIS_GATE;
   const canAdvanceToTranslation =
-    analysisMasterLoaded && (analysisDone || analysisRate >= ANALYSIS_GATE);
+    analysisMasterLoaded && (analysisDone || analysisRate >= analysisGate);
   const testWordResultForFinalSubmit = () => ({
     passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
     score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
