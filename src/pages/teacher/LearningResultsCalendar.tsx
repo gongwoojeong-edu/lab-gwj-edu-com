@@ -516,12 +516,14 @@ const EventDetailDialog = ({
   gradeInfo,
   onClose,
   onGradeSaved,
+  onRegraded,
 }: {
   event: CalEvent | null;
   studentId: string | null;
   gradeInfo: { grade: ApprovalGrade | null; memo: string | null } | null;
   onClose: () => void;
   onGradeSaved: (sentenceId: string, grade: ApprovalGrade, memo: string | null) => void;
+  onRegraded: () => void;
 }) => {
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [sentenceText, setSentenceText] = useState<string | null>(null);
