@@ -2757,7 +2757,7 @@ const Index = ({
                   ? "bg-destructive/15 border-destructive/40 text-destructive"
                   : "bg-card border-border text-muted-foreground hover:bg-accent",
               )}
-              title="지우개 모드 (다음 클릭한 분석 삭제)"
+              title="지우개 모드 (클릭한 분석 삭제 · 다시 눌러 해제)"
             >
               <Eraser className="size-3" />
               지우개
@@ -2788,7 +2788,7 @@ const Index = ({
         {eraserMode && (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 flex items-center justify-between gap-2">
             <p className="text-[12px] font-semibold text-destructive font-kr">
-              🧽 지우개 모드 — 다음 클릭 1회만 삭제 후 자동 해제됩니다 (ESC로 즉시 취소)
+              🧽 지우개 모드 — 클릭한 분석을 삭제합니다. 다시 버튼을 눌러 해제하세요 (ESC로 즉시 취소)
             </p>
             <button
               type="button"
