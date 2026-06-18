@@ -483,6 +483,8 @@ interface IndexProps {
    * 값이 바뀔 때마다 hydrate effect가 재실행된다.
    */
   reloadNonce?: number;
+  /** [정답 저장 (전체)] 클릭으로 모든 patch가 커밋된 직후 호출 (1개 이상 저장됐을 때만). */
+  onAfterCommitAll?: (savedCount: number) => void;
 }
 
 const Index = ({
