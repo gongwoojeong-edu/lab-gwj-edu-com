@@ -143,6 +143,7 @@ const LearningResultsCalendar = () => {
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [openEvent, setOpenEvent] = useState<CalEvent | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // URL 동기화
   useEffect(() => {
