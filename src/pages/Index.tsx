@@ -483,6 +483,8 @@ interface IndexProps {
    * 값이 바뀔 때마다 hydrate effect가 재실행된다.
    */
   reloadNonce?: number;
+  /** [정답 저장 (전체)] 클릭으로 모든 patch가 커밋된 직후 호출 (1개 이상 저장됐을 때만). */
+  onAfterCommitAll?: (savedCount: number) => void;
 }
 
 const Index = ({
@@ -501,6 +503,7 @@ const Index = ({
   onHydrationError,
   onFlushStudentProgress,
   reloadNonce = 0,
+  onAfterCommitAll,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const { displayStudent: levelDisplay } = useLevelLabels();
@@ -1439,6 +1442,7 @@ const Index = ({
       title: `정답 ${entries.length}개 저장됨`,
       description: "모든 미저장 변경사항이 저장되었습니다.",
     });
+    onAfterCommitAll?.(entries.length);
   };
 
   // discardPatch: 누적된 patch만 버림 (savedOwnerSet은 그대로)
