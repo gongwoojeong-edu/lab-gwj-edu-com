@@ -738,7 +738,7 @@ const SentenceLearn = () => {
         </Button>
       );
     }
-    if (rate >= ANALYSIS_GATE && required) {
+    if (rate >= analysisGate && required) {
       return (
         <Button size="sm" onClick={requestAnalysisReview} disabled={requesting}>
           <ShieldCheck className="w-4 h-4 mr-1" /> 선생님분석본보기요청
