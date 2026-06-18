@@ -46,6 +46,7 @@ import {
   FileSignature,
   ListPlus,
   Combine,
+  Printer,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
