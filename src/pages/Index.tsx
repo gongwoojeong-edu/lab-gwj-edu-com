@@ -2746,9 +2746,14 @@ const Index = ({
             <div className="flex flex-col gap-1">
               <KoreanHintButton korean={sentence.korean} />
               {showMasterGuide && (
-                <p className="text-[11px] text-primary/80 font-kr">
-                  옅은 보라 음영 = 선생님이 지정한 분석 위치 (품사·배지는 표시하지 않음)
-                </p>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-[11px] font-bold text-primary font-kr">
+                    📍 선생님 지정 분석 단위 {masterOwnerIds.size}개 · 현재 {completedCount}개 완료
+                  </p>
+                  <p className="text-[10px] text-primary/70 font-kr">
+                    옅은 보라 음영 위치를 클릭해 분석하세요. (정답 내용은 숨김)
+                  </p>
+                </div>
               )}
             </div>
             <div className="flex items-center gap-1.5">
