@@ -59,8 +59,10 @@ const TeacherSidebarInner = () => {
 
   const linkCls = (active: boolean) =>
     cn(
-      "flex items-center gap-2 w-full",
-      active ? "bg-muted text-primary font-semibold" : "hover:bg-muted/50",
+      "flex items-center gap-2 w-full rounded-md",
+      active
+        ? "bg-primary/15 text-primary font-semibold border-l-2 border-primary"
+        : "hover:bg-muted/50",
     );
 
   // 그룹 라벨 활성화 여부 — 그룹 내 어떤 라우트가 활성이면 라벨도 강조
@@ -123,31 +125,7 @@ const TeacherSidebarInner = () => {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {LEVELS.map((l) => {
-                const to = `/teacher/bookshelf/${l.code}`;
-                const active = isActive(to);
-                return (
-                  <SidebarMenuItem key={l.code}>
-                    <SidebarMenuButton asChild>
-                      <NavLink to={to} className={linkCls(active)} title={levelDisplay(l.code)}>
-                        <span
-                          className={cn(
-                            "inline-flex items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 rounded text-[10px] font-mono font-bold",
-                            active
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted/60 text-muted-foreground",
-                          )}
-                        >
-                          {l.code}
-                        </span>
-                        {!collapsed && (
-                          <span className="text-sm">{levelDisplay(l.code)}</span>
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {/* 레벨별 책장 세부 항목은 책장 메인 화면에서 노출하므로 사이드바에서 숨김 */}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -169,7 +147,7 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/results" className={({ isActive }) => linkCls(isActive)}>
+                  <NavLink to="/teacher/results" end className={({ isActive }) => linkCls(isActive)}>
                     <FolderArchive className="size-4" />
                     {!collapsed && <span>학습결과</span>}
                   </NavLink>
