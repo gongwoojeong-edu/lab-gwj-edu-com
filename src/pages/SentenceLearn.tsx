@@ -125,9 +125,11 @@ const SentenceLearn = () => {
     translation: true,
     wordtest: true,
   });
-  const ANALYSIS_GATE = 0.3;
+  const ANALYSIS_GATE = 0.6;
+  // 학생 프로필 임계값 우선 — 없으면 기본 60%
+  const analysisGate = profile?.analysis_pass_threshold ?? ANALYSIS_GATE;
   const canAdvanceToTranslation =
-    analysisMasterLoaded && (analysisDone || analysisRate >= ANALYSIS_GATE);
+    analysisMasterLoaded && (analysisDone || analysisRate >= analysisGate);
   const testWordResultForFinalSubmit = () => ({
     passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
     score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
@@ -721,7 +723,7 @@ const SentenceLearn = () => {
       ? !analysisGrade.diffs.some((d) => d.status === "missing")
       : analysisRequiredFilled;
     const label = rateLabel(hasMaster);
-    if (rate < ANALYSIS_GATE) {
+    if (rate < analysisGate) {
       return (
         <Button size="sm" disabled variant="outline" className="text-xs">
           <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({label} {Math.round(rate * 100)}%)
@@ -736,7 +738,7 @@ const SentenceLearn = () => {
         </Button>
       );
     }
-    if (rate >= ANALYSIS_GATE && required) {
+    if (rate >= analysisGate && required) {
       return (
         <Button size="sm" onClick={requestAnalysisReview} disabled={requesting}>
           <ShieldCheck className="w-4 h-4 mr-1" /> 선생님분석본보기요청
@@ -757,8 +759,8 @@ const SentenceLearn = () => {
       );
     }
     return (
-      <Button size="sm" disabled variant="outline" className="text-xs" title="30% 이상 또는 미통 후 요청 가능">
-        <HelpCircle className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (30% 이상 또는 미통 후)
+      <Button size="sm" disabled variant="outline" className="text-xs" title={`${Math.round(analysisGate * 100)}% 이상 또는 미통 후 요청 가능`}>
+        <HelpCircle className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({Math.round(analysisGate * 100)}% 이상 또는 미통 후)
       </Button>
     );
   };
