@@ -143,6 +143,7 @@ const LearningResultsCalendar = () => {
   const [loading, setLoading] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [openEvent, setOpenEvent] = useState<CalEvent | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // URL 동기화
   useEffect(() => {
@@ -356,7 +357,7 @@ const LearningResultsCalendar = () => {
         setLoadingEvents(false);
       }
     })();
-  }, [selectedStudent, year, month]);
+  }, [selectedStudent, year, month, reloadKey]);
 
   const cells = useMemo(() => buildMonthCells(year, month), [year, month]);
   const totalEventCount = useMemo(
@@ -499,6 +500,10 @@ const LearningResultsCalendar = () => {
         onGradeSaved={(sid, grade, memo) => {
           setGradeBySid((prev) => ({ ...prev, [sid]: { grade, memo } }));
         }}
+        onRegraded={() => {
+          setOpenEvent(null);
+          setReloadKey((k) => k + 1);
+        }}
       />
     </TeacherLayout>
   );
@@ -511,12 +516,14 @@ const EventDetailDialog = ({
   gradeInfo,
   onClose,
   onGradeSaved,
+  onRegraded,
 }: {
   event: CalEvent | null;
   studentId: string | null;
   gradeInfo: { grade: ApprovalGrade | null; memo: string | null } | null;
   onClose: () => void;
   onGradeSaved: (sentenceId: string, grade: ApprovalGrade, memo: string | null) => void;
+  onRegraded: () => void;
 }) => {
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [sentenceText, setSentenceText] = useState<string | null>(null);
@@ -595,7 +602,7 @@ const EventDetailDialog = ({
           </div>
         ) : null}
 
-        <DetailBody event={event} studentId={studentId} />
+        <DetailBody event={event} studentId={studentId} onRegraded={onRegraded} />
 
         {canGrade && (
           <PostHocGradeDialog
@@ -613,7 +620,7 @@ const EventDetailDialog = ({
   );
 };
 
-const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string | null }) => {
+const DetailBody = ({ event, studentId, onRegraded }: { event: CalEvent; studentId: string | null; onRegraded?: () => void }) => {
   const p = event.payload || {};
   const sid = event.sentence_id;
 
@@ -624,6 +631,7 @@ const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string |
     const diff = rawDiff.filter((d: any) => !d?.noMaster && d?.owner_id !== "__no_master__" && !d?.teacherApproved && d?.owner_id !== "__teacher_approved__");
     // 기록 시점에는 마스터가 없었더라도, 현재 마스터가 등록돼 있으면 안내 문구를 바꾼다.
     const [masterNow, setMasterNow] = useState<boolean | null>(null);
+    const [regrading, setRegrading] = useState(false);
     useEffect(() => {
       let alive = true;
       if (noMasterAtLog && sid) {
@@ -632,6 +640,29 @@ const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string |
       return () => { alive = false; };
     }, [sid, noMasterAtLog]);
     const noMaster = noMasterAtLog && masterNow !== true;
+
+    const handleRegrade = async () => {
+      if (!sid || !studentId || !p.id) return;
+      setRegrading(true);
+      try {
+        const { regradeAttemptLog } = await import("@/lib/regradeAttempt");
+        const r = await regradeAttemptLog(p.id, sid, studentId);
+        if (!r.hasMaster) {
+          toast({ title: "마스터 분석 없음", description: "이 문장에는 아직 마스터키가 없습니다.", variant: "destructive" });
+          return;
+        }
+        toast({
+          title: "소급 재채점 완료",
+          description: `정답률 ${Math.round(r.rate * 100)}% · ${r.passed ? "통과 ✓" : "미통과"} (기준 ${Math.round(r.threshold * 100)}%)`,
+        });
+        onRegraded?.();
+      } catch (e: any) {
+        toast({ title: "재채점 실패", description: e?.message ?? String(e), variant: "destructive" });
+      } finally {
+        setRegrading(false);
+      }
+    };
+
     return (
       <div className="space-y-3 text-sm">
         {noMaster && (
@@ -640,8 +671,17 @@ const DetailBody = ({ event, studentId }: { event: CalEvent; studentId: string |
           </div>
         )}
         {noMasterAtLog && masterNow === true && (
-          <div className="p-3 rounded border border-sky-300 bg-sky-50 text-sky-900 text-xs">
-            ℹ️ 이 기록 당시에는 <b>마스터 분석이 없어</b> 자동 채점이 불가능했습니다. 현재는 마스터키가 등록되어 있으므로, 학생이 <b>다시 시도</b>하면 정상 채점됩니다. (저장된 0%는 과거 시점 값)
+          <div className="p-3 rounded border border-sky-300 bg-sky-50 text-sky-900 text-xs space-y-2">
+            <div>
+              ℹ️ 이 기록 당시에는 <b>마스터 분석이 없어</b> 자동 채점이 불가능했습니다. 현재는 마스터키가 등록되어 있으므로, <b>소급 재채점</b>을 누르면 학생의 <b>현재 분석 상태</b> 기준으로 다시 채점됩니다.
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-sky-800/70">※ 학생이 그 사이 분석을 수정했다면 수정본 기준으로 평가됩니다.</span>
+              <Button size="sm" onClick={handleRegrade} disabled={regrading || !studentId || !p.id}>
+                {regrading ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : null}
+                소급 재채점
+              </Button>
+            </div>
           </div>
         )}
         <div className="flex gap-4 flex-wrap">
