@@ -167,6 +167,17 @@ const PassageEditor = () => {
             <Button
               size="sm"
               variant="outline"
+              onClick={() =>
+                navigate(`/teacher/bookshelf/${level}/${seriesNo}/${volumeNo}/${unitNo}`)
+              }
+              className="gap-1"
+            >
+              <List className="size-3.5" />
+              <span className="hidden sm:inline text-xs font-kr">목록보기</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={handleClearCache}
               disabled={clearing}
               title="본문이 바뀌었는데 분석학습에 옛 영문/단어가 보이면 누르세요"
@@ -180,6 +191,7 @@ const PassageEditor = () => {
               <span className="hidden sm:inline text-xs font-kr">캐시 초기화</span>
             </Button>
             <Button
+              size="sm"
               onClick={togglePublish}
               disabled={toggling}
               variant={isReady ? "outline" : "default"}
