@@ -59,8 +59,10 @@ const TeacherSidebarInner = () => {
 
   const linkCls = (active: boolean) =>
     cn(
-      "flex items-center gap-2 w-full",
-      active ? "bg-muted text-primary font-semibold" : "hover:bg-muted/50",
+      "flex items-center gap-2 w-full rounded-md",
+      active
+        ? "bg-primary/15 text-primary font-semibold border-l-2 border-primary"
+        : "hover:bg-muted/50",
     );
 
   // 그룹 라벨 활성화 여부 — 그룹 내 어떤 라우트가 활성이면 라벨도 강조
