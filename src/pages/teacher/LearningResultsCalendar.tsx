@@ -634,7 +634,73 @@ const EventDetailDialog = ({
           />
         )}
 
-        <div className="pt-3 mt-2 border-t flex justify-end">
+        <div className="pt-3 mt-2 border-t flex justify-end gap-2 flex-wrap">
+          {(event.kind === "analysis" || event.kind === "translation") && studentId && event.sentence_id && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={restudying}
+              onClick={async () => {
+                const sid = event.sentence_id!;
+                const stepKey = event.kind === "analysis" ? "analysis_done" : "translation_done";
+                const stepLabel = event.kind === "analysis" ? "분석" : "해석";
+                setRestudying(true);
+                try {
+                  // 1) sentence_progress: 해당 단계만 미완료로 되돌리고 status='fail'
+                  const { data: existing } = await supabase
+                    .from("sentence_progress")
+                    .select("id")
+                    .eq("user_id", studentId)
+                    .eq("sentence_id", sid)
+                    .maybeSingle();
+                  const patch: any = {
+                    [stepKey]: false,
+                    status: "fail",
+                    updated_at: new Date().toISOString(),
+                  };
+                  if (existing) {
+                    await supabase.from("sentence_progress").update(patch).eq("id", existing.id);
+                  } else {
+                    await supabase.from("sentence_progress").insert({
+                      user_id: studentId,
+                      sentence_id: sid,
+                      ...patch,
+                    });
+                  }
+                  // 2) assignments: 해당 단계만 포함하는 [재학습] 특별과제
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (user) {
+                    const due = new Date();
+                    due.setDate(due.getDate() + 1);
+                    await supabase.from("assignments").insert({
+                      teacher_id: user.id,
+                      student_id: studentId,
+                      sentence_id: sid,
+                      title: `[재학습-${stepLabel}] ${sid}`,
+                      description: `선생님 코멘트를 확인한 후 ${stepLabel}을(를) 다시 진행해 주세요.`,
+                      due_at: due.toISOString(),
+                      include_pre: false,
+                      include_analysis: event.kind === "analysis",
+                      include_translation: event.kind === "translation",
+                      include_wordtest: false,
+                    });
+                  }
+                  toast({
+                    title: `재학습 등록됨 — ${stepLabel}`,
+                    description: "학생 홈에 [재학습] 특별과제로 표시되며, 다시 수행 후 선생님 승인이 필요합니다.",
+                  });
+                  onRegraded(); // 달력 새로고침
+                } catch (err: any) {
+                  toast({ title: "재학습 등록 실패", description: err?.message ?? String(err), variant: "destructive" });
+                } finally {
+                  setRestudying(false);
+                }
+              }}
+            >
+              {restudying ? <Loader2 className="size-4 mr-1 animate-spin" /> : null}
+              🔁 {event.kind === "analysis" ? "분석" : "해석"} 재학습 요청
+            </Button>
+          )}
           <Button
             variant="destructive"
             size="sm"
