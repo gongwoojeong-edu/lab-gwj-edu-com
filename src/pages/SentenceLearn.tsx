@@ -723,7 +723,7 @@ const SentenceLearn = () => {
       ? !analysisGrade.diffs.some((d) => d.status === "missing")
       : analysisRequiredFilled;
     const label = rateLabel(hasMaster);
-    if (rate < ANALYSIS_GATE) {
+    if (rate < analysisGate) {
       return (
         <Button size="sm" disabled variant="outline" className="text-xs">
           <Lock className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({label} {Math.round(rate * 100)}%)
