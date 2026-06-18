@@ -219,6 +219,9 @@ const PassageEditor = () => {
               embedMode
               embedSentenceId={passage.code}
               showStaffToolbar
+              onAfterCommitAll={() => {
+                navigate(`/teacher/bookshelf/${level}/${seriesNo}/${volumeNo}/${unitNo}`);
+              }}
             />
           </div>
         </Card>
