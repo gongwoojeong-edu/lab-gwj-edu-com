@@ -759,8 +759,8 @@ const SentenceLearn = () => {
       );
     }
     return (
-      <Button size="sm" disabled variant="outline" className="text-xs" title="30% 이상 또는 미통 후 요청 가능">
-        <HelpCircle className="w-3 h-3 mr-1" /> 선생님분석본보기요청 (30% 이상 또는 미통 후)
+      <Button size="sm" disabled variant="outline" className="text-xs" title={`${Math.round(analysisGate * 100)}% 이상 또는 미통 후 요청 가능`}>
+        <HelpCircle className="w-3 h-3 mr-1" /> 선생님분석본보기요청 ({Math.round(analysisGate * 100)}% 이상 또는 미통 후)
       </Button>
     );
   };
