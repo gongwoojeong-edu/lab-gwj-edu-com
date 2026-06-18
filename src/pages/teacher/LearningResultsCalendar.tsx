@@ -500,6 +500,10 @@ const LearningResultsCalendar = () => {
         onGradeSaved={(sid, grade, memo) => {
           setGradeBySid((prev) => ({ ...prev, [sid]: { grade, memo } }));
         }}
+        onRegraded={() => {
+          setOpenEvent(null);
+          setReloadKey((k) => k + 1);
+        }}
       />
     </TeacherLayout>
   );
