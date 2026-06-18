@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Plug,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/hooks/useViewMode";
