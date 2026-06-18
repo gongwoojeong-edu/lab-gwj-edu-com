@@ -14,7 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { hasMasterForSentence } from "@/lib/masterAvailability";
 import { toast } from "@/hooks/use-toast";
