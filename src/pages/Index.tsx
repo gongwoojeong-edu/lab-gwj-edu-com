@@ -1442,6 +1442,7 @@ const Index = ({
       title: `정답 ${entries.length}개 저장됨`,
       description: "모든 미저장 변경사항이 저장되었습니다.",
     });
+    onAfterCommitAll?.(entries.length);
   };
 
   // discardPatch: 누적된 patch만 버림 (savedOwnerSet은 그대로)
