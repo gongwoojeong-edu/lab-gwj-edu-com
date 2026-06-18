@@ -544,6 +544,7 @@ const EventDetailDialog = ({
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [restudying, setRestudying] = useState(false);
   const [sentenceText, setSentenceText] = useState<string | null>(null);
   const sid = event?.sentence_id ?? null;
   useEffect(() => {
