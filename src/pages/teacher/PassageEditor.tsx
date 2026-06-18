@@ -219,7 +219,23 @@ const PassageEditor = () => {
               embedMode
               embedSentenceId={passage.code}
               showStaffToolbar
-              onAfterCommitAll={() => {
+              onAfterCommitAll={async () => {
+                // 정답 저장 직후 학생 공개(ready)로 자동 전환 → 목록의 "완료" 배지 즉시 반영
+                try {
+                  if (passage.analysis_status !== "ready") {
+                    await setPassageReady(passage.code, true);
+                    toast({
+                      title: "✅ 분석 완료 · 학생 공개됨",
+                      description: "정답이 저장되어 자동으로 ready 상태로 전환되었습니다.",
+                    });
+                  }
+                } catch (e) {
+                  toast({
+                    title: "상태 전환 실패",
+                    description: (e as Error).message,
+                    variant: "destructive",
+                  });
+                }
                 navigate(`/teacher/bookshelf/${level}/${seriesNo}/${volumeNo}/${unitNo}`);
               }}
             />
