@@ -14,7 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { hasMasterForSentence } from "@/lib/masterAvailability";
 import { toast } from "@/hooks/use-toast";
@@ -504,6 +514,10 @@ const LearningResultsCalendar = () => {
           setOpenEvent(null);
           setReloadKey((k) => k + 1);
         }}
+        onDeleted={() => {
+          setOpenEvent(null);
+          setReloadKey((k) => k + 1);
+        }}
       />
     </TeacherLayout>
   );
@@ -517,6 +531,7 @@ const EventDetailDialog = ({
   onClose,
   onGradeSaved,
   onRegraded,
+  onDeleted,
 }: {
   event: CalEvent | null;
   studentId: string | null;
@@ -524,8 +539,11 @@ const EventDetailDialog = ({
   onClose: () => void;
   onGradeSaved: (sentenceId: string, grade: ApprovalGrade, memo: string | null) => void;
   onRegraded: () => void;
+  onDeleted: () => void;
 }) => {
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [sentenceText, setSentenceText] = useState<string | null>(null);
   const sid = event?.sentence_id ?? null;
   useEffect(() => {
@@ -615,6 +633,62 @@ const EventDetailDialog = ({
             onSaved={(g, m) => onGradeSaved(event.sentence_id!, g, m)}
           />
         )}
+
+        <div className="pt-3 mt-2 border-t flex justify-end">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteOpen(true)}
+            disabled={deleting || !event.payload?.id}
+          >
+            <Trash2 className="size-4 mr-1" /> 이 학습이력 삭제
+          </Button>
+        </div>
+
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>학습이력을 삭제할까요?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <b>{M.ko}</b> · {event.label} ({new Date(event.ts).toLocaleString("ko-KR")}) 기록이 영구 삭제됩니다.
+                <br />이 작업은 되돌릴 수 없습니다.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleting}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  const rowId = event.payload?.id;
+                  if (!rowId) return;
+                  const tableByKind: Record<EventKind, string> = {
+                    analysis: "sentence_attempt_logs",
+                    translation: "sentence_translations",
+                    word_test: "word_test_results",
+                    word_pre: "word_pre_results",
+                    handout: "handout_results",
+                  };
+                  const table = tableByKind[event.kind];
+                  setDeleting(true);
+                  try {
+                    const { error } = await supabase.from(table as any).delete().eq("id", rowId);
+                    if (error) throw error;
+                    toast({ title: "삭제 완료", description: `${KIND_META[event.kind].ko} 기록을 삭제했습니다.` });
+                    setDeleteOpen(false);
+                    onDeleted();
+                  } catch (err: any) {
+                    toast({ title: "삭제 실패", description: err?.message ?? String(err), variant: "destructive" });
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting && <Loader2 className="size-4 mr-1 animate-spin" />}삭제
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
