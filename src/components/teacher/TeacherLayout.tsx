@@ -147,7 +147,7 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <NavLink to="/teacher/results" className={({ isActive }) => linkCls(isActive)}>
+                  <NavLink to="/teacher/results" end className={({ isActive }) => linkCls(isActive)}>
                     <FolderArchive className="size-4" />
                     {!collapsed && <span>학습결과</span>}
                   </NavLink>
