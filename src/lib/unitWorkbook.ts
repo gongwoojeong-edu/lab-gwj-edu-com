@@ -555,3 +555,76 @@ export const buildUnitWorkbookHtmlFor = async (
 
   return { html, completedCount: targetCodes.length, mode };
 };
+
+// ============================================================
+// 여러 유닛을 한 권의 워크북으로 합치는 빌더
+// ============================================================
+export interface BuildMultiUnitWorkbookInput {
+  units: Array<{ unitId: string; unitTitle: string; unitCode: string }>;
+  studentId: string;
+  mode?: WorkbookMode;
+  paperSize?: "A4" | "B5";
+  answerKey?: boolean;
+}
+
+/**
+ * 여러 유닛의 워크북 HTML을 하나로 합쳐 반환.
+ * - 각 유닛 HTML의 <body> 본문을 추출 후 page-break 로 이어 붙임
+ * - 한 유닛이라도 완료 지문이 0개면 그 유닛은 건너뜀 (모두 비면 throw)
+ */
+export const buildMultiUnitWorkbookHtml = async (
+  input: BuildMultiUnitWorkbookInput,
+): Promise<{ html: string; unitCount: number; passageCount: number; mode: WorkbookMode }> => {
+  const mode: WorkbookMode = input.mode ?? "syntax_unit";
+  const parts: Array<{ htmlDoc: string; passages: number; title: string }> = [];
+
+  for (const u of input.units) {
+    try {
+      const r = await buildUnitWorkbookHtmlFor({
+        unitId: u.unitId,
+        unitTitle: u.unitTitle,
+        unitCode: u.unitCode,
+        studentId: input.studentId,
+        mode,
+        paperSize: input.paperSize,
+        answerKey: input.answerKey,
+      });
+      parts.push({ htmlDoc: r.html, passages: r.completedCount, title: u.unitTitle });
+    } catch {
+      // 완료 지문 0개 등 — 건너뜀
+    }
+  }
+
+  if (parts.length === 0) {
+    throw new Error("선택한 유닛에 인쇄할 내용이 없습니다. (완료 지문 0)");
+  }
+
+  // 첫 문서의 <head>를 골격으로 사용. 이후 문서는 <body> 내부만 추출해 page-break 로 결합.
+  const headMatch = parts[0].htmlDoc.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+  const headInner = headMatch ? headMatch[1] : "";
+
+  const extractBody = (doc: string): string => {
+    const m = doc.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    return m ? m[1] : doc;
+  };
+
+  const bodies = parts
+    .map((p, i) => {
+      const inner = extractBody(p.htmlDoc);
+      // 두 번째 유닛부터 page-break-before
+      const wrapper = i === 0 ? "" : ' style="page-break-before: always; break-before: page;"';
+      return `<section${wrapper} data-unit-title="${escapeHtml(p.title)}">${inner}</section>`;
+    })
+    .join("\n");
+
+  const html = `<!doctype html>
+<html lang="ko"><head>${headInner}
+<style>
+  /* 멀티-유닛 결합 워크북: 유닛 간 페이지 분리 */
+  section[data-unit-title] + section[data-unit-title] { page-break-before: always; break-before: page; }
+</style>
+</head><body>${bodies}</body></html>`;
+
+  const totalPassages = parts.reduce((s, p) => s + p.passages, 0);
+  return { html, unitCount: parts.length, passageCount: totalPassages, mode };
+};

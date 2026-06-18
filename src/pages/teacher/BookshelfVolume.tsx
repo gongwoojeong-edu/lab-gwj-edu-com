@@ -46,6 +46,7 @@ import {
   FileSignature,
   ListPlus,
   Combine,
+  Printer,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -80,6 +81,8 @@ import { errMsg } from "@/lib/errMsg";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { buildMultiUnitWorkbookHtml, WORKBOOK_MODE_LABEL, type WorkbookMode } from "@/lib/unitWorkbook";
+import { launchPrintHtml } from "@/lib/printLauncher";
 
 // ============================================================
 // Helpers — bulk unit creation
@@ -203,6 +206,18 @@ const BookshelfVolume = () => {
   >([]);
   const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
 
+  // 다중 유닛 워크북 인쇄
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printStudentList, setPrintStudentList] = useState<
+    Array<{ id: string; name: string; no: string }>
+  >([]);
+  const [printStudentId, setPrintStudentId] = useState<string>("");
+  const [printMode, setPrintMode] = useState<
+    "syntax_unit" | "syntax_passage" | "word_unit" | "word_passage"
+  >("syntax_unit");
+  const [printAnswerKey, setPrintAnswerKey] = useState(false);
+  const [printing, setPrinting] = useState(false);
+
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -212,6 +227,70 @@ const BookshelfVolume = () => {
     });
   };
   const clearSel = () => setSelectedIds(new Set());
+
+  // 워크북 인쇄 모달 오픈 시 학생 목록 로드 (최초 1회만)
+  useEffect(() => {
+    if (!printOpen || printStudentList.length > 0) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("user_id, display_name, student_no")
+        .order("student_no", { ascending: true });
+      const list = (data ?? []).map((r) => ({
+        id: r.user_id as string,
+        name: (r.display_name as string | null) ?? (r.student_no as string),
+        no: (r.student_no as string) ?? "",
+      }));
+      setPrintStudentList(list);
+    })().catch(() => undefined);
+  }, [printOpen, printStudentList.length]);
+
+  const handleOpenPrintDialog = () => {
+    if (selectedIds.size === 0) {
+      toast({ title: "유닛을 1개 이상 선택하세요", variant: "destructive" });
+      return;
+    }
+    setPrintOpen(true);
+  };
+
+  const handleConfirmPrint = async () => {
+    if (!series || !textbook) return;
+    if (!printStudentId) {
+      toast({ title: "학생을 선택하세요", variant: "destructive" });
+      return;
+    }
+    const selectedUnits = units.filter((u) => selectedIds.has(u.id));
+    if (selectedUnits.length === 0) return;
+    setPrinting(true);
+    try {
+      const levelLabel = level ? LEVEL_LABEL[level as LevelCode] ?? level : "";
+      const baseCode = `${levelLabel} · ${series.title} · ${textbook.title}`;
+      const { html, unitCount, passageCount } = await buildMultiUnitWorkbookHtml({
+        units: selectedUnits.map((u) => ({
+          unitId: u.id,
+          unitTitle: u.title,
+          unitCode: `${baseCode} · U${u.unit_no}`,
+        })),
+        studentId: printStudentId,
+        mode: printMode as WorkbookMode,
+        answerKey: printMode === "syntax_unit" && printAnswerKey,
+      });
+      await launchPrintHtml(html, {
+        jobKey: `multi-unit-workbook:${textbook.id}:${printStudentId}:${printMode}:${Array.from(selectedIds).sort().join(",")}`,
+        loadTimeoutMs: 15000,
+        cleanupAfterMs: 2500,
+      });
+      toast({
+        title: "워크북 인쇄 시작",
+        description: `${WORKBOOK_MODE_LABEL[printMode]} · 유닛 ${unitCount}개 · 지문 ${passageCount}건`,
+      });
+      setPrintOpen(false);
+    } catch (e) {
+      toast({ title: "인쇄 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   useEffect(() => {
     void (async () => {
@@ -649,6 +728,14 @@ const BookshelfVolume = () => {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
                   <ArrowRight className="size-4 mr-1" /> 다른 권으로 이동
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenPrintDialog}
+                  className="border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  <Printer className="size-4 mr-1" /> 워크북 인쇄
                 </Button>
                 {selectedIds.size >= 2 && (
                   <Button
@@ -1217,6 +1304,111 @@ const BookshelfVolume = () => {
           void reload();
         }}
       />
+
+      {/* 다중 유닛 워크북 인쇄 다이얼로그 */}
+      <Dialog open={printOpen} onOpenChange={(o) => !printing && setPrintOpen(o)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="size-5 text-primary" />
+              여러 강(유닛) 워크북 통합 인쇄
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* 선택된 유닛 */}
+            <div className="rounded-md border bg-muted/30 p-3">
+              <div className="text-xs font-semibold text-muted-foreground mb-1.5">
+                선택된 강 ({selectedIds.size}개) — 순서대로 한 권으로 인쇄됩니다
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {units
+                  .filter((u) => selectedIds.has(u.id))
+                  .map((u) => (
+                    <Badge key={u.id} variant="outline" className="text-xs">
+                      U{u.unit_no} {u.title}
+                    </Badge>
+                  ))}
+              </div>
+            </div>
+
+            {/* 학생 선택 */}
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">학생 선택</Label>
+              <Select value={printStudentId} onValueChange={setPrintStudentId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="학생을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {printStudentList.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.no})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 모드 선택 */}
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">워크북 종류</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {(["syntax_unit", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
+                  const sel = printMode === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setPrintMode(m)}
+                      disabled={printing}
+                      className={cn(
+                        "text-left rounded-md border p-2.5 text-sm transition-colors",
+                        sel
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30 font-semibold"
+                          : "border-border bg-card hover:border-primary/50",
+                      )}
+                    >
+                      {WORKBOOK_MODE_LABEL[m]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 답지 토글 (syntax_unit only) */}
+            {printMode === "syntax_unit" && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printAnswerKey}
+                  onChange={(e) => setPrintAnswerKey(e.target.checked)}
+                  disabled={printing}
+                  className="size-4 accent-destructive"
+                />
+                <span>답지(정답) 모드로 인쇄</span>
+              </label>
+            )}
+
+            <div className="text-[11px] text-muted-foreground">
+              * 완료(단어시험·해석·분석 모두 통과) 지문만 포함됩니다. 완료 지문이 0인 강은 자동으로 건너뜁니다.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintOpen(false)} disabled={printing}>
+              취소
+            </Button>
+            <Button onClick={handleConfirmPrint} disabled={printing || !printStudentId}>
+              {printing ? (
+                <Loader2 className="size-4 mr-1.5 animate-spin" />
+              ) : (
+                <Printer className="size-4 mr-1.5" />
+              )}
+              {printing ? "인쇄 준비 중…" : "통합 인쇄 시작"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TeacherLayout>
   );
 };
