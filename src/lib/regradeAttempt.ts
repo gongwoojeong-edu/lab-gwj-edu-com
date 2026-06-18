@@ -159,7 +159,7 @@ export const regradeAttemptLog = async (
     return { ...result, threshold };
   }
 
-  const newOwnerDiff = result.diffs as unknown as Record<string, unknown>[];
+  const newOwnerDiff = JSON.parse(JSON.stringify(result.diffs)) as any;
 
   const { error: logErr } = await supabase
     .from("sentence_attempt_logs")
@@ -180,7 +180,7 @@ export const regradeAttemptLog = async (
     .maybeSingle();
 
   const alreadyPass = (prog as any)?.status === "pass";
-  const patch: Record<string, unknown> = { analysis_match_rate: result.rate };
+  const patch: any = { analysis_match_rate: result.rate };
   if (result.passed) {
     patch.analysis_done = true;
     if (!alreadyPass) {
