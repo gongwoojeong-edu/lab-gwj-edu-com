@@ -503,6 +503,7 @@ const Index = ({
   onHydrationError,
   onFlushStudentProgress,
   reloadNonce = 0,
+  onAfterCommitAll,
 }: IndexProps = {}) => {
   const isMobile = useIsMobile();
   const { displayStudent: levelDisplay } = useLevelLabels();
