@@ -729,6 +729,14 @@ const BookshelfVolume = () => {
                 <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
                   <ArrowRight className="size-4 mr-1" /> 다른 권으로 이동
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenPrintDialog}
+                  className="border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  <Printer className="size-4 mr-1" /> 워크북 인쇄
+                </Button>
                 {selectedIds.size >= 2 && (
                   <Button
                     variant="outline"
