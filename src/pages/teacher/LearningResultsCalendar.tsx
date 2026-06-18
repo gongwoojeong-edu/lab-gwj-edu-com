@@ -531,6 +531,7 @@ const EventDetailDialog = ({
   onClose,
   onGradeSaved,
   onRegraded,
+  onDeleted,
 }: {
   event: CalEvent | null;
   studentId: string | null;
@@ -538,8 +539,11 @@ const EventDetailDialog = ({
   onClose: () => void;
   onGradeSaved: (sentenceId: string, grade: ApprovalGrade, memo: string | null) => void;
   onRegraded: () => void;
+  onDeleted: () => void;
 }) => {
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [sentenceText, setSentenceText] = useState<string | null>(null);
   const sid = event?.sentence_id ?? null;
   useEffect(() => {
