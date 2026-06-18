@@ -514,6 +514,10 @@ const LearningResultsCalendar = () => {
           setOpenEvent(null);
           setReloadKey((k) => k + 1);
         }}
+        onDeleted={() => {
+          setOpenEvent(null);
+          setReloadKey((k) => k + 1);
+        }}
       />
     </TeacherLayout>
   );
