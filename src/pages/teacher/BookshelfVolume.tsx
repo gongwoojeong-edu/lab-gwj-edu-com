@@ -203,6 +203,18 @@ const BookshelfVolume = () => {
   >([]);
   const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
 
+  // 다중 유닛 워크북 인쇄
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printStudentList, setPrintStudentList] = useState<
+    Array<{ id: string; name: string; no: string }>
+  >([]);
+  const [printStudentId, setPrintStudentId] = useState<string>("");
+  const [printMode, setPrintMode] = useState<
+    "syntax_unit" | "syntax_passage" | "word_unit" | "word_passage"
+  >("syntax_unit");
+  const [printAnswerKey, setPrintAnswerKey] = useState(false);
+  const [printing, setPrinting] = useState(false);
+
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
