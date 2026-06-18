@@ -1304,6 +1304,111 @@ const BookshelfVolume = () => {
           void reload();
         }}
       />
+
+      {/* 다중 유닛 워크북 인쇄 다이얼로그 */}
+      <Dialog open={printOpen} onOpenChange={(o) => !printing && setPrintOpen(o)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="size-5 text-primary" />
+              여러 강(유닛) 워크북 통합 인쇄
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* 선택된 유닛 */}
+            <div className="rounded-md border bg-muted/30 p-3">
+              <div className="text-xs font-semibold text-muted-foreground mb-1.5">
+                선택된 강 ({selectedIds.size}개) — 순서대로 한 권으로 인쇄됩니다
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {units
+                  .filter((u) => selectedIds.has(u.id))
+                  .map((u) => (
+                    <Badge key={u.id} variant="outline" className="text-xs">
+                      U{u.unit_no} {u.title}
+                    </Badge>
+                  ))}
+              </div>
+            </div>
+
+            {/* 학생 선택 */}
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">학생 선택</Label>
+              <Select value={printStudentId} onValueChange={setPrintStudentId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="학생을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {printStudentList.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.no})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 모드 선택 */}
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">워크북 종류</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {(["syntax_unit", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
+                  const sel = printMode === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setPrintMode(m)}
+                      disabled={printing}
+                      className={cn(
+                        "text-left rounded-md border p-2.5 text-sm transition-colors",
+                        sel
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30 font-semibold"
+                          : "border-border bg-card hover:border-primary/50",
+                      )}
+                    >
+                      {WORKBOOK_MODE_LABEL[m]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 답지 토글 (syntax_unit only) */}
+            {printMode === "syntax_unit" && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printAnswerKey}
+                  onChange={(e) => setPrintAnswerKey(e.target.checked)}
+                  disabled={printing}
+                  className="size-4 accent-destructive"
+                />
+                <span>답지(정답) 모드로 인쇄</span>
+              </label>
+            )}
+
+            <div className="text-[11px] text-muted-foreground">
+              * 완료(단어시험·해석·분석 모두 통과) 지문만 포함됩니다. 완료 지문이 0인 강은 자동으로 건너뜁니다.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintOpen(false)} disabled={printing}>
+              취소
+            </Button>
+            <Button onClick={handleConfirmPrint} disabled={printing || !printStudentId}>
+              {printing ? (
+                <Loader2 className="size-4 mr-1.5 animate-spin" />
+              ) : (
+                <Printer className="size-4 mr-1.5" />
+              )}
+              {printing ? "인쇄 준비 중…" : "통합 인쇄 시작"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TeacherLayout>
   );
 };
