@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, Eye, EyeOff, RotateCcw } from "lucide-react";
+import { ChevronLeft, Loader2, Eye, EyeOff, RotateCcw, List } from "lucide-react";
 import Index from "@/pages/Index";
 import {
   hydrateSentencesFromDb,
