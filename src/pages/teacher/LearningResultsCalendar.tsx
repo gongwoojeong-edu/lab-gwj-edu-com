@@ -357,7 +357,7 @@ const LearningResultsCalendar = () => {
         setLoadingEvents(false);
       }
     })();
-  }, [selectedStudent, year, month]);
+  }, [selectedStudent, year, month, reloadKey]);
 
   const cells = useMemo(() => buildMonthCells(year, month), [year, month]);
   const totalEventCount = useMemo(
