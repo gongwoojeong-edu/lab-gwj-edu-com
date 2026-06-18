@@ -282,22 +282,6 @@ const AnalysisCompare = () => {
               ⚠️ 이 문장에는 아직 마스터키(원장 정답)가 등록되지 않았습니다. 차이 계산이 불가합니다.
             </Card>
           )}
-          {/* 학생 한글해석 카드 */}
-          <Card className="p-4 mb-4">
-            <div className="flex items-baseline justify-between mb-2">
-              <h3 className="text-sm font-bold">✍️ 학생 한글해석</h3>
-              {translation?.submitted_at && (
-                <span className="text-[10px] text-muted-foreground">
-                  제출: {new Date(translation.submitted_at).toLocaleString("ko-KR")}
-                </span>
-              )}
-            </div>
-            {translation?.text ? (
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">{translation.text}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">한글해석 미제출</p>
-            )}
-          </Card>
           <div className="compare-grid grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* 좌: 마스터키 */}
             <Card className="compare-panel p-3 lg:p-4">
@@ -318,23 +302,42 @@ const AnalysisCompare = () => {
               )}
             </Card>
 
-            {/* 우: 학생 */}
-            <Card className="compare-panel p-3 lg:p-4">
-              <div className="flex items-center justify-between mb-2 pb-2 border-b">
-                <h2 className="text-sm font-bold">✏️ 학생 분석</h2>
-                <Badge variant="outline" className="text-[10px]">클릭으로 마킹 토글</Badge>
-              </div>
-              <Index
-                embedMode
-                studentMode={false}
-                embedSentenceId={sentenceId}
-                hydrateUserId={studentId}
-                compareMode
-                diffOwnerIds={finalDiffOwnerIds}
-                missingOwnerIds={diff?.missingOwnerIds}
-                onOwnerToggle={handleOwnerToggle}
-              />
-            </Card>
+            {/* 우: 학생 한글해석 + 학생 분석 */}
+            <div className="flex flex-col gap-4">
+              {/* 학생 한글해석 카드 */}
+              <Card className="p-4">
+                <div className="flex items-baseline justify-between mb-2">
+                  <h3 className="text-sm font-bold">✍️ 학생 한글해석</h3>
+                  {translation?.submitted_at && (
+                    <span className="text-[10px] text-muted-foreground">
+                      제출: {new Date(translation.submitted_at).toLocaleString("ko-KR")}
+                    </span>
+                  )}
+                </div>
+                {translation?.text ? (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{translation.text}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">한글해석 미제출</p>
+                )}
+              </Card>
+
+              <Card className="compare-panel p-3 lg:p-4">
+                <div className="flex items-center justify-between mb-2 pb-2 border-b">
+                  <h2 className="text-sm font-bold">✏️ 학생 분석</h2>
+                  <Badge variant="outline" className="text-[10px]">클릭으로 마킹 토글</Badge>
+                </div>
+                <Index
+                  embedMode
+                  studentMode={false}
+                  embedSentenceId={sentenceId}
+                  hydrateUserId={studentId}
+                  compareMode
+                  diffOwnerIds={finalDiffOwnerIds}
+                  missingOwnerIds={diff?.missingOwnerIds}
+                  onOwnerToggle={handleOwnerToggle}
+                />
+              </Card>
+            </div>
           </div>
 
           {/* 차이 요약 */}
