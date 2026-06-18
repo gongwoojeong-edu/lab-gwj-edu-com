@@ -125,31 +125,7 @@ const TeacherSidebarInner = () => {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {LEVELS.map((l) => {
-                const to = `/teacher/bookshelf/${l.code}`;
-                const active = isActive(to);
-                return (
-                  <SidebarMenuItem key={l.code}>
-                    <SidebarMenuButton asChild>
-                      <NavLink to={to} className={linkCls(active)} title={levelDisplay(l.code)}>
-                        <span
-                          className={cn(
-                            "inline-flex items-center justify-center min-w-[2.25rem] px-1.5 py-0.5 rounded text-[10px] font-mono font-bold",
-                            active
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted/60 text-muted-foreground",
-                          )}
-                        >
-                          {l.code}
-                        </span>
-                        {!collapsed && (
-                          <span className="text-sm">{levelDisplay(l.code)}</span>
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {/* 레벨별 책장 세부 항목은 책장 메인 화면에서 노출하므로 사이드바에서 숨김 */}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
