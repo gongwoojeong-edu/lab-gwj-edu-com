@@ -251,6 +251,7 @@ export const TeacherLayout = ({ children }: Props) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { setMode } = useViewMode();
+  const approvalCount = usePendingApprovalsCount();
 
   const switchToStudent = () => {
     setMode("student");
@@ -284,6 +285,20 @@ export const TeacherLayout = ({ children }: Props) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/teacher/approvals")}
+                className="relative"
+              >
+                <ShieldCheck className="w-4 h-4 mr-1" />
+                승인대기
+                {approvalCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {approvalCount}
+                  </span>
+                )}
+              </Button>
               <Button variant="outline" size="sm" onClick={switchToStudent}>
                 <Eye className="w-4 h-4 mr-1" /> 학생화면 보기
               </Button>
