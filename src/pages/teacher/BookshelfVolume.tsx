@@ -228,6 +228,70 @@ const BookshelfVolume = () => {
   };
   const clearSel = () => setSelectedIds(new Set());
 
+  // 워크북 인쇄 모달 오픈 시 학생 목록 로드 (최초 1회만)
+  useEffect(() => {
+    if (!printOpen || printStudentList.length > 0) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("user_id, display_name, student_no")
+        .order("student_no", { ascending: true });
+      const list = (data ?? []).map((r) => ({
+        id: r.user_id as string,
+        name: (r.display_name as string | null) ?? (r.student_no as string),
+        no: (r.student_no as string) ?? "",
+      }));
+      setPrintStudentList(list);
+    })().catch(() => undefined);
+  }, [printOpen, printStudentList.length]);
+
+  const handleOpenPrintDialog = () => {
+    if (selectedIds.size === 0) {
+      toast({ title: "유닛을 1개 이상 선택하세요", variant: "destructive" });
+      return;
+    }
+    setPrintOpen(true);
+  };
+
+  const handleConfirmPrint = async () => {
+    if (!series || !textbook) return;
+    if (!printStudentId) {
+      toast({ title: "학생을 선택하세요", variant: "destructive" });
+      return;
+    }
+    const selectedUnits = units.filter((u) => selectedIds.has(u.id));
+    if (selectedUnits.length === 0) return;
+    setPrinting(true);
+    try {
+      const levelLabel = level ? LEVEL_LABEL[level as LevelCode] ?? level : "";
+      const baseCode = `${levelLabel} · ${series.title} · ${textbook.title}`;
+      const { html, unitCount, passageCount } = await buildMultiUnitWorkbookHtml({
+        units: selectedUnits.map((u) => ({
+          unitId: u.id,
+          unitTitle: u.title,
+          unitCode: `${baseCode} · U${u.unit_no}`,
+        })),
+        studentId: printStudentId,
+        mode: printMode as WorkbookMode,
+        answerKey: printMode === "syntax_unit" && printAnswerKey,
+      });
+      await launchPrintHtml(html, {
+        jobKey: `multi-unit-workbook:${textbook.id}:${printStudentId}:${printMode}:${Array.from(selectedIds).sort().join(",")}`,
+        loadTimeoutMs: 15000,
+        cleanupAfterMs: 2500,
+      });
+      toast({
+        title: "워크북 인쇄 시작",
+        description: `${WORKBOOK_MODE_LABEL[printMode]} · 유닛 ${unitCount}개 · 지문 ${passageCount}건`,
+      });
+      setPrintOpen(false);
+    } catch (e) {
+      toast({ title: "인쇄 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   useEffect(() => {
     void (async () => {
       const [seriesAll, { data: tbs }] = await Promise.all([
