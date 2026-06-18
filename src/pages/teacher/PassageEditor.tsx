@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Loader2, Eye, EyeOff, RotateCcw } from "lucide-react";
+import { ChevronLeft, Loader2, Eye, EyeOff, RotateCcw, List } from "lucide-react";
 import Index from "@/pages/Index";
 import {
   hydrateSentencesFromDb,
@@ -23,6 +23,7 @@ const PassageEditor = () => {
     unitNo: string;
     passageCode: string;
   }>();
+  const navigate = useNavigate();
   const [passage, setPassage] = useState<Passage | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
@@ -167,6 +168,17 @@ const PassageEditor = () => {
             <Button
               size="sm"
               variant="outline"
+              onClick={() =>
+                navigate(`/teacher/bookshelf/${level}/${seriesNo}/${volumeNo}/${unitNo}`)
+              }
+              className="gap-1"
+            >
+              <List className="size-3.5" />
+              <span className="hidden sm:inline text-xs font-kr">목록보기</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={handleClearCache}
               disabled={clearing}
               title="본문이 바뀌었는데 분석학습에 옛 영문/단어가 보이면 누르세요"
@@ -180,6 +192,7 @@ const PassageEditor = () => {
               <span className="hidden sm:inline text-xs font-kr">캐시 초기화</span>
             </Button>
             <Button
+              size="sm"
               onClick={togglePublish}
               disabled={toggling}
               variant={isReady ? "outline" : "default"}
