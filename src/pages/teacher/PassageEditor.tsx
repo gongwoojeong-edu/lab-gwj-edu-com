@@ -23,6 +23,7 @@ const PassageEditor = () => {
     unitNo: string;
     passageCode: string;
   }>();
+  const navigate = useNavigate();
   const [passage, setPassage] = useState<Passage | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
