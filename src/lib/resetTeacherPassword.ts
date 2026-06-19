@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
+const db = supabase as unknown as { from: (table: string) => any };
+
 export type ResetTeacherPasswordResult = {
   ok: boolean;
   error?: string;
@@ -47,7 +49,7 @@ export type TeacherAccountRow = {
 
 /** Orbit 캐시에서 auth 연결된 선생님 목록 */
 export async function fetchTeacherAccounts(): Promise<TeacherAccountRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orbit_staff_cache")
     .select("auth_user_id, name, employee_no")
     .not("auth_user_id", "is", null)

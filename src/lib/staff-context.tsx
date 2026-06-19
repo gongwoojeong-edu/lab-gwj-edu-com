@@ -11,6 +11,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { rankLabel } from "@/lib/ranks";
 
+const db = supabase as unknown as {
+  from: (table: string) => any;
+  schema: (schema: string) => { from: (table: string) => any };
+};
+
 const STORAGE_KEY = "eng.viewAsStaffId";
 
 export interface OrbitStaffRow {
@@ -52,24 +57,24 @@ interface StaffContextValue {
 const StaffContext = createContext<StaffContextValue | null>(null);
 
 async function fetchStaffFromOrbit(): Promise<OrbitStaffRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .schema("orbit")
     .from("staff")
     .select("id, name, rank, campus_id, auth_user_id, active")
     .eq("active", true)
     .order("rank", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as OrbitStaffRow[];
+  return (data ?? []) as unknown as OrbitStaffRow[];
 }
 
 async function fetchStaffFromCache(): Promise<OrbitStaffRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orbit_staff_cache")
     .select("id, name, rank, campus_id, auth_user_id, active")
     .eq("active", true)
     .order("rank", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as OrbitStaffRow[];
+  return (data ?? []) as unknown as OrbitStaffRow[];
 }
 
 async function fetchStaff(): Promise<{ rows: OrbitStaffRow[]; source: "orbit" | "cache" }> {
@@ -85,22 +90,22 @@ async function fetchStaff(): Promise<{ rows: OrbitStaffRow[]; source: "orbit" | 
 }
 
 async function fetchCampusesFromOrbit(): Promise<OrbitCampusRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .schema("orbit")
     .from("campuses")
     .select("id, name")
     .order("name");
   if (error) throw error;
-  return (data ?? []) as OrbitCampusRow[];
+  return (data ?? []) as unknown as OrbitCampusRow[];
 }
 
 async function fetchCampusesFromCache(): Promise<OrbitCampusRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orbit_campus_cache")
     .select("id, name")
     .order("name");
   if (error) throw error;
-  return (data ?? []) as OrbitCampusRow[];
+  return (data ?? []) as unknown as OrbitCampusRow[];
 }
 
 async function fetchCampuses(): Promise<OrbitCampusRow[]> {

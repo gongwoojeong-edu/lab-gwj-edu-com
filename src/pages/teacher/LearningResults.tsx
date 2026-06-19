@@ -367,12 +367,12 @@ const LearningResults = () => {
           };
         });
 
-        const { data: uwRows } = await supabase
+        const { data: uwRows } = await (supabase as unknown as { from: (table: string) => any })
           .from("unit_workflows")
           .select("*")
           .in("user_id", allUserIds);
         const uwMap: Record<string, UnitWorkflowRow> = {};
-        ((uwRows ?? []) as UnitWorkflowRow[]).forEach((r) => {
+        ((uwRows ?? []) as unknown as UnitWorkflowRow[]).forEach((r) => {
           uwMap[`${r.user_id}::${r.unit_id}`] = r;
         });
         setUnitWorkflowMap(uwMap);

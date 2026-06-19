@@ -2,6 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { summarizeUnitProgress } from "@/lib/unitWorkbook";
 
+const unitWorkflows = () =>
+  (supabase as unknown as { from: (table: "unit_workflows") => any }).from("unit_workflows");
+
 export type UnitWorkflowStatus =
   | "learning"
   | "print_pending"
@@ -31,37 +34,34 @@ export async function fetchUnitWorkflow(
   userId: string,
   unitId: string,
 ): Promise<UnitWorkflowRow | null> {
-  const { data } = await supabase
-    .from("unit_workflows")
+  const { data } = await unitWorkflows()
     .select("*")
     .eq("user_id", userId)
     .eq("unit_id", unitId)
     .maybeSingle();
-  return (data as UnitWorkflowRow | null) ?? null;
+  return (data as unknown as UnitWorkflowRow | null) ?? null;
 }
 
 export async function fetchUnitWorkflowsForUser(
   userId: string,
 ): Promise<Record<string, UnitWorkflowRow>> {
-  const { data } = await supabase
-    .from("unit_workflows")
+  const { data } = await unitWorkflows()
     .select("*")
     .eq("user_id", userId);
   const map: Record<string, UnitWorkflowRow> = {};
-  ((data ?? []) as UnitWorkflowRow[]).forEach((r) => {
+  ((data ?? []) as unknown as UnitWorkflowRow[]).forEach((r) => {
     map[r.unit_id] = r;
   });
   return map;
 }
 
 export async function fetchPendingUnitPrintWorkflows(): Promise<UnitWorkflowRow[]> {
-  const { data, error } = await supabase
-    .from("unit_workflows")
+  const { data, error } = await unitWorkflows()
     .select("*")
     .eq("status", "print_pending")
     .order("print_requested_at", { ascending: true });
   if (error) throw error;
-  return (data ?? []) as UnitWorkflowRow[];
+  return (data ?? []) as unknown as UnitWorkflowRow[];
 }
 
 export async function fetchWorkbookSubmittedWorkflows(): Promise<UnitWorkflowRow[]> {
