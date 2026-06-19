@@ -102,8 +102,21 @@ const Integrations = () => {
     setLoading(false);
   };
 
+  const loadOrbitStatus = async () => {
+    const db = supabase as unknown as { from: (t: string) => any };
+    const [{ data: staffRows }, { count: studentN }] = await Promise.all([
+      db.from("orbit_staff_cache").select("synced_at").order("synced_at", { ascending: false }).limit(1),
+      db.from("student_profiles").select("user_id", { count: "exact", head: true }).not("orbit_class_id", "is", null),
+    ]);
+    const { count: staffN } = await db.from("orbit_staff_cache").select("id", { count: "exact", head: true });
+    setLastSyncAt(staffRows?.[0]?.synced_at ?? null);
+    setTeacherCount(staffN ?? 0);
+    setStudentCount(studentN ?? 0);
+  };
+
   useEffect(() => {
     void load();
+    void loadOrbitStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
