@@ -44,7 +44,7 @@ import { gradeAnalysis } from "@/lib/analysisGrading";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
-import gwjEduLogo from "@/assets/gwj-edu-logo.png";
+import gwjSymbolAsset from "@/assets/gwj-gumun-lab-symbol.png.asset.json";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import {
   fetchUnitWorkflowsForUser,
