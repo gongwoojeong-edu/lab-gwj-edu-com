@@ -25,7 +25,20 @@ export async function syncOrbitEnglishProfiles(): Promise<OrbitEnglishSyncResult
   });
 
   if (error) {
-    return { ok: false, error: error.message };
+    const context = (error as { context?: { json?: () => Promise<unknown>; text?: () => Promise<string> } }).context;
+    try {
+      const body = await context?.json?.();
+      const message = (body as { error?: string } | null)?.error;
+      if (message) return { ok: false, error: message };
+    } catch {
+      try {
+        const text = await context?.text?.();
+        if (text) return { ok: false, error: text };
+      } catch {
+        // fall through to the SDK message
+      }
+    }
+    return { ok: false, error: error.message || "동기화 함수 호출 실패" };
   }
 
   const result = (data ?? {}) as OrbitEnglishSyncResult;
