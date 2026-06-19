@@ -65,6 +65,9 @@ const Integrations = () => {
   const [issuing, setIssuing] = useState(false);
   const [orbitSyncing, setOrbitSyncing] = useState(false);
   const [orbitResult, setOrbitResult] = useState<OrbitEnglishSyncResult | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [teacherCount, setTeacherCount] = useState<number>(0);
+  const [studentCount, setStudentCount] = useState<number>(0);
   const [label, setLabel] = useState("Claude 지문분석기");
   const [newPlainToken, setNewPlainToken] = useState<string | null>(null);
   const [showSnippet, setShowSnippet] = useState(true);
