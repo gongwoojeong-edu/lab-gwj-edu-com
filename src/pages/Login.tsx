@@ -247,7 +247,7 @@ const Login = () => {
           </Link>
         </div>
       </Card>
-    </div>
+    </main>
   );
 };
 
