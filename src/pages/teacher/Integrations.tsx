@@ -330,6 +330,27 @@ structure_html 문자열  구조도 HTML (선택)`;
               {orbitSyncing && <Loader2 className="size-4 mr-1 animate-spin" />}
               Orbit 영어과 동기화
             </Button>
+            <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1">
+              <p className="flex items-center gap-2">
+                <span className="font-medium">최근 동기화:</span>
+                {lastSyncAt ? (
+                  <>
+                    <Badge variant="secondary">
+                      {new Date(lastSyncAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      선생님 {teacherCount}명 · 학생 {studentCount}명
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">아직 동기화된 적 없음</span>
+                )}
+              </p>
+            </div>
+            <Button onClick={runOrbitSync} disabled={orbitSyncing}>
+              {orbitSyncing && <Loader2 className="size-4 mr-1 animate-spin" />}
+              Orbit 영어과 동기화
+            </Button>
             {orbitResult?.ok && (
               <p className="text-sm text-muted-foreground">
                 선생님 {orbitResult.teachersSynced ?? 0}명 · 학생 {orbitResult.studentsSynced ?? 0}명
