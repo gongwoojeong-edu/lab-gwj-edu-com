@@ -1,6 +1,6 @@
 // Edge Function: reset-teacher-password
 // admin만 선생님 Auth 비밀번호를 초기값(아이디+마지막 숫자)으로 재설정
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.50.0";
 
 function createServiceClient(url: string, serviceKey: string): SupabaseClient {
   const key = serviceKey.trim();
