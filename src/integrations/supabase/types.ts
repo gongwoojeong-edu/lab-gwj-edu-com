@@ -293,6 +293,66 @@ export type Database = {
         }
         Relationships: []
       }
+      orbit_campus_cache: {
+        Row: {
+          id: string
+          name: string
+          synced_at: string
+        }
+        Insert: {
+          id: string
+          name: string
+          synced_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
+      orbit_staff_cache: {
+        Row: {
+          active: boolean
+          auth_user_id: string | null
+          campus_id: string | null
+          campus_name: string | null
+          employee_no: string | null
+          id: string
+          name: string
+          platform_auth_user_id: string | null
+          rank: number
+          subjects: string[]
+          synced_at: string
+        }
+        Insert: {
+          active?: boolean
+          auth_user_id?: string | null
+          campus_id?: string | null
+          campus_name?: string | null
+          employee_no?: string | null
+          id: string
+          name: string
+          platform_auth_user_id?: string | null
+          rank?: number
+          subjects?: string[]
+          synced_at?: string
+        }
+        Update: {
+          active?: boolean
+          auth_user_id?: string | null
+          campus_id?: string | null
+          campus_name?: string | null
+          employee_no?: string | null
+          id?: string
+          name?: string
+          platform_auth_user_id?: string | null
+          rank?: number
+          subjects?: string[]
+          synced_at?: string
+        }
+        Relationships: []
+      }
       owner_progress: {
         Row: {
           completed: boolean
@@ -679,6 +739,8 @@ export type Database = {
           hint_mode_enabled: boolean
           homeroom_teacher_id: string | null
           notes: string | null
+          orbit_class_id: string | null
+          orbit_class_name: string | null
           points: number
           school_name: string | null
           start_level: string
@@ -711,6 +773,8 @@ export type Database = {
           hint_mode_enabled?: boolean
           homeroom_teacher_id?: string | null
           notes?: string | null
+          orbit_class_id?: string | null
+          orbit_class_name?: string | null
           points?: number
           school_name?: string | null
           start_level?: string
@@ -743,6 +807,8 @@ export type Database = {
           hint_mode_enabled?: boolean
           homeroom_teacher_id?: string | null
           notes?: string | null
+          orbit_class_id?: string | null
+          orbit_class_name?: string | null
           points?: number
           school_name?: string | null
           start_level?: string
