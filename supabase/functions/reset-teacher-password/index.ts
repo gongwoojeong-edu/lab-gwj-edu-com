@@ -1,7 +1,34 @@
 // Edge Function: reset-teacher-password
 // admin만 선생님 Auth 비밀번호를 초기값(아이디+마지막 숫자)으로 재설정
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
-import { createServiceClient } from "../_shared/createServiceClient.ts";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+
+function createServiceClient(url: string, serviceKey: string): SupabaseClient {
+  const key = serviceKey.trim();
+  const isOpaqueKey = key.startsWith("sb_secret_") || key.startsWith("sb_publishable_");
+
+  if (!isOpaqueKey) {
+    return createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      headers: { apikey: key },
+      fetch: (input, init) => {
+        const headers = new Headers(init?.headers);
+        headers.set("apikey", key);
+        const auth = headers.get("authorization") ?? "";
+        const bearer = auth.replace(/^Bearer\s+/i, "").trim();
+        if (bearer === key || (!bearer.startsWith("eyJ") && bearer.length > 0)) {
+          headers.delete("authorization");
+        }
+        return fetch(input, { ...init, headers });
+      },
+    },
+  });
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
