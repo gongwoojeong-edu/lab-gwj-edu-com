@@ -271,16 +271,14 @@ export const TeacherLayout = ({ children }: Props) => {
             <div className="flex items-center gap-3">
               <SidebarTrigger />
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-white ring-1 ring-purple-300 shadow-sm">
                 <img
                   src={gwjSymbolAsset.url}
                   alt="공우정구문랩 심볼"
-                  width={24}
-                  height={24}
+                  width={36}
+                  height={36}
                   loading="lazy"
-                  className="w-6 h-6 object-contain"
+                  className="w-9 h-9 object-contain"
                 />
-                </span>
                 <div>
                   <div className="text-sm font-bold leading-none">{GWJ_SYNTAX_PRODUCT_NAME}</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">

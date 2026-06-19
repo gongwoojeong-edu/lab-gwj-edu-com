@@ -658,16 +658,14 @@ const StudentHome = () => {
       <header className="sticky top-0 z-30 backdrop-blur-md bg-background/70 border-b border-border">
         <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-white ring-1 ring-purple-300 shadow-sm">
-              <img
-                src={gwjSymbolAsset.url}
-                alt="공우정구문랩 심볼"
-                width={28}
-                height={28}
-                loading="lazy"
-                className="w-7 h-7 object-contain"
-              />
-            </span>
+            <img
+              src={gwjSymbolAsset.url}
+              alt="공우정구문랩 심볼"
+              width={40}
+              height={40}
+              loading="lazy"
+              className="w-10 h-10 object-contain"
+            />
             <div>
               <div className="text-sm font-bold text-foreground leading-none">{GWJ_SYNTAX_PRODUCT_NAME}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
