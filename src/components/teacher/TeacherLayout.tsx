@@ -43,7 +43,7 @@ import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { TeacherViewSwitcher } from "@/components/teacher/TeacherViewSwitcher";
 import { useStaff } from "@/lib/staff-context";
 import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
-import gwjSymbolAsset from "@/assets/gwj-symbol-purple-transparent.png.asset.json";
+import gwjSymbolAsset from "@/assets/gwj-symbol-purple.png.asset.json";
 
 interface Props {
   children: ReactNode;
