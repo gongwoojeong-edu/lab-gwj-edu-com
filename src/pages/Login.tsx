@@ -147,7 +147,7 @@ const Login = () => {
       <Card className="w-full max-w-sm p-6 space-y-5">
         <div>
           <h1 className="text-2xl font-bold">로그인</h1>
-          <p className="text-sm text-muted-foreground">공우정보카·공우정신텍스와 같은 번호·비밀번호를 사용합니다.</p>
+          <p className="text-sm text-muted-foreground">공우정보카·공우정구문랩과 같은 번호·비밀번호를 사용합니다.</p>
         </div>
 
         <div className="flex p-1 rounded-xl border border-input bg-muted/30">

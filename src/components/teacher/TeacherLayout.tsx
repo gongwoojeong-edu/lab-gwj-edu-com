@@ -43,7 +43,7 @@ import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { TeacherViewSwitcher } from "@/components/teacher/TeacherViewSwitcher";
 import { useStaff } from "@/lib/staff-context";
 import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
-import gwjEduLogo from "@/assets/gwj-edu-logo.png";
+import gwjSymbolAsset from "@/assets/gwj-gumun-lab-symbol.png.asset.json";
 
 interface Props {
   children: ReactNode;
@@ -271,14 +271,17 @@ export const TeacherLayout = ({ children }: Props) => {
             <div className="flex items-center gap-3">
               <SidebarTrigger />
               <div className="flex items-center gap-2">
-                <img
-                  src={gwjEduLogo}
-                  alt="공우정신텍스 로고"
-                  width={28}
-                  height={28}
-                  loading="lazy"
-                  className="w-7 h-7 object-contain"
-                />
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-white ring-1 ring-purple-300 shadow-sm">
+                  <img
+                    src={gwjSymbolAsset.url}
+                    alt="공우정구문랩 심볼"
+                    width={24}
+                    height={24}
+                    loading="lazy"
+                    className="w-6 h-6 object-contain"
+                    style={{ filter: "brightness(0) saturate(100%) invert(28%) sepia(74%) saturate(2618%) hue-rotate(258deg) brightness(92%) contrast(96%)" }}
+                  />
+                </span>
                 <div>
                   <div className="text-sm font-bold leading-none">{GWJ_SYNTAX_PRODUCT_NAME}</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
