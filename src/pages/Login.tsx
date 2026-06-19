@@ -138,7 +138,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-sm p-6 space-y-5">
         <div>
           <h1 className="text-2xl font-bold">로그인</h1>
