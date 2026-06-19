@@ -661,10 +661,10 @@ const StudentHome = () => {
             <img
               src={gwjSymbolAsset.url}
               alt="공우정구문랩 심볼"
-              width={40}
-              height={40}
+              width={52}
+              height={52}
               loading="lazy"
-              className="w-10 h-10 object-contain"
+              className="w-13 h-13 object-contain"
             />
             <div>
               <div className="text-sm font-bold text-foreground leading-none">{GWJ_SYNTAX_PRODUCT_NAME}</div>

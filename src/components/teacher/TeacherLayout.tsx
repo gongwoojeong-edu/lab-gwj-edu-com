@@ -274,10 +274,10 @@ export const TeacherLayout = ({ children }: Props) => {
                 <img
                   src={gwjSymbolAsset.url}
                   alt="공우정구문랩 심볼"
-                  width={36}
-                  height={36}
+                  width={44}
+                  height={44}
                   loading="lazy"
-                  className="w-9 h-9 object-contain"
+                  className="w-11 h-11 object-contain"
                 />
                 <div>
                   <div className="text-sm font-bold leading-none">{GWJ_SYNTAX_PRODUCT_NAME}</div>
