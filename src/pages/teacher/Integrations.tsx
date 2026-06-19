@@ -326,10 +326,6 @@ structure_html 문자열  구조도 HTML (선택)`;
                 </p>
               )}
             </div>
-            <Button onClick={runOrbitSync} disabled={orbitSyncing}>
-              {orbitSyncing && <Loader2 className="size-4 mr-1 animate-spin" />}
-              Orbit 영어과 동기화
-            </Button>
             <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1">
               <p className="flex items-center gap-2">
                 <span className="font-medium">최근 동기화:</span>
