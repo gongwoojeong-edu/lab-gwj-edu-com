@@ -1,6 +1,6 @@
 // Edge Function: reset-teacher-password
 // admin만 선생님 Auth 비밀번호를 초기값(아이디+마지막 숫자)으로 재설정
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
