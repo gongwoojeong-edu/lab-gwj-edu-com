@@ -213,6 +213,7 @@ const Integrations = () => {
         return;
       }
       reloadStaff();
+      void loadOrbitStatus();
       toast({
         title: "Orbit 동기화 완료",
         description: `선생님 ${result.teachersSynced ?? 0}명 · 학생 ${result.studentsSynced ?? 0}명`,
