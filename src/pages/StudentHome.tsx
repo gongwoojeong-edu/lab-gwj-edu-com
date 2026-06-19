@@ -44,7 +44,7 @@ import { gradeAnalysis } from "@/lib/analysisGrading";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
-import gwjSymbolAsset from "@/assets/gwj-gumun-lab-symbol.png.asset.json";
+import gwjSymbolAsset from "@/assets/gwj-symbol-purple-transparent.png.asset.json";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import {
   fetchUnitWorkflowsForUser,
@@ -666,7 +666,6 @@ const StudentHome = () => {
                 height={28}
                 loading="lazy"
                 className="w-7 h-7 object-contain"
-                style={{ filter: "brightness(0) saturate(100%) invert(28%) sepia(74%) saturate(2618%) hue-rotate(258deg) brightness(92%) contrast(96%)" }}
               />
             </span>
             <div>
