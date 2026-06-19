@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { filterStudentsForTeacherView } from "@/lib/teacher-scope";
 
+const db = supabase as unknown as { from: (table: string) => any };
+
 export type RosterMemberKind = "student" | "teacher";
 
 export type RosterMember = {
@@ -30,13 +32,13 @@ function displayLoginId(studentNo: string): string {
 
 export async function fetchMemberRoster(): Promise<RosterMember[]> {
   const [profilesRes, staffRes] = await Promise.all([
-    supabase
+    db
       .from("student_profiles")
       .select(
         "user_id, student_no, display_name, campus, orbit_class_name, actual_grade, start_level, teacher_id, homeroom_teacher_id",
       )
       .order("student_no"),
-    supabase
+    db
       .from("orbit_staff_cache")
       .select("id, name, employee_no, campus_name, auth_user_id, rank, active, subjects")
       .eq("active", true)

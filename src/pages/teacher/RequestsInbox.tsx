@@ -358,8 +358,11 @@ const RequestsInbox = () => {
     try {
       if (item.kind === "print") {
         await deletePrintRequest(item.row.id);
-      } else {
+      } else if (item.kind === "review") {
         await deleteReviewRequest(item.row.id);
+      } else {
+        toast({ title: "이 요청은 화면에서 바로 삭제할 수 없습니다.", variant: "destructive" });
+        return;
       }
       toast({ title: "삭제 완료" });
       await refresh();
