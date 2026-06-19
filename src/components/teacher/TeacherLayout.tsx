@@ -39,6 +39,9 @@ import { cn } from "@/lib/utils";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
 import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
+import { TeacherViewSwitcher } from "@/components/teacher/TeacherViewSwitcher";
+import { useStaff } from "@/lib/staff-context";
+import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 
 interface Props {
@@ -230,6 +233,7 @@ export const TeacherLayout = ({ children }: Props) => {
   const { user } = useAuth();
   const { setMode } = useViewMode();
   const approvalCount = usePendingApprovalsCount();
+  const { isViewingAsOther, staff, me, setStaffId } = useStaff();
 
   const switchToStudent = () => {
     setMode("student");
@@ -248,21 +252,21 @@ export const TeacherLayout = ({ children }: Props) => {
               <div className="flex items-center gap-2">
                 <img
                   src={gwjEduLogo}
-                  alt="공우정에듀 로고"
+                  alt="공우정신텍스 로고"
                   width={28}
                   height={28}
                   loading="lazy"
                   className="w-7 h-7 object-contain"
                 />
                 <div>
-                  <div className="text-sm font-bold leading-none">공우정에듀</div>
+                  <div className="text-sm font-bold leading-none">{GWJ_SYNTAX_PRODUCT_NAME}</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
                     {user?.email?.split("@")[0]}
                   </div>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <Button
                 variant="ghost"
                 size="sm"
@@ -277,6 +281,7 @@ export const TeacherLayout = ({ children }: Props) => {
                   </span>
                 )}
               </Button>
+              <TeacherViewSwitcher />
               <Button variant="outline" size="sm" onClick={switchToStudent}>
                 <Eye className="w-4 h-4 mr-1" /> 학생화면 보기
               </Button>
@@ -285,6 +290,23 @@ export const TeacherLayout = ({ children }: Props) => {
               </Button>
             </div>
           </header>
+
+          {isViewingAsOther && staff && me && (
+            <div className="border-b border-amber-200 bg-amber-50/90 px-4 py-2 text-sm text-amber-950 shrink-0">
+              <span className="font-semibold">{staff.name}</span>
+              <span className="text-amber-900">
+                {" "}
+                선생님 화면 미리보기 · 학생 목록이 해당 선생님 담당 기준으로 표시됩니다
+              </span>
+              <button
+                type="button"
+                className="ml-2 font-medium text-primary underline hover:no-underline"
+                onClick={() => setStaffId(null)}
+              >
+                본인({me.name})으로 돌아가기
+              </button>
+            </div>
+          )}
 
           <main className="flex-1 overflow-auto">{children}</main>
         </div>

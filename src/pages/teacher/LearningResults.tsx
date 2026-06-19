@@ -57,6 +57,14 @@ import { errMsg } from "@/lib/errMsg";
 import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
 import { ensureLogoDataUri } from "@/lib/printTemplates";
 import { toast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  completeUnitLearning,
+  UNIT_WORKFLOW_LABELS,
+  type UnitWorkflowRow,
+  type TeacherGrade,
+} from "@/lib/unitWorkflow";
 
 interface StudentInfo {
   user_id: string;
@@ -123,6 +131,9 @@ const LearningResults = () => {
     title: string;
     body: React.ReactNode;
   } | null>(null);
+  const [unitWorkflowMap, setUnitWorkflowMap] = useState<Record<string, UnitWorkflowRow>>({});
+  const [unitGradeDraft, setUnitGradeDraft] = useState<Record<string, TeacherGrade>>({});
+  const [unitMemoDraft, setUnitMemoDraft] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -355,6 +366,18 @@ const LearningResults = () => {
             student_no: row.student_no,
           };
         });
+
+        const { data: uwRows } = await supabase
+          .from("unit_workflows")
+          .select("*")
+          .in("user_id", allUserIds);
+        const uwMap: Record<string, UnitWorkflowRow> = {};
+        ((uwRows ?? []) as UnitWorkflowRow[]).forEach((r) => {
+          uwMap[`${r.user_id}::${r.unit_id}`] = r;
+        });
+        setUnitWorkflowMap(uwMap);
+      } else {
+        setUnitWorkflowMap({});
       }
 
       setStudents(sMap);
@@ -631,7 +654,6 @@ const LearningResults = () => {
     const key = `retest:${userId}:${sentenceId}`;
     setBusy((p) => ({ ...p, [key]: true }));
     try {
-      // 1) sentence_progress.status='retest' (학생 홈 RetestBanner용)
       const { data: existing } = await supabase
         .from("sentence_progress")
         .select("id")
@@ -650,7 +672,6 @@ const LearningResults = () => {
           status: "retest",
         });
       }
-      // 2) assignments 에 [재시험] 행 insert (학생 홈 특별과제로 노출)
       const currentTeacherId = await getCurrentUserId();
       if (currentTeacherId) {
         const due = new Date();
@@ -676,6 +697,27 @@ const LearningResults = () => {
       toast({ title: "재시험 등록 실패", description: errMsg(e), variant: "destructive" });
     } finally {
       setBusy((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  const handleCompleteUnit = async (userId: string, unitId: string) => {
+    const draftKey = `${userId}::${unitId}`;
+    const grade = unitGradeDraft[draftKey];
+    if (!grade) {
+      toast({ title: "A~E 등급을 선택하세요", variant: "destructive" });
+      return;
+    }
+    const memo = unitMemoDraft[draftKey] ?? "";
+    const busyKey = `unit-complete:${draftKey}`;
+    setBusy((p) => ({ ...p, [busyKey]: true }));
+    try {
+      const row = await completeUnitLearning(userId, unitId, grade, memo);
+      setUnitWorkflowMap((prev) => ({ ...prev, [draftKey]: row }));
+      toast({ title: "유닛 학습완료 처리", description: `평가 ${grade}` });
+    } catch (e) {
+      toast({ title: "처리 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setBusy((p) => ({ ...p, [busyKey]: false }));
     }
   };
 
@@ -1197,6 +1239,83 @@ const LearningResults = () => {
                                   <span className="text-[10px] ml-0.5">단어</span>
                                 </Button>
                               </button>
+                              {g.unitId && (() => {
+                                const wfKey = `${userId}::${g.unitId}`;
+                                const wf = unitWorkflowMap[wfKey];
+                                if (!wf) return null;
+                                return (
+                                  <div className="px-3 py-2 border-t border-border bg-muted/10 space-y-2">
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <Badge variant="secondary">
+                                        {UNIT_WORKFLOW_LABELS[wf.status]}
+                                      </Badge>
+                                      {wf.teacher_grade && (
+                                        <span className="font-bold">평가 {wf.teacher_grade}</span>
+                                      )}
+                                    </div>
+                                    {wf.status === "workbook_submitted" && (
+                                      <div className="flex flex-wrap items-end gap-2">
+                                        <div>
+                                          <Label className="text-[10px]">등급</Label>
+                                          <div className="flex gap-1 mt-0.5">
+                                            {(["A", "B", "C", "D", "E"] as TeacherGrade[]).map(
+                                              (g) => (
+                                                <Button
+                                                  key={g}
+                                                  type="button"
+                                                  size="sm"
+                                                  variant={
+                                                    unitGradeDraft[wfKey] === g
+                                                      ? "default"
+                                                      : "outline"
+                                                  }
+                                                  className="h-7 w-7 p-0"
+                                                  onClick={() =>
+                                                    setUnitGradeDraft((p) => ({
+                                                      ...p,
+                                                      [wfKey]: g,
+                                                    }))
+                                                  }
+                                                >
+                                                  {g}
+                                                </Button>
+                                              ),
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex-1 min-w-[160px]">
+                                          <Label className="text-[10px]">메모</Label>
+                                          <Textarea
+                                            className="mt-0.5 min-h-[52px] text-xs"
+                                            placeholder="한글해석 첨삭과 같이 메모"
+                                            value={unitMemoDraft[wfKey] ?? ""}
+                                            onChange={(e) =>
+                                              setUnitMemoDraft((p) => ({
+                                                ...p,
+                                                [wfKey]: e.target.value,
+                                              }))
+                                            }
+                                          />
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          disabled={!!busy[`unit-complete:${wfKey}`]}
+                                          onClick={() =>
+                                            handleCompleteUnit(userId, g.unitId!)
+                                          }
+                                        >
+                                          학습완료
+                                        </Button>
+                                      </div>
+                                    )}
+                                    {wf.status === "completed" && wf.teacher_memo && (
+                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                                        {wf.teacher_memo}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
 
                               {/* 펼침 본문: 기존 테이블 그대로 */}
                               {isOpen && (

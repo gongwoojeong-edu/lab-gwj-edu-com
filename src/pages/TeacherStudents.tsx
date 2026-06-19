@@ -46,6 +46,7 @@ import {
   type Textbook,
   type Unit,
 } from "@/lib/textbooks";
+import { useStaff } from "@/lib/staff-context";
 
 interface Student {
   id: string;
@@ -62,6 +63,10 @@ interface Student {
   createdAt: string;
   /** student_profiles.user_id (DB 계정에 연결된 학생만 채워짐) */
   userId?: string;
+  teacherId?: string | null;
+  homeroomTeacherId?: string | null;
+  campus?: string | null;
+  orbitClassName?: string | null;
 }
 
 /** 실제 학년 선택지. "" = 미지정. 학습 레벨(L01~L09)과는 별개. */
@@ -113,6 +118,7 @@ const formatDate = (iso: string) => {
 
 const TeacherStudents = () => {
   const { display: displayLevel } = useLevelLabels();
+  const { isViewingAsOther, effectiveTeacherAuthUserId } = useStaff();
   const [students, setStudents] = useState<Student[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
@@ -323,7 +329,7 @@ const TeacherStudents = () => {
       const { data, error } = await supabase
         .from("student_profiles")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id") as { data: any[] | null; error: { message: string } | null };
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id, teacher_id, homeroom_teacher_id, campus, orbit_class_name") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
@@ -383,6 +389,10 @@ const TeacherStudents = () => {
           scopeLabel: labelParts.length > 0 ? labelParts.join(" / ") : undefined,
           createdAt: row.created_at,
           userId: row.user_id,
+          teacherId: row.teacher_id ?? null,
+          homeroomTeacherId: row.homeroom_teacher_id ?? null,
+          campus: row.campus ?? null,
+          orbitClassName: row.orbit_class_name ?? null,
         });
       });
       setThresholdByName(wtMap);
@@ -408,10 +418,19 @@ const TeacherStudents = () => {
     })();
   }, []);
 
-  const sorted = useMemo(
-    () => [...students].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
-    [students],
-  );
+  const sorted = useMemo(() => {
+    let list = [...students];
+    if (isViewingAsOther && effectiveTeacherAuthUserId) {
+      list = list.filter((s) => {
+        if (!s.userId) return false;
+        return (
+          s.teacherId === effectiveTeacherAuthUserId ||
+          s.homeroomTeacherId === effectiveTeacherAuthUserId
+        );
+      });
+    }
+    return list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }, [students, isViewingAsOther, effectiveTeacherAuthUserId]);
 
   const openCreate = () => {
     setEditing(null);
@@ -739,6 +758,8 @@ const TeacherStudents = () => {
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
             <TableRow className="border-b-2 border-border">
               <TableHead className="font-bold text-foreground">이름</TableHead>
+              <TableHead className="font-bold text-foreground">분원</TableHead>
+              <TableHead className="font-bold text-foreground">영어반</TableHead>
               <TableHead className="font-bold text-foreground">실제 학년</TableHead>
               <TableHead className="font-bold text-foreground">학습 레벨</TableHead>
               <TableHead className="font-bold text-foreground">단어 통과%</TableHead>
@@ -752,7 +773,7 @@ const TeacherStudents = () => {
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
+                <TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-10">
                   등록된 학생이 없습니다. 우측 상단 [학생 추가]로 시작하세요.
                 </TableCell>
               </TableRow>
@@ -778,6 +799,12 @@ const TeacherStudents = () => {
                           </span>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {s.campus ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate" title={s.orbitClassName ?? undefined}>
+                      {s.orbitClassName ?? "—"}
                     </TableCell>
                     <TableCell>
                       <Select

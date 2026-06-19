@@ -35,6 +35,10 @@ import {
   type WordAnswer,
 } from "@/data/sentences";
 import { loadSentenceByCode } from "@/lib/sentenceSource";
+import {
+  GWJ_ACADEMY_NAME,
+  GWJ_SYNTAX_PRODUCT_NAME,
+} from "@/lib/gwj-brand";
 import { cn } from "@/lib/utils";
 import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save } from "lucide-react";
 import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
@@ -2443,10 +2447,10 @@ const Index = ({
           <div className="flex items-center gap-4 lg:gap-6">
             <div className="flex flex-col">
               <h1 className="font-kr font-bold text-base lg:text-lg text-primary leading-tight">
-                공우정바른학원
+                {GWJ_ACADEMY_NAME}
               </h1>
               <span className="text-[10px] font-bold tracking-[0.2em] text-primary-glow uppercase">
-                GWJ Syntax Master
+                {GWJ_SYNTAX_PRODUCT_NAME}
               </span>
             </div>
             <div className="hidden md:block h-7 w-px bg-border" />
@@ -3616,7 +3620,7 @@ const Index = ({
       <footer className="max-w-7xl mx-auto px-6 lg:px-8 pb-10 pt-4">
         <div className="flex justify-between items-center border-t border-border pt-6 text-[11px] text-muted-foreground font-kr">
           <span className="font-bold tracking-widest font-kr">
-            공우정바른학원 · GWJ Syntax Master · v0.5
+            {GWJ_ACADEMY_NAME} · {GWJ_SYNTAX_PRODUCT_NAME} · v0.5
           </span>
           <span className="italic">설명할 수 있어야 진짜 아는 것이다</span>
         </div>

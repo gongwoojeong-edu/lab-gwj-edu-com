@@ -9,6 +9,7 @@ import TeacherStudents from "./pages/TeacherStudents.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import StudentHome from "./pages/StudentHome.tsx";
+import StudentLibrary from "./pages/StudentLibrary.tsx";
 import SentenceLearn from "./pages/SentenceLearn.tsx";
 import TeacherHome from "./pages/teacher/TeacherHome.tsx";
 import StalledStudents from "./pages/teacher/StalledStudents.tsx";
@@ -40,6 +41,7 @@ import PrintableWord from "./pages/print/PrintableWord.tsx";
 import PrintableAnalysis from "./pages/print/PrintableAnalysis.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
+import { StaffProvider } from "./lib/staff-context";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +49,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <HintSettingsProvider>
+        <StaffProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -70,6 +73,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <StudentHome />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn/library"
+              element={
+                <RequireAuth>
+                  <StudentLibrary />
                 </RequireAuth>
               }
             />
@@ -336,6 +347,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </StaffProvider>
       </HintSettingsProvider>
     </TooltipProvider>
   </QueryClientProvider>

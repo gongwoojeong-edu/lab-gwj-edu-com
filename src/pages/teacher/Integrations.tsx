@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Copy, Trash2, KeyRound, Loader2, ExternalLink, Eye, EyeOff } from "lucide-react";
+import { Copy, Trash2, KeyRound, Loader2, ExternalLink, Eye, EyeOff, RefreshCw, RotateCcw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +20,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { syncOrbitEnglishProfiles, type OrbitEnglishSyncResult } from "@/lib/orbit-sync";
+import {
+  fetchTeacherAccounts,
+  resetTeacherPassword,
+  type TeacherAccountRow,
+} from "@/lib/resetTeacherPassword";
+import { useStaff } from "@/lib/staff-context";
+import { defaultPasswordFromLoginId } from "@/lib/gwj-login-id";
 
 interface TokenRow {
   id: string;
@@ -49,14 +57,32 @@ function generateToken(): string {
 }
 
 const Integrations = () => {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  const isAdmin = roles.includes("admin");
+  const { reload: reloadStaff, staffSource } = useStaff();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [issuing, setIssuing] = useState(false);
+  const [orbitSyncing, setOrbitSyncing] = useState(false);
+  const [orbitResult, setOrbitResult] = useState<OrbitEnglishSyncResult | null>(null);
   const [label, setLabel] = useState("Claude 지문분석기");
   const [newPlainToken, setNewPlainToken] = useState<string | null>(null);
   const [showSnippet, setShowSnippet] = useState(true);
   const [revokeTarget, setRevokeTarget] = useState<TokenRow | null>(null);
+  const [teachers, setTeachers] = useState<TeacherAccountRow[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [manualLoginId, setManualLoginId] = useState("");
+  const [resetResult, setResetResult] = useState<{
+    name: string | null;
+    loginId: string;
+    password: string;
+  } | null>(null);
+  const [resetConfirm, setResetConfirm] = useState<{
+    userId?: string;
+    loginId?: string;
+    name: string;
+  } | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -107,6 +133,26 @@ const Integrations = () => {
     } else {
       toast({ title: "토큰을 폐기했습니다" });
       await load();
+    }
+  };
+
+  const runOrbitSync = async () => {
+    setOrbitSyncing(true);
+    setOrbitResult(null);
+    try {
+      const result = await syncOrbitEnglishProfiles();
+      setOrbitResult(result);
+      if (!result.ok) {
+        toast({ title: "Orbit 동기화 실패", description: result.error, variant: "destructive" });
+        return;
+      }
+      reloadStaff();
+      toast({
+        title: "Orbit 동기화 완료",
+        description: `선생님 ${result.teachersSynced ?? 0}명 · 학생 ${result.studentsSynced ?? 0}명`,
+      });
+    } finally {
+      setOrbitSyncing(false);
     }
   };
 
@@ -187,6 +233,47 @@ structure_html 문자열  구조도 HTML (선택)`;
             클로드 지문분석기 등 외부 도구에서 만든 자료를 학생 학습기로 직접 전송할 수 있습니다.
           </p>
         </header>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="size-5" /> Orbit 연동 (영어과)
+            </CardTitle>
+            <CardDescription>
+              오르빗 마스터에서 영어과 선생님·반·학생 정보를 가져옵니다. 로그인은 잉글랩·단어학습기와
+              동일합니다 (학생 gwj+4자리, 선생님 gwjt+3자리 · 초기 비밀번호: 아이디+마지막 숫자).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
+              <p>
+                선생님 예: <code className="text-xs bg-background px-1 rounded">512</code> →{" "}
+                <code className="text-xs bg-background px-1 rounded">gwjt512</code> · 초기 비밀번호{" "}
+                <code className="text-xs bg-background px-1 rounded">
+                  {defaultPasswordFromLoginId("gwjt512")}
+                </code>
+              </p>
+              {staffSource === "cache" && (
+                <p className="text-xs text-muted-foreground">
+                  직원 목록: Orbit 동기화 캐시 사용 중 (외부 연동에서 동기화 실행)
+                </p>
+              )}
+            </div>
+            <Button onClick={runOrbitSync} disabled={orbitSyncing}>
+              {orbitSyncing && <Loader2 className="size-4 mr-1 animate-spin" />}
+              Orbit 영어과 동기화
+            </Button>
+            {orbitResult?.ok && (
+              <p className="text-sm text-muted-foreground">
+                선생님 {orbitResult.teachersSynced ?? 0}명 · 학생 {orbitResult.studentsSynced ?? 0}명
+                동기화 · 건너뜀 {orbitResult.studentsSkipped ?? 0} · 제외(비영어/휴퇴원){" "}
+                {orbitResult.studentsExcluded ?? 0}
+                {(orbitResult.studentsFailed ?? 0) > 0 &&
+                  ` · 실패 ${orbitResult.studentsFailed}`}
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Issue token */}
         <Card>

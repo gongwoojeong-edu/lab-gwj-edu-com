@@ -2,3 +2,9 @@ project_id = "vyiwfkctilezvpafqjek"
 
 [functions.import-claude-handout]
 verify_jwt = false
+
+[functions.sync-orbit-english]
+verify_jwt = true
+
+[functions.reset-teacher-password]
+verify_jwt = true

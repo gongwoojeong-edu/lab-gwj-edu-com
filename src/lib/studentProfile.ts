@@ -16,6 +16,7 @@ export interface StudentProfile {
   current_level: LevelCode;
   current_no: number;
   teacher_id: string | null;
+  homeroom_teacher_id: string | null;
   analysis_pass_threshold: number;
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;

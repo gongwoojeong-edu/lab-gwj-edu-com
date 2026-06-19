@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText, RotateCcw, AlertCircle } from "lucide-react";
+import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clock, Bell, Printer, Eye, Hourglass, CheckCircle2, XCircle, FileText, RotateCcw, AlertCircle, BookOpen, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import { resolveNextSentence } from "@/lib/nextSentence";
@@ -41,8 +43,23 @@ import {
 import { gradeAnalysis } from "@/lib/analysisGrading";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
+import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 import gwjEduLogo from "@/assets/gwj-edu-logo.png";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
+import {
+  fetchUnitWorkflowsForUser,
+  requestUnitPrint,
+  submitUnitWorkbook,
+  canAccessUnit,
+  UNIT_WORKFLOW_LABELS,
+  type UnitWorkflowRow,
+} from "@/lib/unitWorkflow";
+import {
+  fetchMyMaterialViewRequests,
+  requestMaterialView,
+  cancelMaterialViewRequest,
+  type MaterialViewRequest,
+} from "@/lib/materialViewRequests";
 
 interface RecentItem {
   sentence: Sentence;
@@ -77,6 +94,7 @@ interface AssignmentGroup {
   doneCount: number;
   inProgressCount: number;
   nextSentenceId: string | null;
+  unitId: string | null;
 }
 
 /** sentence_id에서 유닛 prefix 추출. 'L08-U260338-001' → 'L08-U260338'. 매칭 안 되면 null. */
@@ -112,6 +130,9 @@ const StudentHome = () => {
     Record<string, { storagePath: string; name: string | null }>
   >({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [unitWorkflows, setUnitWorkflows] = useState<Record<string, UnitWorkflowRow>>({});
+  const [materialViews, setMaterialViews] = useState<Record<string, MaterialViewRequest>>({});
+  const [unitAccess, setUnitAccess] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let mounted = true;
@@ -253,6 +274,7 @@ const StudentHome = () => {
               .slice()
               .sort((x, y) => (x.sentence_id ?? "").localeCompare(y.sentence_id ?? ""));
             const head = sorted[0];
+            const unitId = head.sentence_id ? codeToUnit.get(head.sentence_id) ?? null : null;
             const doneList = sorted.filter(isSentenceDone);
             const startedList = sorted.filter(
               (a) => !isSentenceDone(a) && isSentenceStarted(a),
@@ -273,10 +295,14 @@ const StudentHome = () => {
               doneCount: doneList.length,
               inProgressCount: startedList.length,
               nextSentenceId: nextRow?.sentence_id ?? null,
+              unitId,
             } as AssignmentGroup;
           })
-          // 모든 sentence 완료된 그룹은 숨김
-          .filter((g) => g.doneCount < g.totalCount)
+          // 진행 중이거나, 유닛 학습은 끝났지만 선생님 승인 전인 그룹 유지
+          .filter((g) => {
+            if (g.doneCount < g.totalCount) return true;
+            return !!g.unitId;
+          })
           // 마감일 가까운 순
           .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
 
@@ -284,6 +310,24 @@ const StudentHome = () => {
           setRecent(enriched);
           setAssignmentGroups(groups);
           setAssignmentProgress(progressFlags);
+        }
+
+        if (user && mounted) {
+          const [wfMap, mvMap] = await Promise.all([
+            fetchUnitWorkflowsForUser(user.id),
+            fetchMyMaterialViewRequests(user.id),
+          ]);
+          const unitIds = [
+            ...new Set(groups.map((g) => g.unitId).filter(Boolean) as string[]),
+          ];
+          const accessEntries = await Promise.all(
+            unitIds.map(async (uid) => [uid, await canAccessUnit(user.id, uid)] as const),
+          );
+          if (mounted) {
+            setUnitWorkflows(wfMap);
+            setMaterialViews(mvMap);
+            setUnitAccess(Object.fromEntries(accessEntries));
+          }
         }
 
         // 본인의 pending 시험지/분석자료 요청 + 각 sentence별 정답대조 요청 상태 로드
@@ -532,11 +576,81 @@ const StudentHome = () => {
     }
   };
 
+  const handleUnitPrintRequest = async (unitId: string) => {
+    if (!user) return;
+    setBusyFor(`unit-print:${unitId}`, true);
+    try {
+      const row = await requestUnitPrint(user.id, unitId);
+      setUnitWorkflows((p) => ({ ...p, [unitId]: row }));
+      toast({ title: "유닛 인쇄를 요청했어요", description: "선생님 승인·인쇄를 기다려 주세요." });
+    } catch (e) {
+      toast({ title: "요청 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBusyFor(`unit-print:${unitId}`, false);
+    }
+  };
+
+  const handleWorkbookComplete = async (unitId: string) => {
+    if (!user) return;
+    setBusyFor(`unit-wb:${unitId}`, true);
+    try {
+      const row = await submitUnitWorkbook(user.id, unitId);
+      setUnitWorkflows((p) => ({ ...p, [unitId]: row }));
+      toast({ title: "워크북 활동 완료", description: "선생님 검수·승인을 기다려 주세요." });
+    } catch (e) {
+      toast({ title: "완료 처리 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBusyFor(`unit-wb:${unitId}`, false);
+    }
+  };
+
+  const handleMaterialViewRequest = async (unitId: string) => {
+    if (!user) return;
+    setBusyFor(`unit-mv:${unitId}`, true);
+    try {
+      const row = await requestMaterialView(user.id, unitId);
+      setMaterialViews((p) => ({ ...p, [unitId]: row }));
+      toast({ title: "자료열람 요청을 보냈어요" });
+    } catch (e) {
+      toast({ title: "요청 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBusyFor(`unit-mv:${unitId}`, false);
+    }
+  };
+
+  const handleCancelMaterialView = async (unitId: string) => {
+    const cur = materialViews[unitId];
+    if (!cur || cur.status !== "pending") return;
+    setBusyFor(`unit-mv:${unitId}`, true);
+    try {
+      await cancelMaterialViewRequest(cur.id);
+      setMaterialViews((prev) => {
+        const next = { ...prev };
+        delete next[unitId];
+        return next;
+      });
+      toast({ title: "요청을 취소했어요" });
+    } finally {
+      setBusyFor(`unit-mv:${unitId}`, false);
+    }
+  };
+
   const handleStart = () => {
     if (next) navigate(`/learn/sentence/${encodeURIComponent(next.id)}`);
   };
 
   const startLabel = next ? `${next.id} 학습 시작` : "다음 Passage 없음";
+
+  const visibleAssignmentGroups = useMemo(
+    () =>
+      assignmentGroups.filter((g) => {
+        if (g.doneCount < g.totalCount) return true;
+        if (!g.unitId) return false;
+        const wf = unitWorkflows[g.unitId];
+        return !wf || wf.status !== "completed";
+      }),
+    [assignmentGroups, unitWorkflows],
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40">
@@ -546,14 +660,14 @@ const StudentHome = () => {
           <div className="flex items-center gap-2">
             <img
               src={gwjEduLogo}
-              alt="공우정에듀 로고"
+              alt="공우정신텍스 로고"
               width={32}
               height={32}
               loading="lazy"
               className="w-8 h-8 object-contain"
             />
             <div>
-              <div className="text-sm font-bold text-foreground leading-none">공우정에듀</div>
+              <div className="text-sm font-bold text-foreground leading-none">{GWJ_SYNTAX_PRODUCT_NAME}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
                 {profile?.student_no ?? "—"} · {profile?.display_name ?? ""}
               </div>
@@ -596,6 +710,11 @@ const StudentHome = () => {
                 선생님 화면으로 이동
               </button>
             )}
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/learn/library">
+                <BookOpen className="w-4 h-4 mr-1" /> 라이브러리
+              </Link>
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-1" /> 로그아웃
             </Button>
@@ -651,7 +770,7 @@ const StudentHome = () => {
             )}
 
             {/* 특별과제 (유닛 단위로 그룹핑) */}
-            {assignmentGroups.length > 0 && (
+            {visibleAssignmentGroups.length > 0 && (
               <Card className="p-5 sm:p-6 space-y-4 border-amber-500/40 bg-gradient-to-br from-amber-500/5 to-transparent">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
@@ -660,12 +779,12 @@ const StudentHome = () => {
                       특별과제
                     </h2>
                     <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold">
-                      {assignmentGroups.length}
+                      {visibleAssignmentGroups.length}
                     </span>
                   </div>
                 </div>
                 <ul className="space-y-3">
-                  {assignmentGroups.map((g) => {
+                  {visibleAssignmentGroups.map((g) => {
                     const dueMs = new Date(g.due_at).getTime() - Date.now();
                     const totalH = Math.max(0, Math.floor(dueMs / 3_600_000));
                     const days = Math.floor(totalH / 24);
@@ -723,11 +842,98 @@ const StudentHome = () => {
                               {g.description}
                             </p>
                           )}
+                          {g.unitId && (() => {
+                            const wf = unitWorkflows[g.unitId!];
+                            const mv = materialViews[g.unitId!];
+                            const allDone = g.doneCount >= g.totalCount;
+                            const status = wf?.status ?? (allDone ? "learning" : "learning");
+                            return (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {allDone && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {UNIT_WORKFLOW_LABELS[status]}
+                                  </Badge>
+                                )}
+                                {allDone && status === "learning" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-[11px]"
+                                    disabled={!!busy[`unit-print:${g.unitId}`]}
+                                    onClick={() => handleUnitPrintRequest(g.unitId!)}
+                                  >
+                                    <Printer className="w-3 h-3 mr-1" />
+                                    인쇄 요청
+                                  </Button>
+                                )}
+                                {status === "print_pending" && (
+                                  <span className="text-[11px] text-amber-700 dark:text-amber-300 inline-flex items-center gap-1">
+                                    <Hourglass className="w-3 h-3 animate-pulse" /> 인쇄 승인 대기
+                                  </span>
+                                )}
+                                {status === "printed" && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-[11px]"
+                                      disabled={!!busy[`unit-wb:${g.unitId}`]}
+                                      onClick={() => handleWorkbookComplete(g.unitId!)}
+                                    >
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                      워크북 완료
+                                    </Button>
+                                    {mv?.status === "approved" ? (
+                                      <Button size="sm" variant="outline" className="h-7 text-[11px]" asChild>
+                                        <Link to="/learn/library">
+                                          <BookOpen className="w-3 h-3 mr-1" /> 라이브러리
+                                        </Link>
+                                      </Button>
+                                    ) : mv?.status === "pending" ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-[11px]"
+                                        onClick={() => handleCancelMaterialView(g.unitId!)}
+                                      >
+                                        자료열람 대기중
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-[11px]"
+                                        disabled={!!busy[`unit-mv:${g.unitId}`]}
+                                        onClick={() => handleMaterialViewRequest(g.unitId!)}
+                                      >
+                                        <Eye className="w-3 h-3 mr-1" /> 자료열람 요청
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                                {status === "workbook_submitted" && (
+                                  <span className="text-[11px] text-sky-700 dark:text-sky-300 inline-flex items-center gap-1">
+                                    <Hourglass className="w-3 h-3 animate-pulse" /> 선생님 승인 대기
+                                  </span>
+                                )}
+                                {status === "completed" && wf?.teacher_grade && (
+                                  <Badge className="text-[10px]">평가 {wf.teacher_grade}</Badge>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
-                        {g.nextSentenceId && (() => {
+                        {g.nextSentenceId && g.doneCount < g.totalCount && (() => {
                           const nextSid = g.nextSentenceId;
+                          const blocked = g.unitId && unitAccess[g.unitId] === false;
                           const pf = assignmentProgress.get(nextSid);
                           const startedNext = !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+                          if (blocked) {
+                            return (
+                              <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1 shrink-0">
+                                <Lock className="w-3 h-3" /> 이전 유닛 승인 후 학습
+                              </span>
+                            );
+                          }
                           if (startedNext) {
                             return (
                               <Button
@@ -863,33 +1069,7 @@ const StudentHome = () => {
                             })}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {/* 시험지 요청 */}
-                            {printReqs[sentence.id] ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-[11px] px-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
-                                onClick={() => handleCancelPrint(sentence.id)}
-                                disabled={!!busy[`print:${sentence.id}`]}
-                                title="요청 취소"
-                              >
-                                <Hourglass className="w-3 h-3 mr-1 animate-pulse" />
-                                시험지 요청됨
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 text-[11px] px-2"
-                                onClick={() => handleRequestPrint(sentence.id)}
-                                disabled={!!busy[`print:${sentence.id}`]}
-                                title="선생님께 시험지 인쇄 요청"
-                              >
-                                <Printer className="w-3 h-3 mr-1" />
-                                시험지 요청
-                              </Button>
-                            )}
-
+                            {/* 지문별 인쇄 요청 → 유닛 단위 정책으로 특별과제 카드에서 처리 */}
                             {/* 정답보기 요청 */}
                             {reviewReqs[sentence.id]?.status === "approved" ? (
                               <Button

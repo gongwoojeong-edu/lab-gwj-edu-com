@@ -1,7 +1,6 @@
 // ============================================================
 // RequestsInbox — 통합 [요청확인] 페이지
-// 시험지 인쇄 요청 + 선생님분석본보기(자기첨삭) 요청을 한 화면에 표기.
-// 각 행 맨 앞에 종류 배지 [시험지] / [정답보기] 표기.
+// 유닛 인쇄 요청 + 자료열람 요청 + (레거시) 지문별 시험지 + 정답보기
 // ============================================================
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -59,6 +58,21 @@ import { fetchMasterAvailability } from "@/lib/masterAvailability";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  fetchPendingUnitPrintWorkflows,
+  markUnitPrinted,
+  subscribeToUnitWorkflows,
+  type UnitWorkflowRow,
+} from "@/lib/unitWorkflow";
+import {
+  fetchPendingMaterialViewRequests,
+  approveMaterialViewRequest,
+  rejectMaterialViewRequest,
+  subscribeToMaterialViewRequests,
+  type MaterialViewRequest,
+} from "@/lib/materialViewRequests";
+import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
+import { launchPrintHtml } from "@/lib/printLauncher";
 
 interface StudentInfo {
   user_id: string;
@@ -68,13 +82,18 @@ interface StudentInfo {
 
 type InboxItem =
   | { kind: "print"; created_at: string; row: PrintRequest }
-  | { kind: "review"; created_at: string; row: AnalysisReviewRequest };
+  | { kind: "review"; created_at: string; row: AnalysisReviewRequest }
+  | { kind: "unit_print"; created_at: string; row: UnitWorkflowRow }
+  | { kind: "material_view"; created_at: string; row: MaterialViewRequest };
 
 const RequestsInbox = () => {
   const navigate = useNavigate();
   const [printRows, setPrintRows] = useState<PrintRequest[]>([]);
   const [handledPrintRows, setHandledPrintRows] = useState<PrintRequest[]>([]);
   const [reviewRows, setReviewRows] = useState<AnalysisReviewRequest[]>([]);
+  const [unitPrintRows, setUnitPrintRows] = useState<UnitWorkflowRow[]>([]);
+  const [materialViewRows, setMaterialViewRows] = useState<MaterialViewRequest[]>([]);
+  const [unitLabels, setUnitLabels] = useState<Record<string, string>>({});
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
   const [masterMap, setMasterMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -84,19 +103,25 @@ const RequestsInbox = () => {
   const refresh = async () => {
     setLoading(true);
     try {
-      const [pl, hp, rl] = await Promise.all([
+      const [pl, hp, rl, up, mv] = await Promise.all([
         fetchPendingPrintRequests(),
         fetchHandledPrintRequests(100),
         fetchInboxReviewRequests(),
+        fetchPendingUnitPrintWorkflows(),
+        fetchPendingMaterialViewRequests(),
       ]);
       setPrintRows(pl);
       setHandledPrintRows(hp);
       setReviewRows(rl);
+      setUnitPrintRows(up);
+      setMaterialViewRows(mv);
       const userIds = Array.from(
         new Set([
           ...pl.map((r) => r.user_id),
           ...hp.map((r) => r.user_id),
           ...rl.map((r) => r.user_id),
+          ...up.map((r) => r.user_id),
+          ...mv.map((r) => r.user_id),
         ]),
       );
       if (userIds.length > 0) {
@@ -115,6 +140,22 @@ const RequestsInbox = () => {
         });
         setStudents(map);
       }
+      const unitIds = Array.from(
+        new Set([...up.map((r) => r.unit_id), ...mv.map((r) => r.unit_id)]),
+      );
+      if (unitIds.length > 0) {
+        const { data: units } = await supabase
+          .from("textbook_units")
+          .select("id, unit_no, title")
+          .in("id", unitIds);
+        const labels: Record<string, string> = {};
+        ((units ?? []) as { id: string; unit_no: number; title: string }[]).forEach((u) => {
+          labels[u.id] = `U${u.unit_no} ${u.title}`;
+        });
+        setUnitLabels(labels);
+      } else {
+        setUnitLabels({});
+      }
       // 정답보기(review) 요청들의 sentence별 마스터 유무 확인
       const reviewSentenceIds = Array.from(new Set(rl.map((r) => r.sentence_id)));
       if (reviewSentenceIds.length > 0) {
@@ -132,9 +173,13 @@ const RequestsInbox = () => {
     refresh();
     const u1 = subscribeToPrintRequests(() => refresh());
     const u2 = subscribeToReviewRequests(() => refresh());
+    const u3 = subscribeToUnitWorkflows(() => refresh());
+    const u4 = subscribeToMaterialViewRequests(() => refresh());
     return () => {
       u1?.();
       u2?.();
+      u3?.();
+      u4?.();
     };
   }, []);
 
@@ -152,10 +197,20 @@ const RequestsInbox = () => {
           created_at: r.requested_at ?? r.created_at,
           row: r,
         })),
+      ...unitPrintRows.map((r): InboxItem => ({
+        kind: "unit_print",
+        created_at: r.print_requested_at ?? r.created_at,
+        row: r,
+      })),
+      ...materialViewRows.map((r): InboxItem => ({
+        kind: "material_view",
+        created_at: r.requested_at,
+        row: r,
+      })),
     ];
     out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     return out;
-  }, [printRows, reviewRows]);
+  }, [printRows, reviewRows, unitPrintRows, materialViewRows]);
 
   const doneItems = useMemo<InboxItem[]>(() => {
     const out: InboxItem[] = [
@@ -249,6 +304,52 @@ const RequestsInbox = () => {
     }
   };
 
+  const triggerUnitPrint = async (wf: UnitWorkflowRow) => {
+    const busyKey = `unit:${wf.user_id}:${wf.unit_id}`;
+    setBusy((p) => ({ ...p, [busyKey]: true }));
+    try {
+      const label = unitLabels[wf.unit_id] ?? "Unit";
+      const { html } = await buildUnitWorkbookHtmlFor({
+        unitId: wf.unit_id,
+        unitTitle: label,
+        unitCode: label,
+        studentId: wf.user_id,
+        mode: "syntax_unit",
+        paperSize: "B5",
+      });
+      launchPrintHtml(html, { jobKey: busyKey });
+      await markUnitPrinted(wf.user_id, wf.unit_id);
+      toast({ title: "유닛 워크북 인쇄 · 기록 완료" });
+      setTab("done");
+      await refresh();
+    } catch (e) {
+      toast({ title: "인쇄 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setBusy((p) => ({ ...p, [busyKey]: false }));
+    }
+  };
+
+  const handleMaterialApprove = async (id: string) => {
+    try {
+      await approveMaterialViewRequest(id);
+      toast({ title: "자료열람 승인" });
+      setTab("done");
+      await refresh();
+    } catch (e) {
+      toast({ title: "승인 실패", description: errMsg(e), variant: "destructive" });
+    }
+  };
+
+  const handleMaterialReject = async (id: string) => {
+    try {
+      await rejectMaterialViewRequest(id);
+      toast({ title: "자료열람 반려" });
+      await refresh();
+    } catch (e) {
+      toast({ title: "반려 실패", description: errMsg(e), variant: "destructive" });
+    }
+  };
+
   const handleDelete = async (item: InboxItem) => {
     const ok = window.confirm(
       "이 요청 기록을 영구 삭제할까요?\n(테스트/실수 데이터 정리용 — 되돌릴 수 없습니다)",
@@ -278,7 +379,7 @@ const RequestsInbox = () => {
               <Inbox className="size-6 text-primary" /> 요청확인
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              학생들이 보낸 시험지 인쇄 요청과 정답 보기 요청을 한 곳에서 처리합니다.
+              유닛 인쇄·자료열람·정답보기 요청을 한 곳에서 처리합니다.
             </p>
           </div>
         </div>
@@ -301,9 +402,13 @@ const RequestsInbox = () => {
         ) : (
           <div className="space-y-2">
             {items.map((it) => {
-              const s = students[it.row.user_id];
+              const userId =
+                it.kind === "unit_print" || it.kind === "material_view"
+                  ? it.row.user_id
+                  : it.row.user_id;
+              const s = students[userId];
               const studentName =
-                s?.display_name ?? s?.student_no ?? it.row.user_id.slice(0, 8);
+                s?.display_name ?? s?.student_no ?? userId.slice(0, 8);
               const studentNo = s?.student_no ?? "—";
               const time = new Date(it.created_at).toLocaleString("ko-KR", {
                 month: "2-digit",
@@ -312,6 +417,69 @@ const RequestsInbox = () => {
                 minute: "2-digit",
               });
               const wbToggle: React.ReactNode = null;
+
+              if (it.kind === "unit_print") {
+                const wf = it.row;
+                const busyKey = `unit:${wf.user_id}:${wf.unit_id}`;
+                return (
+                  <Card
+                    key={`up-${wf.user_id}-${wf.unit_id}`}
+                    className="p-3 flex items-center gap-3 flex-wrap border-l-4 border-l-amber-500"
+                  >
+                    <Badge className="bg-amber-600 text-white font-bold">유닛 인쇄</Badge>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-foreground">
+                        {studentName}{" "}
+                        <span className="text-xs font-mono text-muted-foreground">({studentNo})</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {unitLabels[wf.unit_id] ?? wf.unit_id.slice(0, 8)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{time}</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={!!busy[busyKey]}
+                      onClick={() => triggerUnitPrint(wf)}
+                    >
+                      {busy[busyKey] ? (
+                        <Loader2 className="size-3 mr-1 animate-spin" />
+                      ) : (
+                        <Printer className="size-3 mr-1" />
+                      )}
+                      워크북 인쇄
+                    </Button>
+                  </Card>
+                );
+              }
+
+              if (it.kind === "material_view") {
+                const mv = it.row;
+                return (
+                  <Card
+                    key={`mv-${mv.id}`}
+                    className="p-3 flex items-center gap-3 flex-wrap border-l-4 border-l-sky-500"
+                  >
+                    <Badge className="bg-sky-600 text-white font-bold">자료열람</Badge>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-foreground">
+                        {studentName}{" "}
+                        <span className="text-xs font-mono text-muted-foreground">({studentNo})</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {unitLabels[mv.unit_id] ?? mv.unit_id.slice(0, 8)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{time}</div>
+                    </div>
+                    <Button size="sm" onClick={() => handleMaterialApprove(mv.id)}>
+                      <CheckCircle2 className="size-3 mr-1" /> 승인
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleMaterialReject(mv.id)}>
+                      <XCircle className="size-3 mr-1" /> 반려
+                    </Button>
+                  </Card>
+                );
+              }
 
               if (it.kind === "print") {
                 const req = it.row;
