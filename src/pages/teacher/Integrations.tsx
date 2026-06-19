@@ -65,6 +65,9 @@ const Integrations = () => {
   const [issuing, setIssuing] = useState(false);
   const [orbitSyncing, setOrbitSyncing] = useState(false);
   const [orbitResult, setOrbitResult] = useState<OrbitEnglishSyncResult | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [teacherCount, setTeacherCount] = useState<number>(0);
+  const [studentCount, setStudentCount] = useState<number>(0);
   const [label, setLabel] = useState("Claude 지문분석기");
   const [newPlainToken, setNewPlainToken] = useState<string | null>(null);
   const [showSnippet, setShowSnippet] = useState(true);
@@ -99,8 +102,21 @@ const Integrations = () => {
     setLoading(false);
   };
 
+  const loadOrbitStatus = async () => {
+    const db = supabase as unknown as { from: (t: string) => any };
+    const [{ data: staffRows }, { count: studentN }] = await Promise.all([
+      db.from("orbit_staff_cache").select("synced_at").order("synced_at", { ascending: false }).limit(1),
+      db.from("student_profiles").select("user_id", { count: "exact", head: true }).not("orbit_class_id", "is", null),
+    ]);
+    const { count: staffN } = await db.from("orbit_staff_cache").select("id", { count: "exact", head: true });
+    setLastSyncAt(staffRows?.[0]?.synced_at ?? null);
+    setTeacherCount(staffN ?? 0);
+    setStudentCount(studentN ?? 0);
+  };
+
   useEffect(() => {
     void load();
+    void loadOrbitStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -197,6 +213,7 @@ const Integrations = () => {
         return;
       }
       reloadStaff();
+      void loadOrbitStatus();
       toast({
         title: "Orbit 동기화 완료",
         description: `선생님 ${result.teachersSynced ?? 0}명 · 학생 ${result.studentsSynced ?? 0}명`,
@@ -308,6 +325,23 @@ structure_html 문자열  구조도 HTML (선택)`;
                   직원 목록: Orbit 동기화 캐시 사용 중 (외부 연동에서 동기화 실행)
                 </p>
               )}
+            </div>
+            <div className="rounded-md border bg-muted/20 p-3 text-sm space-y-1">
+              <p className="flex items-center gap-2">
+                <span className="font-medium">최근 동기화:</span>
+                {lastSyncAt ? (
+                  <>
+                    <Badge variant="secondary">
+                      {new Date(lastSyncAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      선생님 {teacherCount}명 · 학생 {studentCount}명
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">아직 동기화된 적 없음</span>
+                )}
+              </p>
             </div>
             <Button onClick={runOrbitSync} disabled={orbitSyncing}>
               {orbitSyncing && <Loader2 className="size-4 mr-1 animate-spin" />}
