@@ -2,6 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { fetchUnitWorkflow } from "@/lib/unitWorkflow";
 
+const materialViewRequests = () =>
+  (supabase as unknown as { from: (table: "material_view_requests") => any }).from("material_view_requests");
+
 export type MaterialViewStatus = "pending" | "approved" | "rejected";
 
 export interface MaterialViewRequest {
@@ -17,8 +20,7 @@ export interface MaterialViewRequest {
 export async function fetchMyMaterialViewRequests(
   userId: string,
 ): Promise<Record<string, MaterialViewRequest>> {
-  const { data } = await supabase
-    .from("material_view_requests")
+  const { data } = await materialViewRequests()
     .select("*")
     .eq("user_id", userId)
     .order("requested_at", { ascending: false });
@@ -32,8 +34,7 @@ export async function fetchMyMaterialViewRequests(
 }
 
 export async function fetchPendingMaterialViewRequests(): Promise<MaterialViewRequest[]> {
-  const { data, error } = await supabase
-    .from("material_view_requests")
+  const { data, error } = await materialViewRequests()
     .select("*")
     .eq("status", "pending")
     .order("requested_at", { ascending: true });
