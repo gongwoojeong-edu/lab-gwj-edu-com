@@ -49,36 +49,32 @@ export async function requestMaterialView(userId: string, unitId: string): Promi
     throw new Error("선생님 인쇄 후 자료열람을 요청할 수 있습니다.");
   }
 
-  const { data: existing } = await supabase
-    .from("material_view_requests")
+  const { data: existing } = await materialViewRequests()
     .select("*")
     .eq("user_id", userId)
     .eq("unit_id", unitId)
     .eq("status", "pending")
     .maybeSingle();
-  if (existing) return existing as MaterialViewRequest;
+  if (existing) return existing as unknown as MaterialViewRequest;
 
-  const { data: approved } = await supabase
-    .from("material_view_requests")
+  const { data: approved } = await materialViewRequests()
     .select("*")
     .eq("user_id", userId)
     .eq("unit_id", unitId)
     .eq("status", "approved")
     .maybeSingle();
-  if (approved) return approved as MaterialViewRequest;
+  if (approved) return approved as unknown as MaterialViewRequest;
 
-  const { data, error } = await supabase
-    .from("material_view_requests")
+  const { data, error } = await materialViewRequests()
     .insert({ user_id: userId, unit_id: unitId })
     .select("*")
     .single();
   if (error) throw error;
-  return data as MaterialViewRequest;
+  return data as unknown as MaterialViewRequest;
 }
 
 export async function cancelMaterialViewRequest(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("material_view_requests")
+  const { error } = await materialViewRequests()
     .delete()
     .eq("id", id)
     .eq("status", "pending");
@@ -87,8 +83,7 @@ export async function cancelMaterialViewRequest(id: string): Promise<void> {
 
 export async function approveMaterialViewRequest(id: string): Promise<void> {
   const teacherId = await getCurrentUserId();
-  const { error } = await supabase
-    .from("material_view_requests")
+  const { error } = await materialViewRequests()
     .update({
       status: "approved",
       responded_at: new Date().toISOString(),
@@ -101,8 +96,7 @@ export async function approveMaterialViewRequest(id: string): Promise<void> {
 
 export async function rejectMaterialViewRequest(id: string): Promise<void> {
   const teacherId = await getCurrentUserId();
-  const { error } = await supabase
-    .from("material_view_requests")
+  const { error } = await materialViewRequests()
     .update({
       status: "rejected",
       responded_at: new Date().toISOString(),
@@ -114,12 +108,11 @@ export async function rejectMaterialViewRequest(id: string): Promise<void> {
 }
 
 export async function fetchApprovedMaterialUnits(userId: string): Promise<string[]> {
-  const { data } = await supabase
-    .from("material_view_requests")
+  const { data } = await materialViewRequests()
     .select("unit_id")
     .eq("user_id", userId)
     .eq("status", "approved");
-  return ((data ?? []) as { unit_id: string }[]).map((r) => r.unit_id);
+  return ((data ?? []) as unknown as { unit_id: string }[]).map((r) => r.unit_id);
 }
 
 export function subscribeToMaterialViewRequests(onChange: () => void) {
