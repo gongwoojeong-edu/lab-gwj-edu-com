@@ -266,6 +266,50 @@ export type Database = {
         }
         Relationships: []
       }
+      material_view_requests: {
+        Row: {
+          created_at: string
+          id: string
+          requested_at: string
+          responded_at: string | null
+          responded_by: string | null
+          status: string
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          unit_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_view_requests_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "textbook_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modifier_relations: {
         Row: {
           created_at: string
@@ -1023,6 +1067,62 @@ export type Database = {
           },
         ]
       }
+      unit_workflows: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          print_requested_at: string | null
+          printed_at: string | null
+          printed_by: string | null
+          status: Database["public"]["Enums"]["unit_workflow_status"]
+          teacher_grade: string | null
+          teacher_memo: string | null
+          unit_id: string
+          updated_at: string
+          user_id: string
+          workbook_submitted_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          print_requested_at?: string | null
+          printed_at?: string | null
+          printed_by?: string | null
+          status?: Database["public"]["Enums"]["unit_workflow_status"]
+          teacher_grade?: string | null
+          teacher_memo?: string | null
+          unit_id: string
+          updated_at?: string
+          user_id: string
+          workbook_submitted_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          print_requested_at?: string | null
+          printed_at?: string | null
+          printed_by?: string | null
+          status?: Database["public"]["Enums"]["unit_workflow_status"]
+          teacher_grade?: string | null
+          teacher_memo?: string | null
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+          workbook_submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_workflows_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "textbook_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1167,6 +1267,12 @@ export type Database = {
       analysis_review_status: "pending" | "approved" | "rejected" | "cancelled"
       app_role: "student" | "teacher" | "admin"
       print_request_status: "pending" | "printed" | "canceled"
+      unit_workflow_status:
+        | "learning"
+        | "print_pending"
+        | "printed"
+        | "workbook_submitted"
+        | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1297,6 +1403,13 @@ export const Constants = {
       analysis_review_status: ["pending", "approved", "rejected", "cancelled"],
       app_role: ["student", "teacher", "admin"],
       print_request_status: ["pending", "printed", "canceled"],
+      unit_workflow_status: [
+        "learning",
+        "print_pending",
+        "printed",
+        "workbook_submitted",
+        "completed",
+      ],
     },
   },
 } as const
