@@ -1,7 +1,7 @@
 // Edge Function: sync-orbit-english
 // Platform Orbit(odyyafiexhebzoodeejl) → lab student_profiles / auth / staff cache
 // 영어과 학생·선생님·반만 동기화, 로그인 정책 동일 (gwj#### / gwjt### + default password)
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
