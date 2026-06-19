@@ -65,13 +65,12 @@ export async function fetchPendingUnitPrintWorkflows(): Promise<UnitWorkflowRow[
 }
 
 export async function fetchWorkbookSubmittedWorkflows(): Promise<UnitWorkflowRow[]> {
-  const { data, error } = await supabase
-    .from("unit_workflows")
+  const { data, error } = await unitWorkflows()
     .select("*")
     .eq("status", "workbook_submitted")
     .order("workbook_submitted_at", { ascending: true });
   if (error) throw error;
-  return (data ?? []) as UnitWorkflowRow[];
+  return (data ?? []) as unknown as UnitWorkflowRow[];
 }
 
 async function upsertWorkflow(
@@ -79,8 +78,7 @@ async function upsertWorkflow(
   unitId: string,
   patch: Partial<UnitWorkflowRow>,
 ): Promise<UnitWorkflowRow> {
-  const { data, error } = await supabase
-    .from("unit_workflows")
+  const { data, error } = await unitWorkflows()
     .upsert(
       { user_id: userId, unit_id: unitId, ...patch },
       { onConflict: "user_id,unit_id" },
@@ -88,7 +86,7 @@ async function upsertWorkflow(
     .select("*")
     .single();
   if (error) throw error;
-  return data as UnitWorkflowRow;
+  return data as unknown as UnitWorkflowRow;
 }
 
 /** 유닛 내 모든 지문 학습 완료 여부 */
@@ -120,8 +118,7 @@ export async function requestUnitPrint(userId: string, unitId: string): Promise<
 /** 선생님: 유닛 워크북 인쇄 완료 */
 export async function markUnitPrinted(userId: string, unitId: string): Promise<UnitWorkflowRow> {
   const teacherId = await getCurrentUserId();
-  const { data, error } = await supabase
-    .from("unit_workflows")
+  const { data, error } = await unitWorkflows()
     .update({
       status: "printed",
       printed_at: new Date().toISOString(),
@@ -134,7 +131,7 @@ export async function markUnitPrinted(userId: string, unitId: string): Promise<U
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("인쇄 대기 중인 요청이 없습니다.");
-  return data as UnitWorkflowRow;
+  return data as unknown as UnitWorkflowRow;
 }
 
 /** 학생: 워크북 탐구 활동 완료 */
@@ -157,8 +154,7 @@ export async function completeUnitLearning(
   memo: string,
 ): Promise<UnitWorkflowRow> {
   const teacherId = await getCurrentUserId();
-  const { data, error } = await supabase
-    .from("unit_workflows")
+  const { data, error } = await unitWorkflows()
     .update({
       status: "completed",
       teacher_grade: grade,
@@ -173,7 +169,7 @@ export async function completeUnitLearning(
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("워크북 제출 대기 중인 유닛이 아닙니다.");
-  return data as UnitWorkflowRow;
+  return data as unknown as UnitWorkflowRow;
 }
 
 /** 같은 권(textbook) 내 이전 유닛 id (unit_no 기준) */
