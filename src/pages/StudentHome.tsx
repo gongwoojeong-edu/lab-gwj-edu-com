@@ -666,7 +666,6 @@ const StudentHome = () => {
                 height={28}
                 loading="lazy"
                 className="w-7 h-7 object-contain"
-                style={{ filter: "brightness(0) saturate(100%) invert(28%) sepia(74%) saturate(2618%) hue-rotate(258deg) brightness(92%) contrast(96%)" }}
               />
             </span>
             <div>
