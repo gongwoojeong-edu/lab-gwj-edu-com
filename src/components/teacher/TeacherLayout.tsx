@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   ShieldCheck,
   Plug,
+  Settings2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { signOut, useAuth } from "@/hooks/useAuth";
@@ -71,6 +72,7 @@ const TeacherSidebarInner = () => {
   // 그룹 라벨 활성화 여부 — 그룹 내 어떤 라우트가 활성이면 라벨도 강조
   const dashboardActive = pathname === "/teacher";
   const bookshelfActive = pathname.startsWith("/teacher/bookshelf");
+  const studentMgmtActive = pathname.startsWith("/teacher/roster");
   const learnMgmtActive =
     pathname.startsWith("/teacher/students") ||
     pathname.startsWith("/teacher/results") ||
@@ -134,6 +136,25 @@ const TeacherSidebarInner = () => {
         </SidebarGroup>
 
         <SidebarGroup>
+          <SidebarGroupLabel className={groupLabelCls(studentMgmtActive)}>
+            <Users className="size-4" />
+            {!collapsed && <span>학생관리</span>}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/roster" className={({ isActive }) => linkCls(isActive)}>
+                    <Users className="size-4" />
+                    {!collapsed && <span>학생목록</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupLabel className={groupLabelCls(learnMgmtActive)}>
             <GraduationCap className="size-4" />
             {!collapsed && <span>학습관리</span>}
@@ -143,8 +164,8 @@ const TeacherSidebarInner = () => {
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink to="/teacher/students" className={({ isActive }) => linkCls(isActive)}>
-                    <Users className="size-4" />
-                    {!collapsed && <span>학생 목록</span>}
+                    <Settings2 className="size-4" />
+                    {!collapsed && <span>학습 설정</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

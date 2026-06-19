@@ -12,6 +12,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   Clock,
+  Settings2,
 } from "lucide-react";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,7 +52,8 @@ import { AlertTriangle } from "lucide-react";
 const TILES = [
   { to: "/teacher/requests", title: "선생님분석본보기요청", desc: "학생 자기첨삭 승인", icon: ClipboardCheck, badgeKey: "pending" as const },
   { to: "/teacher/bookshelf", title: "책장", desc: "레벨별 교재 관리", icon: BookOpen },
-  { to: "/teacher/students", title: "학생 목록", desc: "학생 진행/권한 관리", icon: Users },
+  { to: "/teacher/roster", title: "학생목록", desc: "재원생·선생님 계정 (Orbit)", icon: Users },
+  { to: "/teacher/students", title: "학습 설정", desc: "통과기준·PIN·시작 레벨", icon: Settings2 },
   { to: "/teacher/assignments", title: "특별과제", desc: "학생에게 특별과제 부여", icon: ClipboardList },
   { to: "/teacher/print-queue", title: "인쇄 대기열", desc: "시험지 승인·출력", icon: Printer },
   { to: "/teacher/results", title: "학습결과", desc: "오늘 학습 결과·HO 입력", icon: RefreshCcw },

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/NotFound.tsx";
 import TeacherDashboard from "./pages/TeacherDashboard.tsx";
 import TeacherStudents from "./pages/TeacherStudents.tsx";
+import StudentRoster from "./pages/teacher/StudentRoster.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
 import StudentHome from "./pages/StudentHome.tsx";
@@ -203,6 +204,14 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <PassageEditor />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/roster"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <StudentRoster />
                 </RequireAuth>
               }
             />
