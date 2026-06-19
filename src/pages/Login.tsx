@@ -101,7 +101,12 @@ const Login = () => {
     });
     setSubmitting(false);
     if (error) {
-      toast({ title: "번호 또는 비밀번호가 일치하지 않습니다.", variant: "destructive" });
+      toast({
+        title: "번호 또는 비밀번호가 일치하지 않습니다.",
+        description:
+          "lab DB에 계정이 없을 수 있습니다. 관리자에게 Orbit 동기화 또는 계정 생성을 요청하세요.",
+        variant: "destructive",
+      });
       return;
     }
     const from = (location.state as { from?: string } | null)?.from;

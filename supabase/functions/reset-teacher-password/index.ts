@@ -1,6 +1,7 @@
 // Edge Function: reset-teacher-password
 // admin만 선생님 Auth 비밀번호를 초기값(아이디+마지막 숫자)으로 재설정
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import { createServiceClient } from "../_shared/createServiceClient.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,7 +75,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return json({ error: "Unauthorized" }, 401);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const admin = createServiceClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: roleRows, error: roleErr } = await admin
       .from("user_roles")
       .select("role")

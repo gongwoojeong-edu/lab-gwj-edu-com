@@ -1,7 +1,13 @@
 // Edge Function: sync-orbit-english
 // Platform Orbit(odyyafiexhebzoodeejl) → lab student_profiles / auth / staff cache
 // 영어과 학생·선생님·반만 동기화, 로그인 정책 동일 (gwj#### / gwjt### + default password)
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import {
+  createServiceClient,
+  probeOrbitClient,
+} from "../_shared/createServiceClient.ts";
+
+const ORBIT_PROJECT_REF = "odyyafiexhebzoodeejl";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -273,13 +279,23 @@ Deno.serve(async (req) => {
       500,
     );
   }
+  if (!orbitUrl.includes(ORBIT_PROJECT_REF)) {
+    return json(
+      {
+        ok: false,
+        error: `ORBIT_SUPABASE_URL must be https://${ORBIT_PROJECT_REF}.supabase.co`,
+      },
+      500,
+    );
+  }
 
-  const labSb = createClient(labUrl, labServiceKey, {
-    auth: { persistSession: false },
-  });
-  const orbitSb = createClient(orbitUrl, orbitServiceKey, {
-    auth: { persistSession: false },
-  });
+  const labSb = createServiceClient(labUrl, labServiceKey);
+  const orbitSb = createServiceClient(orbitUrl, orbitServiceKey);
+
+  const orbitProbe = await probeOrbitClient(orbitSb);
+  if (!orbitProbe.ok) {
+    return json({ ok: false, error: orbitProbe.error }, 500);
+  }
 
   const caller = await verifyCaller(labSb, orbitSb, accessToken);
   if (!caller.ok) {

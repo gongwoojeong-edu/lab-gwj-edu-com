@@ -1,0 +1,11 @@
+# lab Supabase(vyiwfkctilezvpafqjek) Secret key 한 줄
+# Lovable → Project → Cloud → Supabase → Settings → API
+#   → Secret keys → sb_secret_...  (또는 legacy service_role eyJ...)
+#   → sb_publishable_ / anon 은 안 됩니다 (공개용)
+#
+# 이 파일을 lab-service-role.local 로 복사한 뒤,
+# 아래 placeholder 줄만 삭제하고 Secret key 한 줄만 남기세요.
+# lab-service-role.local — 절대 커밋하지 마세요
+
+your-lab-secret-key-here = sb_publishable_MzYEH946aerjRb5VptY6Wg_GeXWIxv2
+

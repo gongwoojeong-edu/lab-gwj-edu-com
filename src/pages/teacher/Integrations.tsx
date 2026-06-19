@@ -104,6 +104,56 @@ const Integrations = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      setTeachersLoading(true);
+      try {
+        const rows = await fetchTeacherAccounts();
+        if (!cancelled) setTeachers(rows);
+      } catch (e) {
+        if (!cancelled) {
+          toast({
+            title: "선생님 목록 로드 실패",
+            description: (e as Error).message,
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) setTeachersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
+  const doReset = async (opts: { userId?: string; loginId?: string }) => {
+    const key = opts.userId ?? opts.loginId ?? "";
+    setResettingId(key);
+    setResetResult(null);
+    try {
+      const result = await resetTeacherPassword(opts);
+      if (!result.ok) {
+        toast({ title: "비밀번호 초기화 실패", description: result.error, variant: "destructive" });
+        return;
+      }
+      setResetResult({
+        name: result.name ?? null,
+        loginId: result.loginId ?? opts.loginId ?? "",
+        password: result.password ?? "",
+      });
+      toast({
+        title: "비밀번호가 초기화되었습니다",
+        description: `${result.loginId} → ${result.password}`,
+      });
+    } finally {
+      setResettingId(null);
+      setResetConfirm(null);
+    }
+  };
+
   const issue = async () => {
     if (!user) return;
     setIssuing(true);
@@ -274,6 +324,98 @@ structure_html 문자열  구조도 HTML (선택)`;
             )}
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RotateCcw className="size-5" /> 선생님 비밀번호 초기화
+              </CardTitle>
+              <CardDescription>
+                admin 전용. 초기 비밀번호는 아이디+마지막 숫자 규칙으로 재설정됩니다 (예: gwjt512 →
+                gwjt5122).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Label htmlFor="manual-login-id">선생님 번호</Label>
+                  <Input
+                    id="manual-login-id"
+                    value={manualLoginId}
+                    onChange={(e) => setManualLoginId(e.target.value)}
+                    placeholder="예: 512, gwjt512"
+                    maxLength={20}
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  disabled={!manualLoginId.trim() || resettingId !== null}
+                  onClick={() =>
+                    setResetConfirm({
+                      loginId: manualLoginId.trim(),
+                      name: manualLoginId.trim(),
+                    })
+                  }
+                >
+                  {resettingId === manualLoginId.trim() && (
+                    <Loader2 className="size-4 mr-1 animate-spin" />
+                  )}
+                  초기화
+                </Button>
+              </div>
+
+              {resetResult && (
+                <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-sm space-y-1">
+                  <p className="font-semibold">✓ 초기화 완료</p>
+                  <p>
+                    {resetResult.name && <span>{resetResult.name} · </span>}
+                    로그인:{" "}
+                    <code className="text-xs bg-background px-1 rounded">
+                      {resetResult.loginId.replace(/^gwjt/, "")}
+                    </code>{" "}
+                    / 비밀번호{" "}
+                    <code className="text-xs bg-background px-1 rounded">{resetResult.password}</code>
+                  </p>
+                </div>
+              )}
+
+              {teachersLoading ? (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" /> Orbit 연동 선생님 목록 불러오는 중…
+                </p>
+              ) : teachers.length > 0 ? (
+                <ul className="divide-y rounded-md border">
+                  {teachers.map((t) => (
+                    <li key={t.user_id} className="py-2 px-3 flex items-center gap-3 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">{t.name}</span>
+                        <span className="text-muted-foreground ml-2 font-mono text-xs">{t.login_id}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={resettingId !== null}
+                        onClick={() =>
+                          setResetConfirm({ userId: t.user_id, loginId: t.login_id, name: t.name })
+                        }
+                      >
+                        {resettingId === t.user_id && (
+                          <Loader2 className="size-3 mr-1 animate-spin" />
+                        )}
+                        초기화
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Orbit 동기화 후 연결된 선생님 목록이 여기에 표시됩니다.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Issue token */}
         <Card>
@@ -470,6 +612,33 @@ structure_html 문자열  구조도 HTML (선택)`;
               }}
             >
               폐기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!resetConfirm} onOpenChange={(o) => !o && setResetConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>비밀번호를 초기화할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {resetConfirm?.name} 선생님 계정의 비밀번호를 초기값으로 재설정합니다. 기존 비밀번호는
+              더 이상 사용할 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (resetConfirm) {
+                  void doReset({
+                    userId: resetConfirm.userId,
+                    loginId: resetConfirm.loginId,
+                  });
+                }
+              }}
+            >
+              초기화
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
