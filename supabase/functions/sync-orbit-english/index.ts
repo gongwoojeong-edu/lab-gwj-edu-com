@@ -212,12 +212,20 @@ async function ensureAuthUser(
     (u) => u.email?.toLowerCase() === email.toLowerCase(),
   );
   if (existing) {
-    await labSb.auth.admin.updateUserById(existing.id, {
+    const update: {
+      user_metadata: { student_no: string; display_name: string };
+      password?: string;
+    } = {
       user_metadata: {
         student_no: loginId,
         display_name: displayName,
       },
-    });
+    };
+    // Orbit 동기화 시 선생님은 표준 초기 비밀번호로 맞춤 (기존 계정 로그인 불가 방지)
+    if (role === "teacher") {
+      update.password = password;
+    }
+    await labSb.auth.admin.updateUserById(existing.id, update);
     await ensureRole(labSb, existing.id, role);
     return existing.id;
   }
