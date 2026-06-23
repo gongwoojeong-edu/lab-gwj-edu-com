@@ -9,8 +9,9 @@
 //
 // 단어와 구문은 절대 같은 PDF에 섞지 않는다 — 두 종류 다 필요하면 교사가 두 번 인쇄.
 //
-// 완료 기준 (포함 여부):
-//   sentence_progress 의 word_test_done && translation_done && analysis_done == true
+// 포함 기준:
+//   - syntax_unit / word_*: 유닛 전체 지문
+//   - syntax_passage: 완료 지문(sentence_progress 3단계 완료)만
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -513,15 +514,16 @@ export const buildUnitWorkbookHtmlFor = async (
   const studentName = (sp?.display_name as string | null) ?? null;
   const studentNo = (sp?.student_no as string | null) ?? null;
 
-  // 진행상황 (구문 워크북에서만 "완료된 지문"으로 필터)
+  // 진행상황 (문장별 구문 워크북에서만 "완료된 지문"으로 필터)
   const summary = await summarizeUnitProgress(input.unitId, input.studentId);
   const isWord = mode === "word_unit" || mode === "word_passage";
-  // 단어 시험지는 진행도 무관하게 유닛 전체 지문을 사용
-  const allPassages = isWord ? await fetchPassagesByUnit(input.unitId) : [];
+  const isUnitWideMode = mode === "syntax_unit" || isWord;
+  // 유닛 통합 워크북과 단어 시험지는 진행도 무관하게 유닛 전체 지문을 사용
+  const allPassages = isUnitWideMode ? await fetchPassagesByUnit(input.unitId) : [];
   const allCodes = allPassages.map((p) => p.code);
-  const targetCodes = isWord ? allCodes : summary.completedCodes;
+  const targetCodes = isUnitWideMode ? allCodes : summary.completedCodes;
   if (targetCodes.length === 0) {
-    throw new Error(isWord ? "이 유닛에 지문이 없어요." : "아직 완료한 지문이 없어요.");
+    throw new Error(isUnitWideMode ? "이 유닛에 지문이 없어요." : "아직 완료한 지문이 없어요.");
   }
 
   const ctx: UnitWorkbookContext = {
@@ -534,12 +536,7 @@ export const buildUnitWorkbookHtmlFor = async (
   let html: string;
   switch (mode) {
     case "syntax_unit": {
-      const passagesAll = isWord ? allPassages : await fetchPassagesByUnit(input.unitId);
-      const byCode = new Map(passagesAll.map((p) => [p.code, p]));
-      const targetPassages = targetCodes
-        .map((c) => byCode.get(c))
-        .filter((p): p is Passage => !!p);
-      html = await buildSyntaxUnit(targetPassages, input.studentId, ctx, input.answerKey ?? false);
+      html = await buildSyntaxUnit(allPassages, input.studentId, ctx, input.answerKey ?? false);
       break;
     }
     case "syntax_passage":
