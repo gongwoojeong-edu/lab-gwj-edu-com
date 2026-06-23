@@ -95,18 +95,19 @@ export const UnitWorkbookPreviewDialog = ({
 
   // 예상 페이지 추정
   const estimatedPages = (() => {
-    const n = completedCodes.length;
+    const n = completedCodes.length + pendingCodes.length;
     switch (mode) {
       case "syntax_unit":
         return Math.max(1, Math.ceil(n / 2)) + 1; // 통합본 (앞=본문, 뒤=구조)
       case "syntax_passage":
-        return n * 2; // 지문당 2장 (본문+구조)
+        return completedCodes.length * 2; // 지문당 2장 (본문+구조)
       case "word_unit":
         return 1; // 통합 시험지 1장
       case "word_passage":
         return n; // 지문당 1장
     }
   })();
+  const printableCount = mode === "syntax_passage" ? completedCodes.length : completedCodes.length + pendingCodes.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -210,7 +211,7 @@ export const UnitWorkbookPreviewDialog = ({
               포함 지문
             </div>
             <div className="text-xs text-muted-foreground">
-              완료 <b className="text-foreground">{completedCodes.length}</b> ·
+              유닛 전체 <b className="text-foreground">{completedCodes.length + pendingCodes.length}</b> · 완료 {completedCodes.length} ·
               미완료 <span className="text-foreground">{pendingCodes.length}</span>
             </div>
           </div>
@@ -251,8 +252,7 @@ export const UnitWorkbookPreviewDialog = ({
             </div>
           </ScrollArea>
           <div className="mt-1.5 text-[11px] text-muted-foreground">
-            * 포함 기준: 단어시험 통과 + 한글해석 제출 + 분석 통과 — 셋 모두 완료된
-            지문만 인쇄됩니다.
+            * 유닛 통합 워크북은 미완료 지문까지 포함해 유닛 전체를 인쇄합니다. 문장별 구문만 완료 지문 기준입니다.
           </div>
         </div>
 
@@ -295,7 +295,7 @@ export const UnitWorkbookPreviewDialog = ({
           <div>
             <span className="font-semibold">{WORKBOOK_MODE_LABEL[mode]}</span>
             <span className="text-muted-foreground"> · </span>
-            <span>{completedCodes.length}개 지문</span>
+            <span>{printableCount}개 지문</span>
             {mode === "syntax_unit" && answerKey && (
               <span className="ml-2 text-destructive font-bold">· 답지</span>
             )}
@@ -315,7 +315,7 @@ export const UnitWorkbookPreviewDialog = ({
           </Button>
           <Button
             onClick={() => onConfirmPrint(mode, { answerKey: mode === "syntax_unit" && answerKey })}
-            disabled={printing || completedCodes.length === 0}
+            disabled={printing || printableCount === 0}
           >
             {printing ? (
               <Loader2 className="size-4 mr-1.5 animate-spin" />

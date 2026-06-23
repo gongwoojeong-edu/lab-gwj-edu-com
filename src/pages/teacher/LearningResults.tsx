@@ -66,6 +66,9 @@ import {
   type TeacherGrade,
 } from "@/lib/unitWorkflow";
 
+const compareLearningCode = (a: string, b: string): number =>
+  a.localeCompare(b, "ko", { numeric: true, sensitivity: "base" });
+
 interface StudentInfo {
   user_id: string;
   display_name: string | null;
@@ -92,8 +95,6 @@ const LearningResults = () => {
   const [attemptMap, setAttemptMap] = useState<Record<string, AttemptStat>>({});
   // 학생별 sentence_id 목록 (그 날 활동 흔적이 있는 모든 sentence)
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
-  // (userId::sentenceId) → 마지막 활동 ISO timestamp (정렬용)
-  const [lastActivityMap, setLastActivityMap] = useState<Record<string, string>>({});
   // userId → 학생의 마지막 활동 ISO timestamp (학생 카드 정렬용)
   const [studentLastActivity, setStudentLastActivity] = useState<Record<string, string>>({});
   // sentence_id → unit_id 매핑 (그룹핑용)
@@ -122,7 +123,7 @@ const LearningResults = () => {
     return v === "A4" ? "A4" : "B5";
   });
   useEffect(() => {
-    try { window.localStorage.setItem("gwjt.print.wordPaperSize", wordPaperSize); } catch {}
+    try { window.localStorage.setItem("gwjt.print.wordPaperSize", wordPaperSize); } catch { /* ignore */ }
   }, [wordPaperSize]);
   const [answerKeyMode, setAnswerKeyMode] = useState(false);
   // 한글해석 / 단어시험 보기 다이얼로그
@@ -367,7 +368,13 @@ const LearningResults = () => {
           };
         });
 
-        const { data: uwRows } = await (supabase as unknown as { from: (table: string) => any })
+        const { data: uwRows } = await (supabase as unknown as {
+          from: (table: string) => {
+            select: (columns: string) => {
+              in: (column: string, values: string[]) => Promise<{ data: unknown[] | null }>;
+            };
+          };
+        })
           .from("unit_workflows")
           .select("*")
           .in("user_id", allUserIds);
@@ -488,23 +495,12 @@ const LearningResults = () => {
       });
       setAttemptMap(aMap);
 
-      // 학생별 sentence_id 목록 — 가장 최근 활동순 (내림차순)
+      // 학생별 sentence_id 목록 — 교재/유닛 학습순서 기준
       const ssMap: Record<string, string[]> = {};
       pairs.forEach((set, uid) => {
-        ssMap[uid] = Array.from(set).sort((a, b) => {
-          const ta = pairLastActivity.get(`${uid}::${a}`) ?? 0;
-          const tb = pairLastActivity.get(`${uid}::${b}`) ?? 0;
-          if (tb !== ta) return tb - ta; // 최신이 위
-          return a.localeCompare(b);
-        });
+        ssMap[uid] = Array.from(set).sort(compareLearningCode);
       });
       setStudentSentences(ssMap);
-      // 정렬용 활동시간 맵을 state로 노출
-      const laObj: Record<string, string> = {};
-      pairLastActivity.forEach((ms, k) => {
-        laObj[k] = new Date(ms).toISOString();
-      });
-      setLastActivityMap(laObj);
       const ulaObj: Record<string, string> = {};
       userLastActivity.forEach((ms, uid) => {
         ulaObj[uid] = new Date(ms).toISOString();
@@ -539,7 +535,7 @@ const LearningResults = () => {
             .from("textbook_units")
             .select("id, unit_no, title, textbook_id")
             .in("id", Array.from(unitIds));
-          let tbMap = new Map<string, { level: string; title: string }>();
+          const tbMap = new Map<string, { level: string; title: string }>();
           if (tbIds.size > 0) {
             const { data: tbRows } = await supabase
               .from("textbooks")
@@ -1122,45 +1118,24 @@ const LearningResults = () => {
 
                   {/* 유닛별 그룹핑: 같은 unit_id의 sentence들을 한 카드(접이식)로 묶음 */}
                   {(() => {
-                    // 학생의 sentence들을 unit으로 그룹핑 (sentenceIds는 이미 최신활동순)
+                    // 학생의 sentence들을 unit으로 그룹핑 (교재/유닛 학습순서 기준)
                     const groups = new Map<string, string[]>();
-                    const groupLastActivity = new Map<string, number>();
                     sentenceIds.forEach((sid) => {
                       const uid = codeToUnit[sid];
                       const groupKey = uid ?? `__nounit__${sid}`;
                       if (!groups.has(groupKey)) groups.set(groupKey, []);
                       groups.get(groupKey)!.push(sid);
-                      const ts = lastActivityMap[`${userId}::${sid}`];
-                      const ms = ts ? new Date(ts).getTime() : 0;
-                      const cur = groupLastActivity.get(groupKey) ?? 0;
-                      if (ms > cur) groupLastActivity.set(groupKey, ms);
                     });
                     const groupArr = Array.from(groups.entries())
                       .map(([k, sids]) => ({
                         key: k,
                         unitId: k.startsWith("__nounit__") ? null : k,
-                        // 그룹 내부 문장도 최신활동 내림차순
-                        sids: sids.slice().sort((a, b) => {
-                          const ta = lastActivityMap[`${userId}::${a}`]
-                            ? new Date(lastActivityMap[`${userId}::${a}`]).getTime()
-                            : 0;
-                          const tb = lastActivityMap[`${userId}::${b}`]
-                            ? new Date(lastActivityMap[`${userId}::${b}`]).getTime()
-                            : 0;
-                          if (tb !== ta) return tb - ta;
-                          return a.localeCompare(b);
-                        }),
+                        sids: sids.slice().sort(compareLearningCode),
                         label: k.startsWith("__nounit__")
                           ? sids[0]
                           : unitLabel[k] ?? "유닛 정보 로딩…",
                       }))
-                      // 그룹(유닛)도 가장 최근 활동순
-                      .sort((g1, g2) => {
-                        const t1 = groupLastActivity.get(g1.key) ?? 0;
-                        const t2 = groupLastActivity.get(g2.key) ?? 0;
-                        if (t2 !== t1) return t2 - t1;
-                        return g1.label.localeCompare(g2.label);
-                      });
+                      .sort((g1, g2) => g1.label.localeCompare(g2.label, "ko", { numeric: true, sensitivity: "base" }));
 
                     return (
                       <div className="space-y-2">
