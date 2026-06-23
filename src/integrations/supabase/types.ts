@@ -785,6 +785,7 @@ export type Database = {
           notes: string | null
           orbit_class_id: string | null
           orbit_class_name: string | null
+          orbit_enrollment_active: boolean
           points: number
           school_name: string | null
           start_level: string
@@ -819,6 +820,7 @@ export type Database = {
           notes?: string | null
           orbit_class_id?: string | null
           orbit_class_name?: string | null
+          orbit_enrollment_active?: boolean
           points?: number
           school_name?: string | null
           start_level?: string
@@ -853,6 +855,7 @@ export type Database = {
           notes?: string | null
           orbit_class_id?: string | null
           orbit_class_name?: string | null
+          orbit_enrollment_active?: boolean
           points?: number
           school_name?: string | null
           start_level?: string
