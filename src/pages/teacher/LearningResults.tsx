@@ -535,7 +535,7 @@ const LearningResults = () => {
             .from("textbook_units")
             .select("id, unit_no, title, textbook_id")
             .in("id", Array.from(unitIds));
-          let tbMap = new Map<string, { level: string; title: string }>();
+          const tbMap = new Map<string, { level: string; title: string }>();
           if (tbIds.size > 0) {
             const { data: tbRows } = await supabase
               .from("textbooks")
