@@ -66,6 +66,9 @@ import {
   type TeacherGrade,
 } from "@/lib/unitWorkflow";
 
+const compareLearningCode = (a: string, b: string): number =>
+  a.localeCompare(b, "ko", { numeric: true, sensitivity: "base" });
+
 interface StudentInfo {
   user_id: string;
   display_name: string | null;
@@ -488,15 +491,10 @@ const LearningResults = () => {
       });
       setAttemptMap(aMap);
 
-      // 학생별 sentence_id 목록 — 가장 최근 활동순 (내림차순)
+      // 학생별 sentence_id 목록 — 교재/유닛 학습순서 기준
       const ssMap: Record<string, string[]> = {};
       pairs.forEach((set, uid) => {
-        ssMap[uid] = Array.from(set).sort((a, b) => {
-          const ta = pairLastActivity.get(`${uid}::${a}`) ?? 0;
-          const tb = pairLastActivity.get(`${uid}::${b}`) ?? 0;
-          if (tb !== ta) return tb - ta; // 최신이 위
-          return a.localeCompare(b);
-        });
+        ssMap[uid] = Array.from(set).sort(compareLearningCode);
       });
       setStudentSentences(ssMap);
       // 정렬용 활동시간 맵을 state로 노출
@@ -1122,45 +1120,24 @@ const LearningResults = () => {
 
                   {/* 유닛별 그룹핑: 같은 unit_id의 sentence들을 한 카드(접이식)로 묶음 */}
                   {(() => {
-                    // 학생의 sentence들을 unit으로 그룹핑 (sentenceIds는 이미 최신활동순)
+                    // 학생의 sentence들을 unit으로 그룹핑 (교재/유닛 학습순서 기준)
                     const groups = new Map<string, string[]>();
-                    const groupLastActivity = new Map<string, number>();
                     sentenceIds.forEach((sid) => {
                       const uid = codeToUnit[sid];
                       const groupKey = uid ?? `__nounit__${sid}`;
                       if (!groups.has(groupKey)) groups.set(groupKey, []);
                       groups.get(groupKey)!.push(sid);
-                      const ts = lastActivityMap[`${userId}::${sid}`];
-                      const ms = ts ? new Date(ts).getTime() : 0;
-                      const cur = groupLastActivity.get(groupKey) ?? 0;
-                      if (ms > cur) groupLastActivity.set(groupKey, ms);
                     });
                     const groupArr = Array.from(groups.entries())
                       .map(([k, sids]) => ({
                         key: k,
                         unitId: k.startsWith("__nounit__") ? null : k,
-                        // 그룹 내부 문장도 최신활동 내림차순
-                        sids: sids.slice().sort((a, b) => {
-                          const ta = lastActivityMap[`${userId}::${a}`]
-                            ? new Date(lastActivityMap[`${userId}::${a}`]).getTime()
-                            : 0;
-                          const tb = lastActivityMap[`${userId}::${b}`]
-                            ? new Date(lastActivityMap[`${userId}::${b}`]).getTime()
-                            : 0;
-                          if (tb !== ta) return tb - ta;
-                          return a.localeCompare(b);
-                        }),
+                        sids: sids.slice().sort(compareLearningCode),
                         label: k.startsWith("__nounit__")
                           ? sids[0]
                           : unitLabel[k] ?? "유닛 정보 로딩…",
                       }))
-                      // 그룹(유닛)도 가장 최근 활동순
-                      .sort((g1, g2) => {
-                        const t1 = groupLastActivity.get(g1.key) ?? 0;
-                        const t2 = groupLastActivity.get(g2.key) ?? 0;
-                        if (t2 !== t1) return t2 - t1;
-                        return g1.label.localeCompare(g2.label);
-                      });
+                      .sort((g1, g2) => g1.label.localeCompare(g2.label, "ko", { numeric: true, sensitivity: "base" }));
 
                     return (
                       <div className="space-y-2">
