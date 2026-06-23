@@ -196,8 +196,8 @@ const BookshelfUnit = () => {
   // 워크북 인쇄 버튼 → 미리보기 모달 오픈
   const handleOpenWorkbookPreview = () => {
     if (!unit || !workbookStudentId) return;
-    if (!workbookSummary || workbookSummary.completed === 0) {
-      toast({ title: "완료한 지문이 없어요", variant: "destructive" });
+    if (!workbookSummary || workbookSummary.total === 0) {
+      toast({ title: "이 유닛에 지문이 없어요", variant: "destructive" });
       return;
     }
     setPreviewOpen(true);
@@ -209,8 +209,8 @@ const BookshelfUnit = () => {
     opts: { answerKey: boolean } = { answerKey: false },
   ) => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
-    if (!workbookSummary || workbookSummary.completed === 0) {
-      toast({ title: "완료한 지문이 없어요", variant: "destructive" });
+    if (!workbookSummary || workbookSummary.total === 0) {
+      toast({ title: "이 유닛에 지문이 없어요", variant: "destructive" });
       return;
     }
     setWorkbookPrinting(true);
@@ -839,7 +839,7 @@ const BookshelfUnit = () => {
             <ClipboardList className="size-4 text-primary" />
             유닛 워크북 일괄 인쇄
             <span className="text-xs font-normal text-muted-foreground">
-              · 학습 완료 지문(단어/번역/분석 모두 통과)을 한 권으로 인쇄
+              · 유닛 전체 지문을 한 권으로 인쇄
             </span>
           </div>
           <div className="flex items-end gap-3 flex-wrap">
@@ -892,7 +892,7 @@ const BookshelfUnit = () => {
                 workbookPrinting ||
                 workbookLoading ||
                 !workbookSummary ||
-                workbookSummary.completed === 0
+                workbookSummary.total === 0
               }
             >
               {workbookPrinting ? (
