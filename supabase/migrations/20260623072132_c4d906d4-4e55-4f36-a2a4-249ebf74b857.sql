@@ -1,0 +1,2 @@
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS orbit_enrollment_active boolean NOT NULL DEFAULT true;
+CREATE INDEX IF NOT EXISTS student_profiles_orbit_active_idx ON public.student_profiles(orbit_enrollment_active);

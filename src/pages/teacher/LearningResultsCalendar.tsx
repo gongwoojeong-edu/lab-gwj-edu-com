@@ -172,6 +172,7 @@ const LearningResultsCalendar = () => {
         const { data, error } = await supabase
           .from("student_profiles")
           .select("user_id, display_name, student_no, current_level")
+          .eq("orbit_enrollment_active", true)
           .order("display_name", { ascending: true });
         if (error) throw error;
         const rows = (data ?? []).map((r: any) => ({

@@ -156,6 +156,7 @@ const BookshelfUnit = () => {
       const { data } = await supabase
         .from("student_profiles")
         .select("user_id, display_name, student_no")
+        .eq("orbit_enrollment_active", true)
         .order("student_no", { ascending: true });
       const list = (data ?? []).map((r) => ({
         id: r.user_id as string,
