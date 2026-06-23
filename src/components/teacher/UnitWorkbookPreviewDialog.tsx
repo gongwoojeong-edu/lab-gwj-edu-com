@@ -107,6 +107,7 @@ export const UnitWorkbookPreviewDialog = ({
         return n; // 지문당 1장
     }
   })();
+  const printableCount = mode === "syntax_passage" ? completedCodes.length : completedCodes.length + pendingCodes.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -294,7 +295,7 @@ export const UnitWorkbookPreviewDialog = ({
           <div>
             <span className="font-semibold">{WORKBOOK_MODE_LABEL[mode]}</span>
             <span className="text-muted-foreground"> · </span>
-            <span>{mode === "syntax_passage" ? completedCodes.length : completedCodes.length + pendingCodes.length}개 지문</span>
+            <span>{printableCount}개 지문</span>
             {mode === "syntax_unit" && answerKey && (
               <span className="ml-2 text-destructive font-bold">· 답지</span>
             )}
@@ -314,7 +315,7 @@ export const UnitWorkbookPreviewDialog = ({
           </Button>
           <Button
             onClick={() => onConfirmPrint(mode, { answerKey: mode === "syntax_unit" && answerKey })}
-            disabled={printing || (completedCodes.length + pendingCodes.length === 0)}
+            disabled={printing || printableCount === 0}
           >
             {printing ? (
               <Loader2 className="size-4 mr-1.5 animate-spin" />
