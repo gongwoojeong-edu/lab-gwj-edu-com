@@ -42,7 +42,7 @@ import { usePendingPrintCount } from "@/hooks/usePendingPrintCount";
 import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { TeacherViewSwitcher } from "@/components/teacher/TeacherViewSwitcher";
 import { useStaff } from "@/lib/staff-context";
-import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
+import { GWJ_SYNTAX_LOGO_ALT, GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 import gwjSymbolAsset from "@/assets/gwj-symbol-purple.png.asset.json";
 
 interface Props {
@@ -273,7 +273,7 @@ export const TeacherLayout = ({ children }: Props) => {
               <div className="flex items-center gap-2">
                 <img
                   src={gwjSymbolAsset.url}
-                  alt="공우정구문랩 심볼"
+                  alt={GWJ_SYNTAX_LOGO_ALT}
                   width={44}
                   height={44}
                   loading="lazy"

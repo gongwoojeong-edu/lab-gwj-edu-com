@@ -12,6 +12,7 @@ const PROJECT_REF = "vyiwfkctilezvpafqjek";
 const MIGRATION_FILES = [
   "20260605120000_orbit_english_sync.sql",
   "20260605140000_unit_workflow_policy.sql",
+  "20260620120000_orbit_student_enrollment_active.sql",
 ];
 
 function loadDbPassword() {

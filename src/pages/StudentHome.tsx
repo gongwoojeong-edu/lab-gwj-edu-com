@@ -43,7 +43,7 @@ import {
 import { gradeAnalysis } from "@/lib/analysisGrading";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
-import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
+import { GWJ_SYNTAX_LOGO_ALT, GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 import gwjSymbolAsset from "@/assets/gwj-symbol-purple.png.asset.json";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import {
@@ -660,7 +660,7 @@ const StudentHome = () => {
           <div className="flex items-center gap-2">
             <img
               src={gwjSymbolAsset.url}
-              alt="공우정구문랩 심볼"
+              alt={GWJ_SYNTAX_LOGO_ALT}
               width={52}
               height={52}
               loading="lazy"

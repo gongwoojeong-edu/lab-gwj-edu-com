@@ -34,6 +34,23 @@ function createServiceClient(url: string, serviceKey: string): SupabaseClient {
   });
 }
 
+async function deactivateOrbitStudentByHakbun(
+  labSb: SupabaseClient,
+  hakbun: string,
+): Promise<boolean> {
+  const { data, error } = await labSb
+    .from("student_profiles")
+    .update({
+      orbit_enrollment_active: false,
+      orbit_class_id: null,
+      orbit_class_name: null,
+    })
+    .eq("student_no", hakbun)
+    .select("user_id");
+  if (error) throw new Error(error.message);
+  return (data?.length ?? 0) > 0;
+}
+
 async function probeOrbitClient(
   orbitSb: SupabaseClient,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -446,6 +463,15 @@ Deno.serve(async (req) => {
 
     if (osErr) throw new Error(osErr.message);
 
+    const orbitActiveHakbuns = new Set<string>();
+    for (const row of (orbitStudents ?? []) as OrbitStudent[]) {
+      const hakbun = String(row.hakbun ?? "").trim().toLowerCase();
+      if (!hakbun || !/^gwj\d{4}$/.test(hakbun)) continue;
+      if (!isEngEligible(row, englishStudentIds)) continue;
+      if (!coalesceStatus(row.status)) continue;
+      orbitActiveHakbuns.add(hakbun);
+    }
+
     for (const row of (orbitStudents ?? []) as OrbitStudent[]) {
       const hakbun = String(row.hakbun ?? "").trim().toLowerCase();
       if (!hakbun || !/^gwj\d{4}$/.test(hakbun)) {
@@ -454,11 +480,13 @@ Deno.serve(async (req) => {
       }
 
       if (!isEngEligible(row, englishStudentIds)) {
+        if (await deactivateOrbitStudentByHakbun(labSb, hakbun)) stats.deactivated += 1;
         stats.studentsExcluded += 1;
         continue;
       }
 
       if (!coalesceStatus(row.status)) {
+        if (await deactivateOrbitStudentByHakbun(labSb, hakbun)) stats.deactivated += 1;
         stats.studentsExcluded += 1;
         continue;
       }
@@ -484,6 +512,7 @@ Deno.serve(async (req) => {
           teacher_id: teacherAuthId,
           orbit_class_id: engClass?.class_id ?? null,
           orbit_class_name: engClass?.class_name ?? engClass?.filter_label ?? null,
+          orbit_enrollment_active: true,
         };
 
         const { data: existing } = await labSb
@@ -515,6 +544,19 @@ Deno.serve(async (req) => {
         stats.studentsFailed += 1;
         console.warn(`[sync-orbit-english] ${hakbun}:`, e);
       }
+    }
+
+    const { data: labActiveRows, error: labActiveErr } = await labSb
+      .from("student_profiles")
+      .select("student_no")
+      .eq("orbit_enrollment_active", true)
+      .like("student_no", "gwj%");
+    if (labActiveErr) throw new Error(labActiveErr.message);
+
+    for (const row of labActiveRows ?? []) {
+      const hakbun = String(row.student_no ?? "").trim().toLowerCase();
+      if (!hakbun || orbitActiveHakbuns.has(hakbun)) continue;
+      if (await deactivateOrbitStudentByHakbun(labSb, hakbun)) stats.deactivated += 1;
     }
 
     return json({ ok: true, ...stats });

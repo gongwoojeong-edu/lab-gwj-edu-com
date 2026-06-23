@@ -35,8 +35,9 @@ export async function fetchMemberRoster(): Promise<RosterMember[]> {
     db
       .from("student_profiles")
       .select(
-        "user_id, student_no, display_name, campus, orbit_class_name, actual_grade, start_level, teacher_id, homeroom_teacher_id",
+        "user_id, student_no, display_name, campus, orbit_class_name, actual_grade, start_level, teacher_id, homeroom_teacher_id, orbit_enrollment_active",
       )
+      .eq("orbit_enrollment_active", true)
       .order("student_no"),
     db
       .from("orbit_staff_cache")
