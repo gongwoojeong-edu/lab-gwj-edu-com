@@ -3,6 +3,7 @@
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
+import { createNotification } from "@/lib/studentNotifications";
 
 export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo";
 export type ApprovalStatus = "pending" | "approved";
