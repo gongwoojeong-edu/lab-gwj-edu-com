@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Plug,
   Settings2,
+  FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { signOut, useAuth } from "@/hooks/useAuth";
@@ -182,6 +183,14 @@ const TeacherSidebarInner = () => {
                   <NavLink to="/teacher/results-calendar" className={({ isActive }) => linkCls(isActive)}>
                     <CalendarDays className="size-4" />
                     {!collapsed && <span>학습결과(월간)</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/evaluation-reports" className={({ isActive }) => linkCls(isActive)}>
+                    <FileText className="size-4" />
+                    {!collapsed && <span>학습평가 리포트</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

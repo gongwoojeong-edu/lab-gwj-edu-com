@@ -45,6 +45,7 @@ import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import { GWJ_SYNTAX_LOGO_ALT, GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 import gwjSymbolAsset from "@/assets/gwj-symbol-purple.png.asset.json";
+import NotificationBell from "@/components/student/NotificationBell";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import {
   fetchUnitWorkflowsForUser,
@@ -718,6 +719,7 @@ const StudentHome = () => {
                 <BookOpen className="w-4 h-4 mr-1" /> 라이브러리
               </Link>
             </Button>
+            <NotificationBell />
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-1" /> 로그아웃
             </Button>

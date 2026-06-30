@@ -736,6 +736,51 @@ export type Database = {
         }
         Relationships: []
       }
+      student_notifications: {
+        Row: {
+          approval_id: string | null
+          body: string | null
+          created_at: string
+          grade: string | null
+          id: string
+          kind: string
+          read_at: string | null
+          sent_by: string | null
+          sentence_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approval_id?: string | null
+          body?: string | null
+          created_at?: string
+          grade?: string | null
+          id?: string
+          kind?: string
+          read_at?: string | null
+          sent_by?: string | null
+          sentence_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approval_id?: string | null
+          body?: string | null
+          created_at?: string
+          grade?: string | null
+          id?: string
+          kind?: string
+          read_at?: string | null
+          sent_by?: string | null
+          sentence_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       student_passage_overrides: {
         Row: {
           created_at: string
