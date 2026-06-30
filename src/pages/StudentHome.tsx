@@ -1143,9 +1143,12 @@ const StudentHome = () => {
                 </div>
               )}
             </section>
+              </>
+            )}
           </>
         )}
       </main>
+
 
       <AlertDialog open={!!resumeTarget} onOpenChange={(o) => !o && setResumeTarget(null)}>
         <AlertDialogContent>
