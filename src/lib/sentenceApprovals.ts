@@ -138,6 +138,21 @@ export const approveSentenceRequest = async (input: {
     .update(update)
     .eq("user_id", targetUserId)
     .eq("sentence_id", input.sentenceId);
+
+  // 3) 학생 알림함에 평가 전송 (실패해도 승인 흐름은 진행)
+  try {
+    await createNotification({
+      userId: targetUserId,
+      kind: "evaluation",
+      title: `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
+      body: input.memo?.trim() || null,
+      grade: input.grade,
+      sentenceId: input.sentenceId,
+      approvalId: input.approvalId,
+    });
+  } catch (e) {
+    console.warn("[sentenceApprovals] notification insert failed", e);
+  }
 };
 
 /** 선생님 대시보드: pending 상태 전체 목록 */
