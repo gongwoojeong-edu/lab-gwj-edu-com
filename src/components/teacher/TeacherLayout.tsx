@@ -266,6 +266,13 @@ export const TeacherLayout = ({ children }: Props) => {
   const { setMode } = useViewMode();
   const approvalCount = usePendingApprovalsCount();
   const { isViewingAsOther, staff, me, setStaffId } = useStaff();
+  const [chimeMuted, setChimeMuted] = useState(() => isApprovalChimeMuted());
+  const toggleChime = () => {
+    const next = !chimeMuted;
+    setApprovalChimeMuted(next);
+    setChimeMuted(next);
+    if (!next) playApprovalChime(); // 켤 때 미리듣기
+  };
 
   const switchToStudent = () => {
     setMode("student");
