@@ -727,23 +727,6 @@ const StudentHome = () => {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : noContent ? (
-          <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 dark:from-amber-950/30 dark:to-orange-950/30">
-            <AlertCircle className="w-16 h-16 mx-auto text-amber-600" />
-            <h1 className="text-2xl font-extrabold text-amber-700 dark:text-amber-400">학습 자료 준비 중</h1>
-            <p className="text-muted-foreground">
-              현재 지정된 레벨의 학습 지문이 아직 등록되지 않았습니다.<br/>
-              선생님께 문의해 주세요.
-            </p>
-          </Card>
-        ) : done ? (
-          <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
-            <Trophy className="w-16 h-16 mx-auto text-primary" />
-            <h1 className="text-3xl font-extrabold text-primary">학습 완료! 🎓</h1>
-            <p className="text-muted-foreground">
-              모든 레벨을 통과했어요. 정말 수고 많았습니다.
-            </p>
-          </Card>
         ) : (
           <>
             {user && (
@@ -752,22 +735,63 @@ const StudentHome = () => {
               </div>
             )}
 
-            {user && (
-              <Card className="p-5 sm:p-6 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
-                      종합점수
-                    </h2>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      최근 온라인·오프라인 합산 기록입니다.
-                    </p>
-                  </div>
-                  <ClipboardList className="w-4 h-4 text-muted-foreground" />
+            {/* 특별과제 — 일반 진도/완료 여부와 무관하게 항상 최상단에 노출 */}
+            {visibleAssignmentGroups.length > 0 && (
+            <Card className="p-5 sm:p-6 space-y-4 border-amber-500/40 bg-gradient-to-br from-amber-500/5 to-transparent">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-amber-600" />
+                  <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
+                    특별과제
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold">
+                    {visibleAssignmentGroups.length}
+                  </span>
                 </div>
-                <DailyTestSummary userId={user.id} days={7} />
-              </Card>
+              </div>
+              <p className="text-[11px] text-muted-foreground -mt-2">
+                선생님이 부여한 과제예요. 일반 진도와 상관없이 먼저 풀 수 있어요.
+              </p>
+              <ul className="space-y-3">{renderAssignmentGroupItems()}</ul>
+            </Card>
             )}
+
+            {noContent ? (
+              <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 dark:from-amber-950/30 dark:to-orange-950/30">
+                <AlertCircle className="w-16 h-16 mx-auto text-amber-600" />
+                <h1 className="text-2xl font-extrabold text-amber-700 dark:text-amber-400">학습 자료 준비 중</h1>
+                <p className="text-muted-foreground">
+                  현재 지정된 레벨의 학습 지문이 아직 등록되지 않았습니다.<br/>
+                  선생님께 문의해 주세요.
+                </p>
+              </Card>
+            ) : done ? (
+              <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
+                <Trophy className="w-16 h-16 mx-auto text-primary" />
+                <h1 className="text-3xl font-extrabold text-primary">학습 완료! 🎓</h1>
+                <p className="text-muted-foreground">
+                  모든 레벨을 통과했어요. 정말 수고 많았습니다.
+                </p>
+              </Card>
+            ) : (
+              <>
+                {user && (
+                  <Card className="p-5 sm:p-6 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
+                          종합점수
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          최근 온라인·오프라인 합산 기록입니다.
+                        </p>
+                      </div>
+                      <ClipboardList className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <DailyTestSummary userId={user.id} days={7} />
+                  </Card>
+                )}
+
 
             {/* 특별과제 (유닛 단위로 그룹핑) */}
             {visibleAssignmentGroups.length > 0 && (
