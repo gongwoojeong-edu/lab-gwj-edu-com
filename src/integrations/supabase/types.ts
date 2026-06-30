@@ -640,8 +640,10 @@ export type Database = {
           last_activity_at: string | null
           last_grade: string | null
           last_memo: string | null
+          last_redo_memo: string | null
           passed_at: string | null
           pre_done: boolean
+          redo_requested_at: string | null
           sentence_id: string
           status: string
           translation_done: boolean
@@ -657,8 +659,10 @@ export type Database = {
           last_activity_at?: string | null
           last_grade?: string | null
           last_memo?: string | null
+          last_redo_memo?: string | null
           passed_at?: string | null
           pre_done?: boolean
+          redo_requested_at?: string | null
           sentence_id: string
           status?: string
           translation_done?: boolean
@@ -674,8 +678,10 @@ export type Database = {
           last_activity_at?: string | null
           last_grade?: string | null
           last_memo?: string | null
+          last_redo_memo?: string | null
           passed_at?: string | null
           pre_done?: boolean
+          redo_requested_at?: string | null
           sentence_id?: string
           status?: string
           translation_done?: boolean
