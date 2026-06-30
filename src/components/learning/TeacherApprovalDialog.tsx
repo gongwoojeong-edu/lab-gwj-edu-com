@@ -109,9 +109,13 @@ export const TeacherApprovalDialog = ({
     try {
       await approveSentenceRequest({ approvalId, sentenceId, grade, memo, studentUserId });
       toast({
-        title: `승인 완료 — ${GRADE_LABEL[grade]}`,
-        description: grade === "redo" ? "재학습으로 분류됐어요" : "다음 문장으로 진행합니다",
+        title: grade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[grade]}`,
+        description:
+          grade === "redo"
+            ? "기존 통과 기록은 유지되며, 학생이 한 번 더 제출하게 됩니다."
+            : "다음 문장으로 진행합니다",
       });
+
       onOpenChange(false);
       onApproved(grade);
     } catch (e: any) {
