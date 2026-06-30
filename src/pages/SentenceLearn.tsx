@@ -846,7 +846,40 @@ const SentenceLearn = () => {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+        {/* 선생님 추가학습 요청 배너 — 기존 통과 기록은 유지된 채 한 번 더 제출 */}
+        {redoRequestedAt && previousStatus === "pass" && (
+          <Card className="p-5 space-y-3 border-2 border-violet-500/40 bg-violet-50/40 dark:bg-violet-500/5">
+            <div className="flex items-start gap-3">
+              <RotateCcw className="w-6 h-6 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <div className="text-base font-extrabold text-foreground">선생님 추가학습 요청</div>
+                <div className="text-sm text-muted-foreground">
+                  기존 통과 기록은 그대로 유지돼요. 한 번 더 한글 해석을 작성해 제출해 주세요.
+                </div>
+                {redoMemo && (
+                  <div className="mt-2 text-sm rounded-md bg-background/60 border border-violet-500/20 px-3 py-2 text-foreground whitespace-pre-wrap">
+                    💬 {redoMemo}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => {
+                  setTranslationDone(false);
+                  setStep("translation");
+                }}
+              >
+                추가학습 시작 — 한글 해석 다시 제출
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* 미통 재진입 인트로 */}
+
         {showFailIntro && (
           <Card className="p-5 space-y-4 border-2 border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/5">
             <div className="flex items-start gap-3">
