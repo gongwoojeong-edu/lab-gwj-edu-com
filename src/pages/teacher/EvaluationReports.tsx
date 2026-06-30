@@ -35,15 +35,15 @@ interface AttemptLog {
   user_id: string;
   sentence_id: string;
   attempt_no: number;
-  score_pct: number | null;
-  created_at: string;
+  analysis_match_rate: number | null;
+  completed_at: string;
 }
 
 interface WordResult {
-  user_id: string;
+  user_id: string | null;
   sentence_id: string | null;
-  score_pct: number | null;
-  created_at: string;
+  score: number | null;
+  taken_at: string;
 }
 
 interface ReviewReq {
