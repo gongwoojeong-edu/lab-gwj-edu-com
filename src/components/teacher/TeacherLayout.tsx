@@ -1,4 +1,9 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import {
+  isApprovalChimeMuted,
+  setApprovalChimeMuted,
+  playApprovalChime,
+} from "@/lib/approvalChime";
 import {
   SidebarProvider,
   Sidebar,
