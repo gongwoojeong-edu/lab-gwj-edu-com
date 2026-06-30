@@ -718,6 +718,7 @@ const StudentHome = () => {
                 <BookOpen className="w-4 h-4 mr-1" /> 라이브러리
               </Link>
             </Button>
+            <NotificationBell />
             <Button variant="ghost" size="sm" onClick={() => signOut()}>
               <LogOut className="w-4 h-4 mr-1" /> 로그아웃
             </Button>
