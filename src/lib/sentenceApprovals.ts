@@ -112,40 +112,52 @@ export const approveSentenceRequest = async (input: {
     .eq("id", input.approvalId);
   if (apErr) throw apErr;
 
-  // 2) sentence_progress 마지막 등급/메모 반영
-  //    redo 등급은 PASS 처리하지 않고 fail 로 돌려보냄 (학생 재시도).
-  const isPass = input.grade !== "redo";
+  // 2) sentence_progress 갱신
+  //    redo(추가학습) 등급: 기존 통과 기록은 보존하고 redo_requested_at 만 켠다.
+  //    다른 등급: 통과 처리 + 이전에 켜져있던 추가학습 요청은 해제.
+  const isRedo = input.grade === "redo";
   const targetUserId = input.studentUserId ?? approverId;
   if (!targetUserId) return;
 
-  const baseUpdate = {
+  const memoTrimmed = input.memo?.trim() || null;
+  const baseUpdate: Record<string, unknown> = {
     last_grade: input.grade as string,
-    last_memo: (input.memo?.trim() || null) as string | null,
+    last_memo: memoTrimmed,
   };
-  const update = isPass
+  const update: Record<string, unknown> = isRedo
     ? {
+        ...baseUpdate,
+        // status / passed_at / *_done 는 절대 손대지 않음 — 기존 통과 기록 유지
+        redo_requested_at: nowIso,
+        last_redo_memo: memoTrimmed,
+      }
+    : {
         ...baseUpdate,
         status: "pass",
         passed_at: nowIso,
         translation_done: true,
         analysis_done: true,
         word_test_done: true,
-      }
-    : { ...baseUpdate, status: "fail" };
+        // 다른 등급으로 승인되면 추가학습 요청은 충족된 것으로 보고 해제
+        redo_requested_at: null,
+      };
 
   await supabase
     .from("sentence_progress")
-    .update(update)
+    .update(update as never)
     .eq("user_id", targetUserId)
     .eq("sentence_id", input.sentenceId);
+
 
   // 3) 학생 알림함에 평가 전송 (실패해도 승인 흐름은 진행)
   try {
     await createNotification({
       userId: targetUserId,
       kind: "evaluation",
-      title: `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
-      body: input.memo?.trim() || null,
+      title: isRedo
+        ? "선생님 추가학습 요청 — 한 번 더 제출해주세요"
+        : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
+      body: memoTrimmed,
       grade: input.grade,
       sentenceId: input.sentenceId,
       approvalId: input.approvalId,
@@ -154,6 +166,7 @@ export const approveSentenceRequest = async (input: {
     console.warn("[sentenceApprovals] notification insert failed", e);
   }
 };
+
 
 /** 선생님 대시보드: pending 상태 전체 목록 */
 export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
