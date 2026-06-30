@@ -292,6 +292,9 @@ const SentenceLearn = () => {
       setAttemptLogs(logs);
       const status = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
       setPreviousStatus(status);
+      setRedoRequestedAt((prog as { redo_requested_at?: string | null } | null)?.redo_requested_at ?? null);
+      setRedoMemo((prog as { last_redo_memo?: string | null } | null)?.last_redo_memo ?? null);
+
 
       // 미통 + 힌트 모드 ON → 직전 시도의 wrong owner_id 추출
       if (status === "fail" && prof?.hint_mode_enabled && logs.length > 0) {
