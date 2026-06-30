@@ -266,6 +266,22 @@ const App = () => (
               }
             />
             <Route
+              path="/teacher/evaluation-reports"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <EvaluationReports />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn/notifications"
+              element={
+                <RequireAuth requireRole="student">
+                  <StudentNotifications />
+                </RequireAuth>
+              }
+            />
+            <Route
               path="/teacher/handout/:passageCode"
               element={
                 <RequireAuth requireRole="teacher">
