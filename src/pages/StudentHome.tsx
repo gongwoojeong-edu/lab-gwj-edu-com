@@ -45,6 +45,7 @@ import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import { GWJ_SYNTAX_LOGO_ALT, GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 import gwjSymbolAsset from "@/assets/gwj-symbol-purple.png.asset.json";
+import NotificationBell from "@/components/student/NotificationBell";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import {
   fetchUnitWorkflowsForUser,
