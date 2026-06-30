@@ -137,18 +137,21 @@ export async function fetchImminentIncomplete(): Promise<StalledAssignmentTarget
 
   if (!asgs || asgs.length === 0) return [];
 
-  // 전체 학생 user_id (student_id null 과제 대상 보완용)
+  // 활성(재원) 학생만 대상으로
   const { data: allStudents } = await supabase
     .from("student_profiles")
-    .select("user_id");
+    .select("user_id")
+    .neq("orbit_enrollment_active", false);
   const allIds = (allStudents ?? []).map((s: any) => s.user_id as string);
+  const activeSet = new Set(allIds);
 
   const results: StalledAssignmentTarget[] = [];
 
   for (const a of asgs as any[]) {
     if (!a.sentence_id) continue;
-    const targets: string[] = a.student_id ? [a.student_id] : allIds;
+    const targets: string[] = (a.student_id ? [a.student_id] : allIds).filter((id) => activeSet.has(id));
     if (targets.length === 0) continue;
+
 
     const { data: progRows } = await supabase
       .from("sentence_progress")
