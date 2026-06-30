@@ -157,7 +157,7 @@ const StudentHome = () => {
             .order("updated_at", { ascending: false }),
           supabase
             .from("assignments")
-            .select("id, title, description, sentence_id, due_at, include_pre, include_analysis, include_translation, include_wordtest")
+            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest")
             .or(`student_id.eq.${user.id},student_id.is.null`)
             .gte("due_at", new Date().toISOString())
             .order("due_at", { ascending: true })
