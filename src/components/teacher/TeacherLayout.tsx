@@ -1,4 +1,9 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import {
+  isApprovalChimeMuted,
+  setApprovalChimeMuted,
+  playApprovalChime,
+} from "@/lib/approvalChime";
 import {
   SidebarProvider,
   Sidebar,
@@ -30,6 +35,8 @@ import {
   Plug,
   Settings2,
   FileText,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { signOut, useAuth } from "@/hooks/useAuth";
@@ -264,6 +271,13 @@ export const TeacherLayout = ({ children }: Props) => {
   const { setMode } = useViewMode();
   const approvalCount = usePendingApprovalsCount();
   const { isViewingAsOther, staff, me, setStaffId } = useStaff();
+  const [chimeMuted, setChimeMuted] = useState(() => isApprovalChimeMuted());
+  const toggleChime = () => {
+    const next = !chimeMuted;
+    setApprovalChimeMuted(next);
+    setChimeMuted(next);
+    if (!next) playApprovalChime(); // 켤 때 미리듣기
+  };
 
   const switchToStudent = () => {
     setMode("student");
@@ -309,6 +323,19 @@ export const TeacherLayout = ({ children }: Props) => {
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
                     {approvalCount}
                   </span>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleChime}
+                title={chimeMuted ? "승인요청 음성 알림 켜기" : "승인요청 음성 알림 끄기"}
+                aria-label={chimeMuted ? "음성 알림 꺼짐" : "음성 알림 켜짐"}
+              >
+                {chimeMuted ? (
+                  <BellOff className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <Bell className="w-4 h-4 text-amber-600" />
                 )}
               </Button>
               <TeacherViewSwitcher />
