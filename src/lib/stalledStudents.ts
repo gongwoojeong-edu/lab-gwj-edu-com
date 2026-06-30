@@ -63,13 +63,22 @@ export async function fetchLongStalled(): Promise<StalledStudent[]> {
     .eq("translation_done", false)
     .lte("last_activity_at", cutoff)
     .order("last_activity_at", { ascending: true })
-    .limit(200);
+    .limit(400);
 
-  const list = (progRows ?? []).filter(
-    (r: any) => r.pre_done || r.word_test_done || r.analysis_done,
-  );
+  // 퇴원/비활성 학생 제외
+  const { data: activeRows } = await supabase
+    .from("student_profiles")
+    .select("user_id")
+    .neq("orbit_enrollment_active", false);
+  const activeSet = new Set(((activeRows ?? []) as { user_id: string }[]).map((r) => r.user_id));
+
+  const list = (progRows ?? [])
+    .filter((r: any) => r.pre_done || r.word_test_done || r.analysis_done)
+    .filter((r: any) => activeSet.has(r.user_id))
+    .slice(0, 200);
 
   if (list.length === 0) return [];
+
 
   // 단어테스트 최고 점수 일괄 조회
   const userIds = Array.from(new Set(list.map((r: any) => r.user_id).filter(Boolean)));
@@ -128,18 +137,21 @@ export async function fetchImminentIncomplete(): Promise<StalledAssignmentTarget
 
   if (!asgs || asgs.length === 0) return [];
 
-  // 전체 학생 user_id (student_id null 과제 대상 보완용)
+  // 활성(재원) 학생만 대상으로
   const { data: allStudents } = await supabase
     .from("student_profiles")
-    .select("user_id");
+    .select("user_id")
+    .neq("orbit_enrollment_active", false);
   const allIds = (allStudents ?? []).map((s: any) => s.user_id as string);
+  const activeSet = new Set(allIds);
 
   const results: StalledAssignmentTarget[] = [];
 
   for (const a of asgs as any[]) {
     if (!a.sentence_id) continue;
-    const targets: string[] = a.student_id ? [a.student_id] : allIds;
+    const targets: string[] = (a.student_id ? [a.student_id] : allIds).filter((id) => activeSet.has(id));
     if (targets.length === 0) continue;
+
 
     const { data: progRows } = await supabase
       .from("sentence_progress")
