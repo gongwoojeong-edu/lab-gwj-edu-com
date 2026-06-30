@@ -144,9 +144,10 @@ export const approveSentenceRequest = async (input: {
 
   await supabase
     .from("sentence_progress")
-    .update(update)
+    .update(update as never)
     .eq("user_id", targetUserId)
     .eq("sentence_id", input.sentenceId);
+
 
   // 3) 학생 알림함에 평가 전송 (실패해도 승인 흐름은 진행)
   try {
