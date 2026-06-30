@@ -145,7 +145,7 @@ export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
     .from("sentence_approvals")
     .select("*")
     .eq("status", "pending")
-    .order("requested_at", { ascending: true });
+    .order("requested_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as SentenceApproval[];
 };
