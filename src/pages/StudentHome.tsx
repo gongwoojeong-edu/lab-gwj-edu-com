@@ -257,13 +257,15 @@ const StudentHome = () => {
           });
         }
 
-        // 같은 title|due_at|unit_id (또는 정규식 prefix 폴백) 로 그룹핑
+        // 같은 batch(=같은 분에 부여된 동일 title/due_at/unit)만 한 카드로 묶음.
+        // created_at(분 단위)을 키에 포함 → 부여할 때마다 별도 카드로 분리됨.
         const groupMap = new Map<string, AssignmentRow[]>();
         allAssignments.forEach((a) => {
           const unitId = a.sentence_id ? codeToUnit.get(a.sentence_id) ?? null : null;
           const fallbackPrefix = extractUnitPrefix(a.sentence_id);
           const groupId = unitId ?? fallbackPrefix ?? a.sentence_id ?? a.id;
-          const key = `${a.title}|${a.due_at}|${groupId}`;
+          const batchMinute = a.created_at ? a.created_at.slice(0, 16) : a.id;
+          const key = `${a.title}|${a.due_at}|${groupId}|${batchMinute}`;
           if (!groupMap.has(key)) groupMap.set(key, []);
           groupMap.get(key)!.push(a);
         });
