@@ -147,6 +147,11 @@ const SentenceLearn = () => {
   const [pendingApproval, setPendingApproval] = useState<SentenceApproval | null>(null);
   const [submittedTranslation, setSubmittedTranslation] = useState<string>("");
 
+  // 추가학습 요청 (선생님이 redo 등급으로 승인) — 기존 통과 기록은 유지하되 한 번 더 제출
+  const [redoRequestedAt, setRedoRequestedAt] = useState<string | null>(null);
+  const [redoMemo, setRedoMemo] = useState<string | null>(null);
+
+
   // sentence 변경 시 마스터 로드 게이트 리셋 + 800ms 안전망(외부 fetch가 어떤 이유로 늦거나 실패해도 진행 가능)
   useEffect(() => {
     setAnalysisMasterLoaded(false);
