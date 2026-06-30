@@ -221,8 +221,9 @@ export const TeacherApprovalDialog = ({
             {saving
               ? "저장 중..."
               : grade === "redo"
-                ? "재학습으로 되돌리기"
+                ? "추가학습 요청 보내기"
                 : "승인하고 다음 문장으로"}
+
           </Button>
         </DialogFooter>
       </DialogContent>
