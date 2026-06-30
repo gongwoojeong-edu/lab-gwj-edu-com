@@ -114,14 +114,14 @@ export default function EvaluationReports() {
           .order("approved_at", { ascending: false }),
         supabase
           .from("sentence_attempt_logs")
-          .select("user_id,sentence_id,attempt_no,score_pct,created_at")
-          .gte("created_at", startIso)
-          .lte("created_at", endIso),
+          .select("user_id,sentence_id,attempt_no,analysis_match_rate,completed_at")
+          .gte("completed_at", startIso)
+          .lte("completed_at", endIso),
         supabase
           .from("word_test_results")
-          .select("user_id,sentence_id,score_pct,created_at")
-          .gte("created_at", startIso)
-          .lte("created_at", endIso),
+          .select("user_id,sentence_id,score,taken_at")
+          .gte("taken_at", startIso)
+          .lte("taken_at", endIso),
         supabase
           .from("analysis_review_requests")
           .select("user_id,sentence_id,created_at")
@@ -144,20 +144,27 @@ export default function EvaluationReports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [start, end]);
 
-  // 보조 조회: 한 평가에 대응되는 분석 정답률/단어테스트 점수
+  // analysis_match_rate 는 0~1 비율로 가정 → %로 변환
+  const toPct = (v: number | null | undefined) => {
+    if (v == null) return null;
+    const n = Number(v);
+    if (!isFinite(n)) return null;
+    return n <= 1 ? Math.round(n * 100) : Math.round(n);
+  };
+
   const findAnalysisPct = (uid: string, sid: string, attemptNo: number) => {
     const exact = attempts.find((a) => a.user_id === uid && a.sentence_id === sid && a.attempt_no === attemptNo);
-    if (exact?.score_pct != null) return Math.round(exact.score_pct);
+    if (exact) return toPct(exact.analysis_match_rate);
     const any = attempts
-      .filter((a) => a.user_id === uid && a.sentence_id === sid && a.score_pct != null)
+      .filter((a) => a.user_id === uid && a.sentence_id === sid)
       .sort((a, b) => b.attempt_no - a.attempt_no)[0];
-    return any?.score_pct != null ? Math.round(any.score_pct) : null;
+    return any ? toPct(any.analysis_match_rate) : null;
   };
   const findWordPct = (uid: string, sid: string) => {
     const w = wordResults
-      .filter((r) => r.user_id === uid && r.sentence_id === sid && r.score_pct != null)
-      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0];
-    return w?.score_pct != null ? Math.round(w.score_pct) : null;
+      .filter((r) => r.user_id === uid && r.sentence_id === sid && r.score != null)
+      .sort((a, b) => +new Date(b.taken_at) - +new Date(a.taken_at))[0];
+    return w?.score != null ? Math.round(Number(w.score)) : null;
   };
   const findRetestCount = (uid: string, sid: string) =>
     reviewReqs.filter((r) => r.user_id === uid && r.sentence_id === sid).length;
