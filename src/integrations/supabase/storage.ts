@@ -30,7 +30,12 @@ export interface SentenceProgressRow {
   passed_at: string | null;
   analysis_match_rate: number | null;
   last_activity_at: string | null;
+  redo_requested_at?: string | null;
+  last_redo_memo?: string | null;
+  last_grade?: string | null;
+  last_memo?: string | null;
 }
+
 
 export const fetchSentenceProgress = async (sentenceId: string): Promise<SentenceProgressRow | null> => {
   const userId = await getUserId();
