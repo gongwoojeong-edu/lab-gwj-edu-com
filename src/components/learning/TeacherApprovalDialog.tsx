@@ -214,7 +214,11 @@ export const TeacherApprovalDialog = ({
             취소
           </Button>
           <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
-            {saving ? "저장 중..." : "승인하고 다음 문장으로"}
+            {saving
+              ? "저장 중..."
+              : grade === "redo"
+                ? "재학습으로 되돌리기"
+                : "승인하고 다음 문장으로"}
           </Button>
         </DialogFooter>
       </DialogContent>
