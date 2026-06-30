@@ -30,7 +30,8 @@ import {
   Plug,
   Settings2,
   FileText,
-} from "lucide-react";
+  Bell,
+  BellOff,
 import { Badge } from "@/components/ui/badge";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
