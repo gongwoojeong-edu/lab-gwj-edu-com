@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Plug,
   Settings2,
+  FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { signOut, useAuth } from "@/hooks/useAuth";
