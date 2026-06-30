@@ -325,6 +325,19 @@ export const TeacherLayout = ({ children }: Props) => {
                   </span>
                 )}
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleChime}
+                title={chimeMuted ? "승인요청 음성 알림 켜기" : "승인요청 음성 알림 끄기"}
+                aria-label={chimeMuted ? "음성 알림 꺼짐" : "음성 알림 켜짐"}
+              >
+                {chimeMuted ? (
+                  <BellOff className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <Bell className="w-4 h-4 text-amber-600" />
+                )}
+              </Button>
               <TeacherViewSwitcher />
               <Button variant="outline" size="sm" onClick={switchToStudent}>
                 <Eye className="w-4 h-4 mr-1" /> 학생화면 보기
