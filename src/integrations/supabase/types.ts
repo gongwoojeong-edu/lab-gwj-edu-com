@@ -773,6 +773,7 @@ export type Database = {
           last_redo_memo: string | null
           mem_attempt_count: number
           mem_cloze_done: boolean
+          mem_dictation_done: boolean
           mem_direction: string | null
           mem_en_to_ko_done: boolean
           mem_ko_to_en_done: boolean
@@ -802,6 +803,7 @@ export type Database = {
           last_redo_memo?: string | null
           mem_attempt_count?: number
           mem_cloze_done?: boolean
+          mem_dictation_done?: boolean
           mem_direction?: string | null
           mem_en_to_ko_done?: boolean
           mem_ko_to_en_done?: boolean
@@ -831,6 +833,7 @@ export type Database = {
           last_redo_memo?: string | null
           mem_attempt_count?: number
           mem_cloze_done?: boolean
+          mem_dictation_done?: boolean
           mem_direction?: string | null
           mem_en_to_ko_done?: boolean
           mem_ko_to_en_done?: boolean
@@ -1210,6 +1213,7 @@ export type Database = {
           default_task_mode: Database["public"]["Enums"]["passage_task_mode"]
           description: string | null
           id: string
+          mem_dictation_blank_ratio: number
           mem_require_record: boolean
           structure_pdf_name: string | null
           structure_pdf_uploaded_at: string | null
@@ -1229,6 +1233,7 @@ export type Database = {
           default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
           id?: string
+          mem_dictation_blank_ratio?: number
           mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
@@ -1248,6 +1253,7 @@ export type Database = {
           default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
           id?: string
+          mem_dictation_blank_ratio?: number
           mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
