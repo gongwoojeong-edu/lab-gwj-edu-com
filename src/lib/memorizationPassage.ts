@@ -73,7 +73,7 @@ export async function updatePassageTaskMode(
 ): Promise<void> {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ task_mode: taskMode } as Record<string, unknown>)
+    .update({ task_mode: taskMode })
     .eq("id", passageId);
   if (error) throw error;
 }
