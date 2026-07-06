@@ -9,8 +9,6 @@ import {
   SkipForward,
   Loader2,
   Sparkles,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { englishMatch, getSpeechRecognition, speechSupported } from "@/lib/speech";
 import { dictationPassEn, type MemDirection } from "@/lib/memorizationText";
@@ -62,7 +60,6 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
   const [azureAvailable, setAzureAvailable] = useState(false);
   const [azureBusy, setAzureBusy] = useState(false);
   const [azureRecording, setAzureRecording] = useState(false);
-  const [showTargetHint, setShowTargetHint] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const finishedRef = useRef(false);
   const recRef = useRef<RecInstance | null>(null);
@@ -74,21 +71,22 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
 
   const isKoToEn = direction === "ko_to_en";
   const expected = isKoToEn ? english : korean;
-  const sourceText = isKoToEn ? korean : english;
-  const targetLabel = isKoToEn ? "영어" : "한국어";
-  const sourceLabel = isKoToEn ? "한글 해석" : "영어 원문";
-  const noSource = !sourceText.trim();
   const recLang = isKoToEn ? "en-US" : "ko-KR";
 
-  const prompt = noSource
-    ? isKoToEn
-      ? "한글 해석이 없습니다. 영어 원문을 소리 내어 읽으세요."
-      : "영문을 소리 내어 읽으세요."
-    : isKoToEn
-      ? "한글 해석을 보며 영어로 말하세요. (동시통역처럼)"
-      : "영어 원문을 보며 한국어로 말하세요. (동시통역처럼)";
+  const promptText = isKoToEn
+    ? korean.trim()
+      ? "한글 해석을 보고 영어로 소리 내어 말하세요."
+      : "영어 원문을 소리 내어 읽으세요."
+    : "영어 원문을 보고 한국어로 소리 내어 말하세요.";
 
-  const displaySource = noSource ? (isKoToEn ? english : english) : sourceText;
+  const panelLabel = isKoToEn
+    ? korean.trim()
+      ? "한글 해석"
+      : "영어 원문"
+    : "영어 원문";
+
+  const panelText = isKoToEn ? (korean.trim() || english) : english;
+  const readAloudFallback = isKoToEn && !korean.trim();
 
   useEffect(() => {
     finishedRef.current = false;
@@ -288,73 +286,26 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
     <Card className="p-5 space-y-4">
       <div className="space-y-1">
         <h3 className="font-bold">E. 소리내어 읽기</h3>
-        <p className="text-sm text-muted-foreground">{prompt}</p>
+        <p className="text-sm text-muted-foreground">{promptText}</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5 min-h-0">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-            {noSource && isKoToEn ? "영어 원문 (읽기)" : sourceLabel}
-          </div>
-          <div
-            className={cn(
-              "text-base font-medium rounded-lg p-4 leading-relaxed overflow-y-auto max-h-48 border",
-              noSource && isKoToEn
-                ? "bg-amber-50 border-amber-200 text-amber-950"
-                : "bg-violet-500/5 border-violet-500/20",
-            )}
-          >
-            {displaySource}
-          </div>
-          {noSource && isKoToEn && (
-            <p className="text-[11px] text-amber-700">한글 해석 미입력 — 영문 낭독 모드</p>
+      <div className="space-y-1.5">
+        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+          {panelLabel}
+        </div>
+        <div
+          className={cn(
+            "text-base font-medium rounded-lg p-4 leading-relaxed overflow-y-auto max-h-48 border",
+            readAloudFallback
+              ? "bg-amber-50 border-amber-200 text-amber-950"
+              : "bg-violet-500/5 border-violet-500/20",
           )}
+        >
+          {panelText}
         </div>
-
-        <div className="space-y-1.5 min-h-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              {targetLabel} (발화)
-            </div>
-            {!noSource && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2"
-                onClick={() => setShowTargetHint((v) => !v)}
-              >
-                {showTargetHint ? (
-                  <>
-                    <EyeOff className="w-3 h-3 mr-1" /> 힌트 숨기기
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-3 h-3 mr-1" /> 힌트 보기
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-          <div
-            className={cn(
-              "text-base rounded-lg p-4 leading-relaxed overflow-y-auto max-h-48 border border-dashed",
-              showTargetHint || noSource
-                ? "bg-muted/40 text-foreground border-muted-foreground/30"
-                : "bg-muted/20 text-muted-foreground/50 border-muted-foreground/20 flex items-center justify-center min-h-[8rem]",
-            )}
-          >
-            {showTargetHint || noSource ? (
-              expected
-            ) : (
-              <span className="text-sm text-center px-2">
-                {targetLabel}로 말해 주세요
-                <br />
-                <span className="text-[11px]">(동시통역 — 정답은 숨김)</span>
-              </span>
-            )}
-          </div>
-        </div>
+        {readAloudFallback && (
+          <p className="text-[11px] text-amber-700">한글 해석 미입력 — 영문 낭독 모드</p>
+        )}
       </div>
 
       {listening && (

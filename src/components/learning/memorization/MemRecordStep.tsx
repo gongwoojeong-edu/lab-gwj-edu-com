@@ -93,26 +93,18 @@ export const MemRecordStep = ({
       </div>
       <div className="space-y-1.5">
         <div className="text-[11px] font-semibold text-muted-foreground">
-          {direction === "ko_to_en" ? "한글 해석 / 영어 원문" : "영어 원문"}
+          {direction === "ko_to_en"
+            ? korean.trim()
+              ? "한글 해석"
+              : "영어 원문"
+            : "영어 원문"}
         </div>
         <div className="text-sm bg-muted/50 rounded-lg p-3 overflow-y-auto max-h-48 leading-relaxed">
-          {direction === "ko_to_en" ? (
-            <>
-              {korean.trim() ? (
-                <>
-                  <div className="text-[10px] text-muted-foreground mb-1">한글</div>
-                  {korean}
-                  <div className="text-[10px] text-muted-foreground mt-3 mb-1">영어</div>
-                  {english}
-                </>
-              ) : (
-                english
-              )}
-            </>
-          ) : (
-            english
-          )}
+          {direction === "ko_to_en" ? (korean.trim() || english) : english}
         </div>
+        {direction === "ko_to_en" && !korean.trim() && (
+          <p className="text-[11px] text-amber-700">한글 해석 미입력 — 영문 낭독 모드</p>
+        )}
       </div>
       <div className="flex flex-col items-center gap-3">
         {!recording && !uploading && !done && (
