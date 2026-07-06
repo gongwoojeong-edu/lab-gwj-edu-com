@@ -333,6 +333,7 @@ const AssignmentsPast = () => {
                       status: anyData && allWt ? "pass" : "missing",
                       score: wtCnt > 0 ? Math.round(wtScoreSum / wtCnt) : null,
                     },
+                    mem: { status: "missing", score: null },
                   });
                 });
                 return (
