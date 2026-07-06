@@ -125,7 +125,8 @@ export function buildClozeBlanks(
         distractors.push(`(${distractors.length + 1})`);
       }
       const options = shuffleArray([word, ...distractors.slice(0, 3)]);
-      const id = tokens.find((t) => t.type === "analyzable" && t.text === word)?.id ?? word;
+      const found = tokens.find((t) => t.type === "analyzable" && t.text === word);
+      const id = found && found.type === "analyzable" ? found.id : word;
       return { id, word, options };
     });
 }
