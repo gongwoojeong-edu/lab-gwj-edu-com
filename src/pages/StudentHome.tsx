@@ -66,6 +66,7 @@ import { fetchSentenceProgress } from "@/integrations/supabase/storage";
 import {
   learnPathForSentence,
   startButtonLabel,
+  taskModeIncludesMemorize,
   type TaskMode,
 } from "@/lib/taskMode";
 
@@ -86,6 +87,7 @@ interface AssignmentRow {
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
+  task_mode: TaskMode | null;
 }
 
 interface AssignmentGroup {
@@ -98,6 +100,7 @@ interface AssignmentGroup {
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
+  task_mode: TaskMode | null;
   rows: AssignmentRow[];
   totalCount: number;
   doneCount: number;
@@ -128,7 +131,7 @@ const StudentHome = () => {
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>([]);
   const [assignmentProgress, setAssignmentProgress] = useState<
-    Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>
+    Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean }>
   >(new Map());
   const [resumeTarget, setResumeTarget] = useState<{ sentenceId: string; title: string } | null>(null);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
@@ -177,7 +180,7 @@ const StudentHome = () => {
             .order("updated_at", { ascending: false }),
           supabase
             .from("assignments")
-            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest")
+            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode")
             .or(`student_id.eq.${user.id},student_id.is.null`)
             .gte("due_at", new Date().toISOString())
             .order("due_at", { ascending: true })
@@ -225,11 +228,14 @@ const StudentHome = () => {
         const assignSentenceIds = allAssignments
           .map((a) => a.sentence_id)
           .filter(Boolean) as string[];
-        const progressFlags = new Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean }>();
+        const progressFlags = new Map<
+          string,
+          { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean }
+        >();
         if (assignSentenceIds.length > 0) {
           const { data: progRows } = await supabase
             .from("sentence_progress")
-            .select("sentence_id, status, pre_done, word_test_done, analysis_done, translation_done")
+            .select("sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at")
             .eq("user_id", user.id)
             .in("sentence_id", assignSentenceIds);
           ((progRows ?? []) as Array<{
@@ -239,30 +245,38 @@ const StudentHome = () => {
             word_test_done: boolean | null;
             analysis_done: boolean | null;
             translation_done: boolean | null;
+            mem_passed_at: string | null;
           }>).forEach((r) => {
             progressFlags.set(r.sentence_id, {
               pre: !!r.pre_done,
               wt: !!r.word_test_done,
               an: !!r.analysis_done,
               tr: !!r.translation_done,
+              mem: !!r.mem_passed_at,
             });
           });
         }
-        // 한 sentence가 "완료"인지 판정 (그 과제의 ON 단계 전부 완료)
         const isSentenceDone = (a: AssignmentRow): boolean => {
           if (!a.sentence_id) return false;
           const pf = progressFlags.get(a.sentence_id);
           if (!pf) return false;
-          const preOk = !a.include_pre || pf.pre;
-          const wtOk = !a.include_wordtest || pf.wt;
-          const anOk = !a.include_analysis || pf.an;
-          const trOk = !a.include_translation || pf.tr;
-          return preOk && wtOk && anOk && trOk;
+          const mode = a.task_mode ?? "analysis_only";
+          const needsMem = taskModeIncludesMemorize(mode);
+          const needsAnalysis = mode !== "memorize_only";
+          if (needsAnalysis) {
+            const preOk = !a.include_pre || pf.pre;
+            const wtOk = !a.include_wordtest || pf.wt;
+            const anOk = !a.include_analysis || pf.an;
+            const trOk = !a.include_translation || pf.tr;
+            if (!(preOk && wtOk && anOk && trOk)) return false;
+          }
+          if (needsMem && !pf.mem) return false;
+          return true;
         };
         const isSentenceStarted = (a: AssignmentRow): boolean => {
           if (!a.sentence_id) return false;
           const pf = progressFlags.get(a.sentence_id);
-          return !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+          return !!pf && (pf.pre || pf.wt || pf.an || pf.tr || pf.mem);
         };
 
         // sentence_id → unit_id 매핑 조회 (DB 기반 정확한 그룹핑)
@@ -313,6 +327,7 @@ const StudentHome = () => {
               include_analysis: head.include_analysis,
               include_translation: head.include_translation,
               include_wordtest: head.include_wordtest,
+              task_mode: head.task_mode,
               rows: sorted,
               totalCount: sorted.length,
               doneCount: doneList.length,
@@ -844,6 +859,7 @@ const StudentHome = () => {
                           includeAnalysis={g.include_analysis}
                           includeTranslation={g.include_translation}
                           includeWordtest={g.include_wordtest}
+                          includeMemorize={taskModeIncludesMemorize(g.task_mode)}
                         />
                         {g.description && (
                           <p className="text-xs text-muted-foreground line-clamp-2">
@@ -934,7 +950,7 @@ const StudentHome = () => {
                         const nextSid = g.nextSentenceId;
                         // 특별과제는 일반 진도/이전 유닛 승인과 무관하게 항상 시작 가능
                         const pf = assignmentProgress.get(nextSid);
-                        const startedNext = !!pf && (pf.pre || pf.wt || pf.an || pf.tr);
+                        const startedNext = !!pf && (pf.pre || pf.wt || pf.an || pf.tr || pf.mem);
                         if (startedNext) {
                           return (
                             <Button

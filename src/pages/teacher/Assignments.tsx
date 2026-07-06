@@ -78,6 +78,7 @@ interface AssignmentGroup {
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
+  task_mode: TaskMode | null;
   rows: AssignmentRow[];
   totalCount: number;
   doneCount: number;
@@ -413,6 +414,7 @@ const Assignments = () => {
         include_analysis: head.include_analysis,
         include_translation: head.include_translation,
         include_wordtest: head.include_wordtest,
+        task_mode: head.task_mode ?? null,
         rows: sorted,
         totalCount: sorted.length,
         doneCount,
@@ -1242,6 +1244,7 @@ const Assignments = () => {
                         includeAnalysis={g.include_analysis}
                         includeTranslation={g.include_translation}
                         includeWordtest={g.include_wordtest}
+                        includeMemorize={taskModeIncludesMemorize(g.task_mode)}
                         progress={mergedProgress}
                         studentNameMap={studentNameMap}
                         targetUserIds={allTargetIds}

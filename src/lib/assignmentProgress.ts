@@ -12,6 +12,7 @@ export interface UserStepProgress {
   analysis: StepResult;
   translation: StepResult;
   wordtest: StepResult;
+  mem: StepResult;
 }
 
 export type AssignmentProgressMap = Map<string, UserStepProgress>;
@@ -21,6 +22,7 @@ const empty = (): UserStepProgress => ({
   analysis: { status: "missing", score: null },
   translation: { status: "missing", score: null },
   wordtest: { status: "missing", score: null },
+  mem: { status: "missing", score: null },
 });
 
 /**
@@ -61,7 +63,7 @@ export async function fetchAssignmentProgress(
     // sentence_progress: 즉시 저장된 부분 결과 (attempt log 생성 전이라도 활용)
     supabase
       .from("sentence_progress")
-      .select("user_id, pre_done, analysis_done, translation_done, word_test_done, analysis_match_rate")
+      .select("user_id, pre_done, analysis_done, translation_done, word_test_done, analysis_match_rate, mem_passed_at, mem_listen_done")
       .eq("sentence_id", sentenceId)
       .in("user_id", targetUserIds),
   ]);
@@ -129,6 +131,11 @@ export async function fetchAssignmentProgress(
     }
     if (cur.wordtest.status === "missing" && row.word_test_done) {
       cur.wordtest = { status: "pass", score: null };
+    }
+    if (row.mem_passed_at) {
+      cur.mem = { status: "pass", score: null };
+    } else if (row.mem_listen_done) {
+      cur.mem = { status: "done", score: null };
     }
   });
 

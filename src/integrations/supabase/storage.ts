@@ -34,6 +34,16 @@ export interface SentenceProgressRow {
   last_redo_memo?: string | null;
   last_grade?: string | null;
   last_memo?: string | null;
+  mem_listen_done?: boolean;
+  mem_scramble_done?: boolean;
+  mem_cloze_done?: boolean;
+  mem_speech_done?: boolean;
+  mem_record_done?: boolean;
+  mem_ko_to_en_done?: boolean;
+  mem_en_to_ko_done?: boolean;
+  mem_direction?: string | null;
+  mem_passed_at?: string | null;
+  mem_attempt_count?: number;
 }
 
 
@@ -63,6 +73,16 @@ export const upsertSentenceProgress = async (
     status: existing?.status ?? "pending",
     passed_at: existing?.passed_at ?? null,
     analysis_match_rate: existing?.analysis_match_rate ?? null,
+    mem_listen_done: existing?.mem_listen_done ?? false,
+    mem_scramble_done: existing?.mem_scramble_done ?? false,
+    mem_cloze_done: existing?.mem_cloze_done ?? false,
+    mem_speech_done: existing?.mem_speech_done ?? false,
+    mem_record_done: existing?.mem_record_done ?? false,
+    mem_ko_to_en_done: existing?.mem_ko_to_en_done ?? false,
+    mem_en_to_ko_done: existing?.mem_en_to_ko_done ?? false,
+    mem_direction: existing?.mem_direction ?? null,
+    mem_passed_at: existing?.mem_passed_at ?? null,
+    mem_attempt_count: existing?.mem_attempt_count ?? 0,
     ...rest,
   };
   // 명시적으로 touchActivity=true이거나, 진행 패치(어떤 단계 done/status)일 때 last_activity_at 갱신
@@ -73,7 +93,16 @@ export const upsertSentenceProgress = async (
     "translation_done" in rest ||
     "word_test_done" in rest ||
     "analysis_match_rate" in rest ||
-    "status" in rest;
+    "status" in rest ||
+    "mem_listen_done" in rest ||
+    "mem_scramble_done" in rest ||
+    "mem_cloze_done" in rest ||
+    "mem_speech_done" in rest ||
+    "mem_record_done" in rest ||
+    "mem_ko_to_en_done" in rest ||
+    "mem_en_to_ko_done" in rest ||
+    "mem_passed_at" in rest ||
+    "mem_attempt_count" in rest;
   if (isProgressPatch) {
     next.last_activity_at = new Date().toISOString();
   }

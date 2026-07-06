@@ -10,6 +10,12 @@
 // ============================================================
 import type { AssignmentProgressMap } from "./assignmentProgress";
 
+import {
+  deriveTaskModeFromSteps,
+  taskModeIncludesMemorize,
+  type TaskMode,
+} from "@/lib/taskMode";
+
 export interface AssignmentLike {
   id: string;
   student_id: string | null;
@@ -17,7 +23,18 @@ export interface AssignmentLike {
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
+  task_mode?: TaskMode | null;
 }
+
+const resolveAssignmentMode = (asg: AssignmentLike): TaskMode =>
+  asg.task_mode ??
+  deriveTaskModeFromSteps({
+    includePre: asg.include_pre,
+    includeAnalysis: asg.include_analysis,
+    includeTranslation: asg.include_translation,
+    includeWordtest: asg.include_wordtest,
+    includeMemorize: false,
+  });
 
 /**
  * 한 학생의 단계별 진척이 해당 과제 기준으로 통과인지 판정.
@@ -30,10 +47,17 @@ const userPassedAssignment = (
   if (!progress) return false;
   const p = progress.get(userId);
   if (!p) return false;
-  if (asg.include_pre && p.pre.status !== "done" && p.pre.status !== "pass") return false;
-  if (asg.include_analysis && p.analysis.status !== "pass") return false;
-  if (asg.include_translation && p.translation.status !== "done") return false;
-  if (asg.include_wordtest && p.wordtest.status !== "pass") return false;
+  const mode = resolveAssignmentMode(asg);
+  const needsAnalysis = mode !== "memorize_only";
+  const needsMem = taskModeIncludesMemorize(mode);
+
+  if (needsAnalysis) {
+    if (asg.include_pre && p.pre.status !== "done" && p.pre.status !== "pass") return false;
+    if (asg.include_analysis && p.analysis.status !== "pass") return false;
+    if (asg.include_translation && p.translation.status !== "done") return false;
+    if (asg.include_wordtest && p.wordtest.status !== "pass") return false;
+  }
+  if (needsMem && p.mem.status !== "pass") return false;
   return true;
 };
 
@@ -48,14 +72,14 @@ export const isAssignmentDone = (
 ): boolean => {
   const targets = asg.student_id ? [asg.student_id] : allStudentIds;
   if (targets.length === 0) return false;
-  // 단계가 하나도 포함되지 않은 과제는 완료 판정 불가 → 활성에 둠
-  if (
-    !asg.include_pre &&
-    !asg.include_analysis &&
-    !asg.include_translation &&
-    !asg.include_wordtest
-  ) {
-    return false;
-  }
+  const mode = resolveAssignmentMode(asg);
+  const hasAnalysisSteps =
+    mode !== "memorize_only" &&
+    (asg.include_pre ||
+      asg.include_analysis ||
+      asg.include_translation ||
+      asg.include_wordtest);
+  const hasMem = taskModeIncludesMemorize(mode);
+  if (!hasAnalysisSteps && !hasMem) return false;
   return targets.every((uid) => userPassedAssignment(asg, progress, uid));
 };

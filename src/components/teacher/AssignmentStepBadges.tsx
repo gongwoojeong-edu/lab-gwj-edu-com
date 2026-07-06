@@ -14,6 +14,7 @@ interface AssignmentStepBadgesProps {
   includeAnalysis: boolean;
   includeTranslation: boolean;
   includeWordtest: boolean;
+  includeMemorize?: boolean;
   className?: string;
   size?: "sm" | "xs";
   /** When provided alongside studentNameMap, badges become hover targets showing per-student results. */
@@ -22,13 +23,14 @@ interface AssignmentStepBadgesProps {
   targetUserIds?: string[];
 }
 
-type StepKey = "pre" | "analysis" | "translation" | "wordtest";
+type StepKey = "pre" | "analysis" | "translation" | "wordtest" | "mem";
 
 const STEPS: Array<{ key: StepKey; label: string; hasScore: boolean }> = [
   { key: "pre", label: "단어학습", hasScore: false },
   { key: "wordtest", label: "단어시험", hasScore: true },
   { key: "analysis", label: "구문분석", hasScore: true },
   { key: "translation", label: "한글해석", hasScore: false },
+  { key: "mem", label: "문장암기", hasScore: false },
 ];
 
 const statusBadge = (r: StepResult, hasScore: boolean) => {
@@ -120,6 +122,7 @@ export const AssignmentStepBadges = ({
   includeAnalysis,
   includeTranslation,
   includeWordtest,
+  includeMemorize = false,
   className,
   size = "sm",
   progress,
@@ -131,6 +134,7 @@ export const AssignmentStepBadges = ({
     analysis: includeAnalysis,
     translation: includeTranslation,
     wordtest: includeWordtest,
+    mem: includeMemorize,
   };
   const sizeCls = size === "xs" ? "text-[10px] px-1.5 py-0" : "text-[11px] px-2 py-0.5";
   const hoverEnabled = !!progress && !!studentNameMap && !!targetUserIds;
