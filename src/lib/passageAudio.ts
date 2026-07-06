@@ -2,6 +2,7 @@
 // passageAudio — TTS 오디오 조회·생성 (generate-passage-audio EF)
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
+import { speakChunk } from "@/lib/syllables";
 
 const BUCKET = "passage-audio";
 
@@ -44,6 +45,32 @@ export async function resolvePassageAudioUrl(
   if (!row) return { url: null, source: null };
   const url = await getPassageAudioSignedUrl(row.storage_path);
   return { url, source: row.source };
+}
+
+/** TTS URL → 실패 시 브라우저 TTS fallback */
+export async function playPassageAudioEnglish(
+  sentenceId: string,
+  english: string,
+  onEnd?: () => void,
+): Promise<void> {
+  const finish = () => onEnd?.();
+  try {
+    const { url } = await resolvePassageAudioUrl(sentenceId);
+    if (url) {
+      const audio = new Audio(url);
+      audio.onended = finish;
+      audio.onerror = () => speakChunk(english, { rate: 0.82, lang: "en-US" }, finish);
+      try {
+        await audio.play();
+        return;
+      } catch {
+        /* fallback below */
+      }
+    }
+  } catch {
+    /* fallback below */
+  }
+  speakChunk(english, { rate: 0.82, lang: "en-US" }, finish);
 }
 
 export type GeneratePassageAudioResult = {

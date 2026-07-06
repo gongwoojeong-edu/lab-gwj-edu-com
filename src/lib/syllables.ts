@@ -122,22 +122,38 @@ export const speakChunk = (
     return;
   }
   const synth = window.speechSynthesis;
-  try {
-    synth.cancel();
-  } catch {
-    /* noop */
+  const run = () => {
+    try {
+      synth.cancel();
+    } catch {
+      /* noop */
+    }
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = opts?.lang ?? "en-US";
+    u.rate = opts?.rate ?? 0.85;
+    const voices = synth.getVoices();
+    const en = voices.find((v) => v.lang?.toLowerCase().startsWith("en"));
+    if (en) u.voice = en;
+    if (onEnd) {
+      u.onend = () => onEnd();
+      u.onerror = () => onEnd();
+    }
+    synth.speak(u);
+  };
+
+  if (synth.getVoices().length > 0) {
+    run();
+    return;
   }
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = opts?.lang ?? "en-US";
-  u.rate = opts?.rate ?? 0.85;
-  const voices = synth.getVoices();
-  const en = voices.find((v) => v.lang?.toLowerCase().startsWith("en"));
-  if (en) u.voice = en;
-  if (onEnd) {
-    u.onend = () => onEnd();
-    u.onerror = () => onEnd();
-  }
-  synth.speak(u);
+  const onVoices = () => {
+    synth.removeEventListener("voiceschanged", onVoices);
+    run();
+  };
+  synth.addEventListener("voiceschanged", onVoices);
+  window.setTimeout(() => {
+    synth.removeEventListener("voiceschanged", onVoices);
+    run();
+  }, 400);
 };
 
 /** 단어 전체를 한 번에 자연스럽게 발음 */
