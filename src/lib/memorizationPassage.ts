@@ -51,7 +51,7 @@ export async function composePassageMemorization(passageId: string): Promise<Pas
 
   const { data, error } = await supabase
     .from("textbook_passages")
-    .update(patch as Record<string, unknown>)
+    .update(patch)
     .eq("id", passageId)
     .select("*")
     .single();
