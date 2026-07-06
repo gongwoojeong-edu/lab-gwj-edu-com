@@ -100,6 +100,6 @@ export async function updateUnitMemSettings(
   if (opts.defaultMemDirection != null) patch.default_mem_direction = opts.defaultMemDirection;
   if (opts.memRequireRecord != null) patch.mem_require_record = opts.memRequireRecord;
   if (Object.keys(patch).length === 0) return;
-  const { error } = await supabase.from("textbook_units").update(patch).eq("id", unitId);
+  const { error } = await supabase.from("textbook_units").update(patch as never).eq("id", unitId);
   if (error) throw error;
 }
