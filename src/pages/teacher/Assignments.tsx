@@ -721,7 +721,7 @@ const Assignments = () => {
             editForm.includeMemorize && editForm.memDirection
               ? editForm.memDirection
               : null,
-        } as Record<string, unknown>)
+        } as never)
         .in("id", targetIds);
       if (metaErr) throw metaErr;
 
