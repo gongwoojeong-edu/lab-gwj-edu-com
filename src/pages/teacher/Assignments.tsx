@@ -1275,6 +1275,7 @@ const Assignments = () => {
                     analysis: { status: anyData && allAn ? "pass" : "missing", score: anCnt > 0 ? Math.round(anScoreSum / anCnt) : null },
                     translation: { status: anyData && allTr ? "done" : "missing", score: null },
                     wordtest: { status: anyData && allWt ? "pass" : "missing", score: wtCnt > 0 ? Math.round(wtScoreSum / wtCnt) : null },
+                    mem: { status: "missing", score: null },
                   });
                 });
                 return (
