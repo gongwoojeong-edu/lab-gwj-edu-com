@@ -65,6 +65,7 @@ import {
   taskModeIncludesMemorize,
   type TaskMode,
 } from "@/lib/taskMode";
+import { notifyStudentsForNewAssignment } from "@/lib/assignmentNotifications";
 import {
   MEM_DIRECTION_SETTING_LABEL,
   type MemDirectionSetting,
@@ -523,9 +524,18 @@ const Assignments = () => {
         form.mode === "sentence"
           ? `문장 1개`
           : `유닛 지문 ${passageCodes.length}개`;
+      const notified = await notifyStudentsForNewAssignment({
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        dueAt: endOfDay,
+        studentIds: form.studentIds,
+        taskMode,
+        passageCount: passageCodes.length,
+        mode: form.mode,
+      });
       toast({
         title: "✅ 과제가 생성되었습니다",
-        description: `${studentMsg} × ${unitLabel} = ${rowsToInsert.length}건 부여됨`,
+        description: `${studentMsg} × ${unitLabel} = ${rowsToInsert.length}건 부여됨${notified > 0 ? ` · 알림 ${notified}명` : ""}`,
       });
       setForm(emptyForm());
       void load();

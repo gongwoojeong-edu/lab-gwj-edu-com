@@ -4,7 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 
-export type NotificationKind = "evaluation" | "system" | "retest";
+export type NotificationKind = "evaluation" | "system" | "retest" | "assignment";
 
 export interface StudentNotification {
   id: string;

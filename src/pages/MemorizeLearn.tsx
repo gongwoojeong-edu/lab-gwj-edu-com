@@ -165,6 +165,7 @@ const MemorizeLearn = () => {
   const dirLabel = displayDirectionLabel(memSettings.directionSetting, activeDirection);
 
   const stepProps = {
+    sentenceId: sentence.id,
     english: passage.english,
     korean: passage.korean,
     direction: activeDirection,

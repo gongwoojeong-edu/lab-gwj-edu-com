@@ -31,6 +31,7 @@ import {
   X,
   Eye,
   ArrowRight,
+  Volume2,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -103,6 +104,7 @@ import {
   type MemDirectionSetting,
 } from "@/lib/fetchMemSettings";
 import { updatePassageKorean } from "@/lib/textbooks";
+import { generatePassageAudio } from "@/lib/passageAudio";
 
 const BookshelfUnit = () => {
   const { level, seriesNo, volumeNo, unitNo } = useParams<{
@@ -165,6 +167,8 @@ const BookshelfUnit = () => {
   const [koreanEditId, setKoreanEditId] = useState<string | null>(null);
   const [koreanDraft, setKoreanDraft] = useState("");
   const [composingId, setComposingId] = useState<string | null>(null);
+  const [ttsGeneratingCode, setTtsGeneratingCode] = useState<string | null>(null);
+  const [bulkTtsBusy, setBulkTtsBusy] = useState(false);
   const [memTogglingCode, setMemTogglingCode] = useState<string | null>(null);
   const [taskSavingId, setTaskSavingId] = useState<string | null>(null);
 
@@ -619,6 +623,44 @@ const BookshelfUnit = () => {
       toast({ title: "자동구성 실패", description: errMsg(e), variant: "destructive" });
     } finally {
       setComposingId(null);
+    }
+  };
+
+  const handleGenerateTts = async (p: Passage, force = false) => {
+    setTtsGeneratingCode(p.code);
+    try {
+      const r = await generatePassageAudio(p.code, p.english, force);
+      if (!r.ok) throw new Error(r.error ?? "TTS 생성 실패");
+      toast({
+        title: r.cached ? "TTS 이미 있음" : "TTS 생성 완료",
+        description: p.code,
+      });
+    } catch (e) {
+      toast({ title: "TTS 생성 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setTtsGeneratingCode(null);
+    }
+  };
+
+  const handleBulkTts = async () => {
+    const targets = passages.filter((p) => p.english?.trim());
+    if (targets.length === 0) return;
+    setBulkTtsBusy(true);
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const p of targets) {
+        const r = await generatePassageAudio(p.code, p.english, false);
+        if (r.ok) ok++;
+        else fail++;
+      }
+      toast({
+        title: "유닛 TTS 일괄 생성 완료",
+        description: `성공 ${ok} · 실패 ${fail}`,
+        variant: fail > 0 ? "destructive" : "default",
+      });
+    } finally {
+      setBulkTtsBusy(false);
     }
   };
 
@@ -1158,6 +1200,19 @@ const BookshelfUnit = () => {
                 <Link to={`/learn/unit/${unit.id}/flow`}>단락흐름 미리보기</Link>
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={bulkTtsBusy || passages.length === 0}
+              onClick={() => void handleBulkTts()}
+            >
+              {bulkTtsBusy ? (
+                <Loader2 className="size-3.5 mr-1 animate-spin" />
+              ) : (
+                <Volume2 className="size-3.5 mr-1" />
+              )}
+              유닛 TTS 일괄 생성
+            </Button>
           </div>
         </Card>
 
@@ -1367,6 +1422,19 @@ const BookshelfUnit = () => {
                           </button>
                         </td>
                         <td className="py-2 px-3 text-right whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="TTS 오디오 생성"
+                            disabled={ttsGeneratingCode === p.code}
+                            onClick={() => void handleGenerateTts(p)}
+                          >
+                            {ttsGeneratingCode === p.code ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Volume2 className="size-3.5" />
+                            )}
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"

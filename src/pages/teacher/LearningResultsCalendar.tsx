@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, FileText, Languages, Pencil, BookOpen, Loader2, ExternalLink, PencilLine, Trash2, Brain } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +45,7 @@ interface StudentRow {
   className?: string | null;
 }
 
-type EventKind = "analysis" | "translation" | "word_pre" | "word_test" | "handout";
+type EventKind = "analysis" | "translation" | "word_pre" | "word_test" | "handout" | "memorize" | "mem_flow";
 
 interface CalEvent {
   id: string;
@@ -63,6 +63,8 @@ const KIND_META: Record<EventKind, { icon: any; bg: string; text: string; ko: st
   word_pre:     { icon: BookOpen,  bg: "bg-amber-50 hover:bg-amber-100 border-amber-200",    text: "text-amber-700",  ko: "단어사전" },
   word_test:    { icon: Pencil,    bg: "bg-violet-50 hover:bg-violet-100 border-violet-200", text: "text-violet-700", ko: "단어시험" },
   handout:      { icon: FileText,  bg: "bg-rose-50 hover:bg-rose-100 border-rose-200",       text: "text-rose-700",   ko: "인쇄채점" },
+  memorize:     { icon: Brain,     bg: "bg-fuchsia-50 hover:bg-fuchsia-100 border-fuchsia-200", text: "text-fuchsia-700", ko: "문장암기" },
+  mem_flow:     { icon: Brain,     bg: "bg-indigo-50 hover:bg-indigo-100 border-indigo-200", text: "text-indigo-700", ko: "단락흐름" },
 };
 
 const EventItem = ({
@@ -203,12 +205,14 @@ const LearningResultsCalendar = () => {
       const monthEnd = `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-01T00:00:00`;
       const counts: Record<string, number> = {};
       // 가벼운 카운트: sentence_attempt_logs + sentence_translations + word_test_results + word_pre_results + handout_results
-      const [sal, st, wtr, wpr, hr] = await Promise.all([
+      const [sal, st, wtr, wpr, hr, memProg, flowProg] = await Promise.all([
         supabase.from("sentence_attempt_logs").select("user_id", { count: "exact" }).gte("completed_at", monthStart).lt("completed_at", monthEnd),
         supabase.from("sentence_translations").select("user_id").gte("submitted_at", monthStart).lt("submitted_at", monthEnd),
         supabase.from("word_test_results").select("user_id").gte("taken_at", monthStart).lt("taken_at", monthEnd),
         supabase.from("word_pre_results").select("user_id").gte("taken_at", monthStart).lt("taken_at", monthEnd),
         supabase.from("handout_results").select("user_id").gte("test_date", `${year}-${pad2(month)}-01`).lt("test_date", `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-01`),
+        supabase.from("sentence_progress").select("user_id").not("mem_passed_at", "is", null).gte("mem_passed_at", monthStart).lt("mem_passed_at", monthEnd),
+        supabase.from("paragraph_flow_progress").select("user_id").not("passed_at", "is", null).gte("passed_at", monthStart).lt("passed_at", monthEnd),
       ]);
       const tally = (rows: any[]) => rows.forEach((r) => { counts[r.user_id] = (counts[r.user_id] ?? 0) + 1; });
       tally((sal.data as any[]) ?? []);
@@ -216,6 +220,8 @@ const LearningResultsCalendar = () => {
       tally((wtr.data as any[]) ?? []);
       tally((wpr.data as any[]) ?? []);
       tally((hr.data as any[]) ?? []);
+      tally((memProg.data as any[]) ?? []);
+      tally((flowProg.data as any[]) ?? []);
       setStudentCounts(counts);
     })();
   }, [students, year, month]);
@@ -235,7 +241,7 @@ const LearningResultsCalendar = () => {
         const dateStart = `${year}-${pad2(month)}-01`;
         const dateEnd = `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-01`;
 
-        const [salR, stR, wtrR, wprR, hrR] = await Promise.all([
+        const [salR, stR, wtrR, wprR, hrR, memR, flowR] = await Promise.all([
           supabase
             .from("sentence_attempt_logs")
             .select("id, sentence_id, attempt_no, analysis_match_rate, analysis_passed, word_test_score, word_test_passed, owner_diff, translation_text, completed_at, attempt_source")
@@ -267,6 +273,20 @@ const LearningResultsCalendar = () => {
             .eq("user_id", selectedStudent)
             .gte("test_date", dateStart)
             .lt("test_date", dateEnd),
+          supabase
+            .from("sentence_progress")
+            .select("id, sentence_id, mem_passed_at, mem_listen_done, mem_scramble_done, mem_cloze_done, mem_speech_done, mem_record_done, mem_direction, mem_attempt_count")
+            .eq("user_id", selectedStudent)
+            .not("mem_passed_at", "is", null)
+            .gte("mem_passed_at", monthStart)
+            .lt("mem_passed_at", monthEnd),
+          supabase
+            .from("paragraph_flow_progress")
+            .select("id, unit_id, passed_at, best_score, attempt_count")
+            .eq("user_id", selectedStudent)
+            .not("passed_at", "is", null)
+            .gte("passed_at", monthStart)
+            .lt("passed_at", monthEnd),
         ]);
 
         // sentence_progress 의 마지막 등급/메모 (선생님 승인 결과) — 본 학생 전체 한 번에 가져오기
@@ -353,6 +373,37 @@ const LearningResultsCalendar = () => {
             sentence_id: r.sentence_id,
             label: `${shortSid(r.sentence_id) || "통합"} 인쇄채점`,
             meta: `단어 ${r.word_ho_score != null ? `${r.word_ho_score}점` : "-"} · 구문 ${r.syntax_ho_result ?? "-"}`,
+            payload: r,
+          });
+        });
+
+        ((memR.data as any[]) ?? []).forEach((r) => {
+          const steps = [
+            r.mem_listen_done && "A",
+            r.mem_scramble_done && "B",
+            r.mem_cloze_done && "C",
+            r.mem_speech_done && "D",
+            r.mem_record_done && "E",
+          ].filter(Boolean).join("");
+          push({
+            id: `mem-${r.id}`,
+            kind: "memorize",
+            ts: r.mem_passed_at,
+            sentence_id: r.sentence_id,
+            label: `${shortSid(r.sentence_id)} 문장암기`,
+            meta: `P · ${steps || "완료"}${r.mem_direction ? ` · ${r.mem_direction}` : ""}`,
+            payload: r,
+          });
+        });
+
+        ((flowR.data as any[]) ?? []).forEach((r) => {
+          push({
+            id: `flow-${r.id}`,
+            kind: "mem_flow",
+            ts: r.passed_at,
+            sentence_id: null,
+            label: `단락흐름 U${String(r.unit_id).slice(0, 8)}`,
+            meta: `P · ${r.best_score ?? 100}점 · ${r.attempt_count ?? 1}회`,
             payload: r,
           });
         });
@@ -707,7 +758,7 @@ const EventDetailDialog = ({
             variant="destructive"
             size="sm"
             onClick={() => setDeleteOpen(true)}
-            disabled={deleting || !event.payload?.id}
+            disabled={deleting || !event.payload?.id || event.kind === "memorize" || event.kind === "mem_flow"}
           >
             <Trash2 className="size-4 mr-1" /> 이 학습이력 삭제
           </Button>
@@ -736,6 +787,8 @@ const EventDetailDialog = ({
                     word_test: "word_test_results",
                     word_pre: "word_pre_results",
                     handout: "handout_results",
+                    memorize: "sentence_progress",
+                    mem_flow: "paragraph_flow_progress",
                   };
                   const table = tableByKind[event.kind];
                   setDeleting(true);
@@ -928,6 +981,43 @@ const DetailBody = ({ event, studentId, onRegraded }: { event: CalEvent; student
         <div><span className="text-muted-foreground">단어 점수:</span> {p.word_ho_score ?? "—"}</div>
         <div><span className="text-muted-foreground">구문 결과:</span> {p.syntax_ho_result ?? "—"}</div>
         <div><span className="text-muted-foreground">통합 시험:</span> {p.is_integrated ? "Y" : "N"}</div>
+      </div>
+    );
+  }
+
+  if (event.kind === "memorize") {
+    const steps = [
+      ["A 듣기", p.mem_listen_done],
+      ["B 어순", p.mem_scramble_done],
+      ["C 빈칸", p.mem_cloze_done],
+      ["D 발화", p.mem_speech_done],
+      ["E 녹음", p.mem_record_done],
+    ] as const;
+    return (
+      <div className="space-y-3 text-sm">
+        <div className="flex gap-4 flex-wrap">
+          <div><span className="text-muted-foreground">통과:</span> <b className="text-fuchsia-700">P</b></div>
+          <div><span className="text-muted-foreground">방향:</span> {p.mem_direction ?? "—"}</div>
+          <div><span className="text-muted-foreground">시도:</span> {p.mem_attempt_count ?? 1}회</div>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {steps.map(([label, done]) => (
+            <Badge key={label} variant={done ? "default" : "outline"} className={done ? "bg-fuchsia-600" : ""}>
+              {label}{done ? " ✓" : ""}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (event.kind === "mem_flow") {
+    return (
+      <div className="space-y-2 text-sm">
+        <div><span className="text-muted-foreground">유닛 ID:</span> <span className="font-mono text-xs">{p.unit_id}</span></div>
+        <div><span className="text-muted-foreground">최고 점수:</span> {p.best_score ?? 100}점</div>
+        <div><span className="text-muted-foreground">시도:</span> {p.attempt_count ?? 1}회</div>
+        <div><span className="text-muted-foreground">통과:</span> <b className="text-indigo-700">P</b></div>
       </div>
     );
   }
