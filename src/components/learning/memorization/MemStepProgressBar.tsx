@@ -2,10 +2,12 @@ import { Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MemStep } from "@/lib/memorizationProgress";
 
-const STEPS: { key: MemStep; label: string }[] = [
-  { key: "listen", label: "A. 듣기·딕테이션" },
-  { key: "scramble", label: "B. 어순배열" },
-  { key: "cloze", label: "C. 빈칸채우기" },
+const ALL_STEPS: { key: MemStep; label: string }[] = [
+  { key: "listen", label: "A. 듣기" },
+  { key: "scramble", label: "B. 어순" },
+  { key: "cloze", label: "C. 빈칸" },
+  { key: "speech", label: "D. 발화" },
+  { key: "record", label: "E. 녹음" },
 ];
 
 interface Props {
@@ -13,6 +15,9 @@ interface Props {
   listenDone: boolean;
   scrambleDone: boolean;
   clozeDone: boolean;
+  speechDone: boolean;
+  recordDone: boolean;
+  requireRecord: boolean;
 }
 
 export const MemStepProgressBar = ({
@@ -20,36 +25,45 @@ export const MemStepProgressBar = ({
   listenDone,
   scrambleDone,
   clozeDone,
+  speechDone,
+  recordDone,
+  requireRecord,
 }: Props) => {
-  const isDone = (k: MemStep) =>
-    k === "listen" ? listenDone : k === "scramble" ? scrambleDone : clozeDone;
-  const passed = listenDone && scrambleDone && clozeDone;
+  const steps = requireRecord ? ALL_STEPS : ALL_STEPS.filter((s) => s.key !== "record");
+  const isDone = (k: MemStep) => {
+    if (k === "listen") return listenDone;
+    if (k === "scramble") return scrambleDone;
+    if (k === "cloze") return clozeDone;
+    if (k === "speech") return speechDone;
+    return recordDone;
+  };
+  const passed = steps.every((s) => isDone(s.key));
 
   return (
-    <div className="flex items-center gap-2 text-sm flex-wrap">
-      {STEPS.map((s, i) => {
+    <div className="flex items-center gap-1.5 text-sm flex-wrap">
+      {steps.map((s, i) => {
         const done = isDone(s.key);
         const active = current === s.key;
         return (
-          <div key={s.key} className="flex items-center gap-2">
+          <div key={s.key} className="flex items-center gap-1.5">
             <span
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors",
+                "flex items-center gap-1 px-2 py-1 rounded-full border text-[10px]",
                 done && "bg-violet-500/10 border-violet-500/40 text-violet-700 dark:text-violet-300",
                 !done && active && "bg-accent border-accent-foreground/30",
                 !done && !active && "border-border text-muted-foreground",
               )}
             >
-              {done ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
-              <span className="font-medium text-xs">{s.label}</span>
+              {done ? <Check className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
+              <span className="font-medium">{s.label}</span>
             </span>
-            {i < STEPS.length - 1 && <span className="text-muted-foreground">→</span>}
+            {i < steps.length - 1 && <span className="text-muted-foreground text-[10px]">→</span>}
           </div>
         );
       })}
       {passed && (
-        <span className="ml-2 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
-          암기 Pass
+        <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold">
+          Pass
         </span>
       )}
     </div>

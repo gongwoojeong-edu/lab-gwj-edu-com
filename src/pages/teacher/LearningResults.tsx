@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
 import WordHoInput from "@/components/teacher/WordHoInput";
+import { MemRecordingPlayButton } from "@/components/teacher/MemRecordingPlayButton";
 import SyntaxHoToggle from "@/components/teacher/SyntaxHoToggle";
 import { subscribeToPrintRequests } from "@/lib/printRequests";
 import { launchPrintHtml, launchPrintHtmlMany, prewarmPrintDocument } from "@/lib/printLauncher";
@@ -105,6 +106,8 @@ const LearningResults = () => {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   // 한글해석 제출 여부: `${userId}::${sentenceId}` → true
   const [translationSet, setTranslationSet] = useState<Record<string, boolean>>({});
+  // 문장암기: `${userId}::${sentenceId}` → pass | progress
+  const [memMap, setMemMap] = useState<Record<string, "pass" | "progress">>({});
   // 한글해석 본문 캐시 (hover 시 fetch): `${userId}::${sentenceId}` → text | null(미제출) | undefined(미조회)
   const [translationTextCache, setTranslationTextCache] = useState<
     Record<string, string | null>
@@ -221,7 +224,7 @@ const LearningResults = () => {
         supabase
           .from("sentence_progress")
           .select(
-            "user_id, sentence_id, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at",
+            "user_id, sentence_id, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at, mem_passed_at, mem_listen_done",
           )
           .gte("last_activity_at", startIso)
           .lte("last_activity_at", endIso),
@@ -324,12 +327,18 @@ const LearningResults = () => {
         word_test_done: boolean;
         last_activity_at: string | null;
         updated_at: string | null;
+        mem_passed_at: string | null;
+        mem_listen_done: boolean | null;
       }>;
+      const memStatusMap: Record<string, "pass" | "progress"> = {};
       progressRows.forEach((r) => {
         addPair(r.user_id, r.sentence_id, r.last_activity_at ?? r.updated_at);
         if (r.translation_done && !isRemediationSid(r.sentence_id)) {
           tSet[`${r.user_id}::${r.sentence_id}`] = true;
         }
+        const mk = `${r.user_id}::${r.sentence_id}`;
+        if (r.mem_passed_at) memStatusMap[mk] = "pass";
+        else if (r.mem_listen_done) memStatusMap[mk] = "progress";
       });
 
       // 오답복습 카운트 맵 — 부모 sid 가 실제 카드로 등장하는 경우만 노출
@@ -507,6 +516,7 @@ const LearningResults = () => {
       });
       setStudentLastActivity(ulaObj);
       setTranslationSet(tSet);
+      setMemMap(memStatusMap);
 
       // 4) sentence_id → unit_id, unit_id → 라벨 로드
       const allSids = Array.from(new Set(Object.values(ssMap).flat()));
@@ -1300,6 +1310,7 @@ const LearningResults = () => {
                                       <th className="text-left px-3 py-2 font-medium">문장 코드</th>
                                       <th className="text-left px-3 py-2 font-medium">온라인 · 분석+해석</th>
                                       <th className="text-left px-3 py-2 font-medium">온라인 · 단어시험</th>
+                                      <th className="text-left px-3 py-2 font-medium">문장암기</th>
                                       <th className="text-left px-3 py-2 font-medium">단어 HO</th>
                                       <th className="text-left px-3 py-2 font-medium">구문 HO</th>
                                       <th className="text-right px-3 py-2 font-medium">재시험</th>
@@ -1511,6 +1522,31 @@ const LearningResults = () => {
                                                 </DropdownMenuContent>
                                               </DropdownMenu>
                                             </div>
+                                          </td>
+                                          <td className="px-3 py-2 whitespace-nowrap">
+                                            {(() => {
+                                              const ms = memMap[stateKey];
+                                              if (ms === "pass") {
+                                                return (
+                                                  <span className="inline-flex items-center gap-1">
+                                                    <Badge className="h-5 px-1.5 text-[10px] bg-violet-600 text-white">
+                                                      P
+                                                    </Badge>
+                                                    <MemRecordingPlayButton userId={userId} sentenceId={sid} />
+                                                  </span>
+                                                );
+                                              }
+                                              if (ms === "progress") {
+                                                return (
+                                                  <span className="text-[11px] text-violet-700 dark:text-violet-300 font-medium">
+                                                    진행
+                                                  </span>
+                                                );
+                                              }
+                                              return (
+                                                <span className="text-xs text-muted-foreground">—</span>
+                                              );
+                                            })()}
                                           </td>
                                           <td className="px-3 py-2">
                                             <WordHoInput

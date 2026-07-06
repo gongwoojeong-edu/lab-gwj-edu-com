@@ -133,7 +133,11 @@ const StudentHome = () => {
   const [assignmentProgress, setAssignmentProgress] = useState<
     Map<string, { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean }>
   >(new Map());
-  const [resumeTarget, setResumeTarget] = useState<{ sentenceId: string; title: string } | null>(null);
+  const [resumeTarget, setResumeTarget] = useState<{
+    sentenceId: string;
+    title: string;
+    taskMode: TaskMode | null;
+  } | null>(null);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [analysisPrintReqs, setAnalysisPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [reviewReqs, setReviewReqs] = useState<Record<string, AnalysisReviewRequest>>({});
@@ -956,7 +960,11 @@ const StudentHome = () => {
                             <Button
                               size="sm"
                               onClick={() =>
-                                setResumeTarget({ sentenceId: nextSid, title: g.title })
+                                setResumeTarget({
+                                  sentenceId: nextSid,
+                                  title: g.title,
+                                  taskMode: g.task_mode,
+                                })
                               }
                               className="shrink-0"
                             >
@@ -1218,18 +1226,34 @@ const StudentHome = () => {
             <AlertDialogCancel>취소</AlertDialogCancel>
             <Button
               variant="outline"
-              onClick={() => {
+              onClick={async () => {
                 if (!resumeTarget) return;
-                navigate(`/learn/sentence/${resumeTarget.sentenceId}?restart=1`);
+                const prog = await fetchSentenceProgress(resumeTarget.sentenceId);
+                const mode = resumeTarget.taskMode ?? "analysis_only";
+                const analysisPassed = prog?.status === "pass";
+                const path = learnPathForSentence(resumeTarget.sentenceId, mode, analysisPassed);
+                const restart =
+                  mode !== "memorize_only" && !(mode === "analysis_and_memorize" && analysisPassed)
+                    ? "?restart=1"
+                    : "";
+                navigate(`${path}${restart}`);
                 setResumeTarget(null);
               }}
             >
               처음부터 다시
             </Button>
             <AlertDialogAction
-              onClick={() => {
+              onClick={async () => {
                 if (!resumeTarget) return;
-                navigate(`/learn/sentence/${resumeTarget.sentenceId}`);
+                const prog = await fetchSentenceProgress(resumeTarget.sentenceId);
+                const mode = resumeTarget.taskMode ?? "analysis_only";
+                navigate(
+                  learnPathForSentence(
+                    resumeTarget.sentenceId,
+                    mode,
+                    prog?.status === "pass",
+                  ),
+                );
                 setResumeTarget(null);
               }}
             >

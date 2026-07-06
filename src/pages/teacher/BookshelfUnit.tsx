@@ -96,7 +96,12 @@ import {
   setPassageMemReady,
   updatePassageTaskMode,
   updateUnitDefaultTaskMode,
+  updateUnitMemSettings,
 } from "@/lib/memorizationPassage";
+import {
+  MEM_DIRECTION_SETTING_LABEL,
+  type MemDirectionSetting,
+} from "@/lib/fetchMemSettings";
 import { updatePassageKorean } from "@/lib/textbooks";
 
 const BookshelfUnit = () => {
@@ -153,7 +158,10 @@ const BookshelfUnit = () => {
   const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [unitTaskMode, setUnitTaskMode] = useState<TaskMode>(DEFAULT_TASK_MODE);
+  const [unitMemDirection, setUnitMemDirection] = useState<MemDirectionSetting>("ko_to_en");
+  const [unitRequireRecord, setUnitRequireRecord] = useState(false);
   const [savingUnitTask, setSavingUnitTask] = useState(false);
+  const [savingUnitMem, setSavingUnitMem] = useState(false);
   const [koreanEditId, setKoreanEditId] = useState<string | null>(null);
   const [koreanDraft, setKoreanDraft] = useState("");
   const [composingId, setComposingId] = useState<string | null>(null);
@@ -554,6 +562,34 @@ const BookshelfUnit = () => {
     }
   };
 
+  const handleUnitMemDirectionChange = async (dir: MemDirectionSetting) => {
+    if (!unit || savingUnitMem) return;
+    setSavingUnitMem(true);
+    try {
+      await updateUnitMemSettings(unit.id, { defaultMemDirection: dir });
+      setUnitMemDirection(dir);
+      toast({ title: "암기 방향 저장", description: MEM_DIRECTION_SETTING_LABEL[dir] });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingUnitMem(false);
+    }
+  };
+
+  const handleUnitRequireRecordChange = async (v: boolean) => {
+    if (!unit || savingUnitMem) return;
+    setSavingUnitMem(true);
+    try {
+      await updateUnitMemSettings(unit.id, { memRequireRecord: v });
+      setUnitRequireRecord(v);
+      toast({ title: v ? "녹음 필수 ON" : "녹음 필수 OFF" });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingUnitMem(false);
+    }
+  };
+
   const startKoreanEdit = (p: Passage) => {
     setKoreanEditId(p.id);
     setKoreanDraft(p.korean ?? "");
@@ -663,6 +699,13 @@ const BookshelfUnit = () => {
       setUnit(u);
       if (u) {
         setUnitTaskMode(u.default_task_mode ?? DEFAULT_TASK_MODE);
+        setUnitMemDirection(
+          (u as Unit & { default_mem_direction?: MemDirectionSetting }).default_mem_direction ??
+            "ko_to_en",
+        );
+        setUnitRequireRecord(
+          !!(u as Unit & { mem_require_record?: boolean }).mem_require_record,
+        );
       }
       if (!u) return;
       const ps = await fetchPassagesByUnit(u.id);
@@ -1080,6 +1123,41 @@ const BookshelfUnit = () => {
             <span className="text-xs text-muted-foreground">
               지문별 「유닛 따름」은 이 설정을 사용합니다.
             </span>
+          </div>
+        </Card>
+
+        <Card className="p-4 space-y-3">
+          <div className="text-sm font-bold">암기 설정</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={unitMemDirection}
+              onValueChange={(v) => void handleUnitMemDirectionChange(v as MemDirectionSetting)}
+              disabled={savingUnitMem}
+            >
+              <SelectTrigger className="w-[200px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(MEM_DIRECTION_SETTING_LABEL) as MemDirectionSetting[]).map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {MEM_DIRECTION_SETTING_LABEL[d]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <Checkbox
+                checked={unitRequireRecord}
+                onCheckedChange={(v) => void handleUnitRequireRecordChange(!!v)}
+                disabled={savingUnitMem}
+              />
+              E. 녹음 필수
+            </label>
+            {unit && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/learn/unit/${unit.id}/flow`}>단락흐름 미리보기</Link>
+              </Button>
+            )}
           </div>
         </Card>
 

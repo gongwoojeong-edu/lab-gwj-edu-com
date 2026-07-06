@@ -88,3 +88,18 @@ export async function updateUnitDefaultTaskMode(
     .eq("id", unitId);
   if (error) throw error;
 }
+
+export async function updateUnitMemSettings(
+  unitId: string,
+  opts: {
+    defaultMemDirection?: "ko_to_en" | "en_to_ko" | "both";
+    memRequireRecord?: boolean;
+  },
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (opts.defaultMemDirection != null) patch.default_mem_direction = opts.defaultMemDirection;
+  if (opts.memRequireRecord != null) patch.mem_require_record = opts.memRequireRecord;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await supabase.from("textbook_units").update(patch).eq("id", unitId);
+  if (error) throw error;
+}

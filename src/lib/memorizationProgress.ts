@@ -7,8 +7,9 @@ import {
   type SentenceProgressRow,
 } from "@/integrations/supabase/storage";
 import type { MemDirection } from "@/lib/memorizationText";
+import type { MemDirectionSetting } from "@/lib/fetchMemSettings";
 
-export type MemStep = "listen" | "scramble" | "cloze";
+export type MemStep = "listen" | "scramble" | "cloze" | "speech" | "record";
 
 export interface MemProgressFlags {
   mem_listen_done: boolean;
@@ -20,6 +21,7 @@ export interface MemProgressFlags {
   mem_en_to_ko_done: boolean;
   mem_passed_at: string | null;
   mem_attempt_count: number;
+  mem_direction: string | null;
 }
 
 export const emptyMemFlags = (): MemProgressFlags => ({
@@ -32,6 +34,7 @@ export const emptyMemFlags = (): MemProgressFlags => ({
   mem_en_to_ko_done: false,
   mem_passed_at: null,
   mem_attempt_count: 0,
+  mem_direction: null,
 });
 
 export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgressFlags {
@@ -46,73 +49,125 @@ export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgre
     mem_en_to_ko_done: r?.mem_en_to_ko_done ?? false,
     mem_passed_at: r?.mem_passed_at ?? null,
     mem_attempt_count: r?.mem_attempt_count ?? 0,
+    mem_direction: r?.mem_direction ?? null,
   };
 }
 
-const P0_STEPS: MemStep[] = ["listen", "scramble", "cloze"];
+export function requiredMemSteps(requireRecord: boolean): MemStep[] {
+  const base: MemStep[] = ["listen", "scramble", "cloze", "speech"];
+  return requireRecord ? [...base, "record"] : base;
+}
 
 export function isMemStepDone(flags: MemProgressFlags, step: MemStep): boolean {
   if (step === "listen") return flags.mem_listen_done;
   if (step === "scramble") return flags.mem_scramble_done;
-  return flags.mem_cloze_done;
+  if (step === "cloze") return flags.mem_cloze_done;
+  if (step === "speech") return flags.mem_speech_done;
+  return flags.mem_record_done;
 }
 
-export function firstIncompleteMemStep(flags: MemProgressFlags): MemStep {
-  for (const s of P0_STEPS) {
+export function firstIncompleteMemStep(
+  flags: MemProgressFlags,
+  requireRecord: boolean,
+): MemStep {
+  for (const s of requiredMemSteps(requireRecord)) {
     if (!isMemStepDone(flags, s)) return s;
   }
-  return "cloze";
+  return "speech";
 }
 
-export function allP0MemStepsDone(flags: MemProgressFlags): boolean {
-  return P0_STEPS.every((s) => isMemStepDone(flags, s));
+export function allRequiredMemStepsDone(
+  flags: MemProgressFlags,
+  requireRecord: boolean,
+): boolean {
+  return requiredMemSteps(requireRecord).every((s) => isMemStepDone(flags, s));
 }
 
-export function directionTrackDone(flags: MemProgressFlags, direction: MemDirection): boolean {
-  if (direction === "ko_to_en") return flags.mem_ko_to_en_done;
-  return flags.mem_en_to_ko_done;
-}
+const stepPatch = (step: MemStep): Partial<MemProgressFlags> => {
+  if (step === "listen") return { mem_listen_done: true };
+  if (step === "scramble") return { mem_scramble_done: true };
+  if (step === "cloze") return { mem_cloze_done: true };
+  if (step === "speech") return { mem_speech_done: true };
+  return { mem_record_done: true };
+};
 
-function applyDirectionPass(flags: MemProgressFlags, direction: MemDirection): MemProgressFlags {
-  const next = { ...flags };
-  if (direction === "ko_to_en") next.mem_ko_to_en_done = true;
-  else next.mem_en_to_ko_done = true;
-  if (allP0MemStepsDone(next)) {
-    next.mem_passed_at = new Date().toISOString();
+const resetStepFlags = (): Partial<MemProgressFlags> => ({
+  mem_listen_done: false,
+  mem_scramble_done: false,
+  mem_cloze_done: false,
+  mem_speech_done: false,
+  mem_record_done: false,
+});
+
+function trackComplete(
+  flags: MemProgressFlags,
+  activeDirection: MemDirection,
+  directionSetting: MemDirectionSetting,
+): Partial<MemProgressFlags> {
+  if (directionSetting === "both" && activeDirection === "ko_to_en") {
+    return {
+      mem_ko_to_en_done: true,
+      ...resetStepFlags(),
+      mem_direction: "en_to_ko",
+    };
   }
-  return next;
+  const out: Partial<MemProgressFlags> = {
+    mem_passed_at: new Date().toISOString(),
+  };
+  if (activeDirection === "ko_to_en") out.mem_ko_to_en_done = true;
+  else out.mem_en_to_ko_done = true;
+  if (directionSetting === "both") {
+    out.mem_ko_to_en_done = true;
+    out.mem_en_to_ko_done = true;
+  }
+  return out;
 }
 
 export async function markMemStepDone(
   sentenceId: string,
   step: MemStep,
-  direction: MemDirection = "ko_to_en",
-): Promise<MemProgressFlags> {
+  opts: {
+    activeDirection: MemDirection;
+    directionSetting: MemDirectionSetting;
+    requireRecord: boolean;
+  },
+): Promise<MemProgressFlags & { advancedToSecondTrack?: boolean }> {
   const existing = await fetchSentenceProgress(sentenceId);
   const flags = memFlagsFromProgress(existing);
   const patch: Record<string, unknown> = {
     mem_attempt_count: flags.mem_attempt_count + 1,
-    mem_direction: direction,
+    mem_direction: opts.activeDirection,
     touchActivity: true,
+    ...stepPatch(step),
   };
-  if (step === "listen") patch.mem_listen_done = true;
-  if (step === "scramble") patch.mem_scramble_done = true;
-  if (step === "cloze") patch.mem_cloze_done = true;
 
-  const merged = {
-    ...flags,
-    ...patch,
-    mem_attempt_count: flags.mem_attempt_count + 1,
-  } as MemProgressFlags;
+  const merged = { ...flags, ...patch } as MemProgressFlags;
+  let advancedToSecondTrack = false;
 
-  if (step === "cloze" && allP0MemStepsDone(merged)) {
-    const withDir = applyDirectionPass(merged, direction);
-    patch.mem_ko_to_en_done = withDir.mem_ko_to_en_done;
-    patch.mem_en_to_ko_done = withDir.mem_en_to_ko_done;
-    patch.mem_passed_at = withDir.mem_passed_at;
+  const isFinalStep =
+    (opts.requireRecord && step === "record") ||
+    (!opts.requireRecord && step === "speech");
+
+  if (isFinalStep && allRequiredMemStepsDone(merged, opts.requireRecord)) {
+    const trackPatch = trackComplete(merged, opts.activeDirection, opts.directionSetting);
+    Object.assign(patch, trackPatch);
+    advancedToSecondTrack =
+      opts.directionSetting === "both" &&
+      opts.activeDirection === "ko_to_en" &&
+      !flags.mem_ko_to_en_done;
   }
 
   await upsertSentenceProgress(sentenceId, patch as Partial<SentenceProgressRow>);
   const updated = await fetchSentenceProgress(sentenceId);
-  return memFlagsFromProgress(updated);
+  return { ...memFlagsFromProgress(updated), advancedToSecondTrack };
+}
+
+export async function resetMemProgressForRetry(sentenceId: string): Promise<void> {
+  await upsertSentenceProgress(sentenceId, {
+    ...resetStepFlags(),
+    mem_ko_to_en_done: false,
+    mem_en_to_ko_done: false,
+    mem_passed_at: null,
+    touchActivity: true,
+  } as Partial<SentenceProgressRow>);
 }

@@ -65,6 +65,10 @@ import {
   taskModeIncludesMemorize,
   type TaskMode,
 } from "@/lib/taskMode";
+import {
+  MEM_DIRECTION_SETTING_LABEL,
+  type MemDirectionSetting,
+} from "@/lib/fetchMemSettings";
 
 interface AssignmentGroup {
   key: string;
@@ -98,6 +102,7 @@ interface AssignmentRow {
   include_translation: boolean;
   include_wordtest: boolean;
   task_mode?: TaskMode | null;
+  mem_direction?: MemDirectionSetting | null;
 }
 
 type StepKey = "pre" | "analysis" | "translation" | "wordtest";
@@ -123,6 +128,8 @@ interface FormState {
   includeTranslation: boolean;
   includeWordtest: boolean;
   includeMemorize: boolean;
+  /** 빈 문자열 = 유닛 기본값 따름 */
+  memDirection: MemDirectionSetting | "";
 }
 
 const emptyForm = (): FormState => ({
@@ -141,6 +148,7 @@ const emptyForm = (): FormState => ({
   includeTranslation: true,
   includeWordtest: true,
   includeMemorize: false,
+  memDirection: "",
 });
 
 const Assignments = () => {
@@ -500,6 +508,7 @@ const Assignments = () => {
           include_analysis: form.includeAnalysis,
           include_translation: form.includeTranslation,
           include_wordtest: form.includeWordtest,
+          mem_direction: form.includeMemorize && form.memDirection ? form.memDirection : null,
         })),
       );
       const { error } = await supabase.from("assignments").insert(
@@ -642,6 +651,7 @@ const Assignments = () => {
       includeTranslation: row.include_translation,
       includeWordtest: row.include_wordtest,
       includeMemorize: taskModeIncludesMemorize(row.task_mode),
+      memDirection: row.mem_direction ?? "",
     });
   };
 
@@ -697,6 +707,10 @@ const Assignments = () => {
           include_translation: editForm.includeTranslation,
           include_wordtest: editForm.includeWordtest,
           task_mode: taskMode,
+          mem_direction:
+            editForm.includeMemorize && editForm.memDirection
+              ? editForm.memDirection
+              : null,
         } as Record<string, unknown>)
         .in("id", targetIds);
       if (metaErr) throw metaErr;
@@ -810,6 +824,39 @@ const Assignments = () => {
       </div>
     </div>
   );
+
+  const renderMemDirectionPicker = (f: FormState, setter: typeof setForm) => {
+    if (!f.includeMemorize) return null;
+    return (
+      <div className="space-y-1.5 mt-3">
+        <Label>암기 방향 (선택)</Label>
+        <Select
+          value={f.memDirection || "__inherit__"}
+          onValueChange={(v) =>
+            setter((prev) => ({
+              ...prev,
+              memDirection: v === "__inherit__" ? "" : (v as MemDirectionSetting),
+            }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="유닛 기본값 따름" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__inherit__">유닛 기본값 따름</SelectItem>
+            {(Object.keys(MEM_DIRECTION_SETTING_LABEL) as MemDirectionSetting[]).map((d) => (
+              <SelectItem key={d} value={d}>
+                {MEM_DIRECTION_SETTING_LABEL[d]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[11px] text-muted-foreground">
+          마감 전 과제에 한해 유닛·지문 기본 방향을 덮어씁니다.
+        </p>
+      </div>
+    );
+  };
 
   // 레벨 → 시리즈 → 권 → 유닛 → 지문 캐스케이딩 선택기 (create/edit 공유)
   const renderTextbookPickers = (
@@ -1126,6 +1173,7 @@ const Assignments = () => {
             </div>
             <div className="sm:col-span-2">
               {renderStepCheckboxes(form, setForm)}
+              {renderMemDirectionPicker(form, setForm)}
             </div>
             <div className="sm:col-span-2 space-y-2">
               <Label>출제 모드 *</Label>
@@ -1255,6 +1303,7 @@ const Assignments = () => {
                         includeAnalysis={g.include_analysis}
                         includeTranslation={g.include_translation}
                         includeWordtest={g.include_wordtest}
+                        includeMemorize={taskModeIncludesMemorize(g.task_mode)}
                         targetUserIds={allTargetIds}
                         className="pt-1"
                       />
@@ -1330,6 +1379,7 @@ const Assignments = () => {
                 </Popover>
               </div>
               <div>{renderStepCheckboxes(editForm, setEditForm)}</div>
+              <div>{renderMemDirectionPicker(editForm, setEditForm)}</div>
               <div className="sm:col-span-2 space-y-2 opacity-70">
                 <Label>출제 모드</Label>
                 <RadioGroup value={editForm.mode} disabled className="flex flex-wrap gap-4 px-3 py-2 rounded-md border border-border bg-muted/30">

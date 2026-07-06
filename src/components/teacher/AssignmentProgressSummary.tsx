@@ -2,13 +2,12 @@ import { cn } from "@/lib/utils";
 import type { AssignmentProgressMap } from "@/lib/assignmentProgress";
 
 interface Props {
-  /** 그룹 단위로 합쳐진 학생별 진척 (각 학생당 단계별 status) */
   progress: AssignmentProgressMap;
   includePre: boolean;
   includeAnalysis: boolean;
   includeTranslation: boolean;
   includeWordtest: boolean;
-  /** 대상 학생 수 (이 그룹의 분모) */
+  includeMemorize?: boolean;
   targetUserIds: string[];
   className?: string;
 }
@@ -16,16 +15,13 @@ interface Props {
 const isStepDone = (status: string | undefined) =>
   status === "pass" || status === "done";
 
-/**
- * 과제 그룹의 진행 상황을 한 줄로 요약 + 미니 진행바.
- * "완주(모든 단계 통과) X/N · 진척 P%"
- */
 export const AssignmentProgressSummary = ({
   progress,
   includePre,
   includeAnalysis,
   includeTranslation,
   includeWordtest,
+  includeMemorize = false,
   targetUserIds,
   className,
 }: Props) => {
@@ -34,7 +30,8 @@ export const AssignmentProgressSummary = ({
     (includePre ? 1 : 0) +
     (includeAnalysis ? 1 : 0) +
     (includeTranslation ? 1 : 0) +
-    (includeWordtest ? 1 : 0);
+    (includeWordtest ? 1 : 0) +
+    (includeMemorize ? 1 : 0);
 
   if (totalStudents === 0 || stepsPerStudent === 0) return null;
 
@@ -58,6 +55,10 @@ export const AssignmentProgressSummary = ({
       studentDone++;
     }
     if (includeWordtest && isStepDone(p?.wordtest.status)) {
+      doneCells++;
+      studentDone++;
+    }
+    if (includeMemorize && isStepDone(p?.mem.status)) {
       doneCells++;
       studentDone++;
     }

@@ -76,6 +76,32 @@ export interface ClozeBlank {
   options: string[];
 }
 
+export function splitKoreanChunksForMem(korean: string): string[] {
+  if (!korean.trim()) return [];
+  return korean
+    .split(/(?:[,，/]|(?:\s*;\s*)|(?:\.\s+(?=[가-힣])))/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export function buildKoreanClozeBlanks(korean: string, chunks?: string[]): ClozeBlank[] {
+  const parts = chunks?.length ? chunks : splitKoreanChunksForMem(korean);
+  if (parts.length === 0) return [];
+  const n = Math.max(1, Math.ceil(parts.length * 0.35));
+  const targets = parts.slice(0, n);
+  const pool = parts.filter((p) => p.length > 1);
+
+  return targets.map((word, i) => {
+    const distractors = shuffleArray(pool.filter((p) => p !== word)).slice(0, 3);
+    while (distractors.length < 3) distractors.push(`선택${distractors.length + 1}`);
+    return {
+      id: `ko-${i}`,
+      word,
+      options: shuffleArray([word, ...distractors.slice(0, 3)]),
+    };
+  });
+}
+
 export function buildClozeBlanks(
   tokens: SentenceToken[],
   blankIds: string[],

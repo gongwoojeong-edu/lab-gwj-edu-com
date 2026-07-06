@@ -55,6 +55,8 @@ export interface Unit {
   structure_pdf_name: string | null;
   structure_pdf_uploaded_at: string | null;
   default_task_mode?: import("@/lib/taskMode").TaskMode;
+  default_mem_direction?: "ko_to_en" | "en_to_ko" | "both";
+  mem_require_record?: boolean;
   created_at: string;
   updated_at: string;
 }
