@@ -62,7 +62,7 @@ export async function composePassageMemorization(passageId: string): Promise<Pas
 export async function setPassageMemReady(code: string, ready: boolean): Promise<void> {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ mem_status: ready ? "ready" : "draft" } as Record<string, unknown>)
+    .update({ mem_status: ready ? "ready" : "draft" } as never)
     .eq("code", code);
   if (error) throw error;
 }
@@ -73,7 +73,7 @@ export async function updatePassageTaskMode(
 ): Promise<void> {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ task_mode: taskMode } as Record<string, unknown>)
+    .update({ task_mode: taskMode } as never)
     .eq("id", passageId);
   if (error) throw error;
 }
@@ -84,7 +84,7 @@ export async function updateUnitDefaultTaskMode(
 ): Promise<void> {
   const { error } = await supabase
     .from("textbook_units")
-    .update({ default_task_mode: taskMode } as Record<string, unknown>)
+    .update({ default_task_mode: taskMode } as never)
     .eq("id", unitId);
   if (error) throw error;
 }
@@ -100,6 +100,6 @@ export async function updateUnitMemSettings(
   if (opts.defaultMemDirection != null) patch.default_mem_direction = opts.defaultMemDirection;
   if (opts.memRequireRecord != null) patch.mem_require_record = opts.memRequireRecord;
   if (Object.keys(patch).length === 0) return;
-  const { error } = await supabase.from("textbook_units").update(patch).eq("id", unitId);
+  const { error } = await supabase.from("textbook_units").update(patch as never).eq("id", unitId);
   if (error) throw error;
 }

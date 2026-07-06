@@ -569,7 +569,7 @@ export const bulkInsertPassages = async (
 export const updatePassageKorean = async (code: string, korean: string): Promise<void> => {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ korean, korean_source: "manual" } as Record<string, unknown>)
+    .update({ korean, korean_source: "manual" } as never)
     .eq("code", code);
   if (error) throw error;
 };

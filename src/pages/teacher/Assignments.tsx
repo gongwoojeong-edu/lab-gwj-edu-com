@@ -513,7 +513,7 @@ const Assignments = () => {
         })),
       );
       const { error } = await supabase.from("assignments").insert(
-        rowsToInsert as Record<string, unknown>[],
+        rowsToInsert as never,
       );
       if (error) throw error;
       const studentMsg =
@@ -721,7 +721,7 @@ const Assignments = () => {
             editForm.includeMemorize && editForm.memDirection
               ? editForm.memDirection
               : null,
-        } as Record<string, unknown>)
+        } as never)
         .in("id", targetIds);
       if (metaErr) throw metaErr;
 
@@ -1275,6 +1275,7 @@ const Assignments = () => {
                     analysis: { status: anyData && allAn ? "pass" : "missing", score: anCnt > 0 ? Math.round(anScoreSum / anCnt) : null },
                     translation: { status: anyData && allTr ? "done" : "missing", score: null },
                     wordtest: { status: anyData && allWt ? "pass" : "missing", score: wtCnt > 0 ? Math.round(wtScoreSum / wtCnt) : null },
+                    mem: { status: "missing", score: null },
                   });
                 });
                 return (

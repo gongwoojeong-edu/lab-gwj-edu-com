@@ -45,7 +45,7 @@ export async function uploadMemRecording(
       mime: blob.type || null,
       duration_ms: durationMs ?? null,
       mem_direction: direction,
-    } as Record<string, unknown>)
+    } as never)
     .select("*")
     .single();
   if (error) throw error;
