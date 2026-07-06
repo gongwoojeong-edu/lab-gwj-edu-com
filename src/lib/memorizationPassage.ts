@@ -62,7 +62,7 @@ export async function composePassageMemorization(passageId: string): Promise<Pas
 export async function setPassageMemReady(code: string, ready: boolean): Promise<void> {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ mem_status: ready ? "ready" : "draft" })
+    .update({ mem_status: ready ? "ready" : "draft" } as never)
     .eq("code", code);
   if (error) throw error;
 }
@@ -73,7 +73,7 @@ export async function updatePassageTaskMode(
 ): Promise<void> {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ task_mode: taskMode })
+    .update({ task_mode: taskMode } as never)
     .eq("id", passageId);
   if (error) throw error;
 }
@@ -84,7 +84,7 @@ export async function updateUnitDefaultTaskMode(
 ): Promise<void> {
   const { error } = await supabase
     .from("textbook_units")
-    .update({ default_task_mode: taskMode })
+    .update({ default_task_mode: taskMode } as never)
     .eq("id", unitId);
   if (error) throw error;
 }

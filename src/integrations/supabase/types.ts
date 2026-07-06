@@ -530,6 +530,39 @@ export type Database = {
           },
         ]
       }
+      passage_audio: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          id: string
+          sentence_id: string
+          source: string
+          storage_path: string
+          updated_at: string
+          voice_label: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          sentence_id: string
+          source?: string
+          storage_path: string
+          updated_at?: string
+          voice_label?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          sentence_id?: string
+          source?: string
+          storage_path?: string
+          updated_at?: string
+          voice_label?: string | null
+        }
+        Relationships: []
+      }
       points_log: {
         Row: {
           created_at: string
