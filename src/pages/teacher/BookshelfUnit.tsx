@@ -162,6 +162,7 @@ const BookshelfUnit = () => {
   const [unitTaskMode, setUnitTaskMode] = useState<TaskMode>(DEFAULT_TASK_MODE);
   const [unitMemDirection, setUnitMemDirection] = useState<MemDirectionSetting>("ko_to_en");
   const [unitRequireRecord, setUnitRequireRecord] = useState(false);
+  const [unitDictationBlankRatio, setUnitDictationBlankRatio] = useState(0.35);
   const [savingUnitTask, setSavingUnitTask] = useState(false);
   const [savingUnitMem, setSavingUnitMem] = useState(false);
   const [koreanEditId, setKoreanEditId] = useState<string | null>(null);
@@ -594,6 +595,20 @@ const BookshelfUnit = () => {
     }
   };
 
+  const handleUnitDictationBlankRatioChange = async (ratio: number) => {
+    if (!unit || savingUnitMem) return;
+    setSavingUnitMem(true);
+    try {
+      await updateUnitMemSettings(unit.id, { memDictationBlankRatio: ratio });
+      setUnitDictationBlankRatio(ratio);
+      toast({ title: "받아쓰기 빈칸 비율 저장", description: `${Math.round(ratio * 100)}%` });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingUnitMem(false);
+    }
+  };
+
   const startKoreanEdit = (p: Passage) => {
     setKoreanEditId(p.id);
     setKoreanDraft(p.korean ?? "");
@@ -747,6 +762,9 @@ const BookshelfUnit = () => {
         );
         setUnitRequireRecord(
           !!(u as Unit & { mem_require_record?: boolean }).mem_require_record,
+        );
+        setUnitDictationBlankRatio(
+          (u as Unit & { mem_dictation_blank_ratio?: number }).mem_dictation_blank_ratio ?? 0.35,
         );
       }
       if (!u) return;
@@ -1187,13 +1205,32 @@ const BookshelfUnit = () => {
                 ))}
               </SelectContent>
             </Select>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">D. 받아쓰기 빈칸 비율</div>
+              <Select
+                value={String(unitDictationBlankRatio)}
+                onValueChange={(v) => void handleUnitDictationBlankRatioChange(Number(v))}
+                disabled={savingUnitMem}
+              >
+                <SelectTrigger className="w-[120px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[20, 25, 30, 35, 40, 45, 50, 55, 60].map((pct) => (
+                    <SelectItem key={pct} value={String(pct / 100)}>
+                      {pct}% (전체 불가)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <label className="flex items-center gap-2 text-xs cursor-pointer">
               <Checkbox
                 checked={unitRequireRecord}
                 onCheckedChange={(v) => void handleUnitRequireRecordChange(!!v)}
                 disabled={savingUnitMem}
               />
-              E. 녹음 필수
+              F. 녹음 필수
             </label>
             {unit && (
               <Button variant="outline" size="sm" asChild>

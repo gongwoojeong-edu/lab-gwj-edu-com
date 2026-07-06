@@ -27,10 +27,15 @@ import { MemStepProgressBar } from "@/components/learning/memorization/MemStepPr
 import { MemListenStep } from "@/components/learning/memorization/MemListenStep";
 import { MemScrambleStep } from "@/components/learning/memorization/MemScrambleStep";
 import { MemClozeStep } from "@/components/learning/memorization/MemClozeStep";
+import { MemDictationStep } from "@/components/learning/memorization/MemDictationStep";
 import { MemSpeechStep } from "@/components/learning/memorization/MemSpeechStep";
 import { MemRecordStep } from "@/components/learning/memorization/MemRecordStep";
-import { speakChunk } from "@/lib/syllables";
 import { resolveNextSentence } from "@/lib/nextSentence";
+
+const MEM_STEP_ORDER = (requireRecord: boolean) =>
+  requireRecord
+    ? (["listen", "scramble", "cloze", "dictation", "speech", "record"] as const)
+    : (["listen", "scramble", "cloze", "dictation", "speech"] as const);
 
 const MemorizeLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
@@ -101,11 +106,6 @@ const MemorizeLearn = () => {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (!passage || memFlags.mem_listen_done) return;
-    speakChunk(passage.english, { rate: 0.82, lang: "en-US" });
-  }, [passage, memFlags.mem_listen_done]);
-
   const handleStepPassed = async (s: MemStep) => {
     if (!sentenceId || saving || !memSettings) return;
     setSaving(true);
@@ -122,9 +122,7 @@ const MemorizeLearn = () => {
         return;
       }
       if (next.mem_passed_at) return;
-      const order: MemStep[] = requireRecord
-        ? ["listen", "scramble", "cloze", "speech", "record"]
-        : ["listen", "scramble", "cloze", "speech"];
+      const order = [...MEM_STEP_ORDER(requireRecord)];
       const idx = order.indexOf(s);
       if (idx >= 0 && idx < order.length - 1) setStep(order[idx + 1]);
     } finally {
@@ -189,6 +187,7 @@ const MemorizeLearn = () => {
           listenDone={memFlags.mem_listen_done}
           scrambleDone={memFlags.mem_scramble_done}
           clozeDone={memFlags.mem_cloze_done}
+          dictationDone={memFlags.mem_dictation_done}
           speechDone={memFlags.mem_speech_done}
           recordDone={memFlags.mem_record_done}
           requireRecord={requireRecord}
@@ -213,8 +212,8 @@ const MemorizeLearn = () => {
             <h2 className="text-xl font-bold">문장암기 완료!</h2>
             <p className="text-sm text-muted-foreground">
               {requireRecord
-                ? "듣기 · 어순 · 빈칸 · 발화 · 녹음을 모두 통과했습니다."
-                : "듣기 · 어순 · 빈칸 · 발화를 모두 통과했습니다."}
+                ? "듣기 · 어순 · 빈칸 · 받아쓰기 · 발화 · 녹음을 모두 통과했습니다."
+                : "듣기 · 어순 · 빈칸 · 받아쓰기 · 발화를 모두 통과했습니다."}
             </p>
             <div className="flex flex-wrap justify-center gap-2 pt-2">
               <Button onClick={() => void goNextSentence()}>다음 지문</Button>
@@ -249,7 +248,14 @@ const MemorizeLearn = () => {
                 onPassed={() => void handleStepPassed("cloze")}
               />
             )}
-            {step === "speech" && memFlags.mem_cloze_done && !memFlags.mem_speech_done && (
+            {step === "dictation" && memFlags.mem_cloze_done && !memFlags.mem_dictation_done && (
+              <MemDictationStep
+                {...stepProps}
+                blankRatio={memSettings.dictationBlankRatio}
+                onPassed={() => void handleStepPassed("dictation")}
+              />
+            )}
+            {step === "speech" && memFlags.mem_dictation_done && !memFlags.mem_speech_done && (
               <MemSpeechStep {...stepProps} onPassed={() => void handleStepPassed("speech")} />
             )}
             {step === "record" && requireRecord && memFlags.mem_speech_done && !memFlags.mem_record_done && (

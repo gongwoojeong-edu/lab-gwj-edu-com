@@ -222,7 +222,7 @@ export const MemSpeechStep = ({ english, korean, direction, onPassed }: Props) =
   return (
     <Card className="p-5 space-y-4">
       <div className="space-y-1">
-        <h3 className="font-bold">D. 소리내어 읽기</h3>
+        <h3 className="font-bold">E. 소리내어 읽기</h3>
         <p className="text-sm text-muted-foreground">{prompt}</p>
       </div>
 

@@ -9,12 +9,13 @@ import {
 import type { MemDirection } from "@/lib/memorizationText";
 import type { MemDirectionSetting } from "@/lib/fetchMemSettings";
 
-export type MemStep = "listen" | "scramble" | "cloze" | "speech" | "record";
+export type MemStep = "listen" | "scramble" | "cloze" | "dictation" | "speech" | "record";
 
 export interface MemProgressFlags {
   mem_listen_done: boolean;
   mem_scramble_done: boolean;
   mem_cloze_done: boolean;
+  mem_dictation_done: boolean;
   mem_speech_done: boolean;
   mem_record_done: boolean;
   mem_ko_to_en_done: boolean;
@@ -28,6 +29,7 @@ export const emptyMemFlags = (): MemProgressFlags => ({
   mem_listen_done: false,
   mem_scramble_done: false,
   mem_cloze_done: false,
+  mem_dictation_done: false,
   mem_speech_done: false,
   mem_record_done: false,
   mem_ko_to_en_done: false,
@@ -43,6 +45,7 @@ export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgre
     mem_listen_done: r?.mem_listen_done ?? false,
     mem_scramble_done: r?.mem_scramble_done ?? false,
     mem_cloze_done: r?.mem_cloze_done ?? false,
+    mem_dictation_done: r?.mem_dictation_done ?? false,
     mem_speech_done: r?.mem_speech_done ?? false,
     mem_record_done: r?.mem_record_done ?? false,
     mem_ko_to_en_done: r?.mem_ko_to_en_done ?? false,
@@ -54,7 +57,7 @@ export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgre
 }
 
 export function requiredMemSteps(requireRecord: boolean): MemStep[] {
-  const base: MemStep[] = ["listen", "scramble", "cloze", "speech"];
+  const base: MemStep[] = ["listen", "scramble", "cloze", "dictation", "speech"];
   return requireRecord ? [...base, "record"] : base;
 }
 
@@ -62,6 +65,7 @@ export function isMemStepDone(flags: MemProgressFlags, step: MemStep): boolean {
   if (step === "listen") return flags.mem_listen_done;
   if (step === "scramble") return flags.mem_scramble_done;
   if (step === "cloze") return flags.mem_cloze_done;
+  if (step === "dictation") return flags.mem_dictation_done;
   if (step === "speech") return flags.mem_speech_done;
   return flags.mem_record_done;
 }
@@ -87,6 +91,7 @@ const stepPatch = (step: MemStep): Partial<MemProgressFlags> => {
   if (step === "listen") return { mem_listen_done: true };
   if (step === "scramble") return { mem_scramble_done: true };
   if (step === "cloze") return { mem_cloze_done: true };
+  if (step === "dictation") return { mem_dictation_done: true };
   if (step === "speech") return { mem_speech_done: true };
   return { mem_record_done: true };
 };
@@ -95,6 +100,7 @@ const resetStepFlags = (): Partial<MemProgressFlags> => ({
   mem_listen_done: false,
   mem_scramble_done: false,
   mem_cloze_done: false,
+  mem_dictation_done: false,
   mem_speech_done: false,
   mem_record_done: false,
 });

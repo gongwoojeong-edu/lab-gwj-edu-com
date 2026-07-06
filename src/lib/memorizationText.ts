@@ -131,6 +131,96 @@ export function buildClozeBlanks(
     });
 }
 
+export type DictationSegment =
+  | { type: "text"; value: string }
+  | { type: "blank"; id: string; answer: string };
+
+/** 부분 받아쓰기 — blankRatio만큼 단어/어구를 빈칸 (전체는 불가) */
+export function buildPartialDictationSegments(
+  expected: string,
+  blankRatio: number,
+  direction: MemDirection,
+): DictationSegment[] {
+  const ratio = Math.min(0.65, Math.max(0.15, blankRatio));
+  const parts =
+    direction === "ko_to_en"
+      ? tokenizeEnglishForDictation(expected)
+      : tokenizeKoreanForDictation(expected);
+
+  if (parts.length === 0) return [{ type: "text", value: expected }];
+
+  const maxBlanks = Math.max(1, parts.length - 1);
+  const blankCount = Math.min(maxBlanks, Math.max(1, Math.ceil(parts.length * ratio)));
+  const ranked = parts
+    .map((p, i) => ({ i, len: p.answer.length }))
+    .sort((a, b) => b.len - a.len);
+  const blankIdx = new Set(ranked.slice(0, blankCount).map((r) => r.i));
+
+  const segs: DictationSegment[] = [];
+  parts.forEach((p, i) => {
+    if (p.prefix) segs.push({ type: "text", value: p.prefix });
+    if (blankIdx.has(i)) {
+      segs.push({ type: "blank", id: `b-${i}`, answer: p.answer });
+    } else {
+      segs.push({ type: "text", value: p.answer });
+    }
+    if (p.suffix) segs.push({ type: "text", value: p.suffix });
+  });
+  return segs;
+}
+
+function tokenizeEnglishForDictation(english: string): Array<{ answer: string; prefix: string; suffix: string }> {
+  const re = /\b([A-Za-z0-9][A-Za-z0-9'’\-]*)\b/g;
+  const out: Array<{ answer: string; prefix: string; suffix: string }> = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(english)) !== null) {
+    out.push({
+      prefix: english.slice(last, m.index),
+      answer: m[1],
+      suffix: "",
+    });
+    last = m.index + m[0].length;
+  }
+  if (out.length > 0) out[out.length - 1].suffix = english.slice(last);
+  return out;
+}
+
+function tokenizeKoreanForDictation(korean: string): Array<{ answer: string; prefix: string; suffix: string }> {
+  const chunks = splitKoreanChunksForMem(korean);
+  if (chunks.length >= 2) {
+    return chunks.map((c, i) => ({
+      prefix: i === 0 ? "" : " ",
+      answer: c,
+      suffix: "",
+    }));
+  }
+  const words = korean.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return words.map((w, i) => ({
+      prefix: i === 0 ? "" : " ",
+      answer: w,
+      suffix: "",
+    }));
+  }
+  return [{ prefix: "", answer: korean.trim(), suffix: "" }];
+}
+
+export function partialDictationPass(
+  segments: DictationSegment[],
+  answers: Record<string, string>,
+  direction: MemDirection,
+): boolean {
+  const blanks = segments.filter((s): s is Extract<DictationSegment, { type: "blank" }> => s.type === "blank");
+  if (blanks.length === 0) return true;
+  return blanks.every((b) => {
+    const typed = answers[b.id] ?? "";
+    return direction === "ko_to_en"
+      ? dictationPassEn(typed, b.answer)
+      : dictationPassKo(typed, b.answer);
+  });
+}
+
 export function renderClozeSentence(english: string, blanks: ClozeBlank[], answers: Record<string, string>): string {
   let result = english;
   for (const b of blanks) {

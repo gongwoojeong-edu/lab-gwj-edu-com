@@ -88,7 +88,7 @@ export const MemRecordStep = ({
   return (
     <Card className="p-5 space-y-4">
       <div className="space-y-1">
-        <h3 className="font-bold">E. 녹음 제출</h3>
+        <h3 className="font-bold">F. 녹음 제출</h3>
         <p className="text-sm text-muted-foreground">{prompt}</p>
       </div>
       <p className="text-sm bg-muted/50 rounded-lg p-3">

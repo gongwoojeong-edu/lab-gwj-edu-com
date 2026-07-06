@@ -37,6 +37,7 @@ export interface SentenceProgressRow {
   mem_listen_done?: boolean;
   mem_scramble_done?: boolean;
   mem_cloze_done?: boolean;
+  mem_dictation_done?: boolean;
   mem_speech_done?: boolean;
   mem_record_done?: boolean;
   mem_ko_to_en_done?: boolean;
@@ -76,6 +77,7 @@ export const upsertSentenceProgress = async (
     mem_listen_done: existing?.mem_listen_done ?? false,
     mem_scramble_done: existing?.mem_scramble_done ?? false,
     mem_cloze_done: existing?.mem_cloze_done ?? false,
+    mem_dictation_done: existing?.mem_dictation_done ?? false,
     mem_speech_done: existing?.mem_speech_done ?? false,
     mem_record_done: existing?.mem_record_done ?? false,
     mem_ko_to_en_done: existing?.mem_ko_to_en_done ?? false,
@@ -97,6 +99,7 @@ export const upsertSentenceProgress = async (
     "mem_listen_done" in rest ||
     "mem_scramble_done" in rest ||
     "mem_cloze_done" in rest ||
+    "mem_dictation_done" in rest ||
     "mem_speech_done" in rest ||
     "mem_record_done" in rest ||
     "mem_ko_to_en_done" in rest ||

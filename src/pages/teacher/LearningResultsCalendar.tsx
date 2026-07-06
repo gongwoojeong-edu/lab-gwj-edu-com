@@ -275,7 +275,7 @@ const LearningResultsCalendar = () => {
             .lt("test_date", dateEnd),
           supabase
             .from("sentence_progress")
-            .select("id, sentence_id, mem_passed_at, mem_listen_done, mem_scramble_done, mem_cloze_done, mem_speech_done, mem_record_done, mem_direction, mem_attempt_count")
+            .select("id, sentence_id, mem_passed_at, mem_listen_done, mem_scramble_done, mem_cloze_done, mem_dictation_done, mem_speech_done, mem_record_done, mem_direction, mem_attempt_count")
             .eq("user_id", selectedStudent)
             .not("mem_passed_at", "is", null)
             .gte("mem_passed_at", monthStart)
@@ -382,8 +382,9 @@ const LearningResultsCalendar = () => {
             r.mem_listen_done && "A",
             r.mem_scramble_done && "B",
             r.mem_cloze_done && "C",
-            r.mem_speech_done && "D",
-            r.mem_record_done && "E",
+            r.mem_dictation_done && "D",
+            r.mem_speech_done && "E",
+            r.mem_record_done && "F",
           ].filter(Boolean).join("");
           push({
             id: `mem-${r.id}`,
@@ -990,8 +991,9 @@ const DetailBody = ({ event, studentId, onRegraded }: { event: CalEvent; student
       ["A 듣기", p.mem_listen_done],
       ["B 어순", p.mem_scramble_done],
       ["C 빈칸", p.mem_cloze_done],
-      ["D 발화", p.mem_speech_done],
-      ["E 녹음", p.mem_record_done],
+      ["D 받아쓰기", p.mem_dictation_done],
+      ["E 발화", p.mem_speech_done],
+      ["F 녹음", p.mem_record_done],
     ] as const;
     return (
       <div className="space-y-3 text-sm">
