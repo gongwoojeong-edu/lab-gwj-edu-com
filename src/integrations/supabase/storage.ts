@@ -45,6 +45,7 @@ export interface SentenceProgressRow {
   mem_direction?: string | null;
   mem_passed_at?: string | null;
   mem_attempt_count?: number;
+  mem_dictation_score?: number | null;
 }
 
 
@@ -85,6 +86,7 @@ export const upsertSentenceProgress = async (
     mem_direction: existing?.mem_direction ?? null,
     mem_passed_at: existing?.mem_passed_at ?? null,
     mem_attempt_count: existing?.mem_attempt_count ?? 0,
+    mem_dictation_score: existing?.mem_dictation_score ?? null,
     ...rest,
   };
   // 명시적으로 touchActivity=true이거나, 진행 패치(어떤 단계 done/status)일 때 last_activity_at 갱신
@@ -105,7 +107,8 @@ export const upsertSentenceProgress = async (
     "mem_ko_to_en_done" in rest ||
     "mem_en_to_ko_done" in rest ||
     "mem_passed_at" in rest ||
-    "mem_attempt_count" in rest;
+    "mem_attempt_count" in rest ||
+    "mem_dictation_score" in rest;
   if (isProgressPatch) {
     next.last_activity_at = new Date().toISOString();
   }

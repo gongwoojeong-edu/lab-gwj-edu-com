@@ -23,6 +23,7 @@ export interface MemProgressFlags {
   mem_passed_at: string | null;
   mem_attempt_count: number;
   mem_direction: string | null;
+  mem_dictation_score: number | null;
 }
 
 export const emptyMemFlags = (): MemProgressFlags => ({
@@ -37,6 +38,7 @@ export const emptyMemFlags = (): MemProgressFlags => ({
   mem_passed_at: null,
   mem_attempt_count: 0,
   mem_direction: null,
+  mem_dictation_score: null,
 });
 
 export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgressFlags {
@@ -53,6 +55,7 @@ export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgre
     mem_passed_at: r?.mem_passed_at ?? null,
     mem_attempt_count: r?.mem_attempt_count ?? 0,
     mem_direction: r?.mem_direction ?? null,
+    mem_dictation_score: (r as { mem_dictation_score?: number | null })?.mem_dictation_score ?? null,
   };
 }
 
@@ -136,6 +139,7 @@ export async function markMemStepDone(
     activeDirection: MemDirection;
     directionSetting: MemDirectionSetting;
     requireRecord: boolean;
+    dictationScore?: number;
   },
 ): Promise<MemProgressFlags & { advancedToSecondTrack?: boolean }> {
   const existing = await fetchSentenceProgress(sentenceId);
@@ -146,6 +150,10 @@ export async function markMemStepDone(
     touchActivity: true,
     ...stepPatch(step),
   };
+
+  if (step === "dictation" && opts.dictationScore != null) {
+    patch.mem_dictation_score = opts.dictationScore;
+  }
 
   const merged = { ...flags, ...patch } as MemProgressFlags;
   let advancedToSecondTrack = false;

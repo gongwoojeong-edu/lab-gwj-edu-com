@@ -211,14 +211,37 @@ export function partialDictationPass(
   answers: Record<string, string>,
   direction: MemDirection,
 ): boolean {
+  return partialDictationScore(segments, answers, direction).score === 100;
+}
+
+export function partialDictationBlankCorrect(
+  typed: string,
+  answer: string,
+  direction: MemDirection,
+): boolean {
+  return direction === "ko_to_en"
+    ? dictationPassEn(typed, answer)
+    : dictationPassKo(typed, answer);
+}
+
+export function partialDictationScore(
+  segments: DictationSegment[],
+  answers: Record<string, string>,
+  direction: MemDirection,
+): { score: number; correctCount: number; totalCount: number; results: Record<string, boolean> } {
   const blanks = segments.filter((s): s is Extract<DictationSegment, { type: "blank" }> => s.type === "blank");
-  if (blanks.length === 0) return true;
-  return blanks.every((b) => {
-    const typed = answers[b.id] ?? "";
-    return direction === "ko_to_en"
-      ? dictationPassEn(typed, b.answer)
-      : dictationPassKo(typed, b.answer);
-  });
+  if (blanks.length === 0) {
+    return { score: 100, correctCount: 0, totalCount: 0, results: {} };
+  }
+  const results: Record<string, boolean> = {};
+  let correctCount = 0;
+  for (const b of blanks) {
+    const ok = partialDictationBlankCorrect(answers[b.id] ?? "", b.answer, direction);
+    results[b.id] = ok;
+    if (ok) correctCount += 1;
+  }
+  const score = Math.round((correctCount / blanks.length) * 100);
+  return { score, correctCount, totalCount: blanks.length, results };
 }
 
 export function renderClozeSentence(english: string, blanks: ClozeBlank[], answers: Record<string, string>): string {

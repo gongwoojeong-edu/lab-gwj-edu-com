@@ -106,7 +106,7 @@ const MemorizeLearn = () => {
     void load();
   }, [load]);
 
-  const handleStepPassed = async (s: MemStep) => {
+  const handleStepPassed = async (s: MemStep, extra?: { dictationScore?: number }) => {
     if (!sentenceId || saving || !memSettings) return;
     setSaving(true);
     try {
@@ -114,6 +114,7 @@ const MemorizeLearn = () => {
         activeDirection,
         directionSetting: memSettings.directionSetting,
         requireRecord,
+        dictationScore: extra?.dictationScore,
       });
       setMemFlags(next);
       if (next.advancedToSecondTrack) {
@@ -252,7 +253,8 @@ const MemorizeLearn = () => {
               <MemDictationStep
                 {...stepProps}
                 blankRatio={memSettings.dictationBlankRatio}
-                onPassed={() => void handleStepPassed("dictation")}
+                minScore={memSettings.dictationMinScore}
+                onPassed={(score) => void handleStepPassed("dictation", { dictationScore: score })}
               />
             )}
             {step === "speech" && memFlags.mem_dictation_done && !memFlags.mem_speech_done && (

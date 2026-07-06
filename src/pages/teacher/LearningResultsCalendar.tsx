@@ -275,7 +275,7 @@ const LearningResultsCalendar = () => {
             .lt("test_date", dateEnd),
           supabase
             .from("sentence_progress")
-            .select("id, sentence_id, mem_passed_at, mem_listen_done, mem_scramble_done, mem_cloze_done, mem_dictation_done, mem_speech_done, mem_record_done, mem_direction, mem_attempt_count")
+            .select("id, sentence_id, mem_passed_at, mem_listen_done, mem_scramble_done, mem_cloze_done, mem_dictation_done, mem_dictation_score, mem_speech_done, mem_record_done, mem_direction, mem_attempt_count")
             .eq("user_id", selectedStudent)
             .not("mem_passed_at", "is", null)
             .gte("mem_passed_at", monthStart)
@@ -1001,6 +1001,9 @@ const DetailBody = ({ event, studentId, onRegraded }: { event: CalEvent; student
           <div><span className="text-muted-foreground">통과:</span> <b className="text-fuchsia-700">P</b></div>
           <div><span className="text-muted-foreground">방향:</span> {p.mem_direction ?? "—"}</div>
           <div><span className="text-muted-foreground">시도:</span> {p.mem_attempt_count ?? 1}회</div>
+          {p.mem_dictation_score != null && (
+            <div><span className="text-muted-foreground">D 점수:</span> {p.mem_dictation_score}점</div>
+          )}
         </div>
         <div className="flex flex-wrap gap-1">
           {steps.map(([label, done]) => (

@@ -163,6 +163,7 @@ const BookshelfUnit = () => {
   const [unitMemDirection, setUnitMemDirection] = useState<MemDirectionSetting>("ko_to_en");
   const [unitRequireRecord, setUnitRequireRecord] = useState(false);
   const [unitDictationBlankRatio, setUnitDictationBlankRatio] = useState(0.35);
+  const [unitDictationMinScore, setUnitDictationMinScore] = useState(0);
   const [savingUnitTask, setSavingUnitTask] = useState(false);
   const [savingUnitMem, setSavingUnitMem] = useState(false);
   const [koreanEditId, setKoreanEditId] = useState<string | null>(null);
@@ -609,6 +610,23 @@ const BookshelfUnit = () => {
     }
   };
 
+  const handleUnitDictationMinScoreChange = async (minScore: number) => {
+    if (!unit || savingUnitMem) return;
+    setSavingUnitMem(true);
+    try {
+      await updateUnitMemSettings(unit.id, { memDictationMinScore: minScore });
+      setUnitDictationMinScore(minScore);
+      toast({
+        title: "받아쓰기 최저점 저장",
+        description: minScore === 0 ? "기준 없음" : `${minScore}점 이상 권장`,
+      });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingUnitMem(false);
+    }
+  };
+
   const startKoreanEdit = (p: Passage) => {
     setKoreanEditId(p.id);
     setKoreanDraft(p.korean ?? "");
@@ -765,6 +783,9 @@ const BookshelfUnit = () => {
         );
         setUnitDictationBlankRatio(
           (u as Unit & { mem_dictation_blank_ratio?: number }).mem_dictation_blank_ratio ?? 0.35,
+        );
+        setUnitDictationMinScore(
+          (u as Unit & { mem_dictation_min_score?: number }).mem_dictation_min_score ?? 0,
         );
       }
       if (!u) return;
@@ -1219,6 +1240,26 @@ const BookshelfUnit = () => {
                   {[20, 25, 30, 35, 40, 45, 50, 55, 60].map((pct) => (
                     <SelectItem key={pct} value={String(pct / 100)}>
                       {pct}% (전체 불가)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">D. 권장 최저점</div>
+              <Select
+                value={String(unitDictationMinScore)}
+                onValueChange={(v) => void handleUnitDictationMinScoreChange(Number(v))}
+                disabled={savingUnitMem}
+              >
+                <SelectTrigger className="w-[120px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">기준 없음</SelectItem>
+                  {[60, 70, 80, 90, 100].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}점 이상
                     </SelectItem>
                   ))}
                 </SelectContent>

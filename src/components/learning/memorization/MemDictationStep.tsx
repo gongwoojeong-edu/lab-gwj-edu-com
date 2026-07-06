@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Check, Loader2, Volume2, X } from "lucide-react";
+import { ArrowRight, Check, Loader2, Volume2 } from "lucide-react";
 import {
   buildPartialDictationSegments,
-  partialDictationPass,
+  partialDictationScore,
   type MemDirection,
 } from "@/lib/memorizationText";
 import { playPassageAudioEnglish, resolvePassageAudioUrl } from "@/lib/passageAudio";
+import { cn } from "@/lib/utils";
 
 interface Props {
   sentenceId: string;
@@ -16,7 +17,8 @@ interface Props {
   korean: string;
   direction: MemDirection;
   blankRatio: number;
-  onPassed: () => void;
+  minScore: number;
+  onPassed: (score: number) => void;
 }
 
 export const MemDictationStep = ({
@@ -25,6 +27,7 @@ export const MemDictationStep = ({
   korean,
   direction,
   blankRatio,
+  minScore,
   onPassed,
 }: Props) => {
   const expected = direction === "ko_to_en" ? english : korean;
@@ -42,11 +45,16 @@ export const MemDictationStep = ({
 
   const blankCount = blankIds.length;
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<"idle" | "pass" | "fail">("idle");
+  const [submitted, setSubmitted] = useState(false);
+  const [score, setScore] = useState<number | null>(null);
+  const [blankResults, setBlankResults] = useState<Record<string, boolean>>({});
+  const [correctCount, setCorrectCount] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(true);
   const autoPlayedRef = useRef(false);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const allFilled = blankIds.every((id) => answers[id]?.trim());
 
   const playAudio = () => {
     setPlaying(true);
@@ -77,10 +85,13 @@ export const MemDictationStep = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingAudio, direction, sentenceId]);
 
-  const check = () => {
-    const ok = partialDictationPass(segments, answers, direction);
-    setResult(ok ? "pass" : "fail");
-    if (ok) onPassed();
+  const submit = () => {
+    if (!allFilled) return;
+    const result = partialDictationScore(segments, answers, direction);
+    setScore(result.score);
+    setBlankResults(result.results);
+    setCorrectCount(result.correctCount);
+    setSubmitted(true);
   };
 
   const focusBlank = (id: string) => {
@@ -92,19 +103,21 @@ export const MemDictationStep = ({
   const handleBlankKeyDown = (segId: string, e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    if (submitted) return;
     const idx = blankIds.indexOf(segId);
     if (idx < 0) return;
     if (idx < blankIds.length - 1) {
       focusBlank(blankIds[idx + 1]);
       return;
     }
-    const allFilled = blankIds.every((id) => answers[id]?.trim());
-    if (allFilled) check();
+    if (allFilled) submit();
     else {
       const nextEmpty = blankIds.find((id) => !answers[id]?.trim());
       if (nextEmpty) focusBlank(nextEmpty);
     }
   };
+
+  const meetsMin = minScore <= 0 || (score != null && score >= minScore);
 
   return (
     <Card className="p-5 space-y-4">
@@ -117,6 +130,7 @@ export const MemDictationStep = ({
         </p>
         <p className="text-[11px] text-muted-foreground">
           빈칸 {blankCount}개 · 비율 {Math.round(blankRatio * 100)}% (전체 받아쓰기 아님)
+          {minScore > 0 && ` · 권장 ${minScore}점 이상`}
         </p>
       </div>
 
@@ -158,40 +172,57 @@ export const MemDictationStep = ({
               {seg.value}
             </span>
           ) : (
-            <Input
-              key={seg.id}
-              ref={(el) => {
-                inputRefs.current[seg.id] = el;
-              }}
-              value={answers[seg.id] ?? ""}
-              onChange={(e) => {
-                setAnswers((a) => ({ ...a, [seg.id]: e.target.value }));
-                setResult("idle");
-              }}
-              onKeyDown={(e) => handleBlankKeyDown(seg.id, e)}
-              className="inline-flex h-8 w-[min(140px,28vw)] text-sm px-2 border-b-2 border-primary/40 rounded-none border-x-0 border-t-0 bg-transparent"
-              placeholder="…"
-            />
+            <span key={seg.id} className="inline-flex flex-col items-start">
+              <Input
+                ref={(el) => {
+                  inputRefs.current[seg.id] = el;
+                }}
+                value={answers[seg.id] ?? ""}
+                readOnly={submitted}
+                onChange={(e) => {
+                  setAnswers((a) => ({ ...a, [seg.id]: e.target.value }));
+                }}
+                onKeyDown={(e) => handleBlankKeyDown(seg.id, e)}
+                className={cn(
+                  "inline-flex h-8 w-[min(140px,28vw)] text-sm px-2 border-b-2 rounded-none border-x-0 border-t-0 bg-transparent",
+                  submitted && blankResults[seg.id] === true && "border-emerald-500 text-emerald-700",
+                  submitted && blankResults[seg.id] === false && "border-red-500 text-red-700",
+                  !submitted && "border-primary/40",
+                )}
+                placeholder="…"
+              />
+              {submitted && blankResults[seg.id] === false && (
+                <span className="text-[10px] text-red-600 mt-0.5 px-1">{seg.answer}</span>
+              )}
+            </span>
           ),
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={check}
-          disabled={segments.some((s) => s.type === "blank" && !(answers[s.id]?.trim()))}
-        >
-          확인
-        </Button>
-        {result === "pass" && (
-          <span className="inline-flex items-center gap-1 text-emerald-600 text-sm font-bold">
-            <Check className="w-4 h-4" /> 통과!
-          </span>
-        )}
-        {result === "fail" && (
-          <span className="inline-flex items-center gap-1 text-amber-600 text-sm font-bold">
-            <X className="w-4 h-4" /> 빈칸을 다시 확인해 주세요
-          </span>
+      <div className="flex flex-wrap items-center gap-2">
+        {!submitted ? (
+          <Button onClick={submit} disabled={!allFilled}>
+            확인
+          </Button>
+        ) : (
+          <>
+            <Button onClick={() => score != null && onPassed(score)}>
+              다음 단계
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+            {score != null && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 text-sm font-bold",
+                  meetsMin ? "text-emerald-600" : "text-amber-600",
+                )}
+              >
+                <Check className="w-4 h-4" />
+                {score}점 ({correctCount}/{blankCount})
+                {minScore > 0 && !meetsMin && ` · 기준 ${minScore}점 미달`}
+              </span>
+            )}
+          </>
         )}
       </div>
     </Card>

@@ -18,6 +18,7 @@ export interface MemSettingsContext {
   directionSetting: MemDirectionSetting;
   requireRecord: boolean;
   dictationBlankRatio: number;
+  dictationMinScore: number;
   unitId: string | null;
 }
 
@@ -37,20 +38,23 @@ export async function fetchMemSettingsForSentence(
   let unitDirection: MemDirectionSetting = "ko_to_en";
   let requireRecord = false;
   let dictationBlankRatio = 0.35;
+  let dictationMinScore = 0;
   if (unitId) {
     const { data: unitRow } = await supabase
       .from("textbook_units")
-      .select("default_mem_direction, mem_require_record, mem_dictation_blank_ratio")
+      .select("default_mem_direction, mem_require_record, mem_dictation_blank_ratio, mem_dictation_min_score")
       .eq("id", unitId)
       .maybeSingle();
     const u = unitRow as {
       default_mem_direction?: MemDirectionSetting;
       mem_require_record?: boolean;
       mem_dictation_blank_ratio?: number;
+      mem_dictation_min_score?: number;
     } | null;
     unitDirection = u?.default_mem_direction ?? "ko_to_en";
     requireRecord = !!u?.mem_require_record;
     dictationBlankRatio = u?.mem_dictation_blank_ratio ?? 0.35;
+    dictationMinScore = u?.mem_dictation_min_score ?? 0;
   }
 
   const nowIso = new Date().toISOString();
@@ -84,7 +88,7 @@ export async function fetchMemSettingsForSentence(
   const directionSetting =
     sentenceHit?.mem_direction ?? unitHit?.mem_direction ?? unitDirection;
 
-  return { directionSetting, requireRecord, dictationBlankRatio, unitId };
+  return { directionSetting, requireRecord, dictationBlankRatio, dictationMinScore, unitId };
 }
 
 /** both 모드에서 현재 진행 중인 트랙 */

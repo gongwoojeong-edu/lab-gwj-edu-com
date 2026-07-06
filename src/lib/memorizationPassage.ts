@@ -95,12 +95,14 @@ export async function updateUnitMemSettings(
     defaultMemDirection?: "ko_to_en" | "en_to_ko" | "both";
     memRequireRecord?: boolean;
     memDictationBlankRatio?: number;
+    memDictationMinScore?: number;
   },
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (opts.defaultMemDirection != null) patch.default_mem_direction = opts.defaultMemDirection;
   if (opts.memRequireRecord != null) patch.mem_require_record = opts.memRequireRecord;
   if (opts.memDictationBlankRatio != null) patch.mem_dictation_blank_ratio = opts.memDictationBlankRatio;
+  if (opts.memDictationMinScore != null) patch.mem_dictation_min_score = opts.memDictationMinScore;
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("textbook_units").update(patch as never).eq("id", unitId);
   if (error) throw error;
