@@ -75,6 +75,9 @@ export type Database = {
           include_pre: boolean
           include_translation: boolean
           include_wordtest: boolean
+          mem_direction:
+            | Database["public"]["Enums"]["mem_direction_setting"]
+            | null
           sentence_id: string | null
           student_id: string | null
           task_mode: Database["public"]["Enums"]["passage_task_mode"] | null
@@ -92,6 +95,9 @@ export type Database = {
           include_pre?: boolean
           include_translation?: boolean
           include_wordtest?: boolean
+          mem_direction?:
+            | Database["public"]["Enums"]["mem_direction_setting"]
+            | null
           sentence_id?: string | null
           student_id?: string | null
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
@@ -109,6 +115,9 @@ export type Database = {
           include_pre?: boolean
           include_translation?: boolean
           include_wordtest?: boolean
+          mem_direction?:
+            | Database["public"]["Enums"]["mem_direction_setting"]
+            | null
           sentence_id?: string | null
           student_id?: string | null
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
@@ -324,6 +333,39 @@ export type Database = {
           },
         ]
       }
+      memorization_recordings: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          id: string
+          mem_direction: string | null
+          mime: string | null
+          sentence_id: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          mem_direction?: string | null
+          mime?: string | null
+          sentence_id: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          mem_direction?: string | null
+          mime?: string | null
+          sentence_id?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       modifier_relations: {
         Row: {
           created_at: string
@@ -446,6 +488,47 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      paragraph_flow_progress: {
+        Row: {
+          attempt_count: number
+          best_score: number | null
+          created_at: string
+          id: string
+          passed_at: string | null
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          best_score?: number | null
+          created_at?: string
+          id?: string
+          passed_at?: string | null
+          unit_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          best_score?: number | null
+          created_at?: string
+          id?: string
+          passed_at?: string | null
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paragraph_flow_progress_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "textbook_units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       points_log: {
         Row: {
@@ -1090,9 +1173,11 @@ export type Database = {
           analysis_pdf_url: string | null
           created_at: string
           created_by: string | null
+          default_mem_direction: Database["public"]["Enums"]["mem_direction_setting"]
           default_task_mode: Database["public"]["Enums"]["passage_task_mode"]
           description: string | null
           id: string
+          mem_require_record: boolean
           structure_pdf_name: string | null
           structure_pdf_uploaded_at: string | null
           structure_pdf_url: string | null
@@ -1107,9 +1192,11 @@ export type Database = {
           analysis_pdf_url?: string | null
           created_at?: string
           created_by?: string | null
+          default_mem_direction?: Database["public"]["Enums"]["mem_direction_setting"]
           default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
           id?: string
+          mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
           structure_pdf_url?: string | null
@@ -1124,9 +1211,11 @@ export type Database = {
           analysis_pdf_url?: string | null
           created_at?: string
           created_by?: string | null
+          default_mem_direction?: Database["public"]["Enums"]["mem_direction_setting"]
           default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
           id?: string
+          mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
           structure_pdf_url?: string | null
@@ -1391,6 +1480,7 @@ export type Database = {
     Enums: {
       analysis_review_status: "pending" | "approved" | "rejected" | "cancelled"
       app_role: "student" | "teacher" | "admin"
+      mem_direction_setting: "ko_to_en" | "en_to_ko" | "both"
       passage_mem_status: "draft" | "ready"
       passage_task_mode:
         | "analysis_only"
@@ -1532,6 +1622,7 @@ export const Constants = {
     Enums: {
       analysis_review_status: ["pending", "approved", "rejected", "cancelled"],
       app_role: ["student", "teacher", "admin"],
+      mem_direction_setting: ["ko_to_en", "en_to_ko", "both"],
       passage_mem_status: ["draft", "ready"],
       passage_task_mode: [
         "analysis_only",
