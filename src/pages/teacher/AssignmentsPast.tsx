@@ -16,6 +16,7 @@ import {
   type Passage,
 } from "@/lib/textbooks";
 import { format } from "date-fns";
+import { formatAssignmentDueLabel } from "@/lib/assignmentDue";
 import AssignmentStepBadges from "@/components/teacher/AssignmentStepBadges";
 import AssignmentProgressSummary from "@/components/teacher/AssignmentProgressSummary";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,7 @@ interface AssignmentRow {
   title: string;
   description: string | null;
   sentence_id: string | null;
-  due_at: string;
+  due_at: string | null;
   created_at: string;
   include_pre: boolean;
   include_analysis: boolean;
@@ -47,7 +48,7 @@ interface AssignmentGroup {
   student_id: string | null;
   unit_id: string | null;
   unit_label: string | null;
-  due_at: string;
+  due_at: string | null;
   include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
@@ -355,7 +356,7 @@ const AssignmentsPast = () => {
                       </div>
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
                         <span>대상: {studentName(g.student_id)}</span>
-                        <span>· 마감: {format(new Date(g.due_at), "yyyy-MM-dd HH:mm")}</span>
+                        <span>· 마감: {formatAssignmentDueLabel(g.due_at)}</span>
                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
                           · {allTargetIds.length} / {allTargetIds.length}명 통과
                         </span>

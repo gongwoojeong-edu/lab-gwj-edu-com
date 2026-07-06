@@ -3,6 +3,7 @@
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
+import { activeAssignmentDueOrFilter } from "@/lib/assignmentDue";
 import type { MemDirection } from "@/lib/memorizationText";
 
 export type MemDirectionSetting = "ko_to_en" | "en_to_ko" | "both";
@@ -52,7 +53,7 @@ export async function fetchMemSettingsForSentence(
   let assignQuery = supabase
     .from("assignments")
     .select("sentence_id, unit_id, mem_direction, due_at")
-    .gte("due_at", nowIso)
+    .or(activeAssignmentDueOrFilter(nowIso))
     .not("mem_direction", "is", null);
 
   if (userId) {

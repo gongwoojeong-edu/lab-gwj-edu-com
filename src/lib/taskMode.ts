@@ -1,6 +1,7 @@
 // ============================================================
 // taskMode — 분석만 / 암기만 / 분석+암기 resolve (선생님 설정 전용)
 // ============================================================
+import { isAssignmentActive } from "@/lib/assignmentDue";
 
 export type TaskMode = "analysis_only" | "memorize_only" | "analysis_and_memorize";
 
@@ -50,7 +51,7 @@ export interface TaskModeAssignmentRow {
   sentence_id: string | null;
   unit_id: string | null;
   task_mode: TaskMode | null;
-  due_at: string;
+  due_at: string | null;
 }
 
 export interface ResolveTaskModeInput {
@@ -69,7 +70,7 @@ export function resolveTaskMode(input: ResolveTaskModeInput): TaskMode {
   const now = input.now ?? new Date();
   const active = input.assignments.filter((a) => {
     if (!a.task_mode) return false;
-    return new Date(a.due_at) >= now;
+    return isAssignmentActive(a.due_at, now);
   });
 
   const sentenceHit = active.find(

@@ -9,6 +9,7 @@ import {
   type TaskMode,
   type TaskModeAssignmentRow,
 } from "@/lib/taskMode";
+import { activeAssignmentDueOrFilter } from "@/lib/assignmentDue";
 
 export interface SentenceTaskContext {
   taskMode: TaskMode;
@@ -60,7 +61,7 @@ export async function fetchTaskModeForSentence(
   let assignQuery = supabase
     .from("assignments")
     .select("sentence_id, unit_id, task_mode, due_at")
-    .gte("due_at", nowIso);
+    .or(activeAssignmentDueOrFilter(nowIso));
 
   if (userId) {
     assignQuery = assignQuery.or(`student_id.eq.${userId},student_id.is.null`);

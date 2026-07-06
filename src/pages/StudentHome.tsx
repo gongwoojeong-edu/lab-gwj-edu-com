@@ -69,6 +69,11 @@ import {
   taskModeIncludesMemorize,
   type TaskMode,
 } from "@/lib/taskMode";
+import {
+  activeAssignmentDueOrFilter,
+  compareAssignmentDue,
+  formatAssignmentRemaining,
+} from "@/lib/assignmentDue";
 
 interface RecentItem {
   sentence: Sentence;
@@ -81,7 +86,7 @@ interface AssignmentRow {
   title: string;
   description: string | null;
   sentence_id: string | null;
-  due_at: string;
+  due_at: string | null;
   created_at: string;
   include_pre: boolean;
   include_analysis: boolean;
@@ -94,7 +99,7 @@ interface AssignmentGroup {
   key: string;
   title: string;
   description: string | null;
-  due_at: string;
+  due_at: string | null;
   unit_prefix: string | null;
   include_pre: boolean;
   include_analysis: boolean;
@@ -186,8 +191,8 @@ const StudentHome = () => {
             .from("assignments")
             .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode")
             .or(`student_id.eq.${user.id},student_id.is.null`)
-            .gte("due_at", new Date().toISOString())
-            .order("due_at", { ascending: true })
+            .or(activeAssignmentDueOrFilter(new Date().toISOString()))
+            .order("due_at", { ascending: true, nullsFirst: false })
             .limit(200),
         ]);
         const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold" | "pending"; updated_at: string; passed_at: string | null }[];
@@ -345,8 +350,8 @@ const StudentHome = () => {
             if (g.doneCount < g.totalCount) return true;
             return !!g.unitId;
           })
-          // 마감일 가까운 순
-          .sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
+          // 마감일 가까운 순 (무기한은 뒤)
+          .sort((a, b) => compareAssignmentDue(a.due_at, b.due_at));
 
         if (mounted) {
           setRecent(enriched);
@@ -812,12 +817,9 @@ const StudentHome = () => {
               </p>
               <ul className="space-y-3">
                 {visibleAssignmentGroups.map((g) => {
-                  const dueMs = new Date(g.due_at).getTime() - Date.now();
-                  const totalH = Math.max(0, Math.floor(dueMs / 3_600_000));
-                  const days = Math.floor(totalH / 24);
-                  const hours = totalH % 24;
-                  const urgent = dueMs < 24 * 3_600_000;
-                  const remainText = days > 0 ? `${days}일 ${hours}시간 남음` : `${hours}시간 남음`;
+                  const rem = formatAssignmentRemaining(g.due_at);
+                  const urgent = rem.urgent;
+                  const remainText = rem.text;
                   const isInProgress = g.inProgressCount > 0 || g.doneCount > 0;
                   const progressPct = g.totalCount > 0 ? Math.round((g.doneCount / g.totalCount) * 100) : 0;
                   return (

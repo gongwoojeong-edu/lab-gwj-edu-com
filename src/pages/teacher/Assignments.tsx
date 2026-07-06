@@ -67,6 +67,11 @@ import {
 } from "@/lib/taskMode";
 import { notifyStudentsForNewAssignment } from "@/lib/assignmentNotifications";
 import {
+  formatAssignmentDueLabel,
+  formatAssignmentRemaining,
+  resolveDueAtEndOfDay,
+} from "@/lib/assignmentDue";
+import {
   MEM_DIRECTION_SETTING_LABEL,
   type MemDirectionSetting,
 } from "@/lib/fetchMemSettings";
@@ -78,7 +83,7 @@ interface AssignmentGroup {
   student_id: string | null;
   unit_id: string | null;
   unit_label: string | null;
-  due_at: string;
+  due_at: string | null;
   include_pre: boolean;
   include_analysis: boolean;
   include_translation: boolean;
@@ -96,7 +101,7 @@ interface AssignmentRow {
   title: string;
   description: string | null;
   sentence_id: string | null;
-  due_at: string;
+  due_at: string | null;
   created_at: string;
   include_pre: boolean;
   include_analysis: boolean;
@@ -438,7 +443,6 @@ const Assignments = () => {
 
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
-    if (!f.dueDate) return "마감일은 필수입니다";
     if (f.mode === "sentence") {
       if (!f.selectedUnitId) return "유닛을 먼저 선택해주세요";
       if (!f.selectedPassageCode) return "출제할 문장을 선택해주세요";
@@ -462,8 +466,7 @@ const Assignments = () => {
     try {
       const teacherId = await getCurrentUserId();
       if (!teacherId) throw new Error("로그인이 필요합니다");
-      const endOfDay = new Date(form.dueDate!);
-      endOfDay.setHours(23, 59, 59, 999);
+      const dueAtIso = resolveDueAtEndOfDay(form.dueDate);
       // studentIds 가 비어있으면 [null] (전체학생 1건), 아니면 각 학생별 1건씩
       const targets: (string | null)[] =
         form.studentIds.length === 0 ? [null] : form.studentIds;
@@ -504,7 +507,7 @@ const Assignments = () => {
           sentence_id: code,
           unit_id: form.mode === "unit" ? form.selectedUnitId || null : null,
           task_mode: taskMode,
-          due_at: endOfDay.toISOString(),
+          due_at: dueAtIso,
           include_pre: form.includePre,
           include_analysis: form.includeAnalysis,
           include_translation: form.includeTranslation,
@@ -527,7 +530,7 @@ const Assignments = () => {
       const notified = await notifyStudentsForNewAssignment({
         title: form.title.trim(),
         description: form.description.trim() || null,
-        dueAt: endOfDay,
+        dueAt: form.dueDate ?? null,
         studentIds: form.studentIds,
         taskMode,
         passageCount: passageCodes.length,
@@ -575,7 +578,7 @@ const Assignments = () => {
 
   /** 그룹 전체 마감일 +1주 일괄 연장 */
   const handleExtendGroupWeek = async (group: AssignmentGroup) => {
-    const cur = new Date(group.due_at);
+    const cur = group.due_at ? new Date(group.due_at) : new Date();
     const next = new Date(cur.getTime() + 7 * 86400000);
     const ids = group.rows.map((r) => r.id);
     const { error } = await supabase
@@ -592,7 +595,7 @@ const Assignments = () => {
 
   // +1주 마감일 빠른 연장
   const handleExtendWeek = async (row: AssignmentRow) => {
-    const cur = new Date(row.due_at);
+    const cur = row.due_at ? new Date(row.due_at) : new Date();
     const next = new Date(cur.getTime() + 7 * 86400000);
     const { error } = await supabase
       .from("assignments")
@@ -655,7 +658,7 @@ const Assignments = () => {
       selectedUnitId: unitId,
       selectedPassageCode: row.sentence_id ?? "",
       description: row.description ?? "",
-      dueDate: new Date(row.due_at),
+      dueDate: row.due_at ? new Date(row.due_at) : undefined,
       includePre: row.include_pre,
       includeAnalysis: row.include_analysis,
       includeTranslation: row.include_translation,
@@ -674,16 +677,7 @@ const Assignments = () => {
     }
     setUpdating(true);
     try {
-      const endOfDay = new Date(editForm.dueDate!);
-      // 시간이 자정인 경우만 23:59로 보정 (사용자가 직접 시간 지정한 게 아닐 가능성 ↑)
-      if (
-        endOfDay.getHours() === 0 &&
-        endOfDay.getMinutes() === 0 &&
-        endOfDay.getSeconds() === 0
-      ) {
-        endOfDay.setHours(23, 59, 59, 999);
-      }
-
+      const dueAtIso = resolveDueAtEndOfDay(editForm.dueDate);
       // 🆕 같은 유닛 그룹의 모든 행을 찾아 메타(제목/설명/마감/대상/단계)를 일괄 적용.
       // (sentence_id가 같은 그룹에 속한 형제 행들이라면 동일 유닛 = 같은 unit_id)
       const editingUnitId = editingRow.sentence_id
@@ -711,7 +705,7 @@ const Assignments = () => {
           title: editForm.title.trim(),
           student_id: editForm.studentIds.length === 0 ? null : editForm.studentIds[0],
           description: editForm.description.trim() || null,
-          due_at: endOfDay.toISOString(),
+          due_at: dueAtIso,
           include_pre: editForm.includePre,
           include_analysis: editForm.includeAnalysis,
           include_translation: editForm.includeTranslation,
@@ -757,16 +751,31 @@ const Assignments = () => {
     return students.find((s) => s.user_id === id)?.display_name ?? id.slice(0, 6);
   };
 
-  const remaining = (iso: string) => {
-    const ms = new Date(iso).getTime() - Date.now();
-    if (ms < 0) return { text: "마감", urgent: true };
-    const days = Math.floor(ms / 86400000);
-    const hours = Math.floor((ms % 86400000) / 3600000);
-    return {
-      text: days > 0 ? `${days}일 ${hours}시간 남음` : `${hours}시간 남음`,
-      urgent: days < 1,
-    };
-  };
+  const remaining = (iso: string | null) => formatAssignmentRemaining(iso);
+
+  const renderDueDatePicker = (f: FormState, setter: typeof setForm) => (
+    <div className="space-y-1.5">
+      <Label>마감일 (선택)</Label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("justify-start text-left font-normal", !f.dueDate && "text-muted-foreground")}>
+              <CalendarIcon className="mr-2 size-4" />
+              {f.dueDate ? format(f.dueDate, "yyyy-MM-dd") : "무기한 (선택 안 함)"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={f.dueDate} onSelect={(d) => setter((p) => ({ ...p, dueDate: d }))} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+        {f.dueDate && (
+          <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={() => setter((p) => ({ ...p, dueDate: undefined }))}>
+            무기한
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 
   const applyPreset = (
     setter: typeof setForm,
@@ -1168,18 +1177,7 @@ const Assignments = () => {
               </Popover>
             </div>
             <div className="space-y-1.5">
-              <Label>마감일 *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("justify-start text-left font-normal", !form.dueDate && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 size-4" />
-                    {form.dueDate ? format(form.dueDate, "yyyy-MM-dd") : "마감일 선택"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={form.dueDate} onSelect={(d) => setForm((p) => ({ ...p, dueDate: d }))} initialFocus className={cn("p-3 pointer-events-auto")} />
-                </PopoverContent>
-              </Popover>
+              {renderDueDatePicker(form, setForm)}
             </div>
             <div className="sm:col-span-2">
               {renderStepCheckboxes(form, setForm)}
@@ -1294,7 +1292,7 @@ const Assignments = () => {
                       </div>
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
                         <span>대상: {studentName(g.student_id)}</span>
-                        <span>· 마감: {format(new Date(g.due_at), "yyyy-MM-dd HH:mm")}</span>
+                        <span>· 마감: {formatAssignmentDueLabel(g.due_at)}</span>
                         <span className={cn("font-bold", rem.urgent ? "text-destructive" : "text-primary")}>· {rem.text}</span>
                         {label && <span>· {label}</span>}
                       </div>
@@ -1375,20 +1373,7 @@ const Assignments = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>마감일 *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("justify-start text-left font-normal", !editForm.dueDate && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 size-4" />
-                      {editForm.dueDate ? format(editForm.dueDate, "yyyy-MM-dd") : "마감일 선택"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={editForm.dueDate} onSelect={(d) => setEditForm((p) => ({ ...p, dueDate: d }))} initialFocus className={cn("p-3 pointer-events-auto")} />
-                  </PopoverContent>
-                </Popover>
-              </div>
+              <div>{renderDueDatePicker(editForm, setEditForm)}</div>
               <div>{renderStepCheckboxes(editForm, setEditForm)}</div>
               <div>{renderMemDirectionPicker(editForm, setEditForm)}</div>
               <div className="sm:col-span-2 space-y-2 opacity-70">

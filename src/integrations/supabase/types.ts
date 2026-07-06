@@ -69,7 +69,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
-          due_at: string
+          due_at: string | null
           id: string
           include_analysis: boolean
           include_pre: boolean
@@ -89,7 +89,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
-          due_at: string
+          due_at: string | null
           id?: string
           include_analysis?: boolean
           include_pre?: boolean

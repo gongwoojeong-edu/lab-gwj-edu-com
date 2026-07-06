@@ -66,6 +66,7 @@ import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel
 import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { activeAssignmentDueOrFilter } from "@/lib/assignmentDue";
 import { toast } from "@/hooks/use-toast";
 import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
 
@@ -227,8 +228,8 @@ const SentenceLearn = () => {
             .select("include_pre, include_analysis, include_translation, include_wordtest")
             .eq("sentence_id", found.id)
             .or(`student_id.eq.${currentUserId},student_id.is.null`)
-            .gte("due_at", new Date().toISOString())
-            .order("due_at", { ascending: true })
+            .or(activeAssignmentDueOrFilter(new Date().toISOString()))
+            .order("due_at", { ascending: true, nullsFirst: false })
             .limit(1)
             .maybeSingle();
           return data;

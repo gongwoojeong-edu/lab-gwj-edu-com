@@ -10,7 +10,7 @@ import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
 export async function notifyStudentsForNewAssignment(opts: {
   title: string;
   description?: string | null;
-  dueAt: Date;
+  dueAt?: Date | null;
   studentIds: string[];
   taskMode: TaskMode | null;
   passageCount: number;
@@ -31,7 +31,9 @@ export async function notifyStudentsForNewAssignment(opts: {
   if (targets.length === 0) return 0;
 
   const includesMem = taskModeIncludesMemorize(opts.taskMode);
-  const dueLabel = opts.dueAt.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+  const dueLabel = opts.dueAt
+    ? opts.dueAt.toLocaleDateString("ko-KR", { month: "short", day: "numeric" })
+    : "무기한";
   const scope =
     opts.mode === "sentence"
       ? "문장 1개"
