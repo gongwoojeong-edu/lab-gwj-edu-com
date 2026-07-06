@@ -46,7 +46,7 @@ export async function saveParagraphFlowAttempt(
       best_score,
       passed_at: passed ? new Date().toISOString() : existing?.passed_at ?? null,
       updated_at: new Date().toISOString(),
-    } as Record<string, unknown>,
+    } as never,
     { onConflict: "user_id,unit_id" },
   );
   if (error) throw error;
