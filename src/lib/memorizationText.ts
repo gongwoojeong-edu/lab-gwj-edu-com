@@ -13,10 +13,13 @@ export const MEM_DIRECTION_LABEL: Record<MemDirection, string> = {
 
 export const DEFAULT_MEM_DIRECTION: MemDirection = "ko_to_en";
 
+/** ASCII/유니코드 아포스트로피 → straight quote */
+const APOSTROPHE_VARIANTS = /[''\u2018\u2019\u02BC\u0060\u00B4]/g;
+
 export function normalizeEnSentence(s: string): string {
   return s
     .toLowerCase()
-    .replace(/['']/g, "'")
+    .replace(APOSTROPHE_VARIANTS, "'")
     .replace(/[^\w\s']/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -48,6 +51,8 @@ export function dictationPassEn(typed: string, expected: string): boolean {
   const tc = t.replace(/\s/g, "");
   const ec = e.replace(/\s/g, "");
   if (tc === ec) return true;
+  const stripApos = (x: string) => x.replace(/'/g, "");
+  if (stripApos(tc) === stripApos(ec)) return true;
   const maxLen = Math.max(tc.length, ec.length);
   const dist = levenshtein(tc, ec);
   return 1 - dist / maxLen >= 0.88;
