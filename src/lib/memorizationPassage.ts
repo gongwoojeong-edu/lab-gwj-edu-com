@@ -84,7 +84,7 @@ export async function updateUnitDefaultTaskMode(
 ): Promise<void> {
   const { error } = await supabase
     .from("textbook_units")
-    .update({ default_task_mode: taskMode } as Record<string, unknown>)
+    .update({ default_task_mode: taskMode })
     .eq("id", unitId);
   if (error) throw error;
 }
