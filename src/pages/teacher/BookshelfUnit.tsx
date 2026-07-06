@@ -85,6 +85,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClipboardList } from "lucide-react";
+import {
+  TASK_MODES,
+  TASK_MODE_LABEL,
+  DEFAULT_TASK_MODE,
+  type TaskMode,
+} from "@/lib/taskMode";
+import {
+  composePassageMemorization,
+  setPassageMemReady,
+  updatePassageTaskMode,
+  updateUnitDefaultTaskMode,
+} from "@/lib/memorizationPassage";
+import { updatePassageKorean } from "@/lib/textbooks";
 
 const BookshelfUnit = () => {
   const { level, seriesNo, volumeNo, unitNo } = useParams<{
@@ -139,6 +152,13 @@ const BookshelfUnit = () => {
   >([]);
   const [allSeriesAll, setAllSeriesAll] = useState<Series[]>([]);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [unitTaskMode, setUnitTaskMode] = useState<TaskMode>(DEFAULT_TASK_MODE);
+  const [savingUnitTask, setSavingUnitTask] = useState(false);
+  const [koreanEditId, setKoreanEditId] = useState<string | null>(null);
+  const [koreanDraft, setKoreanDraft] = useState("");
+  const [composingId, setComposingId] = useState<string | null>(null);
+  const [memTogglingCode, setMemTogglingCode] = useState<string | null>(null);
+  const [taskSavingId, setTaskSavingId] = useState<string | null>(null);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -503,6 +523,98 @@ const BookshelfUnit = () => {
     }
   };
 
+  const handleUnitTaskModeChange = async (mode: TaskMode) => {
+    if (!unit || savingUnitTask) return;
+    setSavingUnitTask(true);
+    try {
+      await updateUnitDefaultTaskMode(unit.id, mode);
+      setUnitTaskMode(mode);
+      setUnit({ ...unit, default_task_mode: mode });
+      toast({ title: "유닛 기본 테스크 저장", description: TASK_MODE_LABEL[mode] });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingUnitTask(false);
+    }
+  };
+
+  const handlePassageTaskModeChange = async (p: Passage, mode: string) => {
+    setTaskSavingId(p.id);
+    try {
+      const value =
+        mode === "__unit__" ? null : (mode as TaskMode);
+      await updatePassageTaskMode(p.id, value);
+      setPassages((prev) =>
+        prev.map((x) => (x.id === p.id ? { ...x, task_mode: value } : x)),
+      );
+    } catch (e) {
+      toast({ title: "테스크 변경 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setTaskSavingId(null);
+    }
+  };
+
+  const startKoreanEdit = (p: Passage) => {
+    setKoreanEditId(p.id);
+    setKoreanDraft(p.korean ?? "");
+  };
+
+  const saveKoreanEdit = async (p: Passage) => {
+    try {
+      await updatePassageKorean(p.code, koreanDraft.trim());
+      setPassages((prev) =>
+        prev.map((x) =>
+          x.id === p.id ? { ...x, korean: koreanDraft.trim() || null } : x,
+        ),
+      );
+      setKoreanEditId(null);
+    } catch (e) {
+      toast({ title: "한글 저장 실패", description: errMsg(e), variant: "destructive" });
+    }
+  };
+
+  const handleComposeMem = async (p: Passage) => {
+    setComposingId(p.id);
+    try {
+      const updated = await composePassageMemorization(p.id);
+      setPassages((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
+      toast({ title: "암기 자동구성 완료", description: p.code });
+    } catch (e) {
+      toast({ title: "자동구성 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setComposingId(null);
+    }
+  };
+
+  const handleToggleMemStatus = async (p: Passage) => {
+    if (memTogglingCode) return;
+    const nextReady = p.mem_status !== "ready";
+    if (nextReady && !p.korean?.trim()) {
+      toast({
+        title: "한글 해석 필요",
+        description: "암기 공개 전 한글을 입력해 주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setMemTogglingCode(p.code);
+    try {
+      await setPassageMemReady(p.code, nextReady);
+      setPassages((prev) =>
+        prev.map((x) =>
+          x.id === p.id ? { ...x, mem_status: nextReady ? "ready" : "draft" } : x,
+        ),
+      );
+      toast({
+        title: nextReady ? "암기 공개(ready)" : "암기 비공개(draft)",
+      });
+    } catch (e) {
+      toast({ title: "암기 상태 변경 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setMemTogglingCode(null);
+    }
+  };
+
   const handlePrint = async (p: Passage) => {
     if (printingCode) return;
     setPrintingCode(p.code);
@@ -549,6 +661,9 @@ const BookshelfUnit = () => {
       if (!tb) return;
       const u = await fetchUnit(tb.id, uNo);
       setUnit(u);
+      if (u) {
+        setUnitTaskMode(u.default_task_mode ?? DEFAULT_TASK_MODE);
+      }
       if (!u) return;
       const ps = await fetchPassagesByUnit(u.id);
       setPassages(ps);
@@ -943,6 +1058,31 @@ const BookshelfUnit = () => {
           </div>
         )}
 
+        <Card className="p-4 space-y-3">
+          <div className="text-sm font-bold">유닛 기본 테스크</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={unitTaskMode}
+              onValueChange={(v) => void handleUnitTaskModeChange(v as TaskMode)}
+              disabled={savingUnitTask}
+            >
+              <SelectTrigger className="w-[200px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_MODES.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {TASK_MODE_LABEL[m]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">
+              지문별 「유닛 따름」은 이 설정을 사용합니다.
+            </span>
+          </div>
+        </Card>
+
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -965,16 +1105,19 @@ const BookshelfUnit = () => {
                   <th className="py-2 px-3 w-12">#</th>
                   <th className="py-2 px-3 w-44">코드</th>
                   <th className="py-2 px-3">본문 (미리보기)</th>
-                  <th className="py-2 px-3 w-28">단어추출</th>
-                  <th className="py-2 px-3 w-28">분석상태</th>
-                  <th className="py-2 px-3 w-44 text-right">액션</th>
+                  <th className="py-2 px-3 min-w-[140px]">한글 해석</th>
+                  <th className="py-2 px-3 w-32">테스크</th>
+                  <th className="py-2 px-3 w-24">단어</th>
+                  <th className="py-2 px-3 w-24">구문</th>
+                  <th className="py-2 px-3 w-24">암기</th>
+                  <th className="py-2 px-3 w-36 text-right">액션</th>
                 </tr>
               </thead>
               <tbody>
                 {passages.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={11}
                       className="py-12 text-center text-sm text-muted-foreground"
                     >
                       아직 지문이 없습니다. 이전 화면의 <strong>본문 삽입</strong>으로
@@ -1015,8 +1158,57 @@ const BookshelfUnit = () => {
                         <td className="py-2 px-3 font-mono text-[10px] text-primary truncate">
                           {p.code}
                         </td>
-                        <td className="py-2 px-3 text-xs text-foreground/80 max-w-xl">
+                        <td className="py-2 px-3 text-xs text-foreground/80 max-w-xs">
                           <span className="line-clamp-2">{p.english}</span>
+                        </td>
+                        <td className="py-2 px-3 text-xs max-w-[180px]">
+                          {koreanEditId === p.id ? (
+                            <div className="flex flex-col gap-1">
+                              <textarea
+                                className="w-full min-h-[52px] text-xs rounded border border-border bg-background px-2 py-1"
+                                value={koreanDraft}
+                                onChange={(e) => setKoreanDraft(e.target.value)}
+                              />
+                              <div className="flex gap-1">
+                                <Button size="sm" className="h-6 text-[10px]" onClick={() => void saveKoreanEdit(p)}>
+                                  저장
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setKoreanEditId(null)}>
+                                  취소
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-left line-clamp-2 hover:text-primary w-full"
+                              onClick={() => startKoreanEdit(p)}
+                              title="클릭하여 편집"
+                            >
+                              {p.korean?.trim() || (
+                                <span className="text-muted-foreground italic">한글 입력…</span>
+                              )}
+                            </button>
+                          )}
+                        </td>
+                        <td className="py-2 px-3">
+                          <Select
+                            value={p.task_mode ?? "__unit__"}
+                            onValueChange={(v) => void handlePassageTaskModeChange(p, v)}
+                            disabled={taskSavingId === p.id}
+                          >
+                            <SelectTrigger className="h-7 text-[10px] w-[108px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__unit__">유닛 따름</SelectItem>
+                              {TASK_MODES.map((m) => (
+                                <SelectItem key={m} value={m}>
+                                  {TASK_MODE_LABEL[m]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
                         <td className="py-2 px-3">
                           {hasExtracted ? (
@@ -1078,7 +1270,38 @@ const BookshelfUnit = () => {
                             {ready ? "완료" : "완료로 표시"}
                           </button>
                         </td>
+                        <td className="py-2 px-3">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleMemStatus(p)}
+                            disabled={memTogglingCode === p.code}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition disabled:opacity-50",
+                              p.mem_status === "ready"
+                                ? "bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                                : "bg-muted text-muted-foreground hover:bg-violet-500/10",
+                            )}
+                          >
+                            {memTogglingCode === p.code ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : null}
+                            {p.mem_status === "ready" ? "암기공개" : "암기 대기"}
+                          </button>
+                        </td>
                         <td className="py-2 px-3 text-right whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="암기 자동구성"
+                            disabled={composingId === p.id}
+                            onClick={() => void handleComposeMem(p)}
+                          >
+                            {composingId === p.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="size-3.5" />
+                            )}
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"

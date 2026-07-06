@@ -54,9 +54,12 @@ export interface Unit {
   structure_pdf_url: string | null;
   structure_pdf_name: string | null;
   structure_pdf_uploaded_at: string | null;
+  default_task_mode?: import("@/lib/taskMode").TaskMode;
   created_at: string;
   updated_at: string;
 }
+
+import type { TaskMode } from "@/lib/taskMode";
 
 export interface Passage {
   id: string;
@@ -68,6 +71,9 @@ export interface Passage {
   korean: string | null;
   tokens: SentenceToken[] | null;
   analysis_status: "draft" | "ready";
+  task_mode: TaskMode | null;
+  mem_status: "draft" | "ready";
+  mem_tokens: SentenceToken[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -316,9 +322,14 @@ const mapPassageRow = (row: Record<string, unknown>): Passage => ({
   korean: (row.korean as string | null) ?? null,
   tokens: (row.tokens ?? null) as SentenceToken[] | null,
   analysis_status: ((row.analysis_status as string) ?? "draft") as "draft" | "ready",
+  task_mode: (row.task_mode as TaskMode | null) ?? null,
+  mem_status: ((row.mem_status as string) ?? "draft") as "draft" | "ready",
+  mem_tokens: (row.mem_tokens ?? null) as SentenceToken[] | null,
   created_at: row.created_at as string,
   updated_at: row.updated_at as string,
 });
+
+export { mapPassageRow as mapPassageRowFromRecord };
 
 // ============================================================
 // 분석자료 PDF 업로드/삭제 (유닛 단위)
@@ -556,7 +567,7 @@ export const bulkInsertPassages = async (
 export const updatePassageKorean = async (code: string, korean: string): Promise<void> => {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ korean })
+    .update({ korean, korean_source: "manual" } as Record<string, unknown>)
     .eq("code", code);
   if (error) throw error;
 };

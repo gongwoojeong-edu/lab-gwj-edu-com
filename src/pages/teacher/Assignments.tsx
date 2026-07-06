@@ -60,6 +60,11 @@ import {
 } from "@/lib/assignmentProgress";
 import { isAssignmentDone } from "@/lib/assignmentCompletion";
 import { fetchMasterAvailability } from "@/lib/masterAvailability";
+import {
+  deriveTaskModeFromSteps,
+  taskModeIncludesMemorize,
+  type TaskMode,
+} from "@/lib/taskMode";
 
 interface AssignmentGroup {
   key: string;
@@ -91,6 +96,7 @@ interface AssignmentRow {
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
+  task_mode?: TaskMode | null;
 }
 
 type StepKey = "pre" | "analysis" | "translation" | "wordtest";
@@ -115,6 +121,7 @@ interface FormState {
   includeAnalysis: boolean;
   includeTranslation: boolean;
   includeWordtest: boolean;
+  includeMemorize: boolean;
 }
 
 const emptyForm = (): FormState => ({
@@ -132,6 +139,7 @@ const emptyForm = (): FormState => ({
   includeAnalysis: true,
   includeTranslation: true,
   includeWordtest: true,
+  includeMemorize: false,
 });
 
 const Assignments = () => {
@@ -426,8 +434,10 @@ const Assignments = () => {
     } else {
       if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
     }
-    if (!f.includePre && !f.includeAnalysis && !f.includeTranslation && !f.includeWordtest)
-      return "학습 단계는 최소 1개 이상 체크하세요";
+    const hasAnalysis =
+      f.includePre || f.includeAnalysis || f.includeTranslation || f.includeWordtest;
+    if (!f.includeMemorize && !hasAnalysis)
+      return "학습 단계 또는 암기를 하나 이상 선택하세요";
     return null;
   };
 
@@ -472,6 +482,8 @@ const Assignments = () => {
         throw new Error("부여할 지문을 찾을 수 없습니다");
       }
 
+      const taskMode = deriveTaskModeFromSteps(form);
+
       const rowsToInsert = targets.flatMap((sid) =>
         passageCodes.map((code) => ({
           teacher_id: teacherId,
@@ -479,6 +491,8 @@ const Assignments = () => {
           title: form.title.trim(),
           description: form.description.trim() || null,
           sentence_id: code,
+          unit_id: form.mode === "unit" ? form.selectedUnitId || null : null,
+          task_mode: taskMode,
           due_at: endOfDay.toISOString(),
           include_pre: form.includePre,
           include_analysis: form.includeAnalysis,
@@ -486,7 +500,9 @@ const Assignments = () => {
           include_wordtest: form.includeWordtest,
         })),
       );
-      const { error } = await supabase.from("assignments").insert(rowsToInsert);
+      const { error } = await supabase.from("assignments").insert(
+        rowsToInsert as Record<string, unknown>[],
+      );
       if (error) throw error;
       const studentMsg =
         form.studentIds.length === 0
@@ -623,6 +639,7 @@ const Assignments = () => {
       includeAnalysis: row.include_analysis,
       includeTranslation: row.include_translation,
       includeWordtest: row.include_wordtest,
+      includeMemorize: taskModeIncludesMemorize(row.task_mode),
     });
   };
 
@@ -663,6 +680,8 @@ const Assignments = () => {
         .map((r) => r.id);
       const targetIds = groupRowIds.length > 0 ? groupRowIds : [editingRow.id];
 
+      const taskMode = deriveTaskModeFromSteps(editForm);
+
       // 1) 그룹 전체에 메타 적용 (sentence_id는 건드리지 않음 — 각 행 보존)
       const { error: metaErr } = await supabase
         .from("assignments")
@@ -675,7 +694,8 @@ const Assignments = () => {
           include_analysis: editForm.includeAnalysis,
           include_translation: editForm.includeTranslation,
           include_wordtest: editForm.includeWordtest,
-        })
+          task_mode: taskMode,
+        } as Record<string, unknown>)
         .in("id", targetIds);
       if (metaErr) throw metaErr;
 
@@ -724,15 +744,26 @@ const Assignments = () => {
 
   const applyPreset = (
     setter: typeof setForm,
-    preset: "all" | "analysis" | "wordtest",
+    preset: "all" | "analysis" | "wordtest" | "memorize",
   ) => {
+    if (preset === "memorize") {
+      setter((prev) => ({
+        ...prev,
+        includePre: false,
+        includeAnalysis: false,
+        includeTranslation: false,
+        includeWordtest: false,
+        includeMemorize: true,
+      }));
+      return;
+    }
     setter((prev) => ({
       ...prev,
-      // [전체] 모두 on / [분석만] 단어학습+구문분석 / [단어만] 단어학습+단어시험
       includePre: true,
       includeAnalysis: preset === "all" || preset === "analysis",
       includeTranslation: preset === "all",
       includeWordtest: preset === "all" || preset === "wordtest",
+      includeMemorize: false,
     }));
   };
 
@@ -751,6 +782,9 @@ const Assignments = () => {
           <Button type="button" size="sm" variant="ghost" className="h-6 text-[11px] px-2" onClick={() => applyPreset(setter, "wordtest")}>
             단어만
           </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-6 text-[11px] px-2" onClick={() => applyPreset(setter, "memorize")}>
+            암기만
+          </Button>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-4 px-3 py-2 rounded-md border border-border bg-muted/30">
@@ -760,6 +794,7 @@ const Assignments = () => {
             ["includeAnalysis", "구문분석"],
             ["includeTranslation", "한글해석"],
             ["includeWordtest", "단어시험"],
+            ["includeMemorize", "암기"],
           ] as Array<[keyof FormState, string]>
         ).map(([k, label]) => (
           <label key={k} className="inline-flex items-center gap-2 cursor-pointer">
@@ -1087,7 +1122,7 @@ const Assignments = () => {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="sm:col-span-1">
+            <div className="sm:col-span-2">
               {renderStepCheckboxes(form, setForm)}
             </div>
             <div className="sm:col-span-2 space-y-2">

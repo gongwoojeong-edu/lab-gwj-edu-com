@@ -34,6 +34,7 @@ import HandoutPage from "./pages/Handout.tsx";
 import HandoutWord from "./pages/HandoutWord.tsx";
 import AnalysisReview from "./pages/AnalysisReview.tsx";
 import LearnCompare from "./pages/LearnCompare.tsx";
+import MemorizeLearn from "./pages/MemorizeLearn.tsx";
 
 import TeacherAnalysisReview from "./pages/teacher/TeacherAnalysisReview.tsx";
 import AnalysisCompare from "./pages/teacher/AnalysisCompare.tsx";
@@ -92,6 +93,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <SentenceLearn />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn/sentence/:sentenceId/memorize"
+              element={
+                <RequireAuth>
+                  <MemorizeLearn />
                 </RequireAuth>
               }
             />

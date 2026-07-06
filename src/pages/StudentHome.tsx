@@ -61,6 +61,13 @@ import {
   cancelMaterialViewRequest,
   type MaterialViewRequest,
 } from "@/lib/materialViewRequests";
+import { fetchTaskModeForSentence } from "@/lib/fetchTaskMode";
+import { fetchSentenceProgress } from "@/integrations/supabase/storage";
+import {
+  learnPathForSentence,
+  startButtonLabel,
+  type TaskMode,
+} from "@/lib/taskMode";
 
 interface RecentItem {
   sentence: Sentence;
@@ -135,6 +142,8 @@ const StudentHome = () => {
   const [unitWorkflows, setUnitWorkflows] = useState<Record<string, UnitWorkflowRow>>({});
   const [materialViews, setMaterialViews] = useState<Record<string, MaterialViewRequest>>({});
   const [unitAccess, setUnitAccess] = useState<Record<string, boolean>>({});
+  const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
+  const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -146,6 +155,16 @@ const StudentHome = () => {
       setNext(r.sentence);
       setDone(r.done);
       setNoContent(!!r.noContent);
+      if (r.sentence) {
+        const [ctx, prog] = await Promise.all([
+          fetchTaskModeForSentence(r.sentence.id),
+          fetchSentenceProgress(r.sentence.id),
+        ]);
+        if (mounted) {
+          setNextTaskMode(ctx.taskMode);
+          setNextAnalysisPassed(prog?.status === "pass");
+        }
+      }
       setRewards(rw);
 
       if (user) {
@@ -639,11 +658,26 @@ const StudentHome = () => {
     }
   };
 
-  const handleStart = () => {
-    if (next) navigate(`/learn/sentence/${encodeURIComponent(next.id)}`);
+  const goLearn = async (sentenceId: string) => {
+    const [ctx, prog] = await Promise.all([
+      fetchTaskModeForSentence(sentenceId),
+      fetchSentenceProgress(sentenceId),
+    ]);
+    navigate(
+      learnPathForSentence(sentenceId, ctx.taskMode, prog?.status === "pass"),
+    );
   };
 
-  const startLabel = next ? `${next.id} 학습 시작` : "다음 Passage 없음";
+  const handleStart = () => {
+    if (!next) return;
+    navigate(
+      learnPathForSentence(next.id, nextTaskMode, nextAnalysisPassed),
+    );
+  };
+
+  const startLabel = next
+    ? `${next.id} ${startButtonLabel(nextTaskMode, nextAnalysisPassed)}`
+    : "다음 Passage 없음";
 
   const visibleAssignmentGroups = useMemo(
     () =>
@@ -918,7 +952,7 @@ const StudentHome = () => {
                         return (
                           <Button
                             size="sm"
-                            onClick={() => navigate(`/learn/sentence/${nextSid}`)}
+                            onClick={() => void goLearn(nextSid)}
                             className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
                           >
                             <Play className="w-3 h-3 mr-1" />
