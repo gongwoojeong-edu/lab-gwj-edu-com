@@ -77,8 +77,10 @@ export type Database = {
           include_wordtest: boolean
           sentence_id: string | null
           student_id: string | null
+          task_mode: Database["public"]["Enums"]["passage_task_mode"] | null
           teacher_id: string
           title: string
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
@@ -92,8 +94,10 @@ export type Database = {
           include_wordtest?: boolean
           sentence_id?: string | null
           student_id?: string | null
+          task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           teacher_id: string
           title: string
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -107,11 +111,21 @@ export type Database = {
           include_wordtest?: boolean
           sentence_id?: string | null
           student_id?: string | null
+          task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           teacher_id?: string
           title?: string
+          unit_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "assignments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "textbook_units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       badge_offsets: {
         Row: {
@@ -641,6 +655,16 @@ export type Database = {
           last_grade: string | null
           last_memo: string | null
           last_redo_memo: string | null
+          mem_attempt_count: number
+          mem_cloze_done: boolean
+          mem_direction: string | null
+          mem_en_to_ko_done: boolean
+          mem_ko_to_en_done: boolean
+          mem_listen_done: boolean
+          mem_passed_at: string | null
+          mem_record_done: boolean
+          mem_scramble_done: boolean
+          mem_speech_done: boolean
           passed_at: string | null
           pre_done: boolean
           redo_requested_at: string | null
@@ -660,6 +684,16 @@ export type Database = {
           last_grade?: string | null
           last_memo?: string | null
           last_redo_memo?: string | null
+          mem_attempt_count?: number
+          mem_cloze_done?: boolean
+          mem_direction?: string | null
+          mem_en_to_ko_done?: boolean
+          mem_ko_to_en_done?: boolean
+          mem_listen_done?: boolean
+          mem_passed_at?: string | null
+          mem_record_done?: boolean
+          mem_scramble_done?: boolean
+          mem_speech_done?: boolean
           passed_at?: string | null
           pre_done?: boolean
           redo_requested_at?: string | null
@@ -679,6 +713,16 @@ export type Database = {
           last_grade?: string | null
           last_memo?: string | null
           last_redo_memo?: string | null
+          mem_attempt_count?: number
+          mem_cloze_done?: boolean
+          mem_direction?: string | null
+          mem_en_to_ko_done?: boolean
+          mem_ko_to_en_done?: boolean
+          mem_listen_done?: boolean
+          mem_passed_at?: string | null
+          mem_record_done?: boolean
+          mem_scramble_done?: boolean
+          mem_speech_done?: boolean
           passed_at?: string | null
           pre_done?: boolean
           redo_requested_at?: string | null
@@ -794,6 +838,7 @@ export type Database = {
           id: string
           sentence_id: string
           skip_pre: boolean
+          task_mode: Database["public"]["Enums"]["passage_task_mode"] | null
           updated_at: string
           user_id: string
         }
@@ -803,6 +848,7 @@ export type Database = {
           id?: string
           sentence_id: string
           skip_pre?: boolean
+          task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           updated_at?: string
           user_id: string
         }
@@ -812,6 +858,7 @@ export type Database = {
           id?: string
           sentence_id?: string
           skip_pre?: boolean
+          task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           updated_at?: string
           user_id?: string
         }
@@ -933,7 +980,14 @@ export type Database = {
           english: string
           id: string
           korean: string | null
+          korean_source: string | null
+          mem_cloze_spec: Json | null
+          mem_composed_at: string | null
+          mem_korean_chunks: Json | null
+          mem_status: Database["public"]["Enums"]["passage_mem_status"]
+          mem_tokens: Json | null
           passage_no: number
+          task_mode: Database["public"]["Enums"]["passage_task_mode"] | null
           textbook_id: string
           tokens: Json | null
           unit_id: string
@@ -946,7 +1000,14 @@ export type Database = {
           english: string
           id?: string
           korean?: string | null
+          korean_source?: string | null
+          mem_cloze_spec?: Json | null
+          mem_composed_at?: string | null
+          mem_korean_chunks?: Json | null
+          mem_status?: Database["public"]["Enums"]["passage_mem_status"]
+          mem_tokens?: Json | null
           passage_no: number
+          task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           textbook_id: string
           tokens?: Json | null
           unit_id: string
@@ -959,7 +1020,14 @@ export type Database = {
           english?: string
           id?: string
           korean?: string | null
+          korean_source?: string | null
+          mem_cloze_spec?: Json | null
+          mem_composed_at?: string | null
+          mem_korean_chunks?: Json | null
+          mem_status?: Database["public"]["Enums"]["passage_mem_status"]
+          mem_tokens?: Json | null
           passage_no?: number
+          task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           textbook_id?: string
           tokens?: Json | null
           unit_id?: string
@@ -1022,6 +1090,7 @@ export type Database = {
           analysis_pdf_url: string | null
           created_at: string
           created_by: string | null
+          default_task_mode: Database["public"]["Enums"]["passage_task_mode"]
           description: string | null
           id: string
           structure_pdf_name: string | null
@@ -1038,6 +1107,7 @@ export type Database = {
           analysis_pdf_url?: string | null
           created_at?: string
           created_by?: string | null
+          default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
           id?: string
           structure_pdf_name?: string | null
@@ -1054,6 +1124,7 @@ export type Database = {
           analysis_pdf_url?: string | null
           created_at?: string
           created_by?: string | null
+          default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
           id?: string
           structure_pdf_name?: string | null
@@ -1320,6 +1391,11 @@ export type Database = {
     Enums: {
       analysis_review_status: "pending" | "approved" | "rejected" | "cancelled"
       app_role: "student" | "teacher" | "admin"
+      passage_mem_status: "draft" | "ready"
+      passage_task_mode:
+        | "analysis_only"
+        | "memorize_only"
+        | "analysis_and_memorize"
       print_request_status: "pending" | "printed" | "canceled"
       unit_workflow_status:
         | "learning"
@@ -1456,6 +1532,12 @@ export const Constants = {
     Enums: {
       analysis_review_status: ["pending", "approved", "rejected", "cancelled"],
       app_role: ["student", "teacher", "admin"],
+      passage_mem_status: ["draft", "ready"],
+      passage_task_mode: [
+        "analysis_only",
+        "memorize_only",
+        "analysis_and_memorize",
+      ],
       print_request_status: ["pending", "printed", "canceled"],
       unit_workflow_status: [
         "learning",
