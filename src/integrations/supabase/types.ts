@@ -774,6 +774,7 @@ export type Database = {
           mem_attempt_count: number
           mem_cloze_done: boolean
           mem_dictation_done: boolean
+          mem_dictation_score: number | null
           mem_direction: string | null
           mem_en_to_ko_done: boolean
           mem_ko_to_en_done: boolean
@@ -804,6 +805,7 @@ export type Database = {
           mem_attempt_count?: number
           mem_cloze_done?: boolean
           mem_dictation_done?: boolean
+          mem_dictation_score?: number | null
           mem_direction?: string | null
           mem_en_to_ko_done?: boolean
           mem_ko_to_en_done?: boolean
@@ -834,6 +836,7 @@ export type Database = {
           mem_attempt_count?: number
           mem_cloze_done?: boolean
           mem_dictation_done?: boolean
+          mem_dictation_score?: number | null
           mem_direction?: string | null
           mem_en_to_ko_done?: boolean
           mem_ko_to_en_done?: boolean
@@ -1214,6 +1217,7 @@ export type Database = {
           description: string | null
           id: string
           mem_dictation_blank_ratio: number
+          mem_dictation_min_score: number
           mem_require_record: boolean
           structure_pdf_name: string | null
           structure_pdf_uploaded_at: string | null
@@ -1234,6 +1238,7 @@ export type Database = {
           description?: string | null
           id?: string
           mem_dictation_blank_ratio?: number
+          mem_dictation_min_score?: number
           mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
@@ -1254,6 +1259,7 @@ export type Database = {
           description?: string | null
           id?: string
           mem_dictation_blank_ratio?: number
+          mem_dictation_min_score?: number
           mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
