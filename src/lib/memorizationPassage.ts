@@ -62,7 +62,7 @@ export async function composePassageMemorization(passageId: string): Promise<Pas
 export async function setPassageMemReady(code: string, ready: boolean): Promise<void> {
   const { error } = await supabase
     .from("textbook_passages")
-    .update({ mem_status: ready ? "ready" : "draft" } as Record<string, unknown>)
+    .update({ mem_status: ready ? "ready" : "draft" })
     .eq("code", code);
   if (error) throw error;
 }
