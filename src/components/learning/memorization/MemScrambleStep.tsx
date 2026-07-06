@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check, X, RotateCcw } from "lucide-react";
+import { Check, X, RotateCcw, Volume2, Loader2 } from "lucide-react";
 import {
   englishWordsFromText,
   englishWordsFromTokens,
@@ -11,8 +11,11 @@ import {
 } from "@/lib/memorizationText";
 import type { SentenceToken } from "@/data/sentences";
 import { cn } from "@/lib/utils";
+import { speakChunk } from "@/lib/syllables";
+import { resolvePassageAudioUrl } from "@/lib/passageAudio";
 
 interface Props {
+  sentenceId: string;
   english: string;
   korean: string;
   tokens: SentenceToken[];
@@ -21,6 +24,7 @@ interface Props {
 }
 
 export const MemScrambleStep = ({
+  sentenceId,
   english,
   korean,
   tokens,
@@ -41,6 +45,40 @@ export const MemScrambleStep = ({
   const [pool, setPool] = useState<string[]>(() => shuffleArray(expected));
   const [selected, setSelected] = useState<string[]>([]);
   const [result, setResult] = useState<"idle" | "pass" | "fail">("idle");
+  const [playing, setPlaying] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [hintUses, setHintUses] = useState(0);
+  const maxHints = 3;
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { url } = await resolvePassageAudioUrl(sentenceId);
+        if (!cancelled) setAudioUrl(url);
+      } catch {
+        /* fallback TTS */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sentenceId]);
+
+  const playAudioHint = () => {
+    if (hintUses >= maxHints) return;
+    setHintUses((h) => h + 1);
+    const onEnd = () => setPlaying(false);
+    setPlaying(true);
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audio.onended = onEnd;
+      audio.onerror = () => speakChunk(english, { rate: 0.82, lang: "en-US" }, onEnd);
+      void audio.play().catch(() => speakChunk(english, { rate: 0.82, lang: "en-US" }, onEnd));
+      return;
+    }
+    speakChunk(english, { rate: 0.82, lang: "en-US" }, onEnd);
+  };
 
   const pick = (word: string, idx: number) => {
     setSelected((s) => [...s, word]);
@@ -72,6 +110,11 @@ export const MemScrambleStep = ({
       ? "한글 뜻을 보고 영단어를 올바른 순서로 배열하세요."
       : "영문을 보고 한글 어구를 올바른 순서로 배열하세요.";
 
+  const promptText =
+    direction === "ko_to_en"
+      ? korean?.trim() || "(한글 해석 없음 — 선생님에게 문의)"
+      : english;
+
   return (
     <Card className="p-5 space-y-4">
       <div className="space-y-1">
@@ -79,9 +122,28 @@ export const MemScrambleStep = ({
         <p className="text-sm text-muted-foreground">{prompt}</p>
       </div>
 
-      <p className="text-sm font-medium bg-primary/5 rounded-lg p-3 leading-relaxed">
-        {direction === "ko_to_en" ? korean || english : english}
-      </p>
+      <div className="flex flex-wrap items-start gap-2">
+        <p className="text-sm font-medium bg-primary/5 rounded-lg p-3 leading-relaxed flex-1 min-w-[200px]">
+          {promptText}
+        </p>
+        {direction === "ko_to_en" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={playAudioHint}
+            disabled={playing || hintUses >= maxHints}
+          >
+            {playing ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Volume2 className="w-4 h-4 mr-1" />
+            )}
+            오디오 힌트 ({maxHints - hintUses}회)
+          </Button>
+        )}
+      </div>
 
       <div className="min-h-[44px] flex flex-wrap gap-2 p-3 rounded-lg border border-dashed border-border bg-muted/30">
         {selected.length === 0 ? (
