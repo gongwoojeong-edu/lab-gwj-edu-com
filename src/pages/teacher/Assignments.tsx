@@ -513,7 +513,7 @@ const Assignments = () => {
         })),
       );
       const { error } = await supabase.from("assignments").insert(
-        rowsToInsert as Record<string, unknown>[],
+        rowsToInsert as never,
       );
       if (error) throw error;
       const studentMsg =
