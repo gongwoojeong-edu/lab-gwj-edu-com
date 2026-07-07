@@ -60,6 +60,7 @@ import {
   createApprovalRequest,
   fetchLatestApproval,
   subscribeMyApproval,
+  applyApprovalToMyProgress,
   type SentenceApproval,
 } from "@/lib/sentenceApprovals";
 import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel";
@@ -246,8 +247,25 @@ const SentenceLearn = () => {
 
       // 한글해석 제출 후 선생님 승인 대기 행 hydrate (pass 전 sentence_progress.status는 pending)
       const latestApproval = await fetchLatestApproval(found.id, currentUserId ?? undefined);
-      if (mounted && latestApproval && latestApproval.status === "pending") {
+      const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
+      if (mounted && latestApproval?.status === "pending") {
         setPendingApproval(latestApproval);
+      } else if (
+        mounted &&
+        latestApproval?.status === "approved" &&
+        latestApproval.grade &&
+        latestApproval.grade !== "redo"
+      ) {
+        // 승인 완료 — progress 동기화 후 다음 문장으로 (pass인데 같은 URL에 머문 경우 포함)
+        if (progStatus !== "pass") {
+          await applyApprovalToMyProgress(latestApproval);
+        }
+        const r = await resolveNextSentence();
+        if (r.sentence && r.sentence.id !== found.id) {
+          navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
+        } else if (!r.sentence) {
+          navigate("/learn");
+        }
       }
 
       // 특별과제의 단계 포함 여부 — 없으면 기본(모두 true)
@@ -397,21 +415,12 @@ const SentenceLearn = () => {
       const uid = await getCurrentUserId();
       if (!uid || cancelled) return;
       const unsub = subscribeMyApproval(sentence.id, uid, (row) => {
-        setPendingApproval((prev) => {
-          if (row.status === "approved") {
-            if (prev && prev.id === row.id) return null;
-            return prev;
-          }
-          if (row.status === "pending") return row;
-          return prev;
-        });
+        if (row.status === "pending") {
+          setPendingApproval(row);
+          return;
+        }
         if (row.status === "approved") {
-          // 다른 세션/탭에서 승인된 경우에 대비 — 알림 후 학습 홈으로
-          toast({
-            title: "✅ 선생님이 승인했어요",
-            description: "다음 문장으로 이동합니다",
-          });
-          setTimeout(() => navigate("/learn"), 700);
+          void advanceAfterApproval(row);
         }
       });
       if (cancelled) unsub();
@@ -575,6 +584,34 @@ const SentenceLearn = () => {
       navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
     } else {
       navigate("/learn");
+    }
+  };
+
+  const advanceAfterApproval = async (approval: SentenceApproval) => {
+    setPendingApproval(null);
+    if (approval.grade === "redo") {
+      setRedoRequestedAt(new Date().toISOString());
+      setRedoMemo(approval.memo);
+      toast({
+        title: "선생님 추가학습 요청",
+        description: approval.memo ?? "한 번 더 제출해 주세요.",
+      });
+      return;
+    }
+    try {
+      await applyApprovalToMyProgress(approval);
+      setPreviousStatus("pass");
+      toast({
+        title: "✅ 선생님이 승인했어요",
+        description: "다음 문장으로 이동합니다",
+      });
+      await handleSkipToNext();
+    } catch (e) {
+      toast({
+        title: "다음 문장 이동 실패",
+        description: String(e),
+        variant: "destructive",
+      });
     }
   };
 

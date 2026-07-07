@@ -142,12 +142,28 @@ export const approveSentenceRequest = async (input: {
         redo_requested_at: null,
       };
 
-  await supabase
+  const { data: updatedRows, error: progErr } = await supabase
     .from("sentence_progress")
     .update(update as never)
     .eq("user_id", targetUserId)
-    .eq("sentence_id", input.sentenceId);
+    .eq("sentence_id", input.sentenceId)
+    .select("user_id");
+  if (progErr) throw progErr;
 
+  if (!updatedRows?.length) {
+    const { error: insErr } = await supabase.from("sentence_progress").insert({
+      user_id: targetUserId,
+      sentence_id: input.sentenceId,
+      pre_done: false,
+      analysis_done: !isRedo,
+      translation_done: !isRedo,
+      word_test_done: !isRedo,
+      status: isRedo ? "pending" : "pass",
+      passed_at: isRedo ? null : nowIso,
+      ...update,
+    } as never);
+    if (insErr) throw insErr;
+  }
 
   // 3) 학생 알림함에 평가 전송 (실패해도 승인 흐름은 진행)
   try {
@@ -166,6 +182,41 @@ export const approveSentenceRequest = async (input: {
     console.warn("[sentenceApprovals] notification insert failed", e);
   }
 };
+
+/** 학생 본인 세션: 승인 행을 sentence_progress에 반영 (선생님 UPDATE 실패 시 보완) */
+export async function applyApprovalToMyProgress(approval: SentenceApproval): Promise<void> {
+  const userId = await getCurrentUserId();
+  if (!userId || approval.user_id !== userId) return;
+  if (approval.status !== "approved" || !approval.grade) return;
+
+  const { upsertSentenceProgress } = await import("@/integrations/supabase/storage");
+  const isRedo = approval.grade === "redo";
+  const nowIso = new Date().toISOString();
+  const memoTrimmed = approval.memo?.trim() || null;
+
+  if (isRedo) {
+    await upsertSentenceProgress(approval.sentence_id, {
+      last_grade: approval.grade,
+      last_memo: memoTrimmed,
+      redo_requested_at: nowIso,
+      last_redo_memo: memoTrimmed,
+      touchActivity: true,
+    });
+    return;
+  }
+
+  await upsertSentenceProgress(approval.sentence_id, {
+    last_grade: approval.grade,
+    last_memo: memoTrimmed,
+    status: "pass",
+    passed_at: approval.approved_at ?? nowIso,
+    translation_done: true,
+    analysis_done: true,
+    word_test_done: true,
+    redo_requested_at: null,
+    touchActivity: true,
+  });
+}
 
 
 /** 선생님 대시보드: pending 상태 전체 목록 */
