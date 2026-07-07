@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/studentProfile";
 import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { getCurrentUserId } from "@/lib/authState";
+import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
 
 export interface NextSentenceResult {
   sentence: Sentence | null;
@@ -137,4 +138,184 @@ export const advanceAfterPass = async (justPassed: Sentence): Promise<void> => {
     return;
   }
   await updateMyProgress(profile.start_level, justPassed.no + 1);
+};
+
+type AssignNavRow = {
+  sentence_id: string | null;
+  title: string;
+  due_at: string | null;
+  created_at: string;
+  include_pre: boolean;
+  include_analysis: boolean;
+  include_translation: boolean;
+  include_wordtest: boolean;
+  task_mode: string | null;
+};
+
+type StepFlags = { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean };
+
+const extractUnitPrefix = (sentenceId: string | null): string | null => {
+  if (!sentenceId) return null;
+  const m = sentenceId.match(/^(.*)-\d{3}$/);
+  return m ? m[1] : null;
+};
+
+const assignmentSentenceDone = (row: AssignNavRow, flags: StepFlags | undefined): boolean => {
+  if (!row.sentence_id || !flags) return false;
+  const mode = row.task_mode ?? "analysis_only";
+  const needsMem = taskModeIncludesMemorize((mode || "analysis_only") as TaskMode);
+  const needsAnalysis = mode !== "memorize_only";
+  if (needsAnalysis) {
+    if (row.include_pre && !flags.pre) return false;
+    if (row.include_wordtest && !flags.wt) return false;
+    if (row.include_analysis && !flags.an) return false;
+    if (row.include_translation && !flags.tr) return false;
+  }
+  if (needsMem && !flags.mem) return false;
+  return true;
+};
+
+const loadSentenceById = async (code: string): Promise<Sentence | null> => {
+  const known = SENTENCES.find((s) => s.id === code);
+  if (known) return known;
+  return loadSentenceByCode(code);
+};
+
+/**
+ * 승인·통과 직후 이동 대상.
+ * 특별과제(같은 유닛 배치) → 같은 유닛 다음 지문 → 일반 진도(resolveNextSentence).
+ */
+export const resolveNextAfterPass = async (
+  currentSentenceId: string,
+): Promise<NextSentenceResult> => {
+  await hydrateSentencesFromDb();
+  const profile = await fetchMyProfile();
+  const userId = await getCurrentUserId();
+  if (!userId) return { sentence: null, profile, done: false };
+
+  const nowIso = new Date().toISOString();
+  const { activeAssignmentDueOrFilter } = await import("@/lib/assignmentDue");
+
+  const { data: assignData } = await supabase
+    .from("assignments")
+    .select(
+      "sentence_id, title, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode",
+    )
+    .or(`student_id.eq.${userId},student_id.is.null`)
+    .or(activeAssignmentDueOrFilter(nowIso))
+    .not("sentence_id", "is", null);
+
+  const allAssignments = (assignData ?? []) as AssignNavRow[];
+  const assignCodes = allAssignments
+    .map((a) => a.sentence_id)
+    .filter((c): c is string => !!c);
+
+  if (assignCodes.includes(currentSentenceId)) {
+    const { data: progRows } = await supabase
+      .from("sentence_progress")
+      .select(
+        "sentence_id, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
+      )
+      .eq("user_id", userId)
+      .in("sentence_id", assignCodes);
+
+    const progressFlags = new Map<string, StepFlags>();
+    (
+      (progRows ?? []) as Array<{
+        sentence_id: string;
+        pre_done: boolean | null;
+        word_test_done: boolean | null;
+        analysis_done: boolean | null;
+        translation_done: boolean | null;
+        mem_passed_at: string | null;
+      }>
+    ).forEach((r) => {
+      progressFlags.set(r.sentence_id, {
+        pre: !!r.pre_done,
+        wt: !!r.word_test_done,
+        an: !!r.analysis_done,
+        tr: !!r.translation_done,
+        mem: !!r.mem_passed_at,
+      });
+    });
+
+    const { data: passageRows } = await supabase
+      .from("textbook_passages")
+      .select("code, unit_id")
+      .in("code", assignCodes);
+    const codeToUnit = new Map<string, string>();
+    ((passageRows ?? []) as { code: string; unit_id: string | null }[]).forEach((p) => {
+      if (p.unit_id) codeToUnit.set(p.code, p.unit_id);
+    });
+
+    const currentRow = allAssignments.find((a) => a.sentence_id === currentSentenceId)!;
+    const unitId = codeToUnit.get(currentSentenceId) ?? null;
+    const fallbackPrefix = extractUnitPrefix(currentSentenceId);
+    const groupId = unitId ?? fallbackPrefix ?? currentSentenceId;
+    const batchMinute = currentRow.created_at?.slice(0, 16) ?? currentSentenceId;
+    const groupKey = `${currentRow.title}|${currentRow.due_at}|${groupId}|${batchMinute}`;
+
+    const groupRows = allAssignments
+      .filter((a) => {
+        if (!a.sentence_id) return false;
+        const u = a.sentence_id ? codeToUnit.get(a.sentence_id) ?? null : null;
+        const fp = extractUnitPrefix(a.sentence_id);
+        const gid = u ?? fp ?? a.sentence_id;
+        const bm = a.created_at?.slice(0, 16) ?? a.sentence_id;
+        return `${a.title}|${a.due_at}|${gid}|${bm}` === groupKey;
+      })
+      .sort((a, b) => (a.sentence_id ?? "").localeCompare(b.sentence_id ?? ""));
+
+    const nextRow = groupRows.find(
+      (a) => a.sentence_id && !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+    );
+    if (nextRow?.sentence_id && nextRow.sentence_id !== currentSentenceId) {
+      const sentence = await loadSentenceById(nextRow.sentence_id);
+      if (sentence) return { sentence, profile, done: false };
+    }
+
+    // 특별과제 유닛 내 남은 문장 없음 → 홈으로 (다른 유닛 진도로 점프하지 않음)
+    return { sentence: null, profile, done: false };
+  }
+
+  const { data: curPassage } = await supabase
+    .from("textbook_passages")
+    .select("unit_id, passage_no")
+    .eq("code", currentSentenceId)
+    .maybeSingle();
+
+  if (curPassage?.unit_id) {
+    const { data: unitPassages } = await supabase
+      .from("textbook_passages")
+      .select("code, passage_no")
+      .eq("unit_id", curPassage.unit_id)
+      .order("passage_no", { ascending: true });
+
+    const codes = ((unitPassages ?? []) as { code: string }[]).map((p) => p.code);
+    const { data: passedRows } = await supabase
+      .from("sentence_progress")
+      .select("sentence_id")
+      .eq("user_id", userId)
+      .in("status", ["pass", "fail"])
+      .in("sentence_id", codes);
+    const passed = new Set(
+      ((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id),
+    );
+
+    const idx = codes.indexOf(currentSentenceId);
+    for (let i = idx + 1; i < codes.length; i++) {
+      if (!passed.has(codes[i])) {
+        const sentence = await loadSentenceById(codes[i]);
+        if (sentence) return { sentence, profile, done: false };
+      }
+    }
+
+    if (profile?.start_unit_id === curPassage.unit_id) {
+      return { sentence: null, profile, done: true };
+    }
+  }
+
+  const current = await loadSentenceById(currentSentenceId);
+  if (current) await advanceAfterPass(current);
+  return resolveNextSentence();
 };

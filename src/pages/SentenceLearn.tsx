@@ -45,7 +45,7 @@ import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { fetchMyOverrideForSentence } from "@/lib/studentPassageOverrides";
-import { resolveNextSentence } from "@/lib/nextSentence";
+import { resolveNextAfterPass } from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
 import { AnalysisSubmitConfirmDialog } from "@/components/learning/AnalysisSubmitConfirmDialog";
 import {
@@ -260,7 +260,7 @@ const SentenceLearn = () => {
         if (progStatus !== "pass") {
           await applyApprovalToMyProgress(latestApproval);
         }
-        const r = await resolveNextSentence();
+        const r = await resolveNextAfterPass(found.id);
         if (r.sentence && r.sentence.id !== found.id) {
           navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
         } else if (!r.sentence) {
@@ -578,8 +578,13 @@ const SentenceLearn = () => {
     }
   };
 
-  const handleSkipToNext = async () => {
-    const r = await resolveNextSentence();
+  const handleSkipToNext = async (fromSentenceId?: string) => {
+    const sid = fromSentenceId ?? sentence?.id;
+    if (!sid) {
+      navigate("/learn");
+      return;
+    }
+    const r = await resolveNextAfterPass(sid);
     if (r.sentence) {
       navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
     } else {
@@ -605,7 +610,7 @@ const SentenceLearn = () => {
         title: "✅ 선생님이 승인했어요",
         description: "다음 문장으로 이동합니다",
       });
-      await handleSkipToNext();
+      await handleSkipToNext(approval.sentence_id);
     } catch (e) {
       toast({
         title: "다음 문장 이동 실패",
