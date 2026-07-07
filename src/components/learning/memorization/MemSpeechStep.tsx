@@ -10,7 +10,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { englishMatch, getSpeechRecognition, isSpeechLikelyBlocked, probeMicrophoneAccess, speechErrorMessage, speechSupported } from "@/lib/speech";
+import { englishMatch, getSpeechRecognition, isSpeechLikelyBlocked, speechErrorMessage, speechSupported } from "@/lib/speech";
 import { dictationPassEn, type MemDirection } from "@/lib/memorizationText";
 import { playPassageAudioEnglish } from "@/lib/passageAudio";
 import { toast } from "@/hooks/use-toast";
@@ -41,13 +41,26 @@ function speechPass(heard: string, expected: string, direction: MemDirection): b
   return dictationPassEn(heard, expected);
 }
 
-function collectTranscript(results: { length: number; [i: number]: { 0?: { transcript?: string } } }): string {
-  let out = "";
-  for (let i = 0; i < results.length; i++) {
-    out += results[i][0]?.transcript ?? "";
-    if (i < results.length - 1) out += " ";
+function mergeSpeechResults(
+  finals: string[],
+  results: { length: number; [i: number]: { isFinal?: boolean; 0?: { transcript?: string }; length?: number } },
+  fromIndex: number,
+): { text: string; interim: string } {
+  for (let i = fromIndex; i < results.length; i++) {
+    const row = results[i];
+    const piece = row[0]?.transcript ?? "";
+    if (!piece) continue;
+    if (row.isFinal) finals.push(piece);
   }
-  return out.replace(/\s+/g, " ").trim();
+  let interim = "";
+  for (let i = results.length - 1; i >= 0; i--) {
+    if (!results[i].isFinal) {
+      interim = results[i][0]?.transcript ?? "";
+      break;
+    }
+  }
+  const text = [...finals, interim].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  return { text, interim };
 }
 
 export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed }: Props) => {
@@ -71,6 +84,8 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
   const sessionActiveRef = useRef(false);
   const userStopRef = useRef(false);
   const hadSpeechRef = useRef(false);
+  const finalPartsRef = useRef<string[]>([]);
+  const listenStartedAtRef = useRef(0);
 
   const isKoToEn = direction === "ko_to_en";
   const expected = isKoToEn ? english : korean;
@@ -160,14 +175,8 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
     finishPass();
   };
 
-  const start = async () => {
+  const start = () => {
     if (attemptsExhausted || passed) return;
-
-    const mic = await probeMicrophoneAccess();
-    if (!mic.ok) {
-      toast({ title: "마이크 사용 불가", description: mic.error, variant: "destructive" });
-      return;
-    }
 
     const Ctor = getSpeechRecognition();
     if (!Ctor) {
@@ -182,21 +191,21 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
       const rec = new Ctor();
       rec.lang = recLang;
       rec.interimResults = true;
-      rec.continuous = true;
-      rec.maxAlternatives = 1;
+      rec.continuous = false;
+      rec.maxAlternatives = 3;
       rec.onresult = (e) => {
-        const results = e.results;
-        let interimText = "";
-        for (let i = e.resultIndex; i < results.length; i++) {
-          if (!results[i].isFinal) {
-            interimText = results[i][0]?.transcript ?? "";
-          }
-        }
-        const full = collectTranscript(results);
-        if (full) hadSpeechRef.current = true;
-        transcriptRef.current = full;
-        setHeard(full);
+        const { text, interim: interimText } = mergeSpeechResults(
+          finalPartsRef.current,
+          e.results,
+          e.resultIndex,
+        );
+        if (text) hadSpeechRef.current = true;
+        transcriptRef.current = text;
+        setHeard(text);
         setInterim(interimText);
+      };
+      rec.onstart = () => {
+        listenStartedAtRef.current = Date.now();
       };
       rec.onerror = (e) => {
         if (e.error === "not-allowed" || e.error === "service-not-allowed") {
@@ -237,6 +246,7 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
       setInterim("");
       transcriptRef.current = "";
       hadSpeechRef.current = false;
+      finalPartsRef.current = [];
       sessionActiveRef.current = true;
       userStopRef.current = false;
       setElapsedSec(0);
@@ -250,6 +260,14 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
   };
 
   const stop = () => {
+    const listenedMs = Date.now() - listenStartedAtRef.current;
+    if (listenedMs < 1200 && !hadSpeechRef.current) {
+      toast({
+        title: "조금 더 읽어 주세요",
+        description: "1초 이상 읽은 뒤 「중지」를 눌러 주세요.",
+      });
+      return;
+    }
     userStopRef.current = true;
     sessionActiveRef.current = false;
     try {
@@ -377,7 +395,9 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
           <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
             듣고 있어요… {elapsedSec}초
           </span>
-          <span className="text-[11px] text-muted-foreground">말을 마치면 「중지」를 누르세요</span>
+          <span className="text-[11px] text-muted-foreground">
+            영문을 크게 읽은 뒤 「중지」를 누르세요
+          </span>
           {(heard || interim) && (
             <p className="text-xs text-muted-foreground max-w-md text-center px-4 max-h-20 overflow-y-auto">
               {heard}
@@ -429,6 +449,12 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
               <Sparkles className="w-3 h-3 mr-1" />
             )}
             {azureRecording ? "녹음 중…" : "녹음 발음 검사 (권장)"}
+          </Button>
+        )}
+
+        {readAloudFallback && !passed && !listening && (
+          <Button variant="outline" size="sm" onClick={() => finishPass()}>
+            <Check className="w-3 h-3 mr-1" /> 낭독 완료 (인식 불가 시)
           </Button>
         )}
 
