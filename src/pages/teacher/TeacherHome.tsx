@@ -62,7 +62,7 @@ const TILES = [
 interface UpcomingAssignment {
   id: string;
   title: string;
-  due_at: string;
+  due_at: string | null;
   sentence_id: string | null;
   student_id: string | null;
   include_pre: boolean;
@@ -96,14 +96,16 @@ const TeacherHome = () => {
   }, [students]);
 
   useEffect(() => {
+    const nowIso = new Date().toISOString();
     const inSevenDays = new Date(Date.now() + 7 * 24 * 3_600_000).toISOString();
-    supabase
+    void supabase
       .from("assignments")
-      .select("id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest")
-      .gte("due_at", new Date().toISOString())
-      .lte("due_at", inSevenDays)
-      .order("due_at", { ascending: true })
-      .limit(5)
+      .select(
+        "id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest",
+      )
+      .or(`and(due_at.gte.${nowIso},due_at.lte.${inSevenDays}),due_at.is.null`)
+      .order("due_at", { ascending: true, nullsFirst: false })
+      .limit(8)
       .then(({ data }) => setUpcoming((data ?? []) as UpcomingAssignment[]));
   }, []);
 
@@ -354,7 +356,7 @@ const TeacherHome = () => {
             <div className="flex items-center gap-2">
               <ClipboardList className="size-4 text-amber-600" />
               <h2 className="text-sm font-bold">마감 임박 특별과제</h2>
-              <span className="text-xs text-muted-foreground">(향후 7일)</span>
+              <span className="text-xs text-muted-foreground">(향후 7일 · 무기한 포함)</span>
             </div>
             <div className="flex items-center gap-3">
               <Button
@@ -377,17 +379,20 @@ const TeacherHome = () => {
           </div>
           {upcoming.length === 0 ? (
             <div className="text-xs text-muted-foreground py-3">
-              예정된 과제 없음 — 새 과제는 '특별과제'에서 만드세요.
+              표시할 과제 없음 — <Link to="/teacher/assignments" className="text-primary hover:underline">특별과제</Link> 메뉴에서 전체 목록을 확인하세요.
             </div>
           ) : (
             <ul className="divide-y divide-border">
               {upcoming.map((a) => {
-                const dueMs = new Date(a.due_at).getTime() - Date.now();
-                const totalH = Math.max(0, Math.floor(dueMs / 3_600_000));
+                const dueMs = a.due_at
+                  ? new Date(a.due_at).getTime() - Date.now()
+                  : null;
+                const totalH = dueMs != null ? Math.max(0, Math.floor(dueMs / 3_600_000)) : 0;
                 const days = Math.floor(totalH / 24);
                 const hours = totalH % 24;
-                const urgent = dueMs < 24 * 3_600_000;
-                const remainText = days > 0 ? `${days}일 ${hours}시간` : `${hours}시간`;
+                const urgent = dueMs != null && dueMs < 24 * 3_600_000;
+                const remainText =
+                  dueMs == null ? "무기한" : days > 0 ? `${days}일 ${hours}시간` : `${hours}시간`;
                 const target = a.student_id
                   ? studentNameMap.get(a.student_id) ?? "—"
                   : "전체 학생";
