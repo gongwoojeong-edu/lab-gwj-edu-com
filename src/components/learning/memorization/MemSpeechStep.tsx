@@ -10,7 +10,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { englishMatch, getSpeechRecognition, speechSupported } from "@/lib/speech";
+import { englishMatch, getSpeechRecognition, isSpeechLikelyBlocked, probeMicrophoneAccess, speechErrorMessage, speechSupported } from "@/lib/speech";
 import { dictationPassEn, type MemDirection } from "@/lib/memorizationText";
 import { playPassageAudioEnglish } from "@/lib/passageAudio";
 import { toast } from "@/hooks/use-toast";
@@ -70,11 +70,13 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
   const transcriptRef = useRef("");
   const sessionActiveRef = useRef(false);
   const userStopRef = useRef(false);
+  const hadSpeechRef = useRef(false);
 
   const isKoToEn = direction === "ko_to_en";
   const expected = isKoToEn ? english : korean;
   const recLang = isKoToEn ? "en-US" : "ko-KR";
   const attemptsExhausted = attempts >= MAX_ATTEMPTS;
+  const embeddedPreview = isSpeechLikelyBlocked();
 
   const promptText = isKoToEn
     ? korean.trim()
@@ -118,9 +120,22 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
     const text = transcript.trim();
     setHeard(text);
     setInterim("");
-    const ok = speechPass(text, expected, direction);
+
+    if (!text && !hadSpeechRef.current) {
+      toast({
+        title: "음성이 인식되지 않았습니다",
+        description: embeddedPreview
+          ? "Lovable 미리보기보다 Chrome 새 탭(lab.gwj-edu.com)에서 시도해 주세요."
+          : "마이크 허용 후 문장을 읽고 「중지」를 눌러 주세요. (시도 횟수 차감 없음)",
+        variant: "destructive",
+      });
+      gradingRef.current = false;
+      return;
+    }
+
     const next = attempts + 1;
     setAttempts(next);
+    const ok = speechPass(text, expected, direction);
     if (ok) {
       toast({ title: "잘했어요!", description: "발화 통과" });
       finishPass();
@@ -145,8 +160,15 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
     finishPass();
   };
 
-  const start = () => {
+  const start = async () => {
     if (attemptsExhausted || passed) return;
+
+    const mic = await probeMicrophoneAccess();
+    if (!mic.ok) {
+      toast({ title: "마이크 사용 불가", description: mic.error, variant: "destructive" });
+      return;
+    }
+
     const Ctor = getSpeechRecognition();
     if (!Ctor) {
       toast({
@@ -171,13 +193,22 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
           }
         }
         const full = collectTranscript(results);
+        if (full) hadSpeechRef.current = true;
         transcriptRef.current = full;
         setHeard(full);
         setInterim(interimText);
       };
       rec.onerror = (e) => {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          sessionActiveRef.current = false;
+          userStopRef.current = false;
+        }
         if (e.error !== "no-speech" && e.error !== "aborted") {
-          toast({ title: "음성 인식 오류", description: e.error, variant: "destructive" });
+          toast({
+            title: "음성 인식 오류",
+            description: speechErrorMessage(e.error),
+            variant: "destructive",
+          });
         }
       };
       rec.onend = () => {
@@ -205,6 +236,7 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
       setHeard("");
       setInterim("");
       transcriptRef.current = "";
+      hadSpeechRef.current = false;
       sessionActiveRef.current = true;
       userStopRef.current = false;
       setElapsedSec(0);
@@ -331,6 +363,14 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
         )}
       </div>
 
+      {embeddedPreview && (
+        <div className="text-xs rounded-lg border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2">
+          미리보기(iframe)에서는 Chrome 음성 인식이 차단되는 경우가 많습니다.
+          <strong className="block mt-1">Publish된 주소를 Chrome 새 탭에서 열어</strong> 테스트해 주세요.
+          {showAzure && " 또는 아래 「녹음 발음 검사」를 사용하세요."}
+        </div>
+      )}
+
       {listening && (
         <div className="flex flex-col items-center gap-2 py-4 rounded-xl border border-violet-500/30 bg-violet-500/5">
           <Mic className="w-8 h-8 text-violet-600 animate-pulse" />
@@ -361,7 +401,7 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
         <Button
           size="lg"
           variant={listening ? "destructive" : "default"}
-          onClick={listening ? stop : start}
+          onClick={() => void (listening ? stop() : start())}
           disabled={!supported || passed || azureRecording || azureBusy || attemptsExhausted}
           className="min-w-40"
         >
@@ -388,7 +428,7 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
             ) : (
               <Sparkles className="w-3 h-3 mr-1" />
             )}
-            {azureRecording ? "녹음 중…" : "Azure 정밀 발음 검사"}
+            {azureRecording ? "녹음 중…" : "녹음 발음 검사 (권장)"}
           </Button>
         )}
 

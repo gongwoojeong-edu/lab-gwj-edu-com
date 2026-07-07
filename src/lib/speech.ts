@@ -28,6 +28,45 @@ export const getSpeechRecognition = (): SpeechRecognitionCtor | null => {
 
 export const speechSupported = (): boolean => getSpeechRecognition() !== null;
 
+/** Lovable 등 iframe 미리보기 — Web Speech가 동작하지 않는 경우가 많음 */
+export const isSpeechLikelyBlocked = (): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+};
+
+export async function probeMicrophoneAccess(): Promise<{ ok: boolean; error?: string }> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return { ok: false, error: "이 브라우저는 마이크를 지원하지 않습니다." };
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    return { ok: true };
+  } catch (e) {
+    const name = (e as DOMException).name;
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      return { ok: false, error: "마이크 권한이 거부되었습니다. 주소창 자물쇠에서 허용해 주세요." };
+    }
+    return { ok: false, error: String(e) };
+  }
+}
+
+const SPEECH_ERROR_KO: Record<string, string> = {
+  "not-allowed": "마이크/음성 인식 권한이 없습니다.",
+  "service-not-allowed": "미리보기(iframe)에서는 음성 인식이 차단될 수 있습니다. 앱을 새 탭에서 열어 주세요.",
+  "audio-capture": "마이크를 찾을 수 없습니다.",
+  "network": "음성 인식 네트워크 오류입니다.",
+  "no-speech": "음성이 감지되지 않았습니다.",
+};
+
+export function speechErrorMessage(code: string): string {
+  return SPEECH_ERROR_KO[code] ?? code;
+}
+
 export const normalizeEn = (s: string): string =>
   s.toLowerCase().replace(/[^a-z]/g, "");
 
