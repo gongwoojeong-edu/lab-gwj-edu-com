@@ -152,7 +152,14 @@ type AssignNavRow = {
   task_mode: string | null;
 };
 
-type StepFlags = { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean };
+type StepFlags = {
+  pre: boolean;
+  wt: boolean;
+  an: boolean;
+  tr: boolean;
+  mem: boolean;
+  status?: string;
+};
 
 const extractUnitPrefix = (sentenceId: string | null): string | null => {
   if (!sentenceId) return null;
@@ -160,8 +167,30 @@ const extractUnitPrefix = (sentenceId: string | null): string | null => {
   return m ? m[1] : null;
 };
 
+const pickCurrentAssignmentRow = (
+  rows: AssignNavRow[],
+  sentenceId: string,
+): AssignNavRow | undefined => {
+  const matches = rows.filter((a) => a.sentence_id === sentenceId);
+  if (matches.length === 0) return undefined;
+  return matches.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+};
+
+const assignmentGroupKey = (
+  row: AssignNavRow,
+  sentenceId: string,
+  codeToUnit: Map<string, string>,
+): string => {
+  const unitId = codeToUnit.get(sentenceId) ?? null;
+  const fallbackPrefix = extractUnitPrefix(sentenceId);
+  const groupId = unitId ?? fallbackPrefix ?? sentenceId;
+  const batchMinute = row.created_at?.slice(0, 16) ?? sentenceId;
+  return `${row.title}|${row.due_at}|${groupId}|${batchMinute}`;
+};
+
 const assignmentSentenceDone = (row: AssignNavRow, flags: StepFlags | undefined): boolean => {
   if (!row.sentence_id || !flags) return false;
+  if (flags.status === "pass") return true;
   const mode = row.task_mode ?? "analysis_only";
   const needsMem = taskModeIncludesMemorize((mode || "analysis_only") as TaskMode);
   const needsAnalysis = mode !== "memorize_only";
@@ -214,7 +243,7 @@ export const resolveNextAfterPass = async (
     const { data: progRows } = await supabase
       .from("sentence_progress")
       .select(
-        "sentence_id, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
+        "sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
       )
       .eq("user_id", userId)
       .in("sentence_id", assignCodes);
@@ -223,6 +252,7 @@ export const resolveNextAfterPass = async (
     (
       (progRows ?? []) as Array<{
         sentence_id: string;
+        status: string | null;
         pre_done: boolean | null;
         word_test_done: boolean | null;
         analysis_done: boolean | null;
@@ -236,6 +266,7 @@ export const resolveNextAfterPass = async (
         an: !!r.analysis_done,
         tr: !!r.translation_done,
         mem: !!r.mem_passed_at,
+        status: r.status ?? undefined,
       });
     });
 
@@ -248,27 +279,34 @@ export const resolveNextAfterPass = async (
       if (p.unit_id) codeToUnit.set(p.code, p.unit_id);
     });
 
-    const currentRow = allAssignments.find((a) => a.sentence_id === currentSentenceId)!;
-    const unitId = codeToUnit.get(currentSentenceId) ?? null;
-    const fallbackPrefix = extractUnitPrefix(currentSentenceId);
-    const groupId = unitId ?? fallbackPrefix ?? currentSentenceId;
-    const batchMinute = currentRow.created_at?.slice(0, 16) ?? currentSentenceId;
-    const groupKey = `${currentRow.title}|${currentRow.due_at}|${groupId}|${batchMinute}`;
+    const currentRow = pickCurrentAssignmentRow(allAssignments, currentSentenceId);
+    if (!currentRow) {
+      return { sentence: null, profile, done: false };
+    }
+
+    const groupKey = assignmentGroupKey(currentRow, currentSentenceId, codeToUnit);
 
     const groupRows = allAssignments
       .filter((a) => {
         if (!a.sentence_id) return false;
-        const u = a.sentence_id ? codeToUnit.get(a.sentence_id) ?? null : null;
-        const fp = extractUnitPrefix(a.sentence_id);
-        const gid = u ?? fp ?? a.sentence_id;
-        const bm = a.created_at?.slice(0, 16) ?? a.sentence_id;
-        return `${a.title}|${a.due_at}|${gid}|${bm}` === groupKey;
+        return assignmentGroupKey(a, a.sentence_id, codeToUnit) === groupKey;
       })
       .sort((a, b) => (a.sentence_id ?? "").localeCompare(b.sentence_id ?? ""));
 
-    const nextRow = groupRows.find(
-      (a) => a.sentence_id && !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
-    );
+    const currentIdx = groupRows.findIndex((a) => a.sentence_id === currentSentenceId);
+    const nextRow =
+      currentIdx >= 0
+        ? groupRows.slice(currentIdx + 1).find(
+            (a) =>
+              a.sentence_id &&
+              !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+          )
+        : groupRows.find(
+            (a) =>
+              a.sentence_id &&
+              a.sentence_id !== currentSentenceId &&
+              !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+          );
     if (nextRow?.sentence_id && nextRow.sentence_id !== currentSentenceId) {
       const sentence = await loadSentenceById(nextRow.sentence_id);
       if (sentence) return { sentence, profile, done: false };
