@@ -68,10 +68,13 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
   const timerRef = useRef<number | null>(null);
   const gradingRef = useRef(false);
   const transcriptRef = useRef("");
+  const sessionActiveRef = useRef(false);
+  const userStopRef = useRef(false);
 
   const isKoToEn = direction === "ko_to_en";
   const expected = isKoToEn ? english : korean;
   const recLang = isKoToEn ? "en-US" : "ko-KR";
+  const attemptsExhausted = attempts >= MAX_ATTEMPTS;
 
   const promptText = isKoToEn
     ? korean.trim()
@@ -137,7 +140,13 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
     gradingRef.current = false;
   };
 
+  const skipAfterMax = () => {
+    toast({ title: "발화 단계 진행", description: "인식 미통과 — 다음 단계로 이동합니다." });
+    finishPass();
+  };
+
   const start = () => {
+    if (attemptsExhausted || passed) return;
     const Ctor = getSpeechRecognition();
     if (!Ctor) {
       toast({
@@ -172,20 +181,32 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
         }
       };
       rec.onend = () => {
+        if (sessionActiveRef.current && !userStopRef.current) {
+          try {
+            rec.start();
+          } catch {
+            /* browser ended session; keep UI until user stops */
+          }
+          return;
+        }
         setListening(false);
+        sessionActiveRef.current = false;
         if (timerRef.current != null) {
           window.clearInterval(timerRef.current);
           timerRef.current = null;
         }
         const finalText = transcriptRef.current.trim();
-        if (!gradingRef.current && !finishedRef.current) {
+        if (!gradingRef.current && !finishedRef.current && userStopRef.current) {
           gradeTranscript(finalText);
         }
+        userStopRef.current = false;
       };
       recRef.current = rec;
       setHeard("");
       setInterim("");
       transcriptRef.current = "";
+      sessionActiveRef.current = true;
+      userStopRef.current = false;
       setElapsedSec(0);
       setListening(true);
       timerRef.current = window.setInterval(() => setElapsedSec((s) => s + 1), 1000);
@@ -197,6 +218,8 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
   };
 
   const stop = () => {
+    userStopRef.current = true;
+    sessionActiveRef.current = false;
     try {
       recRef.current?.stop();
     } catch {
@@ -339,7 +362,7 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
           size="lg"
           variant={listening ? "destructive" : "default"}
           onClick={listening ? stop : start}
-          disabled={!supported || passed || azureRecording || azureBusy}
+          disabled={!supported || passed || azureRecording || azureBusy || attemptsExhausted}
           className="min-w-40"
         >
           {listening ? (
@@ -393,6 +416,17 @@ export const MemSpeechStep = ({ sentenceId, english, korean, direction, onPassed
         >
           시도 {attempts}/{MAX_ATTEMPTS}
         </span>
+
+        {attemptsExhausted && !passed && (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-xs text-amber-600">
+              {MAX_ATTEMPTS}회 시도했습니다. 마이크·브라우저(Chrome)를 확인하거나 다음 단계로 진행하세요.
+            </p>
+            <Button variant="outline" size="sm" onClick={skipAfterMax}>
+              <SkipForward className="w-3 h-3 mr-1" /> 다음 단계로
+            </Button>
+          </div>
+        )}
 
         {!supported && (
           <Button variant="outline" size="sm" onClick={skipUnsupported}>
