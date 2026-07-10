@@ -412,6 +412,7 @@ Deno.serve(async (req) => {
     );
 
     const staffIdToLabAuth = new Map<string, string>();
+    const validStaffIds: string[] = [];
 
     for (const st of englishStaff) {
       const loginId = String(st.employee_no ?? "")
@@ -421,6 +422,7 @@ Deno.serve(async (req) => {
 
       const labAuthId = await ensureAuthUser(labSb, loginId, st.name, "teacher");
       staffIdToLabAuth.set(st.id, labAuthId);
+      validStaffIds.push(st.id);
 
       await labSb.from("orbit_staff_cache").upsert({
         id: st.id,
@@ -437,6 +439,14 @@ Deno.serve(async (req) => {
       });
 
       stats.teachersSynced += 1;
+    }
+
+    // Orbit에서 영어 담당이 아니거나 퇴직한 강사는 캐시에서 제거 (auth 계정은 유지)
+    if (validStaffIds.length > 0) {
+      await labSb
+        .from("orbit_staff_cache")
+        .delete()
+        .not("id", "in", `(${validStaffIds.map((v) => `"${v}"`).join(",")})`);
     }
 
     const { data: orbitClasses, error: classErr } = await orbitSb
