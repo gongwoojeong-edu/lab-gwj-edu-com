@@ -10,9 +10,15 @@ type SpeechRecognitionLike = {
   start(): void;
   stop(): void;
   abort(): void;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onresult:
+    | ((e: {
+        results: ArrayLike<ArrayLike<{ transcript: string }>>;
+        resultIndex: number;
+      }) => void)
+    | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
 };
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
