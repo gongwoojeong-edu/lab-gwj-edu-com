@@ -189,7 +189,8 @@ const BookshelfUnit = () => {
 
   const duplicatePassageKey = (p: Passage) => {
     const en = p.english.trim().replace(/\s+/g, " ").toLowerCase();
-    return `${p.passage_no}::${en}`;
+    if (en.length > 8) return en;
+    return p.code.trim().toLowerCase().replace(/-alt\d+/gi, "");
   };
 
   const selectDuplicatePassages = () => {
