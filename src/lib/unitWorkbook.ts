@@ -35,6 +35,39 @@ const escapeHtml = (s: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+/** import 재전송 alt4/alt5 등 — code에서 -altN 제거한 키 */
+function normalizePassageCodeKey(code: string): string {
+  return (code ?? "").trim().toLowerCase().replace(/-alt\d+/gi, "");
+}
+
+function normalizeEnglishKey(english: string | null | undefined): string {
+  return (english ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * 워크북 인쇄용 — passage_no 순서 유지, 중복 행 제거 (앞쪽만).
+ * - 동일 영문 (re-import / alt 중복)
+ * - 동일 code (-altN 제외)
+ */
+export function dedupePassagesForPrint(passages: Passage[]): Passage[] {
+  const seenEnglish = new Set<string>();
+  const seenCode = new Set<string>();
+  const out: Passage[] = [];
+
+  for (const p of passages) {
+    const enKey = normalizeEnglishKey(p.english);
+    const codeKey = normalizePassageCodeKey(p.code);
+
+    if (enKey && seenEnglish.has(enKey)) continue;
+    if (codeKey && seenCode.has(codeKey)) continue;
+
+    if (enKey) seenEnglish.add(enKey);
+    if (codeKey) seenCode.add(codeKey);
+    out.push(p);
+  }
+  return out;
+}
+
 export interface UnitWorkbookSummary {
   totalPassages: number;
   completedCodes: string[];
@@ -519,7 +552,8 @@ export const buildUnitWorkbookHtmlFor = async (
   const isWord = mode === "word_unit" || mode === "word_passage";
   const isUnitWideMode = mode === "syntax_unit" || isWord;
   // 유닛 통합 워크북과 단어 시험지는 진행도 무관하게 유닛 전체 지문을 사용
-  const allPassages = isUnitWideMode ? await fetchPassagesByUnit(input.unitId) : [];
+  const allPassagesRaw = isUnitWideMode ? await fetchPassagesByUnit(input.unitId) : [];
+  const allPassages = isUnitWideMode ? dedupePassagesForPrint(allPassagesRaw) : [];
   const allCodes = allPassages.map((p) => p.code);
   const targetCodes = isUnitWideMode ? allCodes : summary.completedCodes;
   if (targetCodes.length === 0) {
