@@ -649,6 +649,13 @@ export const deletePassage = async (id: string): Promise<void> => {
   if (error) throw error;
 };
 
+export const deletePassages = async (ids: string[]): Promise<void> => {
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return;
+  const { error } = await supabase.from("textbook_passages").delete().in("id", unique);
+  if (error) throw error;
+};
+
 // ============================================================
 // 통계
 // ============================================================
@@ -790,7 +797,7 @@ export const moveTextbookToSeries = async (
   if (error) throw error;
 };
 
-/** 유닛을 다른 권으로 옮김. */
+/** 유닛을 다른 권으로 옮김. 소속 지문의 textbook_id 도 함께 갱신. */
 export const moveUnitToTextbook = async (
   unitId: string,
   newTextbookId: string,
@@ -800,6 +807,11 @@ export const moveUnitToTextbook = async (
     .update({ textbook_id: newTextbookId })
     .eq("id", unitId);
   if (error) throw error;
+  const { error: pErr } = await supabase
+    .from("textbook_passages")
+    .update({ textbook_id: newTextbookId })
+    .eq("unit_id", unitId);
+  if (pErr) throw pErr;
 };
 
 /** 지문을 다른 유닛으로 옮김. textbook_id 도 함께 갱신, passage_no 는 대상 유닛 끝번호로 재배정. */

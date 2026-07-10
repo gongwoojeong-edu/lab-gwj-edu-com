@@ -44,6 +44,7 @@ import {
   fetchPassagesByUnit,
   reorderPassagesInUnit,
   deletePassage,
+  deletePassages,
   uploadAnalysisPdf,
   deleteAnalysisPdf,
   getAnalysisPdfSignedUrl,
@@ -122,6 +123,8 @@ const BookshelfUnit = () => {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [extractingCode, setExtractingCode] = useState<string | null>(null);
   const [printingCode, setPrintingCode] = useState<string | null>(null);
   const [statusTogglingCode, setStatusTogglingCode] = useState<string | null>(null);
@@ -183,6 +186,33 @@ const BookshelfUnit = () => {
     });
   };
   const clearSel = () => setSelectedIds(new Set());
+
+  const duplicatePassageKey = (p: Passage) => {
+    const en = p.english.trim().replace(/\s+/g, " ").toLowerCase();
+    return `${p.passage_no}::${en}`;
+  };
+
+  const selectDuplicatePassages = () => {
+    const seen = new Map<string, string>();
+    const dupIds = new Set<string>();
+    for (const p of passages) {
+      const key = duplicatePassageKey(p);
+      if (seen.has(key)) dupIds.add(p.id);
+      else seen.set(key, p.id);
+    }
+    setSelectedIds(dupIds);
+    if (dupIds.size === 0) {
+      toast({
+        title: "중복 지문 없음",
+        description: "같은 #·본문이 두 번 이상인 항목이 없습니다.",
+      });
+    } else {
+      toast({
+        title: `${dupIds.size}개 중복 선택`,
+        description: "각 그룹의 뒤쪽(나중) 지문만 선택했습니다.",
+      });
+    }
+  };
 
   // 학생 목록 로드 (워크북 인쇄 대상)
   useEffect(() => {
@@ -837,6 +867,28 @@ const BookshelfUnit = () => {
     }
   };
 
+  const handleBulkDeletePassages = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      await deletePassages(ids);
+      await hydrateSentencesFromDb(true);
+      toast({ title: `${ids.length}개 지문 삭제됨` });
+      setBulkDeleteOpen(false);
+      clearSel();
+      void reload();
+    } catch (e) {
+      toast({
+        title: "삭제 실패",
+        description: errMsg(e),
+        variant: "destructive",
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <TeacherLayout>
@@ -1168,16 +1220,46 @@ const BookshelfUnit = () => {
           );
         })()}
 
-        {selectedIds.size > 0 && (
-          <div className="flex items-center gap-2 px-1">
-            <span className="text-xs text-muted-foreground">
-              {selectedIds.size}개 선택됨
-            </span>
-            <Button variant="outline" size="sm" onClick={clearSel}>
+        {(selectedIds.size > 0 || passages.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2 px-1 py-2 rounded-lg border border-border bg-muted/30">
+            {selectedIds.size > 0 ? (
+              <span className="text-xs font-semibold text-foreground">
+                {selectedIds.size}개 선택됨
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                체크로 여러 지문을 선택하세요
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={clearSel} disabled={selectedIds.size === 0}>
               선택 해제
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={selectDuplicatePassages}
+              disabled={passages.length < 2}
+              title="같은 #·본문이 두 번 이상이면 뒤쪽만 선택"
+            >
+              중복 선택 (뒤쪽)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMoveOpen(true)}
+              disabled={selectedIds.size === 0}
+            >
               <ArrowRight className="size-4 mr-1" /> 다른 유닛으로 이동
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={selectedIds.size === 0}
+              className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="size-4 mr-1" />
+              선택 삭제{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
             </Button>
           </div>
         )}
@@ -1593,6 +1675,44 @@ const BookshelfUnit = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting && <Loader2 className="size-3.5 mr-1 animate-spin" />}삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              선택한 {selectedIds.size}개 지문을 삭제할까요?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  책장 목록에서 제거됩니다. 학생 학습·분석 기록은 DB에 남을 수
+                  있습니다.
+                </p>
+                <ul className="max-h-36 overflow-y-auto rounded border border-border bg-muted/40 p-2 font-mono text-[10px] text-foreground">
+                  {passages
+                    .filter((p) => selectedIds.has(p.id))
+                    .map((p) => (
+                      <li key={p.id} className="truncate">
+                        {p.code}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeletePassages}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              {selectedIds.size}개 삭제
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
