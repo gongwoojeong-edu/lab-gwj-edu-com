@@ -29,6 +29,12 @@ import {
   BookOpen,
   Pencil,
   Plus,
+  Search,
+  Users,
+  LayoutList,
+  Rows3,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -92,6 +98,127 @@ interface AssignmentGroup {
   rows: AssignmentRow[];
   totalCount: number;
   doneCount: number;
+}
+
+type ListViewMode = "compact" | "cards" | "byStudent";
+type ProgressFilter = "all" | "not_started" | "in_progress" | "almost_done";
+
+const isStepDoneStatus = (status: string | undefined) =>
+  status === "pass" || status === "done";
+
+function mergeGroupProgress(
+  g: AssignmentGroup,
+  progressByAsg: Record<string, AssignmentProgressMap>,
+  targetUserIds: string[],
+): AssignmentProgressMap {
+  const merged: AssignmentProgressMap = new Map();
+  targetUserIds.forEach((uid) => {
+    let allPre = true,
+      allWt = true,
+      allAn = true,
+      allTr = true;
+    let anyData = false;
+    let preScoreSum = 0,
+      preCnt = 0;
+    let anScoreSum = 0,
+      anCnt = 0;
+    let wtScoreSum = 0,
+      wtCnt = 0;
+    g.rows.forEach((r) => {
+      const p = progressByAsg[r.id]?.get(uid);
+      if (!p) {
+        allPre = allWt = allAn = allTr = false;
+        return;
+      }
+      anyData = true;
+      if (!isStepDoneStatus(p.pre.status)) allPre = false;
+      else if (p.pre.score != null) {
+        preScoreSum += p.pre.score;
+        preCnt++;
+      }
+      if (!isStepDoneStatus(p.wordtest.status)) allWt = false;
+      else if (p.wordtest.score != null) {
+        wtScoreSum += p.wordtest.score;
+        wtCnt++;
+      }
+      if (!isStepDoneStatus(p.analysis.status)) allAn = false;
+      else if (p.analysis.score != null) {
+        anScoreSum += p.analysis.score;
+        anCnt++;
+      }
+      if (!isStepDoneStatus(p.translation.status)) allTr = false;
+    });
+    merged.set(uid, {
+      pre: {
+        status: anyData && allPre ? "done" : "missing",
+        score: preCnt > 0 ? Math.round(preScoreSum / preCnt) : null,
+      },
+      analysis: {
+        status: anyData && allAn ? "pass" : "missing",
+        score: anCnt > 0 ? Math.round(anScoreSum / anCnt) : null,
+      },
+      translation: {
+        status: anyData && allTr ? "done" : "missing",
+        score: null,
+      },
+      wordtest: {
+        status: anyData && allWt ? "pass" : "missing",
+        score: wtCnt > 0 ? Math.round(wtScoreSum / wtCnt) : null,
+      },
+      mem: { status: "missing", score: null },
+    });
+  });
+  return merged;
+}
+
+function groupProgressStats(
+  g: AssignmentGroup,
+  progress: AssignmentProgressMap,
+  targetUserIds: string[],
+): { pct: number; fullyDone: number; totalStudents: number; doneCells: number; totalCells: number } {
+  const includeMem = taskModeIncludesMemorize(g.task_mode);
+  const steps =
+    (g.include_pre ? 1 : 0) +
+    (g.include_analysis ? 1 : 0) +
+    (g.include_translation ? 1 : 0) +
+    (g.include_wordtest ? 1 : 0) +
+    (includeMem ? 1 : 0);
+  const totalStudents = targetUserIds.length;
+  const totalCells = totalStudents * steps;
+  let doneCells = 0;
+  let fullyDone = 0;
+  targetUserIds.forEach((uid) => {
+    const p = progress.get(uid);
+    let studentDone = 0;
+    if (g.include_pre && isStepDoneStatus(p?.pre.status)) {
+      doneCells++;
+      studentDone++;
+    }
+    if (g.include_analysis && isStepDoneStatus(p?.analysis.status)) {
+      doneCells++;
+      studentDone++;
+    }
+    if (g.include_translation && isStepDoneStatus(p?.translation.status)) {
+      doneCells++;
+      studentDone++;
+    }
+    if (g.include_wordtest && isStepDoneStatus(p?.wordtest.status)) {
+      doneCells++;
+      studentDone++;
+    }
+    if (includeMem && isStepDoneStatus(p?.mem.status)) {
+      doneCells++;
+      studentDone++;
+    }
+    if (steps > 0 && studentDone === steps) fullyDone++;
+  });
+  return {
+    pct: totalCells === 0 ? 0 : Math.round((doneCells / totalCells) * 100),
+    fullyDone,
+    totalStudents,
+    doneCells,
+    totalCells,
+  };
 }
 
 interface AssignmentRow {
@@ -184,6 +311,13 @@ const Assignments = () => {
   // Create form
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  // 진행중 목록: 검색·필터·보기 모드
+  const [listQuery, setListQuery] = useState("");
+  const [filterStudentId, setFilterStudentId] = useState<string>("all");
+  const [progressFilter, setProgressFilter] = useState<ProgressFilter>("all");
+  const [listView, setListView] = useState<ListViewMode>("compact");
 
   // Edit dialog
   const [editingRow, setEditingRow] = useState<AssignmentRow | null>(null);
@@ -440,6 +574,102 @@ const Assignments = () => {
       return bm - am;
     });
   }, [activeRows, students, codeToUnit, unitLabelMap, progressByAsg]);
+
+  const filteredGroups = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    const allIds = students.map((s) => s.user_id);
+    return activeGroups.filter((g) => {
+      if (filterStudentId !== "all") {
+        if (g.student_id) {
+          if (g.student_id !== filterStudentId) return false;
+        } else if (!allIds.includes(filterStudentId)) {
+          return false;
+        }
+      }
+      if (q) {
+        const name = g.student_id
+          ? (studentNameMap.get(g.student_id) ?? "").toLowerCase()
+          : "전체 학생";
+        const hay = [
+          g.title,
+          g.description ?? "",
+          g.unit_label ?? "",
+          name,
+          g.rows.map((r) => r.sentence_id ?? "").join(" "),
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (progressFilter !== "all") {
+        const targets = g.student_id ? [g.student_id] : allIds;
+        const merged = mergeGroupProgress(g, progressByAsg, targets);
+        const { pct } = groupProgressStats(g, merged, targets);
+        if (progressFilter === "not_started" && pct > 0) return false;
+        if (progressFilter === "in_progress" && (pct <= 0 || pct >= 100)) return false;
+        if (progressFilter === "almost_done" && pct < 75) return false;
+      }
+      return true;
+    });
+  }, [
+    activeGroups,
+    listQuery,
+    filterStudentId,
+    progressFilter,
+    students,
+    studentNameMap,
+    progressByAsg,
+  ]);
+
+  const groupsByStudent = useMemo(() => {
+    const allIds = students.map((s) => s.user_id);
+    const summarize = (sid: string, groups: AssignmentGroup[], label: string) => {
+      let pctSum = 0;
+      groups.forEach((g) => {
+        const targets =
+          filterStudentId !== "all"
+            ? [filterStudentId]
+            : g.student_id
+              ? [g.student_id]
+              : allIds;
+        const merged = mergeGroupProgress(g, progressByAsg, targets);
+        pctSum += groupProgressStats(g, merged, targets).pct;
+      });
+      return {
+        studentId: sid,
+        label,
+        groups,
+        avgPct: groups.length ? Math.round(pctSum / groups.length) : 0,
+      };
+    };
+
+    // 학생 1명 필터 시: 개인 과제 + 전체 과제(해당 학생 진도 기준)를 한 묶음으로
+    if (filterStudentId !== "all") {
+      return [
+        summarize(
+          filterStudentId,
+          filteredGroups,
+          studentNameMap.get(filterStudentId) ?? filterStudentId.slice(0, 8),
+        ),
+      ];
+    }
+
+    const map = new Map<string, AssignmentGroup[]>();
+    filteredGroups.forEach((g) => {
+      const key = g.student_id ?? "__all__";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(g);
+    });
+    return Array.from(map.entries())
+      .map(([sid, groups]) =>
+        summarize(
+          sid,
+          groups,
+          sid === "__all__" ? "전체 학생" : studentNameMap.get(sid) ?? sid.slice(0, 8),
+        ),
+      )
+      .sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  }, [filteredGroups, students, studentNameMap, progressByAsg, filterStudentId]);
 
   const validateForm = (f: FormState): string | null => {
     if (!f.title.trim()) return "제목은 필수입니다";
@@ -1093,17 +1323,202 @@ const Assignments = () => {
     );
   };
 
+  const renderGroupActions = (g: AssignmentGroup, head: AssignmentRow) => (
+    <div className="flex items-center gap-0.5 shrink-0">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 text-[11px] px-2 text-primary"
+        onClick={() => handleExtendGroupWeek(g)}
+        title="안내 마감일 +1주"
+      >
+        <Plus className="size-3" />
+        1주
+      </Button>
+      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openEdit(head)} title="수정">
+        <Pencil className="size-3.5" />
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-destructive"
+        onClick={() => handleDeleteGroup(g)}
+        title="삭제"
+      >
+        <Trash2 className="size-3.5" />
+      </Button>
+    </div>
+  );
+
+  const targetIdsForGroup = (g: AssignmentGroup) => {
+    if (g.student_id) return [g.student_id];
+    if (filterStudentId !== "all") return [filterStudentId];
+    return students.map((s) => s.user_id);
+  };
+
+  const renderCompactRow = (g: AssignmentGroup) => {
+    const head = g.rows[0];
+    const rem = remaining(g.due_at);
+    const allTargetIds = targetIdsForGroup(g);
+    const merged = mergeGroupProgress(g, progressByAsg, allTargetIds);
+    const stats = groupProgressStats(g, merged, allTargetIds);
+    const label = g.unit_label
+      ? `${g.unit_label} · ${g.totalCount}지문`
+      : head.sentence_id
+        ? (codeLabelMap.get(head.sentence_id) ?? head.sentence_id)
+        : "—";
+    return (
+      <tr key={g.key} className="border-b border-border/60 hover:bg-muted/40">
+        <td className="py-2 px-2 align-top">
+          <div className="font-bold text-sm leading-tight">{g.title}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{label}</div>
+        </td>
+        <td className="py-2 px-2 align-top text-sm whitespace-nowrap">
+          {studentName(g.student_id)}
+        </td>
+        <td className="py-2 px-2 align-top min-w-[8rem]">
+          <div className="flex items-center gap-2 text-[11px] font-bold">
+            <span
+              className={cn(
+                stats.pct >= 75
+                  ? "text-emerald-600"
+                  : stats.pct > 0
+                    ? "text-primary"
+                    : "text-muted-foreground",
+              )}
+            >
+              {stats.pct}%
+            </span>
+            <span className="text-muted-foreground font-normal">
+              지문 {g.doneCount}/{g.totalCount}
+            </span>
+          </div>
+          <div className="h-1.5 mt-1 w-full max-w-[9rem] rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn(
+                "h-full",
+                stats.pct >= 75 ? "bg-emerald-500" : stats.pct > 0 ? "bg-primary" : "bg-muted-foreground/30",
+              )}
+              style={{ width: `${stats.pct}%` }}
+            />
+          </div>
+        </td>
+        <td className="py-2 px-2 align-top text-[11px] text-muted-foreground whitespace-nowrap">
+          {formatAssignmentDueLabel(g.due_at)}
+          <div className={cn("font-medium", rem.urgent ? "text-amber-700" : "")}>{rem.text}</div>
+        </td>
+        <td className="py-2 px-1 align-top">{renderGroupActions(g, head)}</td>
+      </tr>
+    );
+  };
+
+  const renderCardRow = (g: AssignmentGroup) => {
+    const rem = remaining(g.due_at);
+    const head = g.rows[0];
+    const missingSentence = !head.sentence_id;
+    const label = g.unit_label
+      ? `${g.unit_label} · 지문 ${g.totalCount}개`
+      : head.sentence_id
+        ? (codeLabelMap.get(head.sentence_id) ?? head.sentence_id)
+        : null;
+    const allTargetIds = targetIdsForGroup(g);
+    const mergedProgress = mergeGroupProgress(g, progressByAsg, allTargetIds);
+    return (
+      <div
+        key={g.key}
+        className={cn(
+          "p-3 rounded-lg border-2 flex items-start justify-between gap-3",
+          missingSentence
+            ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5"
+            : rem.urgent
+              ? "border-destructive/40 bg-destructive/5"
+              : "border-border",
+        )}
+      >
+        <div className="space-y-1.5 min-w-0 flex-1">
+          <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
+            {g.title}
+            <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-extrabold">
+              유닛 · 지문 {g.totalCount}개
+            </span>
+            {missingSentence && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-extrabold">
+                ⚠ 지문 미연결
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
+            <span>대상: {studentName(g.student_id)}</span>
+            <span>· 안내 마감: {formatAssignmentDueLabel(g.due_at)}</span>
+            <span className={cn("font-bold", rem.urgent ? "text-destructive" : "text-primary")}>
+              · {rem.text}
+            </span>
+            {label && <span>· {label}</span>}
+          </div>
+          <AssignmentStepBadges
+            includePre={g.include_pre}
+            includeAnalysis={g.include_analysis}
+            includeTranslation={g.include_translation}
+            includeWordtest={g.include_wordtest}
+            includeMemorize={taskModeIncludesMemorize(g.task_mode)}
+            progress={mergedProgress}
+            studentNameMap={studentNameMap}
+            targetUserIds={allTargetIds}
+          />
+          <AssignmentProgressSummary
+            progress={mergedProgress}
+            includePre={g.include_pre}
+            includeAnalysis={g.include_analysis}
+            includeTranslation={g.include_translation}
+            includeWordtest={g.include_wordtest}
+            includeMemorize={taskModeIncludesMemorize(g.task_mode)}
+            targetUserIds={allTargetIds}
+            className="pt-1"
+          />
+          {g.description && <p className="text-xs text-foreground/80 mt-1">{g.description}</p>}
+        </div>
+        {renderGroupActions(g, head)}
+      </div>
+    );
+  };
+
   return (
     <TeacherLayout>
-      <div className="p-6 max-w-4xl mx-auto space-y-6 font-kr">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="size-6 text-primary" /> 특별과제
-          </h1>
+      <div className="p-6 max-w-6xl mx-auto space-y-6 font-kr">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <ClipboardList className="size-6 text-primary" /> 특별과제
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              출제·학생별 진도를 검색해 빠르게 확인하세요. 안내 마감일은 학습을 막지 않습니다.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
+            <Link to="/teacher/assignments/past">
+              <ClipboardList className="size-3.5" />
+              완료 과제함
+            </Link>
+          </Button>
         </div>
 
-        <Card className="p-5 space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-primary">새 과제 생성</h2>
+        <Card className="p-4 space-y-3">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between text-left"
+            onClick={() => setCreateOpen((v) => !v)}
+          >
+            <h2 className="text-sm font-bold uppercase tracking-wider text-primary">
+              새 과제 생성
+            </h2>
+            {createOpen ? (
+              <ChevronUp className="size-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-4 text-muted-foreground" />
+            )}
+          </button>
+          {createOpen && (
+          <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>제목 *</Label>
@@ -1216,130 +1631,152 @@ const Assignments = () => {
             </div>
           </div>
           <Button onClick={handleCreate} disabled={saving}>{saving ? "저장 중…" : "과제 생성"}</Button>
+          </>
+          )}
         </Card>
 
-        <Card className="p-5 space-y-3">
+        <Card className="p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-primary">진행중 과제 ({activeGroups.length})</h2>
-            <Button asChild size="sm" variant="outline" className="h-7 text-[11px] font-bold gap-1">
-              <Link to="/teacher/assignments/past">
-                <ClipboardList className="size-3.5" />
-                완료 과제함
-              </Link>
-            </Button>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-primary">
+              진행중 과제{" "}
+              <span className="text-foreground">
+                {filteredGroups.length}
+                {filteredGroups.length !== activeGroups.length && (
+                  <span className="text-muted-foreground font-normal">
+                    {" "}
+                    / 전체 {activeGroups.length}
+                  </span>
+                )}
+              </span>
+            </h2>
+            <div className="flex items-center gap-1 rounded-md border p-0.5">
+              {(
+                [
+                  ["compact", LayoutList, "목록"],
+                  ["byStudent", Users, "학생별"],
+                  ["cards", Rows3, "카드"],
+                ] as const
+              ).map(([mode, Icon, label]) => (
+                <Button
+                  key={mode}
+                  type="button"
+                  size="sm"
+                  variant={listView === mode ? "default" : "ghost"}
+                  className="h-7 px-2 text-[11px] gap-1"
+                  onClick={() => setListView(mode)}
+                >
+                  <Icon className="size-3.5" />
+                  {label}
+                </Button>
+              ))}
+            </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="relative sm:col-span-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input
+                value={listQuery}
+                onChange={(e) => setListQuery(e.target.value)}
+                placeholder="제목·학생·유닛 검색"
+                className="pl-8 h-9"
+              />
+            </div>
+            <Select value={filterStudentId} onValueChange={setFilterStudentId}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="학생 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 학생</SelectItem>
+                {students
+                  .slice()
+                  .sort((a, b) =>
+                    (a.display_name ?? a.student_no).localeCompare(
+                      b.display_name ?? b.student_no,
+                      "ko",
+                    ),
+                  )
+                  .map((s) => (
+                    <SelectItem key={s.user_id} value={s.user_id}>
+                      {s.display_name ?? s.student_no} ({s.student_no})
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={progressFilter}
+              onValueChange={(v) => setProgressFilter(v as ProgressFilter)}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="진도 필터" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">진도 전체</SelectItem>
+                <SelectItem value="not_started">미시작 (0%)</SelectItem>
+                <SelectItem value="in_progress">진행중 (1~99%)</SelectItem>
+                <SelectItem value="almost_done">거의 완료 (75%+)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {activeGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">진행중인 과제가 없습니다.</p>
-          ) : (
-            <div className="space-y-2">
-              {activeGroups.map((g) => {
-                const rem = remaining(g.due_at);
-                const head = g.rows[0];
-                const missingSentence = !head.sentence_id;
-                // 라벨: 유닛이 식별되면 유닛 라벨 + 지문 수, 아니면 단일 passage 라벨로 폴백
-                const label = g.unit_label
-                  ? `${g.unit_label} · 지문 ${g.totalCount}개`
-                  : head.sentence_id
-                  ? codeLabelMap.get(head.sentence_id) ?? head.sentence_id
-                  : null;
-                // 그룹 진척: 모든 row의 모든 대상 학생 progress 합산
-                const allTargetIds = head.student_id
-                  ? [head.student_id]
-                  : students.map((s) => s.user_id);
-                const mergedProgress: AssignmentProgressMap = new Map();
-                allTargetIds.forEach((uid) => {
-                  // 유닛 안의 모든 sentence가 해당 step을 완료해야 그 학생이 그 step done
-                  const isStepDone = (s: { status: string }) =>
-                    s.status === "pass" || s.status === "done";
-                  let allPre = true, allWt = true, allAn = true, allTr = true;
-                  let anyData = false;
-                  let preScoreSum = 0, preCnt = 0;
-                  let anScoreSum = 0, anCnt = 0;
-                  let wtScoreSum = 0, wtCnt = 0;
-                  g.rows.forEach((r) => {
-                    const p = progressByAsg[r.id]?.get(uid);
-                    if (!p) { allPre = allWt = allAn = allTr = false; return; }
-                    anyData = true;
-                    if (!isStepDone(p.pre)) allPre = false;
-                    else if (p.pre.score != null) { preScoreSum += p.pre.score; preCnt++; }
-                    if (!isStepDone(p.wordtest)) allWt = false;
-                    else if (p.wordtest.score != null) { wtScoreSum += p.wordtest.score; wtCnt++; }
-                    if (!isStepDone(p.analysis)) allAn = false;
-                    else if (p.analysis.score != null) { anScoreSum += p.analysis.score; anCnt++; }
-                    if (!isStepDone(p.translation)) allTr = false;
-                  });
-                  mergedProgress.set(uid, {
-                    pre: { status: anyData && allPre ? "done" : "missing", score: preCnt > 0 ? Math.round(preScoreSum / preCnt) : null },
-                    analysis: { status: anyData && allAn ? "pass" : "missing", score: anCnt > 0 ? Math.round(anScoreSum / anCnt) : null },
-                    translation: { status: anyData && allTr ? "done" : "missing", score: null },
-                    wordtest: { status: anyData && allWt ? "pass" : "missing", score: wtCnt > 0 ? Math.round(wtScoreSum / wtCnt) : null },
-                    mem: { status: "missing", score: null },
-                  });
-                });
-                return (
-                  <div key={g.key} className={cn("p-3 rounded-lg border-2 flex items-start justify-between gap-3", missingSentence ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5" : rem.urgent ? "border-destructive/40 bg-destructive/5" : "border-border")}>
-                    <div className="space-y-1.5 min-w-0 flex-1">
-                      <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
-                        {g.title}
-                        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-extrabold">
-                          유닛 · 지문 {g.totalCount}개
-                        </span>
-                        {missingSentence && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-extrabold">
-                            ⚠ 지문 미연결 — 편집해서 연결하세요
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
-                        <span>대상: {studentName(g.student_id)}</span>
-                        <span>· 마감: {formatAssignmentDueLabel(g.due_at)}</span>
-                        <span className={cn("font-bold", rem.urgent ? "text-destructive" : "text-primary")}>· {rem.text}</span>
-                        {label && <span>· {label}</span>}
-                      </div>
-                      <AssignmentStepBadges
-                        includePre={g.include_pre}
-                        includeAnalysis={g.include_analysis}
-                        includeTranslation={g.include_translation}
-                        includeWordtest={g.include_wordtest}
-                        includeMemorize={taskModeIncludesMemorize(g.task_mode)}
-                        progress={mergedProgress}
-                        studentNameMap={studentNameMap}
-                        targetUserIds={allTargetIds}
-                      />
-                      <AssignmentProgressSummary
-                        progress={mergedProgress}
-                        includePre={g.include_pre}
-                        includeAnalysis={g.include_analysis}
-                        includeTranslation={g.include_translation}
-                        includeWordtest={g.include_wordtest}
-                        includeMemorize={taskModeIncludesMemorize(g.task_mode)}
-                        targetUserIds={allTargetIds}
-                        className="pt-1"
-                      />
-                      {g.description && <p className="text-xs text-foreground/80 mt-1">{g.description}</p>}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-[11px] px-2 text-primary"
-                        onClick={() => handleExtendGroupWeek(g)}
-                        title="유닛 전체 마감일 +1주"
-                      >
-                        <Plus className="size-3" />
-                        1주
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openEdit(head)} title="수정 (대표 지문)">
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => handleDeleteGroup(g)} title="유닛 전체 삭제">
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+          ) : filteredGroups.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              검색·필터 결과가 없습니다. 조건을 바꿔 보세요.
+            </p>
+          ) : listView === "compact" ? (
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-left min-w-[40rem]">
+                <thead className="bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="py-2 px-2 font-bold">과제 / 출제</th>
+                    <th className="py-2 px-2 font-bold">학생</th>
+                    <th className="py-2 px-2 font-bold">진도</th>
+                    <th className="py-2 px-2 font-bold">안내 마감</th>
+                    <th className="py-2 px-2 font-bold w-24">관리</th>
+                  </tr>
+                </thead>
+                <tbody>{filteredGroups.map((g) => renderCompactRow(g))}</tbody>
+              </table>
             </div>
+          ) : listView === "byStudent" ? (
+            <div className="space-y-3">
+              {groupsByStudent.map((bucket) => (
+                <div key={bucket.studentId} className="rounded-lg border overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b">
+                    <div className="font-bold text-sm flex items-center gap-2">
+                      <Users className="size-3.5 text-primary" />
+                      {bucket.label}
+                      <span className="text-[11px] font-normal text-muted-foreground">
+                        과제 {bucket.groups.length}건
+                      </span>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-xs font-extrabold",
+                        bucket.avgPct >= 75
+                          ? "text-emerald-600"
+                          : bucket.avgPct > 0
+                            ? "text-primary"
+                            : "text-muted-foreground",
+                      )}
+                    >
+                      평균 진도 {bucket.avgPct}%
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left min-w-[36rem]">
+                      <tbody>
+                        {bucket.groups.map((g) => renderCompactRow(g))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">{filteredGroups.map((g) => renderCardRow(g))}</div>
           )}
         </Card>
 
