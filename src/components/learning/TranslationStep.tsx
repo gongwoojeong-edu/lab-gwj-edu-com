@@ -120,15 +120,37 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="문장의 의미를 한국어로 정확하게 적어주세요."
+          placeholder={
+            submitted
+              ? "새로 작성한 뒤 [다시 제출]을 누르세요. (이전에 쓴 내용은 위 버튼으로 볼 수 있어요)"
+              : "문장의 의미를 한국어로 정확하게 적어주세요."
+          }
           rows={3}
           disabled={loading}
         />
-        <div className="flex items-center gap-2 justify-end">
+        {submitted && !text.trim() && !loading && (
+          <p className="text-[11px] text-amber-700 dark:text-amber-300 text-right">
+            칸에 해석을 입력해야 [다시 제출] 버튼이 켜집니다.
+          </p>
+        )}
+        <div className="flex items-center gap-2 justify-end flex-wrap">
           {submitted && (
             <span className="inline-flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400">
               <Check className="w-4 h-4" /> 제출됨
             </span>
+          )}
+          {previousText && !text.trim() && !loading && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => {
+                setText(previousText);
+                setShowPrevious(true);
+              }}
+            >
+              이전 내용 불러오기
+            </Button>
           )}
           <Button onClick={handleSubmit} disabled={saving || loading || !text.trim()}>
             {submitted ? "다시 제출" : "해석 제출"}

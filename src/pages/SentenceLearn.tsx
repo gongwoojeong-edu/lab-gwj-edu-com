@@ -45,7 +45,10 @@ import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { fetchMyOverrideForSentence } from "@/lib/studentPassageOverrides";
-import { resolveNextAfterPass } from "@/lib/nextSentence";
+import {
+  resolveEarlierIncompleteInAssignment,
+  resolveNextAfterPass,
+} from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
 import { AnalysisSubmitConfirmDialog } from "@/components/learning/AnalysisSubmitConfirmDialog";
 import {
@@ -191,6 +194,17 @@ const SentenceLearn = () => {
       if (!found) {
         setLoading(false);
         return;
+      }
+
+      // 특별과제: 앞 유닛/문장이 미완료면 그곳으로 강제 (1과-3을 먼저 여는 등 순서 이탈 방지)
+      try {
+        const earlier = await resolveEarlierIncompleteInAssignment(found.id);
+        if (mounted && earlier && earlier.id !== found.id) {
+          navigate(`/learn/sentence/${encodeURIComponent(earlier.id)}`, { replace: true });
+          return;
+        }
+      } catch (e) {
+        console.warn("assignment sequence gate failed", e);
       }
 
       // restart=1 쿼리: 진행 플래그 리셋 후 처음부터 시작 (작성 데이터/시도 로그는 보존)

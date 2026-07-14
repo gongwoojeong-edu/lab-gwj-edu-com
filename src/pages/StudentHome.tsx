@@ -74,6 +74,11 @@ import {
   compareAssignmentDue,
   formatAssignmentRemaining,
 } from "@/lib/assignmentDue";
+import {
+  assignmentSequenceKey,
+  comparePassageOrder,
+  fetchPassageOrderMeta,
+} from "@/lib/assignmentSequence";
 
 interface RecentItem {
   sentence: Sentence;
@@ -291,44 +296,42 @@ const StudentHome = () => {
           return !!pf && (pf.pre || pf.wt || pf.an || pf.tr || pf.mem);
         };
 
-        // sentence_id → unit_id 매핑 조회 (DB 기반 정확한 그룹핑)
-        const codeToUnit = new Map<string, string>();
-        if (assignSentenceIds.length > 0) {
-          const { data: passageRows } = await supabase
-            .from("textbook_passages")
-            .select("code, unit_id")
-            .in("code", assignSentenceIds);
-          ((passageRows ?? []) as { code: string; unit_id: string | null }[]).forEach((p) => {
-            if (p.unit_id) codeToUnit.set(p.code, p.unit_id);
-          });
-        }
+        // 제목·마감·교재(권) 기준으로 묶음 → 1과-1~4처럼 유닛이 달라도 한 시퀀스
+        const orderMeta = await fetchPassageOrderMeta(assignSentenceIds);
 
-        // 같은 batch(=같은 분에 부여된 동일 title/due_at/unit)만 한 카드로 묶음.
-        // created_at(분 단위)을 키에 포함 → 부여할 때마다 별도 카드로 분리됨.
         const groupMap = new Map<string, AssignmentRow[]>();
         allAssignments.forEach((a) => {
-          const unitId = a.sentence_id ? codeToUnit.get(a.sentence_id) ?? null : null;
-          const fallbackPrefix = extractUnitPrefix(a.sentence_id);
-          const groupId = unitId ?? fallbackPrefix ?? a.sentence_id ?? a.id;
-          const batchMinute = a.created_at ? a.created_at.slice(0, 16) : a.id;
-          const key = `${a.title}|${a.due_at}|${groupId}|${batchMinute}`;
+          const tb = a.sentence_id
+            ? orderMeta.get(a.sentence_id)?.textbook_id ?? null
+            : null;
+          const key = assignmentSequenceKey({
+            title: a.title,
+            due_at: a.due_at,
+            textbookId: tb,
+          });
           if (!groupMap.has(key)) groupMap.set(key, []);
           groupMap.get(key)!.push(a);
         });
 
         const groups: AssignmentGroup[] = Array.from(groupMap.entries())
           .map(([key, rows]) => {
-            // sentence_id 오름차순으로 정렬
             const sorted = rows
               .slice()
-              .sort((x, y) => (x.sentence_id ?? "").localeCompare(y.sentence_id ?? ""));
+              .sort((x, y) =>
+                comparePassageOrder(x.sentence_id, y.sentence_id, orderMeta),
+              );
             const head = sorted[0];
-            const unitId = head.sentence_id ? codeToUnit.get(head.sentence_id) ?? null : null;
             const doneList = sorted.filter(isSentenceDone);
             const startedList = sorted.filter(
               (a) => !isSentenceDone(a) && isSentenceStarted(a),
             );
             const nextRow = sorted.find((a) => !isSentenceDone(a));
+            const nextUnitId = nextRow?.sentence_id
+              ? orderMeta.get(nextRow.sentence_id)?.unit_id ?? null
+              : null;
+            const headUnitId = head.sentence_id
+              ? orderMeta.get(head.sentence_id)?.unit_id ?? null
+              : null;
             return {
               key,
               title: head.title,
@@ -345,7 +348,7 @@ const StudentHome = () => {
               doneCount: doneList.length,
               inProgressCount: startedList.length,
               nextSentenceId: nextRow?.sentence_id ?? null,
-              unitId,
+              unitId: nextUnitId ?? headUnitId,
             } as AssignmentGroup;
           })
           // 진행 중이거나, 유닛 학습은 끝났지만 선생님 승인 전인 그룹 유지
@@ -816,7 +819,7 @@ const StudentHome = () => {
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground -mt-2">
-                선생님이 부여한 과제예요. 일반 진도와 상관없이 먼저 풀 수 있어요.
+                선생님이 부여한 과제예요. 같은 과제 안에서는 1과-1 → 1과-2 순서로만 이어가요.
               </p>
               <ul className="space-y-3">
                 {visibleAssignmentGroups.map((g) => {

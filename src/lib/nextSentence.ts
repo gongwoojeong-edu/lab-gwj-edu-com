@@ -5,6 +5,11 @@ import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/stu
 import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { getCurrentUserId } from "@/lib/authState";
 import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
+import {
+  assignmentSequenceKey,
+  comparePassageOrder,
+  fetchPassageOrderMeta,
+} from "@/lib/assignmentSequence";
 
 export interface NextSentenceResult {
   sentence: Sentence | null;
@@ -161,12 +166,6 @@ type StepFlags = {
   status?: string;
 };
 
-const extractUnitPrefix = (sentenceId: string | null): string | null => {
-  if (!sentenceId) return null;
-  const m = sentenceId.match(/^(.*)-\d{3}$/);
-  return m ? m[1] : null;
-};
-
 const pickCurrentAssignmentRow = (
   rows: AssignNavRow[],
   sentenceId: string,
@@ -174,18 +173,6 @@ const pickCurrentAssignmentRow = (
   const matches = rows.filter((a) => a.sentence_id === sentenceId);
   if (matches.length === 0) return undefined;
   return matches.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-};
-
-const assignmentGroupKey = (
-  row: AssignNavRow,
-  sentenceId: string,
-  codeToUnit: Map<string, string>,
-): string => {
-  const unitId = codeToUnit.get(sentenceId) ?? null;
-  const fallbackPrefix = extractUnitPrefix(sentenceId);
-  const groupId = unitId ?? fallbackPrefix ?? sentenceId;
-  const batchMinute = row.created_at?.slice(0, 16) ?? sentenceId;
-  return `${row.title}|${row.due_at}|${groupId}|${batchMinute}`;
 };
 
 const assignmentSentenceDone = (row: AssignNavRow, flags: StepFlags | undefined): boolean => {
@@ -199,6 +186,8 @@ const assignmentSentenceDone = (row: AssignNavRow, flags: StepFlags | undefined)
     if (row.include_wordtest && !flags.wt) return false;
     if (row.include_analysis && !flags.an) return false;
     if (row.include_translation && !flags.tr) return false;
+    // 한글해석 포함 → 선생님 승인(pass) 전엔 다음 문장으로 넘기지 않음
+    if (row.include_translation && flags.status !== "pass") return false;
   }
   if (needsMem && !flags.mem) return false;
   return true;
@@ -211,8 +200,96 @@ const loadSentenceById = async (code: string): Promise<Sentence | null> => {
 };
 
 /**
+ * 특별과제 시퀀스에서 현재보다 앞의 미완료 문장 (순서 이탈 진입 방지).
+ * 없으면 null.
+ */
+export const resolveEarlierIncompleteInAssignment = async (
+  currentSentenceId: string,
+): Promise<Sentence | null> => {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+
+  const nowIso = new Date().toISOString();
+  const { activeAssignmentDueOrFilter } = await import("@/lib/assignmentDue");
+  const { data: assignData } = await supabase
+    .from("assignments")
+    .select(
+      "sentence_id, title, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode",
+    )
+    .or(`student_id.eq.${userId},student_id.is.null`)
+    .or(activeAssignmentDueOrFilter(nowIso))
+    .not("sentence_id", "is", null);
+
+  const allAssignments = (assignData ?? []) as AssignNavRow[];
+  if (!allAssignments.some((a) => a.sentence_id === currentSentenceId)) return null;
+
+  const assignCodes = allAssignments
+    .map((a) => a.sentence_id)
+    .filter((c): c is string => !!c);
+  const orderMeta = await fetchPassageOrderMeta(assignCodes);
+  const currentRow = pickCurrentAssignmentRow(allAssignments, currentSentenceId);
+  if (!currentRow) return null;
+
+  const groupKey = assignmentSequenceKey({
+    title: currentRow.title,
+    due_at: currentRow.due_at,
+    textbookId: orderMeta.get(currentSentenceId)?.textbook_id ?? null,
+  });
+  const groupRows = allAssignments
+    .filter((a) => {
+      if (!a.sentence_id) return false;
+      return (
+        assignmentSequenceKey({
+          title: a.title,
+          due_at: a.due_at,
+          textbookId: orderMeta.get(a.sentence_id)?.textbook_id ?? null,
+        }) === groupKey
+      );
+    })
+    .sort((a, b) => comparePassageOrder(a.sentence_id, b.sentence_id, orderMeta));
+
+  const { data: progRows } = await supabase
+    .from("sentence_progress")
+    .select(
+      "sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
+    )
+    .eq("user_id", userId)
+    .in("sentence_id", assignCodes);
+
+  const progressFlags = new Map<string, StepFlags>();
+  (
+    (progRows ?? []) as Array<{
+      sentence_id: string;
+      status: string | null;
+      pre_done: boolean | null;
+      word_test_done: boolean | null;
+      analysis_done: boolean | null;
+      translation_done: boolean | null;
+      mem_passed_at: string | null;
+    }>
+  ).forEach((r) => {
+    progressFlags.set(r.sentence_id, {
+      pre: !!r.pre_done,
+      wt: !!r.word_test_done,
+      an: !!r.analysis_done,
+      tr: !!r.translation_done,
+      mem: !!r.mem_passed_at,
+      status: r.status ?? undefined,
+    });
+  });
+
+  const currentIdx = groupRows.findIndex((a) => a.sentence_id === currentSentenceId);
+  if (currentIdx <= 0) return null;
+  const earlier = groupRows.slice(0, currentIdx).find(
+    (a) => a.sentence_id && !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+  );
+  if (!earlier?.sentence_id) return null;
+  return loadSentenceById(earlier.sentence_id);
+};
+
+/**
  * 승인·통과 직후 이동 대상.
- * 특별과제(같은 유닛 배치) → 같은 유닛 다음 지문 → 일반 진도(resolveNextSentence).
+ * 특별과제(같은 교재 시퀀스) → 같은 유닛 다음 지문 → 일반 진도(resolveNextSentence).
  */
 export const resolveNextAfterPass = async (
   currentSentenceId: string,
@@ -270,30 +347,49 @@ export const resolveNextAfterPass = async (
       });
     });
 
-    const { data: passageRows } = await supabase
-      .from("textbook_passages")
-      .select("code, unit_id")
-      .in("code", assignCodes);
-    const codeToUnit = new Map<string, string>();
-    ((passageRows ?? []) as { code: string; unit_id: string | null }[]).forEach((p) => {
-      if (p.unit_id) codeToUnit.set(p.code, p.unit_id);
-    });
+    const orderMeta = await fetchPassageOrderMeta(assignCodes);
 
     const currentRow = pickCurrentAssignmentRow(allAssignments, currentSentenceId);
     if (!currentRow) {
       return { sentence: null, profile, done: false };
     }
 
-    const groupKey = assignmentGroupKey(currentRow, currentSentenceId, codeToUnit);
+    const currentTb = orderMeta.get(currentSentenceId)?.textbook_id ?? null;
+    const groupKey = assignmentSequenceKey({
+      title: currentRow.title,
+      due_at: currentRow.due_at,
+      textbookId: currentTb,
+    });
 
     const groupRows = allAssignments
       .filter((a) => {
         if (!a.sentence_id) return false;
-        return assignmentGroupKey(a, a.sentence_id, codeToUnit) === groupKey;
+        const tb = orderMeta.get(a.sentence_id)?.textbook_id ?? null;
+        return (
+          assignmentSequenceKey({
+            title: a.title,
+            due_at: a.due_at,
+            textbookId: tb,
+          }) === groupKey
+        );
       })
-      .sort((a, b) => (a.sentence_id ?? "").localeCompare(b.sentence_id ?? ""));
+      .sort((a, b) => comparePassageOrder(a.sentence_id, b.sentence_id, orderMeta));
 
     const currentIdx = groupRows.findIndex((a) => a.sentence_id === currentSentenceId);
+    // 현재 문장보다 앞의 미완료가 있으면 그곳으로 (순서 이탈 복구)
+    const earlierIncomplete =
+      currentIdx > 0
+        ? groupRows.slice(0, currentIdx).find(
+            (a) =>
+              a.sentence_id &&
+              !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+          )
+        : undefined;
+    if (earlierIncomplete?.sentence_id) {
+      const sentence = await loadSentenceById(earlierIncomplete.sentence_id);
+      if (sentence) return { sentence, profile, done: false };
+    }
+
     const nextRow =
       currentIdx >= 0
         ? groupRows.slice(currentIdx + 1).find(
@@ -312,7 +408,7 @@ export const resolveNextAfterPass = async (
       if (sentence) return { sentence, profile, done: false };
     }
 
-    // 특별과제 유닛 내 남은 문장 없음 → 홈으로 (다른 유닛 진도로 점프하지 않음)
+    // 같은 시퀀스 내 남은 문장 없음 → 홈 (다른 교재로 점프하지 않음)
     return { sentence: null, profile, done: false };
   }
 
