@@ -70,7 +70,6 @@ import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel
 import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { activeAssignmentDueOrFilter } from "@/lib/assignmentDue";
 import { toast } from "@/hooks/use-toast";
 import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
 
@@ -235,7 +234,7 @@ const SentenceLearn = () => {
         fetchMyProfile(),
         fetchAttemptLogs(found.id),
         fetchAttemptCount(found.id),
-        // 활성 특별과제 lookup (해당 sentence + 마감 미경과 + 본인 또는 전체 대상) — 가장 임박 1건
+        // 특별과제 lookup (마감일 무관 · 본인 또는 전체 대상) — 최근 부여 1건
         (async () => {
           if (!currentUserId) return null;
           const { data } = await supabase
@@ -243,8 +242,7 @@ const SentenceLearn = () => {
             .select("include_pre, include_analysis, include_translation, include_wordtest")
             .eq("sentence_id", found.id)
             .or(`student_id.eq.${currentUserId},student_id.is.null`)
-            .or(activeAssignmentDueOrFilter(new Date().toISOString()))
-            .order("due_at", { ascending: true, nullsFirst: false })
+            .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
           return data;

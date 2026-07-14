@@ -70,7 +70,6 @@ import {
   type TaskMode,
 } from "@/lib/taskMode";
 import {
-  activeAssignmentDueOrFilter,
   compareAssignmentDue,
   formatAssignmentRemaining,
 } from "@/lib/assignmentDue";
@@ -196,8 +195,7 @@ const StudentHome = () => {
             .from("assignments")
             .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode")
             .or(`student_id.eq.${user.id},student_id.is.null`)
-            .or(activeAssignmentDueOrFilter(new Date().toISOString()))
-            .order("due_at", { ascending: true, nullsFirst: false })
+            .order("created_at", { ascending: false })
             .limit(200),
         ]);
         const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold" | "pending"; updated_at: string; passed_at: string | null }[];
@@ -819,7 +817,7 @@ const StudentHome = () => {
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground -mt-2">
-                선생님이 부여한 과제예요. 같은 과제 안에서는 1과-1 → 1과-2 순서로만 이어가요.
+                선생님이 부여한 과제예요. 같은 과제 안에서는 순서대로만 이어가요. 안내 마감일이 지나도 계속 학습할 수 있어요.
               </p>
               <ul className="space-y-3">
                 {visibleAssignmentGroups.map((g) => {

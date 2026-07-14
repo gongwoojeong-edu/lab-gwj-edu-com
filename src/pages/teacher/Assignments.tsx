@@ -755,7 +755,7 @@ const Assignments = () => {
 
   const renderDueDatePicker = (f: FormState, setter: typeof setForm) => (
     <div className="space-y-1.5">
-      <Label>마감일 (선택)</Label>
+      <Label>안내 마감일 (선택 · 학습 진행에 영향 없음)</Label>
       <div className="flex flex-wrap items-center gap-2">
         <Popover>
           <PopoverTrigger asChild>
@@ -871,7 +871,7 @@ const Assignments = () => {
           </SelectContent>
         </Select>
         <p className="text-[11px] text-muted-foreground">
-          마감 전 과제에 한해 유닛·지문 기본 방향을 덮어씁니다.
+          과제에 설정한 방향이 있으면 유닛·지문 기본 방향을 덮어씁니다. (마감일과 무관)
         </p>
       </div>
     );

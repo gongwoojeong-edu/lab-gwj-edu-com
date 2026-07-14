@@ -209,15 +209,12 @@ export const resolveEarlierIncompleteInAssignment = async (
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
-  const nowIso = new Date().toISOString();
-  const { activeAssignmentDueOrFilter } = await import("@/lib/assignmentDue");
   const { data: assignData } = await supabase
     .from("assignments")
     .select(
       "sentence_id, title, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode",
     )
     .or(`student_id.eq.${userId},student_id.is.null`)
-    .or(activeAssignmentDueOrFilter(nowIso))
     .not("sentence_id", "is", null);
 
   const allAssignments = (assignData ?? []) as AssignNavRow[];
@@ -299,16 +296,12 @@ export const resolveNextAfterPass = async (
   const userId = await getCurrentUserId();
   if (!userId) return { sentence: null, profile, done: false };
 
-  const nowIso = new Date().toISOString();
-  const { activeAssignmentDueOrFilter } = await import("@/lib/assignmentDue");
-
   const { data: assignData } = await supabase
     .from("assignments")
     .select(
       "sentence_id, title, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode",
     )
     .or(`student_id.eq.${userId},student_id.is.null`)
-    .or(activeAssignmentDueOrFilter(nowIso))
     .not("sentence_id", "is", null);
 
   const allAssignments = (assignData ?? []) as AssignNavRow[];

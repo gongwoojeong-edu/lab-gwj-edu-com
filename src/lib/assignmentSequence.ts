@@ -11,13 +11,13 @@ export type PassageOrderMeta = {
   passage_no: number;
 };
 
-/** 동일 제목·마감·교재면 한 시퀀스 (유닛 분리로 뒤죽박죽 학습되는 것 방지) */
+/** 동일 제목·교재면 한 시퀀스 (마감일은 안내용이라 그룹 키에 넣지 않음) */
 export function assignmentSequenceKey(input: {
   title: string;
-  due_at: string | null;
+  due_at?: string | null;
   textbookId: string | null;
 }): string {
-  return `${input.title}|${input.due_at ?? ""}|${input.textbookId ?? "no-tb"}`;
+  return `${input.title}|${input.textbookId ?? "no-tb"}`;
 }
 
 export function comparePassageOrder(

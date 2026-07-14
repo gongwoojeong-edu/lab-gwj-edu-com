@@ -5,8 +5,8 @@
 //                   (analysis/wordtest는 status==="pass", pre/translation은 status==="done")
 //   - 미완료(active): 그 외 (대상 1명이라도 미달)
 //
-// 활성 목록은 "마감 전 ∪ (마감 후이지만 미완료)" 모두 보여주고,
-// 과제함은 "완료된 항목"만 보여준다. → 마감되었어도 미완료면 활성에 잔존.
+// 활성 목록은 미완료만 보여준다. 마감일은 안내용일 뿐 목록·학습에 영향 없음.
+// 과제함은 "완료된 항목"만 보여준다.
 // ============================================================
 import type { AssignmentProgressMap } from "./assignmentProgress";
 

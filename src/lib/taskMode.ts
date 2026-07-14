@@ -1,8 +1,6 @@
 // ============================================================
 // taskMode — 분석만 / 암기만 / 분석+암기 resolve (선생님 설정 전용)
 // ============================================================
-import { isAssignmentActive } from "@/lib/assignmentDue";
-
 export type TaskMode = "analysis_only" | "memorize_only" | "analysis_and_memorize";
 
 export const TASK_MODES: TaskMode[] = [
@@ -58,7 +56,7 @@ export interface ResolveTaskModeInput {
   unitDefault: TaskMode;
   passageTaskMode: TaskMode | null;
   studentOverride: TaskMode | null;
-  /** 마감 미경과 과제 — sentence 또는 unit 매칭 */
+  /** 활성 과제(마감일 무관) — sentence 또는 unit 매칭 */
   assignments: TaskModeAssignmentRow[];
   sentenceId: string;
   unitId: string | null;
@@ -67,11 +65,7 @@ export interface ResolveTaskModeInput {
 
 /** ④ 과제 > ③ 학생 override > ② 지문 > ① 유닛 */
 export function resolveTaskMode(input: ResolveTaskModeInput): TaskMode {
-  const now = input.now ?? new Date();
-  const active = input.assignments.filter((a) => {
-    if (!a.task_mode) return false;
-    return isAssignmentActive(a.due_at, now);
-  });
+  const active = input.assignments.filter((a) => !!a.task_mode);
 
   const sentenceHit = active.find(
     (a) => a.sentence_id === input.sentenceId && a.task_mode,
