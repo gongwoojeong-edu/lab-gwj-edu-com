@@ -256,15 +256,19 @@ const SentenceLearn = () => {
         latestApproval.grade &&
         latestApproval.grade !== "redo"
       ) {
-        // 승인 완료 — progress 동기화 후 다음 문장으로 (pass인데 같은 URL에 머문 경우 포함)
-        if (progStatus !== "pass") {
+        // 승인됐는데 progress가 아직 pass가 아닌 경우만 복구 (옛 승인 행으로 중간 학습을 뺏기지 않음)
+        const needsApprovalSync = progStatus !== "pass" && !!prog?.translation_done;
+        if (needsApprovalSync) {
           await applyApprovalToMyProgress(latestApproval);
         }
-        const r = await resolveNextAfterPass(found.id);
-        if (r.sentence && r.sentence.id !== found.id) {
-          navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
-        } else if (!r.sentence) {
-          navigate("/learn");
+        // pass(또는 방금 복구된 pass)인 문장을 연 경우 → 다음 미완료 문장으로만 이동.
+        // 다음이 없으면 홈으로 튕기지 않음 (이어하기 중 홈 튕김 방지).
+        if (progStatus === "pass" || needsApprovalSync) {
+          const r = await resolveNextAfterPass(found.id);
+          if (r.sentence && r.sentence.id !== found.id) {
+            navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
+            return;
+          }
         }
       }
 
@@ -1256,7 +1260,10 @@ const SentenceLearn = () => {
         )}
 
         {step === "translation" && pendingApproval && (
-          <ApprovalWaitingPanel studentTranslation={submittedTranslation || null} />
+          <ApprovalWaitingPanel
+            englishSentence={sentence.english}
+            studentTranslation={submittedTranslation || null}
+          />
         )}
 
 

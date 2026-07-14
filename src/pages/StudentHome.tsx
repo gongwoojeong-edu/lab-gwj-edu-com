@@ -239,7 +239,7 @@ const StudentHome = () => {
           .filter(Boolean) as string[];
         const progressFlags = new Map<
           string,
-          { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean }
+          { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean; status: string }
         >();
         if (assignSentenceIds.length > 0) {
           const { data: progRows } = await supabase
@@ -262,6 +262,7 @@ const StudentHome = () => {
               an: !!r.analysis_done,
               tr: !!r.translation_done,
               mem: !!r.mem_passed_at,
+              status: r.status ?? "pending",
             });
           });
         }
@@ -278,6 +279,8 @@ const StudentHome = () => {
             const anOk = !a.include_analysis || pf.an;
             const trOk = !a.include_translation || pf.tr;
             if (!(preOk && wtOk && anOk && trOk)) return false;
+            // 한글해석 포함 과제는 선생님 승인(status=pass)까지 완료로 봄
+            if (a.include_translation && pf.status !== "pass") return false;
           }
           if (needsMem && !pf.mem) return false;
           return true;
