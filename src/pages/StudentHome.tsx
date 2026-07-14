@@ -115,6 +115,7 @@ interface AssignmentGroup {
   doneCount: number;
   inProgressCount: number;
   nextSentenceId: string | null;
+  nextPosition: number | null;
   unitId: string | null;
 }
 
@@ -324,6 +325,7 @@ const StudentHome = () => {
               (a) => !isSentenceDone(a) && isSentenceStarted(a),
             );
             const nextRow = sorted.find((a) => !isSentenceDone(a));
+            const nextPosition = nextRow ? sorted.findIndex((a) => a === nextRow) + 1 : null;
             const nextUnitId = nextRow?.sentence_id
               ? orderMeta.get(nextRow.sentence_id)?.unit_id ?? null
               : null;
@@ -346,6 +348,7 @@ const StudentHome = () => {
               doneCount: doneList.length,
               inProgressCount: startedList.length,
               nextSentenceId: nextRow?.sentence_id ?? null,
+              nextPosition,
               unitId: nextUnitId ?? headUnitId,
             } as AssignmentGroup;
           })
@@ -975,7 +978,9 @@ const StudentHome = () => {
                               className="shrink-0"
                             >
                               <Play className="w-3 h-3 mr-1" />
-                              {g.totalCount > 1 ? `이어하기 (${g.doneCount + 1}/${g.totalCount})` : "이어하기"}
+                              {g.totalCount > 1 && g.nextPosition
+                                ? `이어하기 (${g.nextPosition}/${g.totalCount})`
+                                : "이어하기"}
                             </Button>
                           );
                         }
@@ -986,8 +991,8 @@ const StudentHome = () => {
                             className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
                           >
                             <Play className="w-3 h-3 mr-1" />
-                            {g.doneCount > 0 && g.totalCount > 1
-                              ? `다음 학습 (${g.doneCount + 1}/${g.totalCount})`
+                            {g.nextPosition && g.totalCount > 1
+                              ? `다음 학습 (${g.nextPosition}/${g.totalCount})`
                               : "학습 시작"}
                           </Button>
                         );
