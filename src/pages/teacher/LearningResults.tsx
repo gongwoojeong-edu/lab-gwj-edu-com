@@ -224,7 +224,7 @@ const LearningResults = () => {
         supabase
           .from("sentence_progress")
           .select(
-            "user_id, sentence_id, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at, mem_passed_at, mem_listen_done",
+            "user_id, sentence_id, status, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at, mem_passed_at, mem_listen_done",
           )
           .gte("last_activity_at", startIso)
           .lte("last_activity_at", endIso),
