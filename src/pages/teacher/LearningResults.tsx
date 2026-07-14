@@ -318,9 +318,10 @@ const LearningResults = () => {
         taken_at: string | null;
       }>).forEach((r) => addPair(r.user_id, r.sentence_id, r.taken_at));
       // sentence_progress 도 짝 추가 — attempt_log 미생성 케이스(예: 분석만 끝나고 단어시험 전)도 표에 노출
-      const progressRows = (progressRes.data ?? []) as Array<{
+      let progressRows = (progressRes.data ?? []) as Array<{
         user_id: string;
         sentence_id: string;
+        status?: string | null;
         analysis_done: boolean;
         analysis_match_rate: number | null;
         translation_done: boolean;
@@ -330,6 +331,58 @@ const LearningResults = () => {
         mem_passed_at: string | null;
         mem_listen_done: boolean | null;
       }>;
+
+      // 오늘 활동한 교재 안의 과거 완료/진행분도 함께 표시한다.
+      // 날짜 필터 때문에 1과-2처럼 이미 끝낸 유닛이 사라지면, 이어하기/검수 기준이 끊겨 보인다.
+      const activeUserIdsForContext = Array.from(pairs.keys());
+      const activeSentenceIdsForContext = Array.from(
+        new Set(Array.from(pairs.values()).flatMap((set) => Array.from(set))),
+      );
+      if (activeUserIdsForContext.length > 0 && activeSentenceIdsForContext.length > 0) {
+        const { data: activePassages } = await supabase
+          .from("textbook_passages")
+          .select("code, textbook_id")
+          .in("code", activeSentenceIdsForContext);
+        const activeTextbookIds = Array.from(
+          new Set(
+            ((activePassages ?? []) as { textbook_id: string | null }[])
+              .map((p) => p.textbook_id)
+              .filter((id): id is string => !!id),
+          ),
+        );
+        if (activeTextbookIds.length > 0) {
+          const { data: textbookPassages } = await supabase
+            .from("textbook_passages")
+            .select("code")
+            .in("textbook_id", activeTextbookIds);
+          const textbookCodes = Array.from(
+            new Set(((textbookPassages ?? []) as { code: string }[]).map((p) => p.code)),
+          );
+          if (textbookCodes.length > 0) {
+            const { data: contextProgress } = await supabase
+              .from("sentence_progress")
+              .select(
+                "user_id, sentence_id, status, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at, mem_passed_at, mem_listen_done",
+              )
+              .in("user_id", activeUserIdsForContext)
+              .in("sentence_id", textbookCodes)
+              .in("status", ["pass", "fail", "hold", "pending"]);
+            const seenProgress = new Set(
+              progressRows.map((r) => `${r.user_id}::${r.sentence_id}`),
+            );
+            ((contextProgress ?? []) as typeof progressRows).forEach((r) => {
+              const key = `${r.user_id}::${r.sentence_id}`;
+              if (!seenProgress.has(key)) {
+                seenProgress.add(key);
+                progressRows.push(r);
+              }
+              // 화면에는 포함하되, 학생 카드의 "오늘 마지막 활동" 정렬에는 과거 시간을 섞지 않는다.
+              addPair(r.user_id, r.sentence_id);
+            });
+          }
+        }
+      }
+
       const memStatusMap: Record<string, "pass" | "progress"> = {};
       progressRows.forEach((r) => {
         addPair(r.user_id, r.sentence_id, r.last_activity_at ?? r.updated_at);
@@ -496,6 +549,10 @@ const LearningResults = () => {
           (cur.best_analysis_rate ?? 0) >= 0.8 &&
           !cur.analysis_passed
         ) {
+          cur.analysis_passed = true;
+        }
+        // 과거 완료 이관분은 match_rate가 비어 있어도 status=pass면 분석 완료로 집계한다.
+        if (p.status === "pass" && p.analysis_done) {
           cur.analysis_passed = true;
         }
         // 단어시험 통과 보정
@@ -1322,7 +1379,11 @@ const LearningResults = () => {
                                       const wScore =
                                         a?.best_word_score != null
                                           ? Math.round(a.best_word_score * 100)
-                                          : null;
+                                          : a?.word_passed
+                                            ? 100
+                                            : null;
+                                      const analysisPassed = !!a?.analysis_passed;
+                                      const hasAnalysisSignal = analysisPassed || a?.best_analysis_rate != null;
                                       const aScore =
                                         a?.best_analysis_rate != null
                                           ? Math.round(a.best_analysis_rate * 100)
@@ -1348,7 +1409,7 @@ const LearningResults = () => {
                                           </td>
                                           {/* 분석+해석 셀 */}
                                           <td className="px-3 py-2 whitespace-nowrap">
-                                            {aScore == null && !translationSet[stateKey] ? (
+                                            {!hasAnalysisSignal && !translationSet[stateKey] ? (
                                               <span className="text-xs text-muted-foreground">—</span>
                                             ) : (
                                               <div className="inline-flex items-center gap-1.5">
@@ -1362,20 +1423,22 @@ const LearningResults = () => {
                                                       onFocus={() => prefetchTranslation(userId, sid)}
                                                       className="inline-flex items-center gap-1 text-xs hover:underline"
                                                     >
-                                                      {aScore != null && (
+                                                      {hasAnalysisSignal && (
                                                         <>
                                                           <Badge
                                                             className={
-                                                              a?.analysis_passed
+                                                              analysisPassed
                                                                 ? "h-5 px-1.5 text-[10px] bg-primary text-primary-foreground"
                                                                 : "h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground"
                                                             }
                                                           >
-                                                            {a?.analysis_passed ? "P" : "F"}
+                                                            {analysisPassed ? "P" : "F"}
                                                           </Badge>
-                                                          <span className="text-muted-foreground tabular-nums">
-                                                            {aScore}%
-                                                          </span>
+                                                          {aScore != null && (
+                                                            <span className="text-muted-foreground tabular-nums">
+                                                              {aScore}%
+                                                            </span>
+                                                          )}
                                                         </>
                                                       )}
                                                       <span className="text-muted-foreground">·</span>

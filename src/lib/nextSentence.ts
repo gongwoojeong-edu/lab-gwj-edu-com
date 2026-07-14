@@ -226,6 +226,46 @@ const loadSentenceById = async (code: string): Promise<Sentence | null> => {
   return loadSentenceByCode(code);
 };
 
+const resolveFirstIncompleteInSameUnit = async (
+  currentSentenceId: string,
+  allAssignments: AssignNavRow[],
+  progressFlags: Map<string, StepFlags>,
+): Promise<Sentence | null> => {
+  const { data: currentPassage } = await supabase
+    .from("textbook_passages")
+    .select("unit_id")
+    .eq("code", currentSentenceId)
+    .maybeSingle();
+  const unitId = (currentPassage as { unit_id: string | null } | null)?.unit_id ?? null;
+  if (!unitId) return null;
+
+  const { data: unitPassages } = await supabase
+    .from("textbook_passages")
+    .select("code, passage_no")
+    .eq("unit_id", unitId)
+    .order("passage_no", { ascending: true });
+
+  const orderedCodes = ((unitPassages ?? []) as { code: string; passage_no: number | null }[])
+    .map((p) => p.code);
+  const assignmentByCode = new Map<string, AssignNavRow>();
+  allAssignments.forEach((a) => {
+    if (!a.sentence_id || !orderedCodes.includes(a.sentence_id)) return;
+    const prev = assignmentByCode.get(a.sentence_id);
+    if (!prev || a.created_at.localeCompare(prev.created_at) > 0) {
+      assignmentByCode.set(a.sentence_id, a);
+    }
+  });
+
+  for (const code of orderedCodes) {
+    const row = assignmentByCode.get(code);
+    if (!row) continue;
+    if (!assignmentSentenceDone(row, progressFlags.get(code))) {
+      return code === currentSentenceId ? null : loadSentenceById(code);
+    }
+  }
+  return null;
+};
+
 /**
  * 특별과제 시퀀스에서 현재보다 앞의 미완료 문장 (순서 이탈 진입 방지).
  * 없으면 null.
@@ -301,6 +341,14 @@ export const resolveEarlierIncompleteInAssignment = async (
       status: r.status ?? undefined,
     });
   });
+
+  // 같은 유닛 안에서는 URL/버튼으로 어느 문장에 들어가도 항상 가장 앞의 미완료로 복구한다.
+  const unitResume = await resolveFirstIncompleteInSameUnit(
+    currentSentenceId,
+    allAssignments,
+    progressFlags,
+  );
+  if (unitResume) return unitResume;
 
   const currentIdx = groupRows.findIndex((a) => a.sentence_id === currentSentenceId);
   if (currentIdx <= 0) return null;
