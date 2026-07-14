@@ -20,55 +20,76 @@ export interface NextSentenceResult {
 }
 
 /**
- * 학생 프로필의 시작 범위 지정(start_series_id/volume_id/unit_id)에 해당하는
- * passage code 목록을 DB에서 조회한다. 범위 미지정이면 null 반환(=레벨 전체).
+ * 학생 프로필의 학습 범위 → passage code 집합.
+ * - 시리즈만: 시리즈 전체
+ * - 권/교재: 그 권 전체
+ * - 시작 유닛: "그 유닛만"이 아니라 같은 권(교재)에서 해당 유닛부터 끝까지
+ * 범위 미지정 → null (= 레벨 전체)
  */
 const fetchScopedPassageCodes = async (
   profile: StudentProfile,
 ): Promise<Set<string> | null> => {
-  // 가장 좁은 지정부터 검사
+  let startUnitNo: number | null = null;
+  let startUnitTextbookId: string | null = null;
+
   if (profile.start_unit_id) {
-    const { data } = await supabase
-      .from("textbook_passages")
-      .select("code")
-      .eq("unit_id", profile.start_unit_id);
-    return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
-  }
-  if (profile.start_volume_id) {
-    // 권 → 유닛들 → 지문들
-    const { data: units } = await supabase
+    const { data: unit } = await supabase
       .from("textbook_units")
-      .select("id")
-      .eq("textbook_id", profile.start_volume_id);
-    const unitIds = ((units ?? []) as { id: string }[]).map((u) => u.id);
-    if (unitIds.length === 0) return new Set();
-    const { data } = await supabase
-      .from("textbook_passages")
-      .select("code")
-      .in("unit_id", unitIds);
-    return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
+      .select("id, textbook_id, unit_no")
+      .eq("id", profile.start_unit_id)
+      .maybeSingle();
+    if (unit) {
+      startUnitNo = (unit as { unit_no: number }).unit_no;
+      startUnitTextbookId = (unit as { textbook_id: string }).textbook_id;
+    }
   }
-  if (profile.start_series_id) {
-    // 시리즈 → 권들 → 유닛들 → 지문들
+
+  let textbookIds: string[] | null = null;
+
+  if (profile.start_volume_id) {
+    textbookIds = [profile.start_volume_id];
+  } else if (startUnitTextbookId) {
+    // 유닛만 지정된 경우 → 그 권(교재) 끝까지
+    textbookIds = [startUnitTextbookId];
+  } else if (profile.start_series_id) {
     const { data: vols } = await supabase
       .from("textbooks")
       .select("id")
       .eq("series_id", profile.start_series_id);
-    const volIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
-    if (volIds.length === 0) return new Set();
-    const { data: units } = await supabase
-      .from("textbook_units")
-      .select("id")
-      .in("textbook_id", volIds);
-    const unitIds = ((units ?? []) as { id: string }[]).map((u) => u.id);
-    if (unitIds.length === 0) return new Set();
-    const { data } = await supabase
-      .from("textbook_passages")
-      .select("code")
-      .in("unit_id", unitIds);
-    return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
+    textbookIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
+  } else {
+    return null;
   }
-  return null; // 범위 미지정 → 레벨 전체
+
+  if (!textbookIds.length) return new Set();
+
+  const { data: units } = await supabase
+    .from("textbook_units")
+    .select("id, textbook_id, unit_no")
+    .in("textbook_id", textbookIds);
+
+  let unitRows = (units ?? []) as {
+    id: string;
+    textbook_id: string;
+    unit_no: number;
+  }[];
+
+  // 시작 유닛이 있으면 같은 권에서 그 unit_no 이상만 (이전 유닛 제외, 이후는 연결 학습)
+  if (startUnitNo != null && startUnitTextbookId) {
+    unitRows = unitRows.filter(
+      (u) =>
+        u.textbook_id === startUnitTextbookId && u.unit_no >= startUnitNo!,
+    );
+  }
+
+  const unitIds = unitRows.map((u) => u.id);
+  if (unitIds.length === 0) return new Set();
+
+  const { data } = await supabase
+    .from("textbook_passages")
+    .select("code")
+    .in("unit_id", unitIds);
+  return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
 };
 
 export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
@@ -110,7 +131,7 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
     }
   }
 
-  let inLevel = SENTENCES.filter((s) => s.level === targetLevel).sort((a, b) => a.no - b.no);
+  let inLevel = SENTENCES.filter((s) => s.level === targetLevel);
   if (scopedCodes) {
     inLevel = inLevel.filter((s) => scopedCodes.has(s.id));
   }
@@ -119,6 +140,12 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   if (inLevel.length === 0) {
     return { sentence: null, profile, done: false, noContent: true };
   }
+
+  // passage_no는 유닛 안 번호라서, 유닛 순서(unit_no)까지 반영해 정렬
+  const orderMeta = await fetchPassageOrderMeta(inLevel.map((s) => s.id));
+  inLevel = inLevel
+    .slice()
+    .sort((a, b) => comparePassageOrder(a.id, b.id, orderMeta));
 
   const found = inLevel.find((s) => !passed.has(s.id));
   if (found) {
@@ -412,6 +439,7 @@ export const resolveNextAfterPass = async (
     .maybeSingle();
 
   if (curPassage?.unit_id) {
+    // 1) 같은 유닛 안 다음 지문
     const { data: unitPassages } = await supabase
       .from("textbook_passages")
       .select("code, passage_no")
@@ -437,8 +465,51 @@ export const resolveNextAfterPass = async (
       }
     }
 
-    if (profile?.start_unit_id === curPassage.unit_id) {
-      return { sentence: null, profile, done: true };
+    // 2) 같은 권(교재)에서 다음 유닛 지문 (시작 유닛 → 권 끝까지 연결)
+    const { data: curUnit } = await supabase
+      .from("textbook_units")
+      .select("id, textbook_id, unit_no")
+      .eq("id", curPassage.unit_id)
+      .maybeSingle();
+
+    if (curUnit) {
+      const tbId = (curUnit as { textbook_id: string }).textbook_id;
+      const curNo = (curUnit as { unit_no: number }).unit_no;
+      const scoped = profile ? await fetchScopedPassageCodes(profile) : null;
+      const { data: laterUnits } = await supabase
+        .from("textbook_units")
+        .select("id, unit_no")
+        .eq("textbook_id", tbId)
+        .gt("unit_no", curNo)
+        .order("unit_no", { ascending: true });
+
+      for (const u of (laterUnits ?? []) as { id: string }[]) {
+        const { data: laterPassages } = await supabase
+          .from("textbook_passages")
+          .select("code")
+          .eq("unit_id", u.id)
+          .order("passage_no", { ascending: true });
+        const laterCodes = ((laterPassages ?? []) as { code: string }[]).map(
+          (p) => p.code,
+        );
+        if (laterCodes.length === 0) continue;
+
+        const { data: laterPassed } = await supabase
+          .from("sentence_progress")
+          .select("sentence_id")
+          .eq("user_id", userId)
+          .in("status", ["pass", "fail"])
+          .in("sentence_id", laterCodes);
+        const laterPassedSet = new Set(
+          ((laterPassed ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id),
+        );
+        for (const code of laterCodes) {
+          if (laterPassedSet.has(code)) continue;
+          if (scoped && !scoped.has(code)) continue;
+          const sentence = await loadSentenceById(code);
+          if (sentence) return { sentence, profile, done: false };
+        }
+      }
     }
   }
 

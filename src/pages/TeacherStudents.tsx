@@ -56,7 +56,7 @@ interface Student {
   startSeriesId?: string | null;
   /** 시작 권 id. null이면 시리즈 전체 */
   startVolumeId?: string | null;
-  /** 시작 유닛 id. null이면 권 전체 */
+  /** 시작 유닛 id. null이면 권 전체. 지정 시 그 유닛부터 같은 권 끝까지 연결 학습 */
   startUnitId?: string | null;
   /** 표시용 라벨: "L08 · 고1 / EBS 수능특강 / Vol.1 / Unit 3" */
   scopeLabel?: string;
@@ -732,14 +732,17 @@ const TeacherStudents = () => {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all__">권 전체</SelectItem>
+                    <SelectItem value="__all__">권 전체 (1유닛부터)</SelectItem>
                     {unitList.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>Unit {u.unit_no} {u.title}</SelectItem>
+                      <SelectItem key={u.id} value={u.id}>
+                        Unit {u.unit_no} {u.title} ~ 권 끝
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  비워두면 상위 단계 전체가 학습 범위가 됩니다. 좁힐수록 학생은 그 범위의 지문만 학습합니다.
+                  시작 유닛을 고르면 그 유닛부터 같은 권(교재) 끝까지 순서대로 이어 학습합니다.
+                  비우면 선택한 권·시리즈 전체가 범위입니다.
                 </p>
               </div>
             </div>
