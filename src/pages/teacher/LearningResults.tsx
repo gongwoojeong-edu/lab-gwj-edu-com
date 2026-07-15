@@ -1180,13 +1180,6 @@ const LearningResults = () => {
                       {s?.display_name ?? "학생"}
                     </span>
                     <span className="text-xs font-mono text-muted-foreground">
-{/* @@insert-close@@ */}
-                  {/* 학생 헤더 */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-foreground">
-                      {s?.display_name ?? "학생"}
-                    </span>
-                    <span className="text-xs font-mono text-muted-foreground">
                       ({s?.student_no ?? "—"})
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">
