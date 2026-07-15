@@ -260,7 +260,7 @@ const StudentRoster = () => {
                             )}
                           </TableCell>
                         </TableRow>
-                      </>
+                      </FragmentRow>
                     );
                   })
                 )}
