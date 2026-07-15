@@ -20,6 +20,7 @@ interface Row extends SentenceApproval {
   student_no?: string | null;
   display_name?: string | null;
   english?: string | null;
+  korean?: string | null;
   translation?: string | null;
 }
 
