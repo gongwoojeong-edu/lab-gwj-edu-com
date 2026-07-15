@@ -70,7 +70,7 @@ export const createApprovalRequest = async (
   if (!userId) throw new Error("로그인이 필요합니다");
 
   const latest = await fetchLatestApproval(sentenceId, userId);
-  if (latest && latest.status === "pending") return latest;
+  if (latest && (latest.status === "pending" || latest.status === "held")) return latest;
 
   const nextAttempt = (latest?.attempt_no ?? 0) + 1;
   const { data, error } = await supabase
