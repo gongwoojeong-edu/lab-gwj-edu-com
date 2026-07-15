@@ -203,21 +203,20 @@ const StudentRoster = () => {
                     const showLevelDivider =
                       m.kind === "student" &&
                       (prev?.kind !== "student" ||
-                        (prev?.learningLevel ?? "") !== (m.learningLevel ?? ""));
-                    const levelText = m.learningLevel
-                      ? `${m.learningLevel}${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL] ? ` · ${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL]}` : ""}`
-                      : "레벨 미지정";
+                        (prev?.grade ?? "") !== (m.grade ?? ""));
+                    const gradeText = m.grade ?? "학년 미지정";
                     return (
                       <Fragment key={m.key}>
                         {showLevelDivider && (
                           <TableRow key={`div-${m.key}`} className="bg-muted/40 hover:bg-muted/40">
                             <TableCell colSpan={8} className="py-1.5">
                               <span className="text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-                                {levelText}
+                                {gradeText}
                               </span>
                             </TableCell>
                           </TableRow>
                         )}
+
                         <TableRow key={m.key}>
                           <TableCell>
                             {m.kind === "teacher" ? (
