@@ -31,6 +31,38 @@ const PendingApprovals = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [target, setTarget] = useState<Row | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (row: Row) => {
+    setEditingId(row.sentence_id);
+    setDraft(row.korean ?? "");
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraft("");
+  };
+  const saveEdit = async (sentenceId: string) => {
+    const val = draft.trim();
+    if (!val) {
+      toast({ title: "정답을 입력하세요", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await updatePassageKorean(sentenceId, val);
+      setRows((prev) =>
+        prev.map((r) => (r.sentence_id === sentenceId ? { ...r, korean: val } : r)),
+      );
+      toast({ title: "정답이 저장되었습니다" });
+      cancelEdit();
+    } catch (e: any) {
+      toast({ title: "저장 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
