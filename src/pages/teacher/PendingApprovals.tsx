@@ -15,6 +15,9 @@ import {
 } from "@/lib/sentenceApprovals";
 import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDialog";
 import { toast } from "@/hooks/use-toast";
+import { updatePassageKorean } from "@/lib/textbooks";
+import { Textarea } from "@/components/ui/textarea";
+import { Pencil, Save, X } from "lucide-react";
 
 interface Row extends SentenceApproval {
   student_no?: string | null;
