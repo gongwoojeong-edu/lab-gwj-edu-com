@@ -308,6 +308,7 @@ const PendingApprovals = () => {
             englishSentence={target.english ?? undefined}
             koreanAnswer={target.korean ?? undefined}
             studentTranslation={target.translation}
+            initialMemo={target.held_memo ?? undefined}
             skipPin
             onApproved={() => {
               setTarget(null);
