@@ -1158,10 +1158,29 @@ const LearningResults = () => {
           </Card>
         ) : (
           <div className="space-y-3">
-            {groupedEntries.map(([userId, sentenceIds]) => {
+            {groupedEntries.map(([userId, sentenceIds], idx) => {
               const s = students[userId];
+              const curLevel = s?.current_level ?? "미지정";
+              const prevLevel = idx > 0 ? (students[groupedEntries[idx - 1][0]]?.current_level ?? "미지정") : null;
+              const showDivider = prevLevel !== curLevel;
               return (
-                <Card key={userId} className="p-4 space-y-3">
+                <div key={userId}>
+                  {showDivider && (
+                    <div className="flex items-center gap-2 pt-2 pb-1">
+                      <span className="text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                        {curLevel}
+                      </span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                  )}
+                <Card className="p-4 space-y-3">
+                  {/* 학생 헤더 */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-foreground">
+                      {s?.display_name ?? "학생"}
+                    </span>
+                    <span className="text-xs font-mono text-muted-foreground">
+{/* @@insert-close@@ */}
                   {/* 학생 헤더 */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-foreground">
