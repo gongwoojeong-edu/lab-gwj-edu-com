@@ -1275,6 +1275,8 @@ const SentenceLearn = () => {
           <ApprovalWaitingPanel
             englishSentence={sentence.english}
             studentTranslation={submittedTranslation || null}
+            status={pendingApproval.status === "held" ? "held" : "pending"}
+            heldMemo={pendingApproval.held_memo ?? null}
           />
         )}
 
