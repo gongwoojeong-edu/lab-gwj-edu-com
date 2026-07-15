@@ -102,15 +102,29 @@ export async function fetchMemberRoster(): Promise<RosterMember[]> {
     }
   }
 
+  const gradeOrder = (g: string | null): number => {
+    if (!g) return 9999;
+    const s = g.trim();
+    const map: Record<string, number> = {
+      "초1": 1, "초2": 2, "초3": 3, "초4": 4, "초5": 5, "초6": 6,
+      "중1": 7, "중2": 8, "중3": 9,
+      "고1": 10, "고2": 11, "고3": 12,
+    };
+    if (map[s] != null) return map[s];
+    const m = s.match(/(초|중|고)\s*(\d)/);
+    if (m) return ({ 초: 0, 중: 6, 고: 9 } as any)[m[1]] + Number(m[2]);
+    return 9998;
+  };
   members.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "teacher" ? -1 : 1;
     if (a.kind === "student") {
-      const la = a.learningLevel ?? "\uffff";
-      const lb = b.learningLevel ?? "\uffff";
-      if (la !== lb) return la.localeCompare(lb, "ko", { numeric: true, sensitivity: "base" });
+      const ga = gradeOrder(a.grade);
+      const gb = gradeOrder(b.grade);
+      if (ga !== gb) return ga - gb;
     }
     return a.name.localeCompare(b.name, "ko");
   });
+
 
 
   return members;
