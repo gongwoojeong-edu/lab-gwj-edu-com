@@ -647,15 +647,21 @@ const LearningResults = () => {
   const groupedEntries = useMemo(
     () =>
       Object.entries(studentSentences).sort(([a], [b]) => {
-        const ta = studentLastActivity[a] ? new Date(studentLastActivity[a]).getTime() : 0;
-        const tb = studentLastActivity[b] ? new Date(studentLastActivity[b]).getTime() : 0;
-        if (tb !== ta) return tb - ta; // 최근 활동한 학생이 위
-        // tie-breaker: 학번 오름차순
+        // 1) 학년(current_level) 오름차순
+        const la = students[a]?.current_level ?? "\uffff";
+        const lb = students[b]?.current_level ?? "\uffff";
+        if (la !== lb) return la.localeCompare(lb, "ko", { numeric: true, sensitivity: "base" });
+        // 2) 이름 가나다순
+        const na = students[a]?.display_name ?? "";
+        const nb = students[b]?.display_name ?? "";
+        const c = na.localeCompare(nb, "ko", { sensitivity: "base" });
+        if (c !== 0) return c;
+        // 3) tie-breaker: 학번
         const sa = students[a]?.student_no ?? "";
         const sb = students[b]?.student_no ?? "";
         return sa.localeCompare(sb);
       }),
-    [studentSentences, studentLastActivity, students],
+    [studentSentences, students],
   );
 
   // ===== 액션 =====
