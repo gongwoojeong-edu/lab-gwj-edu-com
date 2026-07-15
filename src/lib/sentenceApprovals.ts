@@ -6,7 +6,7 @@ import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 
 export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo";
-export type ApprovalStatus = "pending" | "approved";
+export type ApprovalStatus = "pending" | "approved" | "held";
 
 export const GRADE_LABEL: Record<ApprovalGrade, string> = {
   excellent: "매우잘함",
