@@ -84,7 +84,7 @@ export const TeacherApprovalDialog = ({
     return () => {
       mounted = false;
     };
-  }, [open, skipPin]);
+  }, [open, skipPin, initialMemo]);
 
   const submit = async () => {
     if (saving) return;
