@@ -181,6 +181,7 @@ const PendingApprovals = () => {
             sentenceId={target.sentence_id}
             studentUserId={target.user_id}
             englishSentence={target.english ?? undefined}
+            koreanAnswer={target.korean ?? undefined}
             studentTranslation={target.translation}
             skipPin
             onApproved={() => {
