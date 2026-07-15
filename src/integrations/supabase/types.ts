@@ -672,6 +672,9 @@ export type Database = {
           attempt_no: number
           created_at: string
           grade: string | null
+          held_at: string | null
+          held_by: string | null
+          held_memo: string | null
           id: string
           memo: string | null
           requested_at: string
@@ -686,6 +689,9 @@ export type Database = {
           attempt_no?: number
           created_at?: string
           grade?: string | null
+          held_at?: string | null
+          held_by?: string | null
+          held_memo?: string | null
           id?: string
           memo?: string | null
           requested_at?: string
@@ -700,6 +706,9 @@ export type Database = {
           attempt_no?: number
           created_at?: string
           grade?: string | null
+          held_at?: string | null
+          held_by?: string | null
+          held_memo?: string | null
           id?: string
           memo?: string | null
           requested_at?: string
