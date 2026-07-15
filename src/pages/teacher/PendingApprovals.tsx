@@ -61,7 +61,7 @@ const PendingApprovals = () => {
         (profiles ?? []).map((p: any) => [p.user_id, p]),
       );
       const sMap = new Map(
-        (passages ?? []).map((p: any) => [p.code, p.english as string]),
+        (passages ?? []).map((p: any) => [p.code, p]),
       );
       const tMap = new Map(
         (translations ?? []).map((t: any) => [`${t.user_id}::${t.sentence_id}`, t.text as string]),
@@ -71,7 +71,8 @@ const PendingApprovals = () => {
         ...r,
         student_no: pMap.get(r.user_id)?.student_no ?? null,
         display_name: pMap.get(r.user_id)?.display_name ?? null,
-        english: sMap.get(r.sentence_id) ?? null,
+        english: (sMap.get(r.sentence_id) as any)?.english ?? null,
+        korean: (sMap.get(r.sentence_id) as any)?.korean ?? null,
         translation: tMap.get(`${r.user_id}::${r.sentence_id}`) ?? null,
       }));
       setRows(merged);
