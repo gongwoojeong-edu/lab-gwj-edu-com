@@ -20,6 +20,7 @@ interface Row extends SentenceApproval {
   student_no?: string | null;
   display_name?: string | null;
   english?: string | null;
+  korean?: string | null;
   translation?: string | null;
 }
 
@@ -47,7 +48,7 @@ const PendingApprovals = () => {
             .in("user_id", userIds),
           supabase
             .from("textbook_passages")
-            .select("code, english")
+            .select("code, english, korean")
             .in("code", sentenceIds),
           supabase
             .from("sentence_translations")
@@ -60,7 +61,7 @@ const PendingApprovals = () => {
         (profiles ?? []).map((p: any) => [p.user_id, p]),
       );
       const sMap = new Map(
-        (passages ?? []).map((p: any) => [p.code, p.english as string]),
+        (passages ?? []).map((p: any) => [p.code, p]),
       );
       const tMap = new Map(
         (translations ?? []).map((t: any) => [`${t.user_id}::${t.sentence_id}`, t.text as string]),
@@ -70,7 +71,8 @@ const PendingApprovals = () => {
         ...r,
         student_no: pMap.get(r.user_id)?.student_no ?? null,
         display_name: pMap.get(r.user_id)?.display_name ?? null,
-        english: sMap.get(r.sentence_id) ?? null,
+        english: (sMap.get(r.sentence_id) as any)?.english ?? null,
+        korean: (sMap.get(r.sentence_id) as any)?.korean ?? null,
         translation: tMap.get(`${r.user_id}::${r.sentence_id}`) ?? null,
       }));
       setRows(merged);
@@ -149,10 +151,16 @@ const PendingApprovals = () => {
                 </Button>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
+              <div className="grid md:grid-cols-3 gap-3 text-sm">
                 <div className="border rounded-md p-3 bg-muted/30">
                   <div className="text-[11px] text-muted-foreground mb-1">원문</div>
                   <div className="leading-snug">{row.english ?? "(원문을 불러올 수 없음)"}</div>
+                </div>
+                <div className="border rounded-md p-3 bg-primary/5 border-primary/30">
+                  <div className="text-[11px] text-primary mb-1 font-semibold">한글해석 정답</div>
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {row.korean ?? "(등록된 정답 없음)"}
+                  </div>
                 </div>
                 <div className="border rounded-md p-3 bg-card">
                   <div className="text-[11px] text-muted-foreground mb-1">학생 한글해석</div>
@@ -173,6 +181,7 @@ const PendingApprovals = () => {
             sentenceId={target.sentence_id}
             studentUserId={target.user_id}
             englishSentence={target.english ?? undefined}
+            koreanAnswer={target.korean ?? undefined}
             studentTranslation={target.translation}
             skipPin
             onApproved={() => {
