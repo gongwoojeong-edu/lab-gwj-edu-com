@@ -208,7 +208,7 @@ const StudentRoster = () => {
                       ? `${m.learningLevel}${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL] ? ` · ${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL]}` : ""}`
                       : "레벨 미지정";
                     return (
-                      <FragmentRow key={m.key}>
+                      <Fragment key={m.key}>
                         {showLevelDivider && (
                           <TableRow key={`div-${m.key}`} className="bg-muted/40 hover:bg-muted/40">
                             <TableCell colSpan={8} className="py-1.5">
@@ -260,7 +260,7 @@ const StudentRoster = () => {
                             )}
                           </TableCell>
                         </TableRow>
-                      </FragmentRow>
+                      </Fragment>
                     );
                   })
                 )}
