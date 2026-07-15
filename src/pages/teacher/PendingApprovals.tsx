@@ -36,6 +36,9 @@ const PendingApprovals = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<ApprovalStatus>("pending");
+  const [heldCount, setHeldCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const startEdit = (row: Row) => {
     setEditingId(row.sentence_id);
@@ -69,13 +72,24 @@ const PendingApprovals = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await fetchPendingApprovals();
+      const [list, otherList] = await Promise.all([
+        fetchApprovalsByStatus(tab),
+        fetchApprovalsByStatus(tab === "pending" ? "held" : "pending"),
+      ]);
+      // update counters
+      if (tab === "pending") {
+        setPendingCount(list.length);
+        setHeldCount(otherList.length);
+      } else {
+        setHeldCount(list.length);
+        setPendingCount(otherList.length);
+      }
       if (list.length === 0) {
         setRows([]);
         return;
       }
-      const userIds = Array.from(new Set(list.map((r) => r.user_id)));
-      const sentenceIds = Array.from(new Set(list.map((r) => r.sentence_id)));
+      const userIds: string[] = Array.from(new Set(list.map((r) => r.user_id)));
+      const sentenceIds: string[] = Array.from(new Set(list.map((r) => r.sentence_id)));
 
       const [{ data: profiles }, { data: passages }, { data: translations }] =
         await Promise.all([
@@ -122,7 +136,7 @@ const PendingApprovals = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tab]);
 
   useEffect(() => {
     load();
@@ -130,7 +144,10 @@ const PendingApprovals = () => {
     return () => unsub();
   }, [load]);
 
-  const countLabel = useMemo(() => `${rows.length}건 대기`, [rows.length]);
+  const countLabel = useMemo(
+    () => `${rows.length}건 ${tab === "held" ? "보류" : "대기"}`,
+    [rows.length, tab],
+  );
 
   return (
     <TeacherLayout>
