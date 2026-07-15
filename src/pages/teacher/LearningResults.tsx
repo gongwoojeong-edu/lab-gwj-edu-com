@@ -646,23 +646,26 @@ const LearningResults = () => {
 
   const groupedEntries = useMemo(
     () =>
-      Object.entries(studentSentences).sort(([a], [b]) => {
-        // 1) 학년(current_level) 오름차순
-        const la = students[a]?.current_level ?? "\uffff";
-        const lb = students[b]?.current_level ?? "\uffff";
-        if (la !== lb) return la.localeCompare(lb, "ko", { numeric: true, sensitivity: "base" });
-        // 2) 이름 가나다순
+      Object.entries(studentSentences).sort(([a, sa], [b, sb]) => {
+        // 최신순: 학생별 최근 제출일시 desc
+        const latest = (uid: string, sids: string[]) => {
+          let mx = "";
+          for (const sid of sids) {
+            const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
+            if (t > mx) mx = t;
+          }
+          return mx;
+        };
+        const ta = latest(a, sa);
+        const tb = latest(b, sb);
+        if (ta !== tb) return tb.localeCompare(ta);
         const na = students[a]?.display_name ?? "";
         const nb = students[b]?.display_name ?? "";
-        const c = na.localeCompare(nb, "ko", { sensitivity: "base" });
-        if (c !== 0) return c;
-        // 3) tie-breaker: 학번
-        const sa = students[a]?.student_no ?? "";
-        const sb = students[b]?.student_no ?? "";
-        return sa.localeCompare(sb);
+        return na.localeCompare(nb, "ko", { sensitivity: "base" });
       }),
-    [studentSentences, students],
+    [studentSentences, students, pairSubmitAt],
   );
+
 
   // ===== 액션 =====
   const handleOpenPdf = (userId: string, sentenceId: string) => {
@@ -1158,22 +1161,12 @@ const LearningResults = () => {
           </Card>
         ) : (
           <div className="space-y-3">
-            {groupedEntries.map(([userId, sentenceIds], idx) => {
+            {groupedEntries.map(([userId, sentenceIds]) => {
               const s = students[userId];
-              const curLevel = s?.current_level ?? "미지정";
-              const prevLevel = idx > 0 ? (students[groupedEntries[idx - 1][0]]?.current_level ?? "미지정") : null;
-              const showDivider = prevLevel !== curLevel;
               return (
                 <div key={userId}>
-                  {showDivider && (
-                    <div className="flex items-center gap-2 pt-2 pb-1">
-                      <span className="text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-                        {curLevel}
-                      </span>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-                  )}
                 <Card className="p-4 space-y-3">
+
                   {/* 학생 헤더 */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-foreground">

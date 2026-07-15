@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, RefreshCw, Search, Settings2 } from "lucide-react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
@@ -198,51 +198,73 @@ const StudentRoster = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((m) => (
-                    <TableRow key={m.key}>
-                      <TableCell>
-                        {m.kind === "teacher" ? (
-                          <Badge variant="secondary">👩‍🏫 선생님</Badge>
-                        ) : (
-                          <Badge variant="outline">🎓 학생</Badge>
+                  filtered.map((m, idx) => {
+                    const prev = idx > 0 ? filtered[idx - 1] : null;
+                    const showLevelDivider =
+                      m.kind === "student" &&
+                      (prev?.kind !== "student" ||
+                        (prev?.learningLevel ?? "") !== (m.learningLevel ?? ""));
+                    const levelText = m.learningLevel
+                      ? `${m.learningLevel}${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL] ? ` · ${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL]}` : ""}`
+                      : "레벨 미지정";
+                    return (
+                      <Fragment key={m.key}>
+                        {showLevelDivider && (
+                          <TableRow key={`div-${m.key}`} className="bg-muted/40 hover:bg-muted/40">
+                            <TableCell colSpan={8} className="py-1.5">
+                              <span className="text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                                {levelText}
+                              </span>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {m.name}
-                        {m.kind === "teacher" && m.teacherRank != null && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {rankLabel(m.teacherRank)}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        <span className="text-muted-foreground">{m.kind === "teacher" ? "gwjt" : "gwj"}</span>
-                        {m.loginId}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{m.campus ?? "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
-                        {m.englishClass ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">{m.grade ?? "—"}</TableCell>
-                      <TableCell className="text-sm">
-                        {m.learningLevel
-                          ? `${m.learningLevel}${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL] ? ` · ${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL]}` : ""}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {m.authUserId ? (
-                          <Badge variant="secondary" className="text-[10px]">
-                            연동됨
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-[10px]">
-                            미연동
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        <TableRow key={m.key}>
+                          <TableCell>
+                            {m.kind === "teacher" ? (
+                              <Badge variant="secondary">👩‍🏫 선생님</Badge>
+                            ) : (
+                              <Badge variant="outline">🎓 학생</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {m.name}
+                            {m.kind === "teacher" && m.teacherRank != null && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                {rankLabel(m.teacherRank)}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            <span className="text-muted-foreground">{m.kind === "teacher" ? "gwjt" : "gwj"}</span>
+                            {m.loginId}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{m.campus ?? "—"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
+                            {m.englishClass ?? "—"}
+                          </TableCell>
+                          <TableCell className="text-sm">{m.grade ?? "—"}</TableCell>
+                          <TableCell className="text-sm">
+                            {m.learningLevel
+                              ? `${m.learningLevel}${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL] ? ` · ${LEVEL_LABEL[m.learningLevel as keyof typeof LEVEL_LABEL]}` : ""}`
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {m.authUserId ? (
+                              <Badge variant="secondary" className="text-[10px]">
+                                연동됨
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="text-[10px]">
+                                미연동
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      </Fragment>
+                    );
+                  })
                 )}
+
               </TableBody>
             </Table>
           )}
