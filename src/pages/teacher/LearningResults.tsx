@@ -99,6 +99,8 @@ const LearningResults = () => {
   const [studentSentences, setStudentSentences] = useState<Record<string, string[]>>({});
   // userId → 학생의 마지막 활동 ISO timestamp (학생 카드 정렬용)
   const [studentLastActivity, setStudentLastActivity] = useState<Record<string, string>>({});
+  // (userId::sentenceId) → 마지막 제출 ISO timestamp (셀에 제출시각 표시용)
+  const [pairSubmitAt, setPairSubmitAt] = useState<Record<string, string>>({});
   // sentence_id → unit_id 매핑 (그룹핑용)
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
   // unit_id → 라벨 ("[Lxx] 교재 · Uxx 유닛")
