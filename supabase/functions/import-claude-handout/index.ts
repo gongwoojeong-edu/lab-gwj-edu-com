@@ -399,8 +399,10 @@ Deno.serve(async (req) => {
     codeRoot = `${baseCode}-alt${i}`;
   }
 
-  const koreanParts = [p.title_ko, p.topic_ko].filter(Boolean).join(" / ") || null;
-
+  // ⚠️ 지문 제목/주제(title_ko, topic_ko)를 문장 단위 korean 컬럼에 넣지 않는다.
+  //   과거에는 첫 문장 korean에 "title / topic"을 저장했으나,
+  //   그 값이 "한글해석 정답"으로 노출되어 실제 문장 해석과 무관한 문구가 학생/선생님 화면에 표시되는 문제가 있었다.
+  //   문장 단위 한글해석 정답은 반드시 선생님이 문장별로 직접 입력한다.
   // Build N rows. Single-sentence: code = codeRoot. Multi-sentence: codeRoot-1, -2, ...
   const isMulti = sentences.length > 1;
   const rows = sentences.map((sent, i) => ({
@@ -409,7 +411,7 @@ Deno.serve(async (req) => {
     passage_no: startNo + i,
     code: isMulti ? `${codeRoot}-${i + 1}` : codeRoot,
     english: sent,
-    korean: i === 0 ? koreanParts : null,
+    korean: null,
     analysis_status: "draft", // 🆕 v4: 분석기 전송본은 draft 상태 — 선생님이 마스터키 입력 후 학생 공개 버튼으로 ready 전환
   }));
 
