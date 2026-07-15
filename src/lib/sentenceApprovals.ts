@@ -39,6 +39,9 @@ export interface SentenceApproval {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  held_at?: string | null;
+  held_by?: string | null;
+  held_memo?: string | null;
 }
 
 /** 본 학생의 해당 문장 최신 행 (status 무관) */
