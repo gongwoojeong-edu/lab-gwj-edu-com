@@ -16,11 +16,13 @@ import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
 import {
   approveSentenceRequest,
+  holdApprovalRequest,
   GRADE_LABEL,
   GRADE_BADGE_CLASS,
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
+import { PauseCircle } from "lucide-react";
 
 interface Props {
   approvalId: string;
@@ -34,6 +36,8 @@ interface Props {
   studentUserId?: string;
   /** true 면 PIN 입력을 생략 (선생님 로그인 상태에서 사용) */
   skipPin?: boolean;
+  /** 재오픈 시 초기 메모값 (예: 이전 보류 메모) */
+  initialMemo?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApproved: (grade: ApprovalGrade) => void;
@@ -53,6 +57,7 @@ export const TeacherApprovalDialog = ({
   koreanAnswer,
   studentUserId,
   skipPin = false,
+  initialMemo,
   open,
   onOpenChange,
   onApproved,
@@ -67,7 +72,7 @@ export const TeacherApprovalDialog = ({
     if (!open) return;
     setPin("");
     setGrade(null);
-    setMemo("");
+    setMemo(initialMemo ?? "");
     if (skipPin) {
       setStoredPin("__skip__");
       return;
@@ -79,7 +84,7 @@ export const TeacherApprovalDialog = ({
     return () => {
       mounted = false;
     };
-  }, [open, skipPin]);
+  }, [open, skipPin, initialMemo]);
 
   const submit = async () => {
     if (saving) return;
@@ -127,6 +132,29 @@ export const TeacherApprovalDialog = ({
         description: e?.message ?? String(e),
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hold = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await holdApprovalRequest({
+        approvalId,
+        studentUserId,
+        sentenceId,
+        memo,
+      });
+      toast({
+        title: "보류 처리했어요",
+        description: "이 문장은 '보류' 탭에 남습니다. 나중에 자세히 첨삭 후 최종 승인하세요.",
+      });
+      onOpenChange(false);
+      onApproved("fair"); // trigger list refresh in parent; grade unused since target closes
+    } catch (e: any) {
+      toast({ title: "보류 저장 실패", description: e?.message ?? String(e), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -222,17 +250,27 @@ export const TeacherApprovalDialog = ({
           />
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            취소
-          </Button>
+        <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              취소
+            </Button>
+            <Button
+              variant="outline"
+              className="border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+              onClick={hold}
+              disabled={saving}
+              title="지금 판정하지 않고 나중에 자세히 첨삭"
+            >
+              <PauseCircle className="w-4 h-4 mr-1" /> 보류 (나중에 첨삭)
+            </Button>
+          </div>
           <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
             {saving
               ? "저장 중..."
               : grade === "redo"
                 ? "추가학습 요청 보내기"
                 : "승인하고 다음 문장으로"}
-
           </Button>
         </DialogFooter>
       </DialogContent>

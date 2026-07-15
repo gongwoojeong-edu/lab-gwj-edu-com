@@ -6,7 +6,7 @@ import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 
 export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo";
-export type ApprovalStatus = "pending" | "approved";
+export type ApprovalStatus = "pending" | "approved" | "held";
 
 export const GRADE_LABEL: Record<ApprovalGrade, string> = {
   excellent: "매우잘함",
@@ -39,6 +39,9 @@ export interface SentenceApproval {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  held_at?: string | null;
+  held_by?: string | null;
+  held_memo?: string | null;
 }
 
 /** 본 학생의 해당 문장 최신 행 (status 무관) */
@@ -67,7 +70,7 @@ export const createApprovalRequest = async (
   if (!userId) throw new Error("로그인이 필요합니다");
 
   const latest = await fetchLatestApproval(sentenceId, userId);
-  if (latest && latest.status === "pending") return latest;
+  if (latest && (latest.status === "pending" || latest.status === "held")) return latest;
 
   const nextAttempt = (latest?.attempt_no ?? 0) + 1;
   const { data, error } = await supabase
@@ -219,15 +222,61 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
 }
 
 
-/** 선생님 대시보드: pending 상태 전체 목록 */
-export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
+/** 선생님 대시보드: 특정 상태 승인 목록 (기본 pending) */
+export const fetchApprovalsByStatus = async (
+  status: ApprovalStatus = "pending",
+): Promise<SentenceApproval[]> => {
   const { data, error } = await supabase
     .from("sentence_approvals")
     .select("*")
-    .eq("status", "pending")
-    .order("requested_at", { ascending: false });
+    .eq("status", status)
+    .order(status === "held" ? "held_at" : "requested_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as SentenceApproval[];
+};
+
+/** 선생님 대시보드: pending 상태 전체 목록 (호환용) */
+export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
+  return fetchApprovalsByStatus("pending");
+};
+
+/** 선생님: 승인을 "보류" 상태로 넘김. 상세 첨삭은 나중에 진행.
+ *  sentence_progress 는 손대지 않아 학생 잠금이 유지된다. */
+export const holdApprovalRequest = async (input: {
+  approvalId: string;
+  studentUserId?: string;
+  sentenceId?: string;
+  memo?: string;
+}): Promise<void> => {
+  const approverId = await getCurrentUserId();
+  const nowIso = new Date().toISOString();
+  const memoTrimmed = input.memo?.trim() || null;
+
+  const { error } = await supabase
+    .from("sentence_approvals")
+    .update({
+      status: "held",
+      held_at: nowIso,
+      held_by: approverId,
+      held_memo: memoTrimmed,
+    } as never)
+    .eq("id", input.approvalId);
+  if (error) throw error;
+
+  if (input.studentUserId) {
+    try {
+      await createNotification({
+        userId: input.studentUserId,
+        kind: "evaluation",
+        title: "선생님이 자세한 첨삭을 준비 중이에요",
+        body: memoTrimmed ?? "잠시 후 상세한 피드백이 도착합니다.",
+        sentenceId: input.sentenceId,
+        approvalId: input.approvalId,
+      });
+    } catch (e) {
+      console.warn("[sentenceApprovals] hold notification insert failed", e);
+    }
+  }
 };
 
 /** 선생님 대시보드 실시간 구독: 모든 변동 시 콜백 */

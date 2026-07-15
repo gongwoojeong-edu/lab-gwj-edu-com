@@ -6,18 +6,20 @@ import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Inbox, RefreshCw } from "lucide-react";
+import { ShieldCheck, Inbox, RefreshCw, PauseCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  fetchPendingApprovals,
+  fetchApprovalsByStatus,
   subscribeAllApprovals,
   type SentenceApproval,
+  type ApprovalStatus,
 } from "@/lib/sentenceApprovals";
 import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDialog";
 import { toast } from "@/hooks/use-toast";
 import { updatePassageKorean } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Save, X } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Row extends SentenceApproval {
   student_no?: string | null;
@@ -34,6 +36,9 @@ const PendingApprovals = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<ApprovalStatus>("pending");
+  const [heldCount, setHeldCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const startEdit = (row: Row) => {
     setEditingId(row.sentence_id);
@@ -67,13 +72,24 @@ const PendingApprovals = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await fetchPendingApprovals();
+      const [list, otherList] = await Promise.all([
+        fetchApprovalsByStatus(tab),
+        fetchApprovalsByStatus(tab === "pending" ? "held" : "pending"),
+      ]);
+      // update counters
+      if (tab === "pending") {
+        setPendingCount(list.length);
+        setHeldCount(otherList.length);
+      } else {
+        setHeldCount(list.length);
+        setPendingCount(otherList.length);
+      }
       if (list.length === 0) {
         setRows([]);
         return;
       }
-      const userIds = Array.from(new Set(list.map((r) => r.user_id)));
-      const sentenceIds = Array.from(new Set(list.map((r) => r.sentence_id)));
+      const userIds: string[] = Array.from(new Set(list.map((r) => r.user_id)));
+      const sentenceIds: string[] = Array.from(new Set(list.map((r) => r.sentence_id)));
 
       const [{ data: profiles }, { data: passages }, { data: translations }] =
         await Promise.all([
@@ -120,7 +136,7 @@ const PendingApprovals = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tab]);
 
   useEffect(() => {
     load();
@@ -128,7 +144,10 @@ const PendingApprovals = () => {
     return () => unsub();
   }, [load]);
 
-  const countLabel = useMemo(() => `${rows.length}건 대기`, [rows.length]);
+  const countLabel = useMemo(
+    () => `${rows.length}건 ${tab === "held" ? "보류" : "대기"}`,
+    [rows.length, tab],
+  );
 
   return (
     <TeacherLayout>
@@ -145,9 +164,23 @@ const PendingApprovals = () => {
           </Button>
         </div>
 
+        <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus)}>
+          <TabsList>
+            <TabsTrigger value="pending" className="gap-2">
+              대기
+              <Badge variant="secondary" className="h-5 px-1.5">{pendingCount}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="held" className="gap-2">
+              <PauseCircle className="w-3.5 h-3.5" /> 보류
+              <Badge variant="secondary" className="h-5 px-1.5">{heldCount}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         <p className="text-sm text-muted-foreground">
-          학생이 제출한 한글해석을 확인하고 <b>매우잘함/잘함/보통/미흡/재학습</b> 중 하나로 평가하세요.
-          승인 즉시 학생 화면이 자동으로 다음 단계로 진행됩니다.
+          {tab === "held"
+            ? "지금 판정하지 않고 보류해둔 문장입니다. 카드의 [승인하기]를 눌러 상세한 첨삭 메모와 함께 최종 평가를 남기세요."
+            : (<>학생이 제출한 한글해석을 확인하고 <b>매우잘함/잘함/보통/미흡/재학습</b> 중 하나로 평가하거나, 지금 판정하기 어렵다면 <b>보류</b>로 넘겨두세요.</>)}
         </p>
 
         {loading && rows.length === 0 && (
@@ -157,8 +190,14 @@ const PendingApprovals = () => {
         {!loading && rows.length === 0 && (
           <Card className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
             <Inbox className="w-8 h-8" />
-            <div className="font-semibold">대기 중인 승인 요청이 없어요</div>
-            <div className="text-xs">학생이 한글해석을 제출하면 이곳에 표시됩니다.</div>
+            <div className="font-semibold">
+              {tab === "held" ? "보류된 문장이 없어요" : "대기 중인 승인 요청이 없어요"}
+            </div>
+            <div className="text-xs">
+              {tab === "held"
+                ? "승인 팝업에서 [보류] 버튼을 누르면 이곳에 모입니다."
+                : "학생이 한글해석을 제출하면 이곳에 표시됩니다."}
+            </div>
           </Card>
         )}
 
@@ -180,11 +219,25 @@ const PendingApprovals = () => {
                       {row.attempt_no}회차
                     </Badge>
                   )}
+                  {row.status === "held" && (
+                    <Badge className="bg-amber-500 text-white border-amber-600 text-[10px]">
+                      <PauseCircle className="w-3 h-3 mr-0.5" />보류중
+                      {row.held_at && (
+                        <span className="ml-1 opacity-90">· {new Date(row.held_at).toLocaleString("ko-KR")}</span>
+                      )}
+                    </Badge>
+                  )}
                 </div>
                 <Button size="sm" onClick={() => setTarget(row)}>
-                  <ShieldCheck className="w-4 h-4 mr-1" /> 승인하기
+                  <ShieldCheck className="w-4 h-4 mr-1" /> {row.status === "held" ? "첨삭·최종승인" : "승인하기"}
                 </Button>
               </div>
+
+              {row.status === "held" && row.held_memo && (
+                <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
+                  <span className="font-semibold">임시 메모: </span>{row.held_memo}
+                </div>
+              )}
 
               <div className="grid md:grid-cols-3 gap-3 text-sm">
                 <div className="border rounded-md p-3 bg-muted/30">
@@ -255,6 +308,7 @@ const PendingApprovals = () => {
             englishSentence={target.english ?? undefined}
             koreanAnswer={target.korean ?? undefined}
             studentTranslation={target.translation}
+            initialMemo={target.held_memo ?? undefined}
             skipPin
             onApproved={() => {
               setTarget(null);
