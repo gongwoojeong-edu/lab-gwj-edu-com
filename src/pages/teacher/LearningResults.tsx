@@ -74,6 +74,7 @@ interface StudentInfo {
   user_id: string;
   display_name: string | null;
   student_no: string;
+  current_level: string | null;
 }
 interface AttemptStat {
   best_word_score: number | null;
