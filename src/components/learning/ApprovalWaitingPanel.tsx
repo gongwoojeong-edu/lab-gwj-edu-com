@@ -1,10 +1,13 @@
-import { Hourglass } from "lucide-react";
+import { Hourglass, PenLine } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 
 interface Props {
   englishSentence?: string | null;
   studentTranslation?: string | null;
+  /** 'held' 이면 상세 첨삭 준비중 안내로 표시 */
+  status?: "pending" | "held";
+  heldMemo?: string | null;
 }
 
 /**
@@ -12,7 +15,8 @@ interface Props {
  * 승인은 선생님 화면(/teacher/approvals)에서 진행되며,
  * 승인 즉시 실시간 구독을 통해 학생 화면이 자동으로 다음 단계로 넘어간다.
  */
-export const ApprovalWaitingPanel = ({ englishSentence, studentTranslation }: Props) => {
+export const ApprovalWaitingPanel = ({ englishSentence, studentTranslation, status = "pending", heldMemo }: Props) => {
+  const isHeld = status === "held";
   const safeEnglish = englishSentence
     ? stripKoreanFromEnglishSource(englishSentence)
     : null;
