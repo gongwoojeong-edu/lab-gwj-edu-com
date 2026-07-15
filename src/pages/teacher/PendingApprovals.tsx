@@ -6,18 +6,20 @@ import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Inbox, RefreshCw } from "lucide-react";
+import { ShieldCheck, Inbox, RefreshCw, PauseCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  fetchPendingApprovals,
+  fetchApprovalsByStatus,
   subscribeAllApprovals,
   type SentenceApproval,
+  type ApprovalStatus,
 } from "@/lib/sentenceApprovals";
 import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDialog";
 import { toast } from "@/hooks/use-toast";
 import { updatePassageKorean } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Save, X } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Row extends SentenceApproval {
   student_no?: string | null;
