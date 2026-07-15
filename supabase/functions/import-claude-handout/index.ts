@@ -36,23 +36,14 @@ function safeSlug(s: string): string {
     .slice(0, 60);
 }
 
-// 🔧 v4: 공우정에듀 분석기에서 보내는 ➊~➓ / ①~⑳ 원형 숫자 기호로 분할
-//        + 한국어 해석 영역 자동 제거 + 헤더 라인 제거 + analysis_status는 draft (마스터키 입력 후 ready)
+// 🔧 v5: 결정적 문장 분리 — AI 재작성 없이 .!? / 줄바꿈 기준.
+//        날짜·제목 줄(종결부호 없음)도 줄바꿈으로 보존. 못 나누면 통째로 반환.
 function splitIntoSentences(text: string): string[] {
-  const norm = (text || "").trim();
-  if (!norm) return [];
+  const raw = (text || "").replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
 
-  // [Step 1] 한국어 해석 영역 분리
-  // 분석기가 보내는 passage 구조:
-  //   "➊ English sentence 1...
-  //    ➋ English sentence 2...
-  //    ...
-  //    *thermal insulation: 단열   ← (어휘 주석)
-  //    02강 Exercise 02            ← (출처)
-  //    ➊ 한국어 해석 1...           ← (한국어 영역 시작)
-  //    ➋ 한국어 해석 2..."
-  // 줄 단위로 보면서, 한글 비율이 30%를 넘는 첫 줄부터 끝까지 한국어 영역으로 간주하고 잘라냄
-  const lines = norm.split(/\r?\n/);
+  // [Step 1] 한국어 해석 영역 분리 (줄 단위, 한글 비율 > 30%면 이후 버림)
+  const lines = raw.split("\n");
   const englishLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trim();
@@ -61,48 +52,97 @@ function splitIntoSentences(text: string): string[] {
       continue;
     }
     const koreanCount = (trimmed.match(/[\uAC00-\uD7AF]/g) || []).length;
-    // 줄에 한글이 30%보다 많으면 해석 영역 시작 → 이 지점부터 모두 버림
     if (koreanCount > trimmed.length * 0.3) break;
     englishLines.push(line);
   }
-  let englishText = englishLines.join(" ").replace(/\s+/g, " ").trim();
+  let englishText = englishLines.join("\n").trim();
   if (!englishText) {
-    // 안전망: 한국어를 다 잘라냈더니 빈 문자열이면 원문을 그대로 사용
-    englishText = norm.replace(/\s+/g, " ").trim();
+    englishText = raw;
   }
 
-  // [Step 2] 어휘 주석 제거 (예: "*thermal insulation: 단열 **heat recovery: 열회수")
-  // *나 ** 로 시작하는 영역을 끝까지 잘라냄
+  // [Step 2] 어휘 주석 제거 (*word: 뜻)
   const noteIdx = englishText.search(/(?:^|\s)\*+[A-Za-z]/);
   if (noteIdx >= 0) {
     englishText = englishText.slice(0, noteIdx).trim();
   }
-
   if (!englishText) return [];
 
-  // [Step 3] 분할 시도
-  // 우선순위 1: 원형 숫자 기호 (➊➋➌➍➎➏➐➑➒➓ 또는 ①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳)로 분할
-  const circledRegex = /[\u278A-\u2793\u2460-\u2473]/; // ➊~➓ (U+278A~U+2793) 와 ①~⑳ (U+2460~U+2473)
+  // [Step 3] 원형 숫자 기호 분할 (➊~⑳ / ①~⑳)
+  const circledRegex = /[\u278A-\u2793\u2460-\u2473]/;
   if (circledRegex.test(englishText)) {
-    // 🆕 v3: 첫 번째 원형 숫자 앞의 헤더 라인 제거 (예: "6-Exercise 2", "Lesson 3", "지문 1" 등)
     const firstCircled = englishText.search(/[\u278A-\u2793\u2460-\u2473]/);
-    if (firstCircled > 0) {
-      englishText = englishText.slice(firstCircled);
-    }
+    if (firstCircled > 0) englishText = englishText.slice(firstCircled);
     const parts = englishText
-      .split(/(?=[\u278A-\u2793\u2460-\u2473])/)         // 원형 숫자 앞에서 분할 (기호는 다음 조각에 포함)
-      .map((s) => s.replace(/^[\u278A-\u2793\u2460-\u2473]\s*/, "").trim()) // 선두 기호 제거
+      .split(/(?=[\u278A-\u2793\u2460-\u2473])/)
+      .map((s) => s.replace(/^[\u278A-\u2793\u2460-\u2473]\s*/, "").replace(/\s+/g, " ").trim())
       .filter(Boolean);
     if (parts.length > 0) return parts;
   }
 
-  // 우선순위 2: 기존 로직 — 마침표/느낌표/물음표 + 공백 + 대문자/따옴표/괄호
+  // [Step 4] 결정적 분리: .!? + 공백/줄바꿈, 또는 종결부호 없는 줄바꿈+다음 대문자
   const parts = englishText
-    .split(/(?<=[.!?])\s+(?=[A-Z"'(])/)
-    .map((s) => s.trim())
+    .split(/(?<=[.!?])(?:[ \t\f\v]+|\n+)|(?<![.!?])\n+(?=[A-Z"'(\[{0-9\u201C])/)
+    .map((s) => s.replace(/[ \t\f\v]+/g, " ").replace(/\n+/g, " ").trim())
     .filter(Boolean);
+
+  if (parts.length === 0) {
+    const one = englishText.replace(/\s+/g, " ").trim();
+    return one ? [one] : [];
+  }
   return parts;
 }
+
+/** 공백 제거 비교 — 문장 이어붙인 결과가 원문과 다르면 거부 */
+function compactAlpha(text: string): string {
+  return (text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+/** split과 동일한 전처리로 영어 원문 구간만 추출 */
+function extractEnglishSource(text: string): string {
+  const raw = (text || "").replace(/\r\n/g, "\n").trim();
+  if (!raw) return "";
+  const lines = raw.split("\n");
+  const englishLines: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      englishLines.push(line);
+      continue;
+    }
+    const koreanCount = (trimmed.match(/[\uAC00-\uD7AF]/g) || []).length;
+    if (koreanCount > trimmed.length * 0.3) break;
+    englishLines.push(line);
+  }
+  let englishText = englishLines.join("\n").trim() || raw;
+  const noteIdx = englishText.search(/(?:^|\s)\*+[A-Za-z]/);
+  if (noteIdx >= 0) englishText = englishText.slice(0, noteIdx).trim();
+  return englishText;
+}
+
+function assertSentenceFidelity(passage: string, sentences: string[]): string | null {
+  if (!sentences.length) return "passage에서 문장을 찾지 못했습니다";
+
+  const englishSrc = extractEnglishSource(passage);
+  const o = compactAlpha(englishSrc);
+  const j = compactAlpha(sentences.join(" "));
+
+  // 원문에 없는 조각(AI 변형 잔재) 금지
+  for (const s of sentences) {
+    if (!o.includes(compactAlpha(s))) {
+      return `문장 분리 무결성 실패: 원문에 없는 조각 — "${s.slice(0, 48)}${s.length > 48 ? "…" : ""}"`;
+    }
+  }
+
+  if (o !== j) {
+    return `문장 분리 무결성 실패: 영문 글자 불일치 (원문 ${o.length} vs 결과 ${j.length}) — 조용한 누락 금지`;
+  }
+  return null;
+}
+
 
 interface Payload {
   // Legacy fields (still supported)
@@ -368,6 +408,9 @@ Deno.serve(async (req) => {
   const sentences = splitIntoSentences(p.passage);
   if (sentences.length === 0)
     return json({ ok: false, error: "passage에서 문장을 찾지 못했습니다" }, 400);
+
+  const fidelityErr = assertSentenceFidelity(p.passage, sentences);
+  if (fidelityErr) return json({ ok: false, error: fidelityErr }, 400);
 
   // Determine starting passage_no for this unit
   const { data: existing } = await admin
