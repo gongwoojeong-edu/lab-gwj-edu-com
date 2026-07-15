@@ -28,6 +28,8 @@ interface Props {
   /** 학생 한글해석 (참고용 표시) */
   studentTranslation?: string | null;
   englishSentence?: string;
+  /** 교재에 등록된 한글해석 정답 (참고용) */
+  koreanAnswer?: string | null;
   /** 대상 학생 user_id (선생님 화면에서 승인할 때 필수) */
   studentUserId?: string;
   /** true 면 PIN 입력을 생략 (선생님 로그인 상태에서 사용) */
