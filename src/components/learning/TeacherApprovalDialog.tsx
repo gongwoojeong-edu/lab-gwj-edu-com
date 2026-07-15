@@ -50,6 +50,7 @@ export const TeacherApprovalDialog = ({
   sentenceId,
   studentTranslation,
   englishSentence,
+  koreanAnswer,
   studentUserId,
   skipPin = false,
   open,
