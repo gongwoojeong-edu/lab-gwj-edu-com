@@ -247,17 +247,27 @@ export const TeacherApprovalDialog = ({
           />
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            취소
-          </Button>
+        <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              취소
+            </Button>
+            <Button
+              variant="outline"
+              className="border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+              onClick={hold}
+              disabled={saving}
+              title="지금 판정하지 않고 나중에 자세히 첨삭"
+            >
+              <PauseCircle className="w-4 h-4 mr-1" /> 보류 (나중에 첨삭)
+            </Button>
+          </div>
           <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
             {saving
               ? "저장 중..."
               : grade === "redo"
                 ? "추가학습 요청 보내기"
                 : "승인하고 다음 문장으로"}
-
           </Button>
         </DialogFooter>
       </DialogContent>
