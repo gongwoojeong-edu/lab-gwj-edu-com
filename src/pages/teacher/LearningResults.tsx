@@ -576,6 +576,11 @@ const LearningResults = () => {
         ulaObj[uid] = new Date(ms).toISOString();
       });
       setStudentLastActivity(ulaObj);
+      const psaObj: Record<string, string> = {};
+      pairLastActivity.forEach((ms, k) => {
+        psaObj[k] = new Date(ms).toISOString();
+      });
+      setPairSubmitAt(psaObj);
       setTranslationSet(tSet);
       setMemMap(memStatusMap);
 
