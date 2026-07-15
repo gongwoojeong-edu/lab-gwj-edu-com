@@ -164,7 +164,11 @@ export default function EvaluationReports() {
     const w = wordResults
       .filter((r) => r.user_id === uid && r.sentence_id === sid && r.score != null)
       .sort((a, b) => +new Date(b.taken_at) - +new Date(a.taken_at))[0];
-    return w?.score != null ? Math.round(Number(w.score)) : null;
+    if (w?.score == null) return null;
+    const n = Number(w.score);
+    if (!isFinite(n)) return null;
+    // score 는 0..1 비율로 저장됨 (e.g. 0.5 = 50%). 옛 데이터가 이미 %로 저장돼 있으면 그대로 사용.
+    return n <= 1 ? Math.round(n * 100) : Math.round(n);
   };
   const findRetestCount = (uid: string, sid: string) =>
     reviewReqs.filter((r) => r.user_id === uid && r.sentence_id === sid).length;
