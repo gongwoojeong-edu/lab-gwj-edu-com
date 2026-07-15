@@ -57,6 +57,7 @@ export const TeacherApprovalDialog = ({
   koreanAnswer,
   studentUserId,
   skipPin = false,
+  initialMemo,
   open,
   onOpenChange,
   onApproved,
@@ -71,7 +72,7 @@ export const TeacherApprovalDialog = ({
     if (!open) return;
     setPin("");
     setGrade(null);
-    setMemo("");
+    setMemo(initialMemo ?? "");
     if (skipPin) {
       setStoredPin("__skip__");
       return;
