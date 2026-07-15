@@ -134,6 +134,29 @@ export const TeacherApprovalDialog = ({
     }
   };
 
+  const hold = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await holdApprovalRequest({
+        approvalId,
+        studentUserId,
+        sentenceId,
+        memo,
+      });
+      toast({
+        title: "보류 처리했어요",
+        description: "이 문장은 '보류' 탭에 남습니다. 나중에 자세히 첨삭 후 최종 승인하세요.",
+      });
+      onOpenChange(false);
+      onApproved("fair"); // trigger list refresh in parent; grade unused since target closes
+    } catch (e: any) {
+      toast({ title: "보류 저장 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
