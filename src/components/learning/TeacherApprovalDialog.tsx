@@ -145,12 +145,18 @@ export const TeacherApprovalDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        {(englishSentence || studentTranslation) && (
+        {(englishSentence || koreanAnswer || studentTranslation) && (
           <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
             {englishSentence && (
               <div>
                 <div className="text-[11px] text-muted-foreground">원문</div>
                 <div className="font-medium leading-snug">{englishSentence}</div>
+              </div>
+            )}
+            {koreanAnswer && (
+              <div>
+                <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
+                <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
               </div>
             )}
             {studentTranslation && (
