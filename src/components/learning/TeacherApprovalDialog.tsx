@@ -36,6 +36,8 @@ interface Props {
   studentUserId?: string;
   /** true 면 PIN 입력을 생략 (선생님 로그인 상태에서 사용) */
   skipPin?: boolean;
+  /** 재오픈 시 초기 메모값 (예: 이전 보류 메모) */
+  initialMemo?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApproved: (grade: ApprovalGrade) => void;
