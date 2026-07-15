@@ -104,8 +104,14 @@ export async function fetchMemberRoster(): Promise<RosterMember[]> {
 
   members.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "teacher" ? -1 : 1;
+    if (a.kind === "student") {
+      const la = a.learningLevel ?? "\uffff";
+      const lb = b.learningLevel ?? "\uffff";
+      if (la !== lb) return la.localeCompare(lb, "ko", { numeric: true, sensitivity: "base" });
+    }
     return a.name.localeCompare(b.name, "ko");
   });
+
 
   return members;
 }
