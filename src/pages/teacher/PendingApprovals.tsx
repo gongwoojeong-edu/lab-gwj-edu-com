@@ -15,6 +15,9 @@ import {
 } from "@/lib/sentenceApprovals";
 import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDialog";
 import { toast } from "@/hooks/use-toast";
+import { updatePassageKorean } from "@/lib/textbooks";
+import { Textarea } from "@/components/ui/textarea";
+import { Pencil, Save, X } from "lucide-react";
 
 interface Row extends SentenceApproval {
   student_no?: string | null;
@@ -28,6 +31,38 @@ const PendingApprovals = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [target, setTarget] = useState<Row | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (row: Row) => {
+    setEditingId(row.sentence_id);
+    setDraft(row.korean ?? "");
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraft("");
+  };
+  const saveEdit = async (sentenceId: string) => {
+    const val = draft.trim();
+    if (!val) {
+      toast({ title: "정답을 입력하세요", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await updatePassageKorean(sentenceId, val);
+      setRows((prev) =>
+        prev.map((r) => (r.sentence_id === sentenceId ? { ...r, korean: val } : r)),
+      );
+      toast({ title: "정답이 저장되었습니다" });
+      cancelEdit();
+    } catch (e: any) {
+      toast({ title: "저장 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,10 +192,47 @@ const PendingApprovals = () => {
                   <div className="leading-snug">{row.english ?? "(원문을 불러올 수 없음)"}</div>
                 </div>
                 <div className="border rounded-md p-3 bg-primary/5 border-primary/30">
-                  <div className="text-[11px] text-primary mb-1 font-semibold">한글해석 정답</div>
-                  <div className="whitespace-pre-wrap leading-relaxed">
-                    {row.korean ?? "(등록된 정답 없음)"}
+                  <div className="text-[11px] text-primary mb-1 font-semibold flex items-center justify-between gap-2">
+                    <span>한글해석 정답</span>
+                    {editingId !== row.sentence_id && row.korean?.trim() && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => startEdit(row)}
+                      >
+                        <Pencil className="w-3 h-3 mr-1" /> 수정
+                      </Button>
+                    )}
                   </div>
+                  {editingId === row.sentence_id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        rows={4}
+                        placeholder="선생님 정답 (한글해석)을 입력하세요"
+                        className="text-sm"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
+                          <X className="w-3 h-3 mr-1" /> 취소
+                        </Button>
+                        <Button size="sm" onClick={() => saveEdit(row.sentence_id)} disabled={saving}>
+                          <Save className="w-3 h-3 mr-1" /> 저장
+                        </Button>
+                      </div>
+                    </div>
+                  ) : row.korean?.trim() ? (
+                    <div className="whitespace-pre-wrap leading-relaxed">{row.korean}</div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-muted-foreground italic text-xs">(등록된 정답 없음)</div>
+                      <Button size="sm" variant="outline" onClick={() => startEdit(row)} className="w-full">
+                        <Pencil className="w-3 h-3 mr-1" /> 정답입력
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="border rounded-md p-3 bg-card">
                   <div className="text-[11px] text-muted-foreground mb-1">학생 한글해석</div>
