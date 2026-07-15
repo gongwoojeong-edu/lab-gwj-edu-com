@@ -1694,6 +1694,7 @@ const LearningResults = () => {
                     );
                   })()}
                 </Card>
+                </div>
               );
             })}
           </div>
