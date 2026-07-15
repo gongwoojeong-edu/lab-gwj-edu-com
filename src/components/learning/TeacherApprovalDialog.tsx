@@ -16,11 +16,13 @@ import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
 import {
   approveSentenceRequest,
+  holdApprovalRequest,
   GRADE_LABEL,
   GRADE_BADGE_CLASS,
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
+import { PauseCircle } from "lucide-react";
 
 interface Props {
   approvalId: string;
