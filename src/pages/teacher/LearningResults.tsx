@@ -420,14 +420,15 @@ const LearningResults = () => {
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no")
+          .select("user_id, display_name, student_no, current_level")
           .in("user_id", allUserIds);
         (sp ?? []).forEach((s) => {
-          const row = s as { user_id: string; display_name: string | null; student_no: string };
+          const row = s as { user_id: string; display_name: string | null; student_no: string; current_level: string | null };
           sMap[row.user_id] = {
             user_id: row.user_id,
             display_name: row.display_name,
             student_no: row.student_no,
+            current_level: row.current_level,
           };
         });
 
