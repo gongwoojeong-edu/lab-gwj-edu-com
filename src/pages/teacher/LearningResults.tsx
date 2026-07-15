@@ -1424,8 +1424,16 @@ const LearningResults = () => {
                                       return (
                                         <tr key={sid} className="hover:bg-muted/20 align-middle">
                                           <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                               <span>{sid}</span>
+                                              {pairSubmitAt[stateKey] && (
+                                                <span
+                                                  className="text-[10px] text-muted-foreground tabular-nums"
+                                                  title={`제출일시: ${new Date(pairSubmitAt[stateKey]).toLocaleString("ko-KR")}`}
+                                                >
+                                                  🕒 {new Date(pairSubmitAt[stateKey]).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" }).replace(/\.$/, "")} {fmtTime(pairSubmitAt[stateKey])}
+                                                </span>
+                                              )}
                                               {isPrinted && (
                                                 <span className="text-[10px] text-primary inline-flex items-center gap-0.5">
                                                   <Printer className="size-3" />
