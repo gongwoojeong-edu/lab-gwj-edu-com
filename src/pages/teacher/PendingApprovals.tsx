@@ -48,7 +48,7 @@ const PendingApprovals = () => {
             .in("user_id", userIds),
           supabase
             .from("textbook_passages")
-            .select("code, english")
+            .select("code, english, korean")
             .in("code", sentenceIds),
           supabase
             .from("sentence_translations")
