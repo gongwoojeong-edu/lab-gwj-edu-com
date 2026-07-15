@@ -26,13 +26,25 @@ export const ApprovalWaitingPanel = ({ englishSentence, studentTranslation, stat
       <div className="flex flex-col items-center gap-2">
         <div className="relative w-14 h-14 flex items-center justify-center">
           <span className="absolute inset-0 rounded-full bg-amber-500/20 animate-ping" />
-          <Hourglass className="relative w-8 h-8 text-amber-600 dark:text-amber-400" />
+          {isHeld ? (
+            <PenLine className="relative w-8 h-8 text-amber-600 dark:text-amber-400" />
+          ) : (
+            <Hourglass className="relative w-8 h-8 text-amber-600 dark:text-amber-400" />
+          )}
         </div>
-        <div className="text-lg font-bold text-foreground">선생님 승인을 기다리고 있어요</div>
+        <div className="text-lg font-bold text-foreground">
+          {isHeld ? "선생님이 자세한 첨삭을 준비 중이에요" : "선생님 승인을 기다리고 있어요"}
+        </div>
         <p className="text-sm text-muted-foreground max-w-md">
-          한글해석을 제출했어요. 선생님이 <b>승인 대기 목록</b>에서 확인 후 평가 등급을 입력하면
-          자동으로 다음 문장으로 진행됩니다.
+          {isHeld
+            ? "선생님이 제출한 해석을 보류해두었어요. 곧 상세한 첨삭 피드백이 도착합니다."
+            : (<>한글해석을 제출했어요. 선생님이 <b>승인 대기 목록</b>에서 확인 후 평가 등급을 입력하면 자동으로 다음 문장으로 진행됩니다.</>)}
         </p>
+        {isHeld && heldMemo && (
+          <div className="mt-1 text-xs text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 max-w-md">
+            <span className="font-semibold">선생님 임시 메모: </span>{heldMemo}
+          </div>
+        )}
       </div>
 
       {(safeEnglish || studentTranslation) && (
