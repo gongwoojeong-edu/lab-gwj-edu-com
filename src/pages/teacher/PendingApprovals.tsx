@@ -151,10 +151,16 @@ const PendingApprovals = () => {
                 </Button>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
+              <div className="grid md:grid-cols-3 gap-3 text-sm">
                 <div className="border rounded-md p-3 bg-muted/30">
                   <div className="text-[11px] text-muted-foreground mb-1">원문</div>
                   <div className="leading-snug">{row.english ?? "(원문을 불러올 수 없음)"}</div>
+                </div>
+                <div className="border rounded-md p-3 bg-primary/5 border-primary/30">
+                  <div className="text-[11px] text-primary mb-1 font-semibold">한글해석 정답</div>
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {row.korean ?? "(등록된 정답 없음)"}
+                  </div>
                 </div>
                 <div className="border rounded-md p-3 bg-card">
                   <div className="text-[11px] text-muted-foreground mb-1">학생 한글해석</div>
