@@ -228,6 +228,7 @@ interface AssignmentRow {
   title: string;
   description: string | null;
   sentence_id: string | null;
+  unit_id?: string | null;
   due_at: string | null;
   created_at: string;
   include_pre: boolean;
@@ -318,6 +319,9 @@ const Assignments = () => {
   const [filterStudentId, setFilterStudentId] = useState<string>("all");
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>("all");
   const [listView, setListView] = useState<ListViewMode>("compact");
+  const [keepOnlyOpen, setKeepOnlyOpen] = useState(false);
+  const [keepStudentIds, setKeepStudentIds] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Edit dialog
   const [editingRow, setEditingRow] = useState<AssignmentRow | null>(null);
@@ -804,6 +808,113 @@ const Assignments = () => {
     }
     toast({ title: `🗑️ ${ids.length}개 과제 삭제됨` });
     void load();
+  };
+
+  /**
+   * 현재 필터/검색 결과에서 선택한 학생만 남기고 나머지 과제 행 삭제.
+   * 「전체 학생」행은 삭제 후 남길 학생에게 동일 내용으로 개인 과제 생성.
+   */
+  const handleKeepOnlyStudents = async () => {
+    if (keepStudentIds.length === 0) {
+      toast({ title: "남길 학생을 1명 이상 선택하세요", variant: "destructive" });
+      return;
+    }
+    const keepSet = new Set(keepStudentIds);
+    const keepNames = keepStudentIds
+      .map((id) => studentNameMap.get(id) ?? id.slice(0, 6))
+      .join(", ");
+    const allRows = filteredGroups.flatMap((g) => g.rows);
+    if (allRows.length === 0) {
+      toast({ title: "삭제할 검색 결과가 없습니다", variant: "destructive" });
+      return;
+    }
+    const toDelete = allRows.filter(
+      (r) => r.student_id != null && !keepSet.has(r.student_id),
+    );
+    const wholeClass = allRows.filter((r) => r.student_id == null);
+    const ok = window.confirm(
+      `현재 목록 ${filteredGroups.length}건 중\n` +
+        `남길 학생: ${keepNames}\n` +
+        `삭제(다른 학생): ${toDelete.length}행\n` +
+        `전체학생→개인 전환: ${wholeClass.length}행\n\n` +
+        `계속할까요?`,
+    );
+    if (!ok) return;
+
+    setBulkDeleting(true);
+    try {
+      // 1) 전체 학생 행 → 남길 학생용으로 복제
+      if (wholeClass.length > 0) {
+        const inserts = keepStudentIds.flatMap((sid) =>
+          wholeClass.map((r) => ({
+            teacher_id: r.teacher_id,
+            student_id: sid,
+            title: r.title,
+            description: r.description,
+            sentence_id: r.sentence_id,
+            unit_id: r.unit_id ?? null,
+            task_mode: r.task_mode ?? null,
+            due_at: r.due_at,
+            include_pre: r.include_pre,
+            include_analysis: r.include_analysis,
+            include_translation: r.include_translation,
+            include_wordtest: r.include_wordtest,
+            mem_direction: r.mem_direction ?? null,
+          })),
+        );
+        // 이미 동일 개인 과제가 있으면 스킵하기 위해 기존 keep 행 키 수집
+        const existingKeys = new Set(
+          allRows
+            .filter((r) => r.student_id && keepSet.has(r.student_id))
+            .map((r) => `${r.student_id}|${r.title}|${r.sentence_id ?? ""}`),
+        );
+        const filteredInserts = inserts.filter(
+          (row) =>
+            !existingKeys.has(
+              `${row.student_id}|${row.title}|${row.sentence_id ?? ""}`,
+            ),
+        );
+        if (filteredInserts.length > 0) {
+          const { error: insErr } = await supabase
+            .from("assignments")
+            .insert(filteredInserts as never);
+          if (insErr) throw insErr;
+        }
+        const wholeIds = wholeClass.map((r) => r.id);
+        const { error: delWhole } = await supabase
+          .from("assignments")
+          .delete()
+          .in("id", wholeIds);
+        if (delWhole) throw delWhole;
+      }
+
+      // 2) 남길 학생 외 개인 과제 삭제
+      if (toDelete.length > 0) {
+        const ids = toDelete.map((r) => r.id);
+        // supabase .in() 한도 대비 청크
+        for (let i = 0; i < ids.length; i += 200) {
+          const chunk = ids.slice(i, i + 200);
+          const { error } = await supabase.from("assignments").delete().in("id", chunk);
+          if (error) throw error;
+        }
+      }
+
+      toast({
+        title: "✅ 정리 완료",
+        description: `${keepNames}만 남기고 나머지 과제를 삭제했습니다.`,
+      });
+      setKeepOnlyOpen(false);
+      setKeepStudentIds([]);
+      void load();
+    } catch (e) {
+      toast({
+        title: "일괄 삭제 실패",
+        description: String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   /** 그룹 전체 마감일 +1주 일괄 연장 */
@@ -1719,6 +1830,27 @@ const Assignments = () => {
             </Select>
           </div>
 
+          {filteredGroups.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                className="h-8 text-xs"
+                onClick={() => {
+                  setKeepStudentIds([]);
+                  setKeepOnlyOpen(true);
+                }}
+              >
+                <Trash2 className="size-3.5 mr-1" />
+                특정 학생만 남기고 삭제…
+              </Button>
+              <span className="text-[11px] text-muted-foreground">
+                예: 검색창에 「김성연 1과」 입력 → 김서윤·김나연만 선택 → 나머지 일괄 삭제
+              </span>
+            </div>
+          )}
+
           {activeGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">진행중인 과제가 없습니다.</p>
           ) : filteredGroups.length === 0 ? (
@@ -1779,6 +1911,92 @@ const Assignments = () => {
             <div className="space-y-2">{filteredGroups.map((g) => renderCardRow(g))}</div>
           )}
         </Card>
+
+        {/* 특정 학생만 남기고 삭제 */}
+        <Dialog open={keepOnlyOpen} onOpenChange={(o) => !o && setKeepOnlyOpen(false)}>
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>특정 학생만 남기고 삭제</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              지금 목록에 보이는 과제({filteredGroups.length}건) 중, 선택한 학생의 과제만 남기고
+              나머지는 삭제합니다. 「전체 학생」 과제는 선택한 학생 개인 과제로 바뀝니다.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const prefer = students.filter((s) =>
+                    ["김서윤", "김나연"].includes(s.display_name ?? ""),
+                  );
+                  if (prefer.length > 0) {
+                    setKeepStudentIds(prefer.map((s) => s.user_id));
+                  }
+                }}
+              >
+                김서윤·김나연 빠른 선택
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => setKeepStudentIds([])}
+              >
+                선택 해제
+              </Button>
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-1 border rounded-md p-2">
+              {students
+                .slice()
+                .sort((a, b) =>
+                  (a.display_name ?? a.student_no).localeCompare(
+                    b.display_name ?? b.student_no,
+                    "ko",
+                  ),
+                )
+                .map((s) => {
+                  const checked = keepStudentIds.includes(s.user_id);
+                  return (
+                    <label
+                      key={s.user_id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) =>
+                          setKeepStudentIds((prev) =>
+                            v
+                              ? [...prev, s.user_id]
+                              : prev.filter((id) => id !== s.user_id),
+                          )
+                        }
+                      />
+                      <span>
+                        {s.display_name ?? s.student_no}{" "}
+                        <span className="text-xs text-muted-foreground">({s.student_no})</span>
+                      </span>
+                    </label>
+                  );
+                })}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setKeepOnlyOpen(false)} disabled={bulkDeleting}>
+                취소
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void handleKeepOnlyStudents()}
+                disabled={bulkDeleting || keepStudentIds.length === 0}
+              >
+                {bulkDeleting ? "처리 중…" : `${keepStudentIds.length}명만 남기고 삭제`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* 수정 다이얼로그 */}
         <Dialog open={!!editingRow} onOpenChange={(o) => !o && setEditingRow(null)}>
