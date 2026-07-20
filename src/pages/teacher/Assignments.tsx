@@ -1641,7 +1641,7 @@ const Assignments = () => {
               <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="예: L05 Unit 3 마감 과제" />
             </div>
             <div className="space-y-1.5">
-              <Label>대상 학생 (복수 선택 가능)</Label>
+              <Label>대상 학생 * (반드시 1명 이상 선택)</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -1650,7 +1650,7 @@ const Assignments = () => {
                   >
                     <span className="truncate">
                       {form.studentIds.length === 0
-                        ? "전체 학생"
+                        ? "학생을 선택하세요"
                         : `${form.studentIds.length}명 선택됨`}
                     </span>
                     <CalendarIcon className="ml-2 size-4 opacity-0" />
@@ -1660,10 +1660,10 @@ const Assignments = () => {
                   <div className="flex items-center justify-between pb-2 mb-2 border-b">
                     <button
                       type="button"
-                      className="text-xs font-bold text-primary hover:underline"
+                      className="text-xs text-muted-foreground hover:underline"
                       onClick={() => setForm((p) => ({ ...p, studentIds: [] }))}
                     >
-                      전체 학생 (모두 해제)
+                      선택 해제
                     </button>
                     <button
                       type="button"
