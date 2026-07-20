@@ -696,14 +696,22 @@ const Assignments = () => {
       toast({ title: err, variant: "destructive" });
       return;
     }
+    // 안전장치: 반드시 학생을 1명 이상 지정해야 함 (전체 배부 금지)
+    if (form.studentIds.length === 0) {
+      toast({
+        title: "대상 학생을 1명 이상 선택하세요",
+        description: "실수 방지를 위해 전체 배부 기능은 비활성화되어 있습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const teacherId = await getCurrentUserId();
       if (!teacherId) throw new Error("로그인이 필요합니다");
       const dueAtIso = resolveDueAtEndOfDay(form.dueDate);
-      // studentIds 가 비어있으면 [null] (전체학생 1건), 아니면 각 학생별 1건씩
-      const targets: (string | null)[] =
-        form.studentIds.length === 0 ? [null] : form.studentIds;
+      // 각 학생별로 1건씩 개별 과제 생성
+      const targets: (string | null)[] = form.studentIds;
 
       // 출제 모드별 지문 코드 결정:
       // - unit  : 선택된 유닛의 모든 지문 자동 부여 (기존 동작 유지)
