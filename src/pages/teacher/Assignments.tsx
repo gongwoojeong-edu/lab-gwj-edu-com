@@ -761,10 +761,7 @@ const Assignments = () => {
         rowsToInsert as never,
       );
       if (error) throw error;
-      const studentMsg =
-        form.studentIds.length === 0
-          ? "전체 학생"
-          : `${form.studentIds.length}명`;
+      const studentMsg = `${form.studentIds.length}명`;
       const unitLabel =
         form.mode === "sentence"
           ? `문장 1개`
