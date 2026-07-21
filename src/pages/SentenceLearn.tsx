@@ -906,7 +906,7 @@ const SentenceLearn = () => {
 
       <main className="max-w-3xl mx-auto px-5 py-6 space-y-5">
         {/* 선생님 추가학습 요청 배너 — 기존 통과 기록은 유지된 채 한 번 더 제출 */}
-        {redoRequestedAt && previousStatus === "pass" && (
+        {redoRequestedAt && (
           <Card className="p-5 space-y-3 border-2 border-violet-500/40 bg-violet-50/40 dark:bg-violet-500/5">
             <div className="flex items-start gap-3">
               <RotateCcw className="w-6 h-6 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
