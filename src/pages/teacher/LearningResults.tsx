@@ -632,6 +632,17 @@ const LearningResults = () => {
             lblMap[u.id] = `${tbPrefix} · U${u.unit_no} ${u.title}`.trim();
           });
           setUnitLabel(lblMap);
+
+          // 유닛별 전체 지문 수 (진행률 분모)
+          const { data: allPassages } = await supabase
+            .from("textbook_passages")
+            .select("unit_id")
+            .in("unit_id", Array.from(unitIds));
+          const totals: Record<string, number> = {};
+          ((allPassages ?? []) as { unit_id: string }[]).forEach((r) => {
+            if (r.unit_id) totals[r.unit_id] = (totals[r.unit_id] ?? 0) + 1;
+          });
+          setUnitTotalMap(totals);
         }
       }
 
