@@ -1275,18 +1275,28 @@ const LearningResults = () => {
                                   {g.label}
                                 </span>
                                 <span className="text-[11px] text-muted-foreground">
-                                  · 지문 {g.sids.length}개
+                                  · 진행 {g.sids.length}
+                                  {g.unitId && unitTotalMap[g.unitId]
+                                    ? ` / 전체 ${unitTotalMap[g.unitId]}`
+                                    : ""} 지문
                                 </span>
                                 <div className="ml-auto flex items-center gap-1.5 text-[11px]">
-                                  <Badge variant="outline" className="h-5 px-1.5">
-                                    🖨 {printedCnt}/{g.sids.length}
-                                  </Badge>
-                                  <Badge variant="outline" className="h-5 px-1.5 text-primary">
-                                    분석 {analysisPassCnt}/{g.sids.length}
-                                  </Badge>
-                                  <Badge variant="outline" className="h-5 px-1.5 text-primary">
-                                    단어 {wordPassCnt}/{g.sids.length}
-                                  </Badge>
+                                  {(() => {
+                                    const total = (g.unitId && unitTotalMap[g.unitId]) || g.sids.length;
+                                    return (
+                                      <>
+                                        <Badge variant="outline" className="h-5 px-1.5">
+                                          🖨 {printedCnt}/{total}
+                                        </Badge>
+                                        <Badge variant="outline" className="h-5 px-1.5 text-primary">
+                                          분석 {analysisPassCnt}/{total}
+                                        </Badge>
+                                        <Badge variant="outline" className="h-5 px-1.5 text-primary">
+                                          단어 {wordPassCnt}/{total}
+                                        </Badge>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                                 <Button
                                   size="sm"
