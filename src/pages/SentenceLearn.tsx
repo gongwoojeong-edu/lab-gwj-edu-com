@@ -64,6 +64,9 @@ import {
   fetchLatestApproval,
   subscribeMyApproval,
   applyApprovalToMyProgress,
+  GRADE_LABEL,
+  GRADE_BADGE_CLASS,
+  type ApprovalGrade,
   type SentenceApproval,
 } from "@/lib/sentenceApprovals";
 import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel";
