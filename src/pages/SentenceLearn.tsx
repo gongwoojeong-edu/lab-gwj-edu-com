@@ -64,6 +64,9 @@ import {
   fetchLatestApproval,
   subscribeMyApproval,
   applyApprovalToMyProgress,
+  GRADE_LABEL,
+  GRADE_BADGE_CLASS,
+  type ApprovalGrade,
   type SentenceApproval,
 } from "@/lib/sentenceApprovals";
 import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel";
@@ -154,6 +157,14 @@ const SentenceLearn = () => {
   // 추가학습 요청 (선생님이 redo 등급으로 승인) — 기존 통과 기록은 유지하되 한 번 더 제출
   const [redoRequestedAt, setRedoRequestedAt] = useState<string | null>(null);
   const [redoMemo, setRedoMemo] = useState<string | null>(null);
+
+  // 최근 선생님 평가 결과 배너 (redo 제외 모든 등급 — 학생이 코멘트를 확인한 뒤 다음 문장으로 이동)
+  const [lastEvaluation, setLastEvaluation] = useState<{
+    grade: ApprovalGrade;
+    memo: string | null;
+    sentenceId: string;
+    at: string;
+  } | null>(null);
 
 
   // sentence 변경 시 마스터 로드 게이트 리셋 + 800ms 안전망(외부 fetch가 어떤 이유로 늦거나 실패해도 진행 가능)
@@ -619,17 +630,26 @@ const SentenceLearn = () => {
       });
       return;
     }
+    // 다른 등급(excellent/good/fair/poor): 자동 이동하지 않고 평가 배너로 표시.
+    // 학생이 코멘트를 확인한 뒤 "다음 문장으로" 버튼으로 진행.
     try {
       await applyApprovalToMyProgress(approval);
       setPreviousStatus("pass");
+      if (approval.grade) {
+        setLastEvaluation({
+          grade: approval.grade,
+          memo: approval.memo,
+          sentenceId: approval.sentence_id,
+          at: approval.approved_at ?? new Date().toISOString(),
+        });
+      }
       toast({
-        title: "✅ 선생님이 승인했어요",
-        description: "다음 문장으로 이동합니다",
+        title: `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
+        description: approval.memo ?? "코멘트를 확인한 뒤 다음 문장으로 이동하세요.",
       });
-      await handleSkipToNext(approval.sentence_id);
     } catch (e) {
       toast({
-        title: "다음 문장 이동 실패",
+        title: "평가 적용 실패",
         description: String(e),
         variant: "destructive",
       });
@@ -934,6 +954,51 @@ const SentenceLearn = () => {
                 }}
               >
                 추가학습 시작 — 한글 해석 다시 제출
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* 선생님 평가 결과 배너 (redo 외 모든 등급) — 코멘트 확인 후 다음 문장으로 이동 */}
+        {lastEvaluation && lastEvaluation.sentenceId === sentence?.id && (
+          <Card className="p-5 space-y-3 border-2 border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-500/5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+              <div className="space-y-2 flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="text-base font-extrabold text-foreground">선생님 평가 결과</div>
+                  <span
+                    className={cn(
+                      "text-xs font-bold px-2 py-0.5 rounded-md border",
+                      GRADE_BADGE_CLASS[lastEvaluation.grade],
+                    )}
+                  >
+                    {GRADE_LABEL[lastEvaluation.grade]}
+                  </span>
+                </div>
+                {lastEvaluation.memo ? (
+                  <div className="text-sm rounded-md bg-background/60 border border-emerald-500/20 px-3 py-2 text-foreground whitespace-pre-wrap">
+                    💬 {lastEvaluation.memo}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">코멘트 없이 승인되었습니다.</div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setLastEvaluation(null)}>
+                닫기
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={async () => {
+                  const sid = lastEvaluation.sentenceId;
+                  setLastEvaluation(null);
+                  await handleSkipToNext(sid);
+                }}
+              >
+                다음 문장으로
               </Button>
             </div>
           </Card>
