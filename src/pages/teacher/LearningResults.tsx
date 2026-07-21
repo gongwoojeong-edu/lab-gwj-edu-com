@@ -105,6 +105,8 @@ const LearningResults = () => {
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
   // unit_id → 라벨 ("[Lxx] 교재 · Uxx 유닛")
   const [unitLabel, setUnitLabel] = useState<Record<string, string>>({});
+  // unit_id → 해당 유닛 전체 지문 수 (진행률 분모용)
+  const [unitTotalMap, setUnitTotalMap] = useState<Record<string, number>>({});
   // 펼침 상태: `${userId}::${unitKey}` → boolean (기본: 닫힘)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   // 한글해석 제출 여부: `${userId}::${sentenceId}` → true
@@ -630,6 +632,17 @@ const LearningResults = () => {
             lblMap[u.id] = `${tbPrefix} · U${u.unit_no} ${u.title}`.trim();
           });
           setUnitLabel(lblMap);
+
+          // 유닛별 전체 지문 수 (진행률 분모)
+          const { data: allPassages } = await supabase
+            .from("textbook_passages")
+            .select("unit_id")
+            .in("unit_id", Array.from(unitIds));
+          const totals: Record<string, number> = {};
+          ((allPassages ?? []) as { unit_id: string }[]).forEach((r) => {
+            if (r.unit_id) totals[r.unit_id] = (totals[r.unit_id] ?? 0) + 1;
+          });
+          setUnitTotalMap(totals);
         }
       }
 
@@ -1262,18 +1275,28 @@ const LearningResults = () => {
                                   {g.label}
                                 </span>
                                 <span className="text-[11px] text-muted-foreground">
-                                  · 지문 {g.sids.length}개
+                                  · 진행 {g.sids.length}
+                                  {g.unitId && unitTotalMap[g.unitId]
+                                    ? ` / 전체 ${unitTotalMap[g.unitId]}`
+                                    : ""} 지문
                                 </span>
                                 <div className="ml-auto flex items-center gap-1.5 text-[11px]">
-                                  <Badge variant="outline" className="h-5 px-1.5">
-                                    🖨 {printedCnt}/{g.sids.length}
-                                  </Badge>
-                                  <Badge variant="outline" className="h-5 px-1.5 text-primary">
-                                    분석 {analysisPassCnt}/{g.sids.length}
-                                  </Badge>
-                                  <Badge variant="outline" className="h-5 px-1.5 text-primary">
-                                    단어 {wordPassCnt}/{g.sids.length}
-                                  </Badge>
+                                  {(() => {
+                                    const total = (g.unitId && unitTotalMap[g.unitId]) || g.sids.length;
+                                    return (
+                                      <>
+                                        <Badge variant="outline" className="h-5 px-1.5">
+                                          🖨 {printedCnt}/{total}
+                                        </Badge>
+                                        <Badge variant="outline" className="h-5 px-1.5 text-primary">
+                                          분석 {analysisPassCnt}/{total}
+                                        </Badge>
+                                        <Badge variant="outline" className="h-5 px-1.5 text-primary">
+                                          단어 {wordPassCnt}/{total}
+                                        </Badge>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                                 <Button
                                   size="sm"
