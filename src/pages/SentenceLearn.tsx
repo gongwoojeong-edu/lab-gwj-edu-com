@@ -630,17 +630,26 @@ const SentenceLearn = () => {
       });
       return;
     }
+    // 다른 등급(excellent/good/fair/poor): 자동 이동하지 않고 평가 배너로 표시.
+    // 학생이 코멘트를 확인한 뒤 "다음 문장으로" 버튼으로 진행.
     try {
       await applyApprovalToMyProgress(approval);
       setPreviousStatus("pass");
+      if (approval.grade) {
+        setLastEvaluation({
+          grade: approval.grade,
+          memo: approval.memo,
+          sentenceId: approval.sentence_id,
+          at: approval.approved_at ?? new Date().toISOString(),
+        });
+      }
       toast({
-        title: "✅ 선생님이 승인했어요",
-        description: "다음 문장으로 이동합니다",
+        title: `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
+        description: approval.memo ?? "코멘트를 확인한 뒤 다음 문장으로 이동하세요.",
       });
-      await handleSkipToNext(approval.sentence_id);
     } catch (e) {
       toast({
-        title: "다음 문장 이동 실패",
+        title: "평가 적용 실패",
         description: String(e),
         variant: "destructive",
       });
