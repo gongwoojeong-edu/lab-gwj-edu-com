@@ -913,7 +913,9 @@ const SentenceLearn = () => {
               <div className="space-y-1">
                 <div className="text-base font-extrabold text-foreground">선생님 추가학습 요청</div>
                 <div className="text-sm text-muted-foreground">
-                  기존 통과 기록은 그대로 유지돼요. 한 번 더 한글 해석을 작성해 제출해 주세요.
+                  {previousStatus === "pass"
+                    ? "기존 통과 기록은 그대로 유지돼요. 한 번 더 한글 해석을 작성해 제출해 주세요."
+                    : "선생님이 남긴 코멘트를 확인하고, 한글 해석을 다시 작성해 제출해 주세요."}
                 </div>
                 {redoMemo && (
                   <div className="mt-2 text-sm rounded-md bg-background/60 border border-violet-500/20 px-3 py-2 text-foreground whitespace-pre-wrap">
