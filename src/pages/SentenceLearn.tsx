@@ -959,6 +959,51 @@ const SentenceLearn = () => {
           </Card>
         )}
 
+        {/* 선생님 평가 결과 배너 (redo 외 모든 등급) — 코멘트 확인 후 다음 문장으로 이동 */}
+        {lastEvaluation && lastEvaluation.sentenceId === sentence?.id && (
+          <Card className="p-5 space-y-3 border-2 border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-500/5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+              <div className="space-y-2 flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="text-base font-extrabold text-foreground">선생님 평가 결과</div>
+                  <span
+                    className={cn(
+                      "text-xs font-bold px-2 py-0.5 rounded-md border",
+                      GRADE_BADGE_CLASS[lastEvaluation.grade],
+                    )}
+                  >
+                    {GRADE_LABEL[lastEvaluation.grade]}
+                  </span>
+                </div>
+                {lastEvaluation.memo ? (
+                  <div className="text-sm rounded-md bg-background/60 border border-emerald-500/20 px-3 py-2 text-foreground whitespace-pre-wrap">
+                    💬 {lastEvaluation.memo}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">코멘트 없이 승인되었습니다.</div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setLastEvaluation(null)}>
+                닫기
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={async () => {
+                  const sid = lastEvaluation.sentenceId;
+                  setLastEvaluation(null);
+                  await handleSkipToNext(sid);
+                }}
+              >
+                다음 문장으로
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* 미통 재진입 인트로 */}
 
         {showFailIntro && (
