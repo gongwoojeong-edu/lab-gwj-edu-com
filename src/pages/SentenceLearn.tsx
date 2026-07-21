@@ -158,6 +158,14 @@ const SentenceLearn = () => {
   const [redoRequestedAt, setRedoRequestedAt] = useState<string | null>(null);
   const [redoMemo, setRedoMemo] = useState<string | null>(null);
 
+  // 최근 선생님 평가 결과 배너 (redo 제외 모든 등급 — 학생이 코멘트를 확인한 뒤 다음 문장으로 이동)
+  const [lastEvaluation, setLastEvaluation] = useState<{
+    grade: ApprovalGrade;
+    memo: string | null;
+    sentenceId: string;
+    at: string;
+  } | null>(null);
+
 
   // sentence 변경 시 마스터 로드 게이트 리셋 + 800ms 안전망(외부 fetch가 어떤 이유로 늦거나 실패해도 진행 가능)
   useEffect(() => {
