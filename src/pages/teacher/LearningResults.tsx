@@ -105,6 +105,8 @@ const LearningResults = () => {
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
   // unit_id → 라벨 ("[Lxx] 교재 · Uxx 유닛")
   const [unitLabel, setUnitLabel] = useState<Record<string, string>>({});
+  // unit_id → 해당 유닛 전체 지문 수 (진행률 분모용)
+  const [unitTotalMap, setUnitTotalMap] = useState<Record<string, number>>({});
   // 펼침 상태: `${userId}::${unitKey}` → boolean (기본: 닫힘)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   // 한글해석 제출 여부: `${userId}::${sentenceId}` → true
