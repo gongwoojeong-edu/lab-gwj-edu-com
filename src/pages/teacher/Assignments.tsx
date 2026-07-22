@@ -572,6 +572,11 @@ const Assignments = () => {
         rows: sorted,
         totalCount: sorted.length,
         doneCount,
+        round_no: sorted.reduce<number | null>((m, r) => {
+          const rn = (r as unknown as { round_no?: number | null }).round_no ?? null;
+          if (rn == null) return m;
+          return m == null ? rn : Math.max(m, rn);
+        }, null),
       });
     });
     return out.sort((a, b) => {
