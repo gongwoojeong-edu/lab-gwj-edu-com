@@ -243,7 +243,7 @@ interface AssignmentRow {
 
 type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
-type AssignMode = "unit" | "sentence";
+type AssignMode = "unit" | "sentence" | "book";
 
 interface FormState {
   title: string;
