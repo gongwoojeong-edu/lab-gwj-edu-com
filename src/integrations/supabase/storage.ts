@@ -51,11 +51,16 @@ export interface SentenceProgressRow {
 
 export const fetchSentenceProgress = async (sentenceId: string): Promise<SentenceProgressRow | null> => {
   const userId = await getUserId();
-  let q = supabase.from("sentence_progress").select("*").eq("sentence_id", sentenceId);
+  let q = supabase
+    .from("sentence_progress")
+    .select("*")
+    .eq("sentence_id", sentenceId)
+    .order("updated_at", { ascending: false })
+    .limit(1);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
-  const { data, error } = await q.maybeSingle();
+  const { data, error } = await q;
   if (error) throw error;
-  return (data as SentenceProgressRow) ?? null;
+  return ((data?.[0] as SentenceProgressRow) ?? null);
 };
 
 export const upsertSentenceProgress = async (
@@ -63,33 +68,19 @@ export const upsertSentenceProgress = async (
   patch: Partial<Omit<SentenceProgressRow, "sentence_id">> & { touchActivity?: boolean },
 ): Promise<void> => {
   const userId = await requireUserId();
-  const existing = await fetchSentenceProgress(sentenceId);
+  // 라운드 모델 이후 (user_id, sentence_id) 유니크 제약이 사라져 ON CONFLICT 로 upsert 불가.
+  // 최신 행을 읽어 update, 없으면 insert 로 처리한다.
+  const { data: existingRows, error: readErr } = await supabase
+    .from("sentence_progress")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("sentence_id", sentenceId)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  if (readErr) throw readErr;
+  const existingRow = (existingRows?.[0] as (SentenceProgressRow & { id?: string }) | undefined) ?? null;
+
   const { touchActivity, ...rest } = patch;
-  const next: Record<string, unknown> = {
-    user_id: userId,
-    sentence_id: sentenceId,
-    pre_done: existing?.pre_done ?? false,
-    analysis_done: existing?.analysis_done ?? false,
-    translation_done: existing?.translation_done ?? false,
-    word_test_done: existing?.word_test_done ?? false,
-    status: existing?.status ?? "pending",
-    passed_at: existing?.passed_at ?? null,
-    analysis_match_rate: existing?.analysis_match_rate ?? null,
-    mem_listen_done: existing?.mem_listen_done ?? false,
-    mem_scramble_done: existing?.mem_scramble_done ?? false,
-    mem_cloze_done: existing?.mem_cloze_done ?? false,
-    mem_dictation_done: existing?.mem_dictation_done ?? false,
-    mem_speech_done: existing?.mem_speech_done ?? false,
-    mem_record_done: existing?.mem_record_done ?? false,
-    mem_ko_to_en_done: existing?.mem_ko_to_en_done ?? false,
-    mem_en_to_ko_done: existing?.mem_en_to_ko_done ?? false,
-    mem_direction: existing?.mem_direction ?? null,
-    mem_passed_at: existing?.mem_passed_at ?? null,
-    mem_attempt_count: existing?.mem_attempt_count ?? 0,
-    mem_dictation_score: existing?.mem_dictation_score ?? null,
-    ...rest,
-  };
-  // 명시적으로 touchActivity=true이거나, 진행 패치(어떤 단계 done/status)일 때 last_activity_at 갱신
   const isProgressPatch =
     touchActivity ||
     "pre_done" in rest ||
@@ -109,10 +100,44 @@ export const upsertSentenceProgress = async (
     "mem_passed_at" in rest ||
     "mem_attempt_count" in rest ||
     "mem_dictation_score" in rest;
-  if (isProgressPatch) {
-    next.last_activity_at = new Date().toISOString();
+
+  if (existingRow?.id) {
+    const update: Record<string, unknown> = { ...rest };
+    if (isProgressPatch) update.last_activity_at = new Date().toISOString();
+    const { error } = await supabase
+      .from("sentence_progress")
+      .update(update as never)
+      .eq("id", existingRow.id);
+    if (error) throw error;
+    return;
   }
-  const { error } = await supabase.from("sentence_progress").upsert(next as never, { onConflict: "user_id,sentence_id" });
+
+  const insertRow: Record<string, unknown> = {
+    user_id: userId,
+    sentence_id: sentenceId,
+    pre_done: false,
+    analysis_done: false,
+    translation_done: false,
+    word_test_done: false,
+    status: "pending",
+    passed_at: null,
+    analysis_match_rate: null,
+    mem_listen_done: false,
+    mem_scramble_done: false,
+    mem_cloze_done: false,
+    mem_dictation_done: false,
+    mem_speech_done: false,
+    mem_record_done: false,
+    mem_ko_to_en_done: false,
+    mem_en_to_ko_done: false,
+    mem_direction: null,
+    mem_passed_at: null,
+    mem_attempt_count: 0,
+    mem_dictation_score: null,
+    ...rest,
+  };
+  if (isProgressPatch) insertRow.last_activity_at = new Date().toISOString();
+  const { error } = await supabase.from("sentence_progress").insert(insertRow as never);
   if (error) throw error;
 };
 
