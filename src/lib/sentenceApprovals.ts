@@ -44,7 +44,7 @@ export interface SentenceApproval {
   held_memo?: string | null;
 }
 
-/** 본 학생의 해당 문장 최신 행 (status 무관) */
+/** 본 학생의 해당 문장 최신 행 (status 무관). 현재 회독(assignment_id IS NULL)만. */
 export const fetchLatestApproval = async (
   sentenceId: string,
   userId?: string,
@@ -56,6 +56,7 @@ export const fetchLatestApproval = async (
     .select("*")
     .eq("user_id", uid)
     .eq("sentence_id", sentenceId)
+    .is("assignment_id", null)
     .order("attempt_no", { ascending: false })
     .limit(1)
     .maybeSingle();

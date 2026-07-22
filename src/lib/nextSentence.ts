@@ -108,6 +108,7 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
     .from("sentence_progress")
     .select("sentence_id, status")
     .eq("user_id", userId)
+    .is("assignment_id", null) // 현재 회독만
     .in("status", ["pass", "fail"]);
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
@@ -318,6 +319,7 @@ export const resolveEarlierIncompleteInAssignment = async (
       "sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
     )
     .eq("user_id", userId)
+    .is("assignment_id", null) // 현재 회독만
     .in("sentence_id", assignCodes);
 
   const progressFlags = new Map<string, StepFlags>();
@@ -391,6 +393,7 @@ export const resolveNextAfterPass = async (
         "sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
       )
       .eq("user_id", userId)
+      .is("assignment_id", null) // 현재 회독만
       .in("sentence_id", assignCodes);
 
     const progressFlags = new Map<string, StepFlags>();
@@ -499,6 +502,7 @@ export const resolveNextAfterPass = async (
       .from("sentence_progress")
       .select("sentence_id")
       .eq("user_id", userId)
+      .is("assignment_id", null) // 현재 회독만
       .in("status", ["pass", "fail"])
       .in("sentence_id", codes);
     const passed = new Set(
@@ -546,6 +550,7 @@ export const resolveNextAfterPass = async (
           .from("sentence_progress")
           .select("sentence_id")
           .eq("user_id", userId)
+          .is("assignment_id", null) // 현재 회독만
           .in("status", ["pass", "fail"])
           .in("sentence_id", laterCodes);
         const laterPassedSet = new Set(
