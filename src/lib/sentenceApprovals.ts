@@ -44,47 +44,56 @@ export interface SentenceApproval {
   held_memo?: string | null;
 }
 
-/** 본 학생의 해당 문장 최신 행 (status 무관). 현재 회독(assignment_id IS NULL)만. */
+/** 본 학생의 해당 문장 최신 행. assignmentId 를 명시하면 해당 라운드만 조회. */
 export const fetchLatestApproval = async (
   sentenceId: string,
   userId?: string,
+  assignmentId?: string | null,
 ): Promise<SentenceApproval | null> => {
   const uid = userId ?? (await getCurrentUserId());
   if (!uid) return null;
-  const { data } = await supabase
+  let q = supabase
     .from("sentence_approvals")
     .select("*")
     .eq("user_id", uid)
     .eq("sentence_id", sentenceId)
-    .is("assignment_id", null)
     .order("attempt_no", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (assignmentId === null) q = q.is("assignment_id", null);
+  else if (assignmentId) q = q.eq("assignment_id", assignmentId);
+  else q = q.is("assignment_id", null);
+  const { data } = await q.maybeSingle();
   return (data as SentenceApproval) ?? null;
 };
 
-/** 학생: 새 승인 요청 생성. 이미 pending 행이 있으면 그대로 반환. */
+/** 학생: 새 승인 요청 생성. 이미 pending/held 행이 있으면 그대로 반환. */
 export const createApprovalRequest = async (
   sentenceId: string,
+  assignmentId?: string | null,
 ): Promise<SentenceApproval> => {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error("로그인이 필요합니다");
 
-  const latest = await fetchLatestApproval(sentenceId, userId);
+  const latest = await fetchLatestApproval(sentenceId, userId, assignmentId ?? null);
   if (latest && (latest.status === "pending" || latest.status === "held")) return latest;
 
   const nextAttempt = (latest?.attempt_no ?? 0) + 1;
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    sentence_id: sentenceId,
+    attempt_no: nextAttempt,
+    status: "pending",
+  };
+  if (assignmentId) payload.assignment_id = assignmentId;
   const { data, error } = await supabase
     .from("sentence_approvals")
-    .insert({
-      user_id: userId,
-      sentence_id: sentenceId,
-      attempt_no: nextAttempt,
-      status: "pending",
-    })
+    .insert(payload as never)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.error("[createApprovalRequest] insert failed", error, payload);
+    throw error;
+  }
   return data as SentenceApproval;
 };
 

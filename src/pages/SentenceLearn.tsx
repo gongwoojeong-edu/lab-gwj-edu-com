@@ -1358,25 +1358,29 @@ const SentenceLearn = () => {
               englishSentence={sentence.english}
               onSubmitted={async (submittedText) => {
                 try {
-                  // 정책 변경: 한글해석 제출 = 모든 단계 학습 완료지만,
-                  // status=pass 확정은 '선생님 승인 + 평가 등급 입력' 후로 미룬다.
-                  // 따라서 여기서는 단계 플래그만 true 로 두고 status 는 pending 유지.
+                  const sp = new URLSearchParams(window.location.search);
+                  const asnId = sp.get("assignment") || null;
+                  // 정책: 한글해석 제출 = 단계 학습 완료, status=pass 확정은 선생님 승인 후.
                   await upsertSentenceProgress(sentence.id, {
                     translation_done: true,
                     analysis_done: true,
                     word_test_done: true,
+                    assignmentId: asnId,
                   });
                   setTranslationDone(true);
                   await recordAttempt(testWordResultForFinalSubmit());
 
                   // 선생님 승인 요청 행 생성 (이미 pending 이면 재사용)
-                  const ap = await createApprovalRequest(sentence.id);
+                  const ap = await createApprovalRequest(sentence.id, asnId);
                   setSubmittedTranslation(submittedText);
                   setPendingApproval(ap);
-                } catch (e) {
+                } catch (e: unknown) {
+                  const err = e as { message?: string; details?: string; hint?: string; code?: string };
+                  const detail = err?.message || err?.details || String(e);
+                  console.error("[translation onSubmitted] save failed", e);
                   toast({
                     title: "저장 실패",
-                    description: String(e),
+                    description: `${detail}${err?.code ? ` (code: ${err.code})` : ""}`,
                     variant: "destructive",
                   });
                 }
