@@ -238,6 +238,7 @@ interface AssignmentRow {
   include_wordtest: boolean;
   task_mode?: TaskMode | null;
   mem_direction?: MemDirectionSetting | null;
+  round_no?: number | null;
 }
 
 type StepKey = "pre" | "analysis" | "translation" | "wordtest";
