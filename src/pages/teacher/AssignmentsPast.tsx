@@ -275,9 +275,13 @@ const AssignmentsPast = () => {
 
         <Card className="p-5 space-y-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-primary">
-            완료 과제 ({doneGroups.length})
+            완료 과제 {loading || progressLoading ? "" : `(${doneGroups.length})`}
           </h2>
-          {doneGroups.length === 0 ? (
+          {loading || progressLoading ? (
+            <p className="text-sm text-muted-foreground py-6 text-center animate-pulse">
+              완료 과제를 불러오는 중…
+            </p>
+          ) : doneGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
               아직 완료된 과제가 없어요.
             </p>
