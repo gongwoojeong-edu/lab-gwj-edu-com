@@ -740,22 +740,37 @@ const Assignments = () => {
 
       const taskMode = deriveTaskModeFromSteps(form);
 
+      // 회독(Round) 계산: 같은 (학생, 문장)에 기존 과제가 있으면 다음 회독 부여 + 기존 진도 봉인
+      const { planRoundsForNewAssignments, sealPreviousRounds } = await import(
+        "@/lib/roundArchive"
+      );
+      const pairs = targets
+        .filter((sid): sid is string => !!sid)
+        .flatMap((sid) => passageCodes.map((code) => ({ student_id: sid, sentence_id: code })));
+      const roundPlan = await planRoundsForNewAssignments(pairs);
+      // 이전 회독 진도/승인/로그 봉인 먼저
+      await sealPreviousRounds(Array.from(roundPlan.values()));
+
       const rowsToInsert = targets.flatMap((sid) =>
-        passageCodes.map((code) => ({
-          teacher_id: teacherId,
-          student_id: sid,
-          title: form.title.trim(),
-          description: form.description.trim() || null,
-          sentence_id: code,
-          unit_id: form.mode === "unit" ? form.selectedUnitId || null : null,
-          task_mode: taskMode,
-          due_at: dueAtIso,
-          include_pre: form.includePre,
-          include_analysis: form.includeAnalysis,
-          include_translation: form.includeTranslation,
-          include_wordtest: form.includeWordtest,
-          mem_direction: form.includeMemorize && form.memDirection ? form.memDirection : null,
-        })),
+        passageCodes.map((code) => {
+          const plan = sid ? roundPlan.get(`${sid}::${code}`) : undefined;
+          return {
+            teacher_id: teacherId,
+            student_id: sid,
+            title: form.title.trim(),
+            description: form.description.trim() || null,
+            sentence_id: code,
+            unit_id: form.mode === "unit" ? form.selectedUnitId || null : null,
+            task_mode: taskMode,
+            due_at: dueAtIso,
+            include_pre: form.includePre,
+            include_analysis: form.includeAnalysis,
+            include_translation: form.includeTranslation,
+            include_wordtest: form.includeWordtest,
+            mem_direction: form.includeMemorize && form.memDirection ? form.memDirection : null,
+            round_no: plan?.next_round_no ?? 1,
+          };
+        }),
       );
       const { error } = await supabase.from("assignments").insert(
         rowsToInsert as never,
