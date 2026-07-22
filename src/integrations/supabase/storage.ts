@@ -65,22 +65,33 @@ export const fetchSentenceProgress = async (sentenceId: string): Promise<Sentenc
 
 export const upsertSentenceProgress = async (
   sentenceId: string,
-  patch: Partial<Omit<SentenceProgressRow, "sentence_id">> & { touchActivity?: boolean },
+  patch: Partial<Omit<SentenceProgressRow, "sentence_id">> & {
+    touchActivity?: boolean;
+    assignmentId?: string | null;
+  },
 ): Promise<void> => {
   const userId = await requireUserId();
-  // 라운드 모델 이후 (user_id, sentence_id) 유니크 제약이 사라져 ON CONFLICT 로 upsert 불가.
-  // 최신 행을 읽어 update, 없으면 insert 로 처리한다.
-  const { data: existingRows, error: readErr } = await supabase
+  const { touchActivity, assignmentId, ...rest } = patch;
+
+  // 라운드 모델: 같은 (user, sentence) 조합이라도 assignment_id 별로 다른 행이 유지되어야 한다.
+  // assignmentId 가 지정되면 해당 라운드 행만 대상으로 잡는다.
+  let readQ = supabase
     .from("sentence_progress")
     .select("*")
     .eq("user_id", userId)
     .eq("sentence_id", sentenceId)
     .order("updated_at", { ascending: false })
     .limit(1);
-  if (readErr) throw readErr;
+  if (assignmentId === null) readQ = readQ.is("assignment_id", null);
+  else if (assignmentId) readQ = readQ.eq("assignment_id", assignmentId);
+
+  const { data: existingRows, error: readErr } = await readQ;
+  if (readErr) {
+    console.error("[upsertSentenceProgress] read failed", readErr);
+    throw readErr;
+  }
   const existingRow = (existingRows?.[0] as (SentenceProgressRow & { id?: string }) | undefined) ?? null;
 
-  const { touchActivity, ...rest } = patch;
   const isProgressPatch =
     touchActivity ||
     "pre_done" in rest ||
@@ -104,12 +115,17 @@ export const upsertSentenceProgress = async (
   if (existingRow?.id) {
     const update: Record<string, unknown> = { ...rest };
     if (isProgressPatch) update.last_activity_at = new Date().toISOString();
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("sentence_progress")
       .update(update as never)
-      .eq("id", existingRow.id);
-    if (error) throw error;
-    return;
+      .eq("id", existingRow.id)
+      .select("id");
+    if (error) {
+      console.error("[upsertSentenceProgress] update failed", error, { id: existingRow.id, patch });
+      throw error;
+    }
+    if (updated && updated.length > 0) return;
+    console.warn("[upsertSentenceProgress] update touched 0 rows, falling back to insert");
   }
 
   const insertRow: Record<string, unknown> = {
@@ -134,11 +150,15 @@ export const upsertSentenceProgress = async (
     mem_passed_at: null,
     mem_attempt_count: 0,
     mem_dictation_score: null,
+    ...(assignmentId ? { assignment_id: assignmentId } : {}),
     ...rest,
   };
   if (isProgressPatch) insertRow.last_activity_at = new Date().toISOString();
   const { error } = await supabase.from("sentence_progress").insert(insertRow as never);
-  if (error) throw error;
+  if (error) {
+    console.error("[upsertSentenceProgress] insert failed", error, insertRow);
+    throw error;
+  }
 };
 
 // ---------- sentence_attempt_logs ----------
