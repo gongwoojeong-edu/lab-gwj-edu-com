@@ -14,7 +14,8 @@ export async function notifyStudentsForNewAssignment(opts: {
   studentIds: string[];
   taskMode: TaskMode | null;
   passageCount: number;
-  mode: "unit" | "sentence";
+  mode: "unit" | "sentence" | "book";
+  unitCount?: number;
 }): Promise<number> {
   const sender = await getCurrentUserId();
   if (!sender) return 0;
@@ -37,6 +38,8 @@ export async function notifyStudentsForNewAssignment(opts: {
   const scope =
     opts.mode === "sentence"
       ? "문장 1개"
+      : opts.mode === "book"
+      ? `책 전체 (유닛 ${opts.unitCount ?? "?"}개 · 지문 ${opts.passageCount}개)`
       : `유닛 지문 ${opts.passageCount}개`;
 
   const kind: NotificationKind = "assignment";

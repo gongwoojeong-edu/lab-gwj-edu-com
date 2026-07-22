@@ -243,7 +243,7 @@ interface AssignmentRow {
 
 type StepKey = "pre" | "analysis" | "translation" | "wordtest";
 
-type AssignMode = "unit" | "sentence";
+type AssignMode = "unit" | "sentence" | "book";
 
 interface FormState {
   title: string;
@@ -313,8 +313,47 @@ const Assignments = () => {
 
   // Create form
   const [form, setForm] = useState<FormState>(emptyForm());
+  const [titleTouched, setTitleTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+
+  // 자동 제목: 사용자가 직접 입력한 적 없다면 선택 상태로부터 자동 생성
+  useEffect(() => {
+    if (titleTouched) return;
+    const tb = textbooks.find((t) => t.id === form.selectedTbId);
+    if (!tb) return;
+    const levelLabel = levelDisplay(form.selectedLevel as LevelCode) || form.selectedLevel || tb.level;
+    const base = `[${levelLabel}] ${tb.title}`;
+    let auto = base;
+    if (form.mode === "book") {
+      auto = `${base} 전체`;
+    } else {
+      const unit = (unitsByTb[form.selectedTbId] ?? []).find(
+        (u) => u.id === form.selectedUnitId,
+      );
+      if (unit) {
+        const unitLabel = `${unit.unit_no}과${unit.title ? ` ${unit.title}` : ""}`;
+        auto =
+          form.mode === "sentence" && form.selectedPassageCode
+            ? `${base} · ${unitLabel} · ${form.selectedPassageCode}`
+            : `${base} · ${unitLabel}`;
+      }
+    }
+    if (auto && auto !== form.title) {
+      setForm((p) => ({ ...p, title: auto }));
+    }
+  }, [
+    titleTouched,
+    form.mode,
+    form.selectedLevel,
+    form.selectedTbId,
+    form.selectedUnitId,
+    form.selectedPassageCode,
+    textbooks,
+    unitsByTb,
+    levelDisplay,
+    form.title,
+  ]);
 
   // 진행중 목록: 검색·필터·보기 모드
   const [listQuery, setListQuery] = useState("");
@@ -687,6 +726,8 @@ const Assignments = () => {
     if (f.mode === "sentence") {
       if (!f.selectedUnitId) return "유닛을 먼저 선택해주세요";
       if (!f.selectedPassageCode) return "출제할 문장을 선택해주세요";
+    } else if (f.mode === "book") {
+      if (!f.selectedTbId) return "책을 먼저 선택해주세요";
     } else {
       if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
     }
@@ -721,29 +762,55 @@ const Assignments = () => {
       const targets: (string | null)[] = form.studentIds;
 
       // 출제 모드별 지문 코드 결정:
-      // - unit  : 선택된 유닛의 모든 지문 자동 부여 (기존 동작 유지)
-      // - sentence: 사용자가 명시 선택한 단일 문장만 부여
-      let passageCodes: string[];
+      // - unit    : 선택된 유닛의 모든 지문 자동 부여
+      // - sentence : 사용자가 명시 선택한 단일 문장만 부여
+      // - book    : 선택된 책의 모든 유닛의 모든 지문 자동 부여
+      let codePairs: Array<{ code: string; unit_id: string | null }> = [];
+      let unitCountForNotify = 0;
       if (form.mode === "sentence") {
-        passageCodes = form.selectedPassageCode ? [form.selectedPassageCode] : [];
+        if (form.selectedPassageCode) {
+          codePairs = [{ code: form.selectedPassageCode, unit_id: null }];
+        }
+      } else if (form.mode === "book") {
+        const units =
+          unitsByTb[form.selectedTbId] ??
+          (await fetchUnitsByTextbook(form.selectedTbId));
+        const perUnit = await Promise.all(
+          units.map(async (u) => {
+            const cached = passagesByUnit[u.id];
+            const list = cached ?? (await fetchPassagesByUnit(u.id));
+            return { unit: u, list };
+          }),
+        );
+        for (const { unit, list } of perUnit
+          .slice()
+          .sort((a, b) => a.unit.unit_no - b.unit.unit_no)) {
+          list
+            .slice()
+            .sort((a, b) => a.passage_no - b.passage_no)
+            .forEach((p) => codePairs.push({ code: p.code, unit_id: unit.id }));
+        }
+        unitCountForNotify = units.length;
       } else {
         const unitPassages = form.selectedUnitId
           ? passagesByUnit[form.selectedUnitId] ?? []
           : [];
-        passageCodes =
+        const uid = form.selectedUnitId || null;
+        codePairs =
           unitPassages.length > 0
             ? unitPassages
                 .slice()
                 .sort((a, b) => a.passage_no - b.passage_no)
-                .map((p) => p.code)
+                .map((p) => ({ code: p.code, unit_id: uid }))
             : form.selectedPassageCode
-            ? [form.selectedPassageCode]
+            ? [{ code: form.selectedPassageCode, unit_id: uid }]
             : [];
       }
 
-      if (passageCodes.length === 0) {
+      if (codePairs.length === 0) {
         throw new Error("부여할 지문을 찾을 수 없습니다");
       }
+      const passageCodes = codePairs.map((c) => c.code);
 
       const taskMode = deriveTaskModeFromSteps(form);
 
@@ -759,7 +826,7 @@ const Assignments = () => {
       await sealPreviousRounds(Array.from(roundPlan.values()));
 
       const rowsToInsert = targets.flatMap((sid) =>
-        passageCodes.map((code) => {
+        codePairs.map(({ code, unit_id }) => {
           const plan = sid ? roundPlan.get(`${sid}::${code}`) : undefined;
           return {
             teacher_id: teacherId,
@@ -767,7 +834,7 @@ const Assignments = () => {
             title: form.title.trim(),
             description: form.description.trim() || null,
             sentence_id: code,
-            unit_id: form.mode === "unit" ? form.selectedUnitId || null : null,
+            unit_id,
             task_mode: taskMode,
             due_at: dueAtIso,
             include_pre: form.includePre,
@@ -787,6 +854,8 @@ const Assignments = () => {
       const unitLabel =
         form.mode === "sentence"
           ? `문장 1개`
+          : form.mode === "book"
+          ? `책 전체 (유닛 ${unitCountForNotify}개 · 지문 ${passageCodes.length}개)`
           : `유닛 지문 ${passageCodes.length}개`;
       const notified = await notifyStudentsForNewAssignment({
         title: form.title.trim(),
@@ -796,12 +865,14 @@ const Assignments = () => {
         taskMode,
         passageCount: passageCodes.length,
         mode: form.mode,
+        unitCount: unitCountForNotify,
       });
       toast({
         title: "✅ 과제가 생성되었습니다",
         description: `${studentMsg} × ${unitLabel} = ${rowsToInsert.length}건 부여됨${notified > 0 ? ` · 알림 ${notified}명` : ""}`,
       });
       setForm(emptyForm());
+      setTitleTouched(false);
       void load();
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
@@ -1347,7 +1418,7 @@ const Assignments = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label>유닛 <span className="text-destructive">*</span></Label>
+          <Label>유닛 {f.mode !== "book" && <span className="text-destructive">*</span>}{f.mode === "book" && <span className="text-[10px] font-normal text-muted-foreground ml-1">(책 전체 모드에서는 선택 불필요)</span>}</Label>
           <Select
             value={f.selectedUnitId || undefined}
             onValueChange={(v) =>
@@ -1702,7 +1773,7 @@ const Assignments = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>제목 *</Label>
-              <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="예: L05 Unit 3 마감 과제" />
+              <Input value={form.title} onChange={(e) => { setTitleTouched(true); setForm((p) => ({ ...p, title: e.target.value })); }} placeholder="책·유닛 선택 시 자동 생성 (직접 수정 가능)" />
             </div>
             <div className="space-y-1.5">
               <Label>대상 학생 * (반드시 1명 이상 선택)</Label>
@@ -1801,6 +1872,11 @@ const Assignments = () => {
                   <RadioGroupItem value="sentence" id="mode-sentence" />
                   <span className="text-sm font-medium">특정 문장만</span>
                   <span className="text-[10px] text-muted-foreground">(테스트·보충용)</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="book" id="mode-book" />
+                  <span className="text-sm font-medium">책 전체</span>
+                  <span className="text-[10px] text-muted-foreground">(모든 유닛·지문 일괄 부여)</span>
                 </label>
               </RadioGroup>
             </div>
