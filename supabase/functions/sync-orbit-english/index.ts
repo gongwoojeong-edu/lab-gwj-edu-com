@@ -532,20 +532,27 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existing) {
+          // 기존 프로필: start_level/current_level 은 건드리지 않음 (원장 수동 조정 보존)
           const { error: uErr } = await labSb
             .from("student_profiles")
             .update(patch)
             .eq("user_id", userId);
           if (uErr) throw new Error(uErr.message);
         } else {
-          const { error: iErr } = await labSb.from("student_profiles").upsert(
-            {
-              user_id: userId,
-              student_no: hakbun,
-              ...patch,
-            },
-            { onConflict: "user_id" },
-          );
+          // 신규 프로필: 오르빗 학년으로 초기 레벨 자동 배정 (L03/L07 제외, 매핑 없으면 미설정)
+          const autoLevel = gradeToStartLevel(row.grade);
+          const insertRow: Record<string, unknown> = {
+            user_id: userId,
+            student_no: hakbun,
+            ...patch,
+          };
+          if (autoLevel) {
+            insertRow.start_level = autoLevel;
+            insertRow.current_level = autoLevel;
+          }
+          const { error: iErr } = await labSb
+            .from("student_profiles")
+            .upsert(insertRow, { onConflict: "user_id" });
           if (iErr) throw new Error(iErr.message);
         }
 
