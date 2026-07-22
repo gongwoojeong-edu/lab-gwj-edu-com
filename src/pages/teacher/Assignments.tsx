@@ -1418,7 +1418,7 @@ const Assignments = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label>유닛 <span className="text-destructive">*</span></Label>
+          <Label>유닛 {f.mode !== "book" && <span className="text-destructive">*</span>}{f.mode === "book" && <span className="text-[10px] font-normal text-muted-foreground ml-1">(책 전체 모드에서는 선택 불필요)</span>}</Label>
           <Select
             value={f.selectedUnitId || undefined}
             onValueChange={(v) =>
