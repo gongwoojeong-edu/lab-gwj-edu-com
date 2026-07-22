@@ -72,9 +72,27 @@ export async function fetchLongStalled(): Promise<StalledStudent[]> {
     .neq("orbit_enrollment_active", false);
   const activeSet = new Set(((activeRows ?? []) as { user_id: string }[]).map((r) => r.user_id));
 
-  const list = (progRows ?? [])
+  const preList = (progRows ?? [])
     .filter((r: any) => r.pre_done || r.word_test_done || r.analysis_done)
-    .filter((r: any) => activeSet.has(r.user_id))
+    .filter((r: any) => activeSet.has(r.user_id));
+
+  if (preList.length === 0) return [];
+
+  // 학생 단위 최근 활동 필터: 해당 학생이 최근 STALL_DAYS 내에
+  // 어떤 문장이든 활동했다면 "장기 정체"에서 제외 (다른 진도를 나가고 있는 학생)
+  const candidateUserIds = Array.from(new Set(preList.map((r: any) => r.user_id)));
+  const { data: recentRows } = await supabase
+    .from("sentence_progress")
+    .select("user_id, last_activity_at")
+    .in("user_id", candidateUserIds)
+    .gt("last_activity_at", cutoff)
+    .limit(2000);
+  const recentlyActiveUsers = new Set(
+    ((recentRows ?? []) as { user_id: string }[]).map((r) => r.user_id),
+  );
+
+  const list = preList
+    .filter((r: any) => !recentlyActiveUsers.has(r.user_id))
     .slice(0, 200);
 
   if (list.length === 0) return [];
