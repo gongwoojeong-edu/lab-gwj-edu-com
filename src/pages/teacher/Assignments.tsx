@@ -98,6 +98,7 @@ interface AssignmentGroup {
   rows: AssignmentRow[];
   totalCount: number;
   doneCount: number;
+  round_no: number | null;
 }
 
 type ListViewMode = "compact" | "cards" | "byStudent";
