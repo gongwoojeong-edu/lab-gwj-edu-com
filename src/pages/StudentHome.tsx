@@ -97,6 +97,7 @@ interface AssignmentRow {
   include_translation: boolean;
   include_wordtest: boolean;
   task_mode: TaskMode | null;
+  round_no?: number | null;
 }
 
 interface AssignmentGroup {
@@ -117,6 +118,7 @@ interface AssignmentGroup {
   nextSentenceId: string | null;
   nextPosition: number | null;
   unitId: string | null;
+  round_no: number | null;
 }
 
 /** sentence_id에서 유닛 prefix 추출. 'L08-U260338-001' → 'L08-U260338'. 매칭 안 되면 null. */
@@ -194,7 +196,7 @@ const StudentHome = () => {
             .order("updated_at", { ascending: false }),
           supabase
             .from("assignments")
-            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode")
+            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode, round_no")
             .or(`student_id.eq.${user.id},student_id.is.null`)
             .order("created_at", { ascending: false })
             .limit(200),
@@ -350,6 +352,11 @@ const StudentHome = () => {
               nextSentenceId: nextRow?.sentence_id ?? null,
               nextPosition,
               unitId: nextUnitId ?? headUnitId,
+              round_no: sorted.reduce<number | null>((m, r) => {
+                const rn = r.round_no ?? null;
+                if (rn == null) return m;
+                return m == null ? rn : Math.max(m, rn);
+              }, null),
             } as AssignmentGroup;
           })
           // 진행 중이거나, 유닛 학습은 끝났지만 선생님 승인 전인 그룹 유지
@@ -837,6 +844,11 @@ const StudentHome = () => {
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold truncate">{g.title}</span>
+                          {g.round_no != null && g.round_no > 1 && (
+                            <span className="inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                              {g.round_no}회독
+                            </span>
+                          )}
                           {g.totalCount > 1 && (
                             <span className="inline-flex items-center text-[11px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary">
                               완료 {g.doneCount}/{g.totalCount}
