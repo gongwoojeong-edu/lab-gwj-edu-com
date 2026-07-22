@@ -844,6 +844,11 @@ const StudentHome = () => {
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold truncate">{g.title}</span>
+                          {g.round_no != null && g.round_no > 1 && (
+                            <span className="inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                              {g.round_no}회독
+                            </span>
+                          )}
                           {g.totalCount > 1 && (
                             <span className="inline-flex items-center text-[11px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary">
                               완료 {g.doneCount}/{g.totalCount}
