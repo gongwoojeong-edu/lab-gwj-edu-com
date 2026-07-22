@@ -78,6 +78,7 @@ export type Database = {
           mem_direction:
             | Database["public"]["Enums"]["mem_direction_setting"]
             | null
+          round_no: number
           sentence_id: string | null
           student_id: string | null
           task_mode: Database["public"]["Enums"]["passage_task_mode"] | null
@@ -98,6 +99,7 @@ export type Database = {
           mem_direction?:
             | Database["public"]["Enums"]["mem_direction_setting"]
             | null
+          round_no?: number
           sentence_id?: string | null
           student_id?: string | null
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
@@ -118,6 +120,7 @@ export type Database = {
           mem_direction?:
             | Database["public"]["Enums"]["mem_direction_setting"]
             | null
+          round_no?: number
           sentence_id?: string | null
           student_id?: string | null
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
@@ -669,6 +672,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          assignment_id: string | null
           attempt_no: number
           created_at: string
           grade: string | null
@@ -686,6 +690,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          assignment_id?: string | null
           attempt_no?: number
           created_at?: string
           grade?: string | null
@@ -703,6 +708,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          assignment_id?: string | null
           attempt_no?: number
           created_at?: string
           grade?: string | null
@@ -717,12 +723,21 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sentence_approvals_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sentence_attempt_logs: {
         Row: {
           analysis_match_rate: number
           analysis_passed: boolean
+          assignment_id: string | null
           attempt_no: number
           attempt_source: string
           completed_at: string
@@ -739,6 +754,7 @@ export type Database = {
         Insert: {
           analysis_match_rate?: number
           analysis_passed?: boolean
+          assignment_id?: string | null
           attempt_no?: number
           attempt_source?: string
           completed_at?: string
@@ -755,6 +771,7 @@ export type Database = {
         Update: {
           analysis_match_rate?: number
           analysis_passed?: boolean
+          assignment_id?: string | null
           attempt_no?: number
           attempt_source?: string
           completed_at?: string
@@ -768,12 +785,21 @@ export type Database = {
           word_test_passed?: boolean
           word_test_score?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sentence_attempt_logs_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sentence_progress: {
         Row: {
           analysis_done: boolean
           analysis_match_rate: number | null
+          assignment_id: string | null
           created_at: string
           id: string
           last_activity_at: string | null
@@ -805,6 +831,7 @@ export type Database = {
         Insert: {
           analysis_done?: boolean
           analysis_match_rate?: number | null
+          assignment_id?: string | null
           created_at?: string
           id?: string
           last_activity_at?: string | null
@@ -836,6 +863,7 @@ export type Database = {
         Update: {
           analysis_done?: boolean
           analysis_match_rate?: number | null
+          assignment_id?: string | null
           created_at?: string
           id?: string
           last_activity_at?: string | null
@@ -864,7 +892,15 @@ export type Database = {
           user_id?: string | null
           word_test_done?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sentence_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sentence_translations: {
         Row: {
