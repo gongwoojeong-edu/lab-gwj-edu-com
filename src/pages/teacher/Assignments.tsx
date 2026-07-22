@@ -1772,7 +1772,7 @@ const Assignments = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>제목 *</Label>
-              <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="예: L05 Unit 3 마감 과제" />
+              <Input value={form.title} onChange={(e) => { setTitleTouched(true); setForm((p) => ({ ...p, title: e.target.value })); }} placeholder="책·유닛 선택 시 자동 생성 (직접 수정 가능)" />
             </div>
             <div className="space-y-1.5">
               <Label>대상 학생 * (반드시 1명 이상 선택)</Label>
