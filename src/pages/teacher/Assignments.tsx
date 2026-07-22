@@ -1476,11 +1476,14 @@ const Assignments = () => {
     const head = g.rows[0];
     const rem = remaining(g.due_at);
     const allTargetIds = targetIdsForGroup(g);
-    const merged = mergeGroupProgress(g, progressByAsg, allTargetIds);
-    const stats = groupProgressStats(g, merged, allTargetIds);
     const doneCountForTarget = g.rows.filter((r) =>
       isAssignmentDone(r, progressByAsg[r.id], allTargetIds),
     ).length;
+    // % 표기를 "완료 문장 / 전체 문장"과 일치시켜 표기 혼동 제거
+    const pct = g.totalCount > 0
+      ? Math.round((doneCountForTarget / g.totalCount) * 100)
+      : 0;
+    const stats = { pct };
     const label = g.unit_label
       ? `${g.unit_label} · ${g.totalCount}지문`
       : head.sentence_id
