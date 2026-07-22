@@ -352,6 +352,11 @@ const StudentHome = () => {
               nextSentenceId: nextRow?.sentence_id ?? null,
               nextPosition,
               unitId: nextUnitId ?? headUnitId,
+              round_no: sorted.reduce<number | null>((m, r) => {
+                const rn = r.round_no ?? null;
+                if (rn == null) return m;
+                return m == null ? rn : Math.max(m, rn);
+              }, null),
             } as AssignmentGroup;
           })
           // 진행 중이거나, 유닛 학습은 끝났지만 선생님 승인 전인 그룹 유지
