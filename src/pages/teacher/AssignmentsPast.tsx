@@ -146,32 +146,39 @@ const AssignmentsPast = () => {
     })();
   }, [rows, codeToUnit, unitsByTb, passagesByUnit]);
 
-  // 과제별 진척 데이터 로드
   useEffect(() => {
-    if (rows.length === 0 || students.length === 0) return;
+    if (rows.length === 0 || students.length === 0) {
+      if (!loading) setProgressLoading(false);
+      return;
+    }
     const allIds = students.map((s) => s.user_id);
     let cancelled = false;
+    setProgressLoading(true);
     void (async () => {
-      const entries = await Promise.all(
-        rows
-          .filter((r) => r.sentence_id)
-          .map(async (r) => {
-            const targets = r.student_id ? [r.student_id] : allIds;
-            const m = await fetchAssignmentProgress(r.sentence_id!, targets);
-            return [r.id, m] as const;
-          }),
-      );
-      if (cancelled) return;
-      const next: Record<string, AssignmentProgressMap> = {};
-      entries.forEach(([id, m]) => {
-        next[id] = m;
-      });
-      setProgressByAsg(next);
+      try {
+        const entries = await Promise.all(
+          rows
+            .filter((r) => r.sentence_id)
+            .map(async (r) => {
+              const targets = r.student_id ? [r.student_id] : allIds;
+              const m = await fetchAssignmentProgress(r.sentence_id!, targets);
+              return [r.id, m] as const;
+            }),
+        );
+        if (cancelled) return;
+        const next: Record<string, AssignmentProgressMap> = {};
+        entries.forEach(([id, m]) => {
+          next[id] = m;
+        });
+        setProgressByAsg(next);
+      } finally {
+        if (!cancelled) setProgressLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [rows, students]);
+  }, [rows, students, loading]);
 
   // unit_id → 라벨
   const unitLabelMap = useMemo(() => {
