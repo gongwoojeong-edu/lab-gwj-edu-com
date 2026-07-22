@@ -383,9 +383,13 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: orbitProbe.error }, 500);
   }
 
-  const caller = await verifyCaller(labSb, orbitSb, accessToken);
-  if (!caller.ok) {
-    return json({ ok: false, error: caller.error }, 403);
+  // pg_cron/서비스 자동호출 우회: 서비스 롤 키를 Bearer 로 주면 사용자 검증 생략
+  const isServiceCall = accessToken === labServiceKey;
+  if (!isServiceCall) {
+    const caller = await verifyCaller(labSb, orbitSb, accessToken);
+    if (!caller.ok) {
+      return json({ ok: false, error: caller.error }, 403);
+    }
   }
 
   try {
