@@ -687,6 +687,8 @@ const Assignments = () => {
     if (f.mode === "sentence") {
       if (!f.selectedUnitId) return "유닛을 먼저 선택해주세요";
       if (!f.selectedPassageCode) return "출제할 문장을 선택해주세요";
+    } else if (f.mode === "book") {
+      if (!f.selectedTbId) return "책을 먼저 선택해주세요";
     } else {
       if (!f.selectedPassageCode) return "지문을 반드시 연결해야 과제를 생성할 수 있습니다";
     }
