@@ -196,7 +196,7 @@ const StudentHome = () => {
             .order("updated_at", { ascending: false }),
           supabase
             .from("assignments")
-            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode")
+            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode, round_no")
             .or(`student_id.eq.${user.id},student_id.is.null`)
             .order("created_at", { ascending: false })
             .limit(200),
