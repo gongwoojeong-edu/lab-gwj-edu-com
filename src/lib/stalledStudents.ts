@@ -78,24 +78,35 @@ export async function fetchLongStalled(): Promise<StalledStudent[]> {
 
   if (preList.length === 0) return [];
 
-  // 학생 단위 최근 활동 필터: 해당 학생이 최근 STALL_DAYS 내에
-  // 어떤 문장이든 활동했다면 "장기 정체"에서 제외 (다른 진도를 나가고 있는 학생)
+  // 학생 단위 최근 활동 조회: (1) 최근 STALL_DAYS 내 활동이 있으면 전체 제외,
+  // (2) 정체 후보 문장보다 더 최근에 다른 문장에서 활동했다면 "방치된 구식 행"으로 보고 개별 제외
   const candidateUserIds = Array.from(new Set(preList.map((r: any) => r.user_id)));
   const { data: recentRows } = await supabase
     .from("sentence_progress")
     .select("user_id, last_activity_at")
     .in("user_id", candidateUserIds)
-    .gt("last_activity_at", cutoff)
-    .limit(2000);
-  const recentlyActiveUsers = new Set(
-    ((recentRows ?? []) as { user_id: string }[]).map((r) => r.user_id),
-  );
+    .limit(5000);
+  const recentlyActiveUsers = new Set<string>();
+  const userMaxActivity = new Map<string, number>();
+  ((recentRows ?? []) as { user_id: string; last_activity_at: string }[]).forEach((r) => {
+    const t = new Date(r.last_activity_at).getTime();
+    if (r.last_activity_at > cutoff) recentlyActiveUsers.add(r.user_id);
+    const cur = userMaxActivity.get(r.user_id) ?? 0;
+    if (t > cur) userMaxActivity.set(r.user_id, t);
+  });
 
   const list = preList
     .filter((r: any) => !recentlyActiveUsers.has(r.user_id))
+    .filter((r: any) => {
+      // 이 문장보다 더 최근에 다른 문장에서 활동한 흔적이 있다면 → 방치된 오래된 행, 정체 아님
+      const maxT = userMaxActivity.get(r.user_id) ?? 0;
+      const rowT = new Date(r.last_activity_at).getTime();
+      return maxT <= rowT;
+    })
     .slice(0, 200);
 
   if (list.length === 0) return [];
+
 
 
   // 단어테스트 최고 점수 일괄 조회
