@@ -320,7 +320,7 @@ const Assignments = () => {
   const [listQuery, setListQuery] = useState("");
   const [filterStudentId, setFilterStudentId] = useState<string>("all");
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>("all");
-  const [listView, setListView] = useState<ListViewMode>("compact");
+  const [listView, setListView] = useState<ListViewMode>("cards");
   const [keepOnlyOpen, setKeepOnlyOpen] = useState(false);
   const [keepStudentIds, setKeepStudentIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);

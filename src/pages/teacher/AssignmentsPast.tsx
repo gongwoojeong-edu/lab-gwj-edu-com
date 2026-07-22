@@ -65,6 +65,8 @@ const AssignmentsPast = () => {
   const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
+  const [loading, setLoading] = useState(true);
+  const [progressLoading, setProgressLoading] = useState(true);
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -81,14 +83,19 @@ const AssignmentsPast = () => {
   };
 
   const load = async () => {
-    const [studs, { data }, tbs] = await Promise.all([
-      fetchAllStudents(),
-      supabase.from("assignments").select("*").order("created_at", { ascending: false }),
-      fetchAllTextbooks(),
-    ]);
-    setStudents(studs);
-    setRows((data ?? []) as AssignmentRow[]);
-    setTextbooks(tbs);
+    setLoading(true);
+    try {
+      const [studs, { data }, tbs] = await Promise.all([
+        fetchAllStudents(),
+        supabase.from("assignments").select("*").order("created_at", { ascending: false }),
+        fetchAllTextbooks(),
+      ]);
+      setStudents(studs);
+      setRows((data ?? []) as AssignmentRow[]);
+      setTextbooks(tbs);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -139,32 +146,39 @@ const AssignmentsPast = () => {
     })();
   }, [rows, codeToUnit, unitsByTb, passagesByUnit]);
 
-  // 과제별 진척 데이터 로드
   useEffect(() => {
-    if (rows.length === 0 || students.length === 0) return;
+    if (rows.length === 0 || students.length === 0) {
+      if (!loading) setProgressLoading(false);
+      return;
+    }
     const allIds = students.map((s) => s.user_id);
     let cancelled = false;
+    setProgressLoading(true);
     void (async () => {
-      const entries = await Promise.all(
-        rows
-          .filter((r) => r.sentence_id)
-          .map(async (r) => {
-            const targets = r.student_id ? [r.student_id] : allIds;
-            const m = await fetchAssignmentProgress(r.sentence_id!, targets);
-            return [r.id, m] as const;
-          }),
-      );
-      if (cancelled) return;
-      const next: Record<string, AssignmentProgressMap> = {};
-      entries.forEach(([id, m]) => {
-        next[id] = m;
-      });
-      setProgressByAsg(next);
+      try {
+        const entries = await Promise.all(
+          rows
+            .filter((r) => r.sentence_id)
+            .map(async (r) => {
+              const targets = r.student_id ? [r.student_id] : allIds;
+              const m = await fetchAssignmentProgress(r.sentence_id!, targets);
+              return [r.id, m] as const;
+            }),
+        );
+        if (cancelled) return;
+        const next: Record<string, AssignmentProgressMap> = {};
+        entries.forEach(([id, m]) => {
+          next[id] = m;
+        });
+        setProgressByAsg(next);
+      } finally {
+        if (!cancelled) setProgressLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [rows, students]);
+  }, [rows, students, loading]);
 
   // unit_id → 라벨
   const unitLabelMap = useMemo(() => {
@@ -261,9 +275,13 @@ const AssignmentsPast = () => {
 
         <Card className="p-5 space-y-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-primary">
-            완료 과제 ({doneGroups.length})
+            완료 과제 {loading || progressLoading ? "" : `(${doneGroups.length})`}
           </h2>
-          {doneGroups.length === 0 ? (
+          {loading || progressLoading ? (
+            <p className="text-sm text-muted-foreground py-6 text-center animate-pulse">
+              완료 과제를 불러오는 중…
+            </p>
+          ) : doneGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
               아직 완료된 과제가 없어요.
             </p>
