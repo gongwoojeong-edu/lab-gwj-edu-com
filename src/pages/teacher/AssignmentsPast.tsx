@@ -65,6 +65,8 @@ const AssignmentsPast = () => {
   const [passagesByUnit, setPassagesByUnit] = useState<Record<string, Passage[]>>({});
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
+  const [loading, setLoading] = useState(true);
+  const [progressLoading, setProgressLoading] = useState(true);
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -81,14 +83,19 @@ const AssignmentsPast = () => {
   };
 
   const load = async () => {
-    const [studs, { data }, tbs] = await Promise.all([
-      fetchAllStudents(),
-      supabase.from("assignments").select("*").order("created_at", { ascending: false }),
-      fetchAllTextbooks(),
-    ]);
-    setStudents(studs);
-    setRows((data ?? []) as AssignmentRow[]);
-    setTextbooks(tbs);
+    setLoading(true);
+    try {
+      const [studs, { data }, tbs] = await Promise.all([
+        fetchAllStudents(),
+        supabase.from("assignments").select("*").order("created_at", { ascending: false }),
+        fetchAllTextbooks(),
+      ]);
+      setStudents(studs);
+      setRows((data ?? []) as AssignmentRow[]);
+      setTextbooks(tbs);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
