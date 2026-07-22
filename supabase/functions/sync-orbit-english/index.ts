@@ -122,6 +122,23 @@ function loginIdToEmail(loginId: string): string {
   return `${loginId.trim().toLowerCase()}@gwj.local`;
 }
 
+/**
+ * 오르빗 학년 문자열 → 구문랩 시작 레벨.
+ * L03(예비중)·L07(예비고) 은 수동 승급 전용이므로 자동 배정하지 않음.
+ * 매핑 불가 학년은 null → 호출부에서 기본값 유지.
+ */
+function gradeToStartLevel(grade: string | null | undefined): string | null {
+  if (!grade) return null;
+  const g = grade.replace(/\s+/g, "").replace(/초등/, "초").replace(/중등/, "중").replace(/고등/, "고");
+  const map: Record<string, string> = {
+    "초1": "L01", "초2": "L01", "초3": "L01", "초4": "L01",
+    "초5": "L02", "초6": "L02",
+    "중1": "L04", "중2": "L05", "중3": "L06",
+    "고1": "L08", "고2": "L09", "고3": "L10",
+  };
+  return map[g] ?? null;
+}
+
 async function loadEnglishStudentIds(sb: SupabaseClient): Promise<Set<string>> {
   const ids = new Set<string>();
 
