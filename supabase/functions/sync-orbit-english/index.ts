@@ -383,8 +383,23 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: orbitProbe.error }, 500);
   }
 
-  // pg_cron/서비스 자동호출 우회: 서비스 롤 키를 Bearer 로 주면 사용자 검증 생략
-  const isServiceCall = accessToken === labServiceKey;
+  // pg_cron/서비스 자동호출 우회 방법:
+  // 1) Authorization Bearer 가 서비스 롤 키와 일치
+  // 2) X-Cron-Secret 헤더가 SYNC_CRON_SECRET 환경변수와 일치 (pg_cron 용)
+  const cronSecret = Deno.env.get("SYNC_CRON_SECRET") ?? "";
+  const cronHeader = req.headers.get("x-cron-secret") ?? "";
+  const isServiceCall =
+    accessToken === labServiceKey || (cronSecret !== "" && cronHeader === cronSecret);
+
+  // pg_cron 이 vault 에서 시크릿을 읽을 수 있도록, 매 호출마다 vault 동기화 (idempotent)
+  if (cronSecret) {
+    try {
+      await labSb.rpc("upsert_cron_secret", { p_secret: cronSecret });
+    } catch (_e) {
+      // 최초 배포 전이거나 권한 문제일 수 있음 — 동기화 자체는 계속 진행
+    }
+  }
+
   if (!isServiceCall) {
     const caller = await verifyCaller(labSb, orbitSb, accessToken);
     if (!caller.ok) {
