@@ -97,6 +97,7 @@ interface AssignmentRow {
   include_translation: boolean;
   include_wordtest: boolean;
   task_mode: TaskMode | null;
+  round_no?: number | null;
 }
 
 interface AssignmentGroup {
@@ -117,6 +118,7 @@ interface AssignmentGroup {
   nextSentenceId: string | null;
   nextPosition: number | null;
   unitId: string | null;
+  round_no: number | null;
 }
 
 /** sentence_id에서 유닛 prefix 추출. 'L08-U260338-001' → 'L08-U260338'. 매칭 안 되면 null. */
