@@ -1478,6 +1478,9 @@ const Assignments = () => {
     const allTargetIds = targetIdsForGroup(g);
     const merged = mergeGroupProgress(g, progressByAsg, allTargetIds);
     const stats = groupProgressStats(g, merged, allTargetIds);
+    const doneCountForTarget = g.rows.filter((r) =>
+      isAssignmentDone(r, progressByAsg[r.id], allTargetIds),
+    ).length;
     const label = g.unit_label
       ? `${g.unit_label} · ${g.totalCount}지문`
       : head.sentence_id
@@ -1506,7 +1509,7 @@ const Assignments = () => {
               {stats.pct}%
             </span>
             <span className="text-muted-foreground font-normal">
-              지문 {g.doneCount}/{g.totalCount}
+              지문 {doneCountForTarget}/{g.totalCount}
             </span>
           </div>
           <div className="h-1.5 mt-1 w-full max-w-[9rem] rounded-full bg-muted overflow-hidden">
