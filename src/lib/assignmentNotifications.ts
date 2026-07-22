@@ -14,7 +14,8 @@ export async function notifyStudentsForNewAssignment(opts: {
   studentIds: string[];
   taskMode: TaskMode | null;
   passageCount: number;
-  mode: "unit" | "sentence";
+  mode: "unit" | "sentence" | "book";
+  unitCount?: number;
 }): Promise<number> {
   const sender = await getCurrentUserId();
   if (!sender) return 0;
