@@ -1506,17 +1506,46 @@ const Assignments = () => {
     const denom = unitTotal > 0 ? unitTotal : g.totalCount;
     const assignedSuffix =
       unitTotal > 0 && g.totalCount !== unitTotal ? ` (배정 ${g.totalCount})` : "";
-    const pct = denom > 0 ? Math.round((doneCountForTarget / denom) * 100) : 0;
+    // 진도율은 단계-셀 기반으로 계산 (부분 진행도 반영)
+    const includeMem = taskModeIncludesMemorize(g.task_mode);
+    const stepsPer =
+      (g.include_pre ? 1 : 0) +
+      (g.include_analysis ? 1 : 0) +
+      (g.include_translation ? 1 : 0) +
+      (g.include_wordtest ? 1 : 0) +
+      (includeMem ? 1 : 0);
+    const totalCells = g.rows.length * allTargetIds.length * stepsPer;
+    let doneCells = 0;
+    g.rows.forEach((r) => {
+      const pm = progressByAsg[r.id];
+      allTargetIds.forEach((uid) => {
+        const p = pm?.get(uid);
+        if (g.include_pre && isStepDoneStatus(p?.pre.status)) doneCells++;
+        if (g.include_analysis && isStepDoneStatus(p?.analysis.status)) doneCells++;
+        if (g.include_translation && isStepDoneStatus(p?.translation.status)) doneCells++;
+        if (g.include_wordtest && isStepDoneStatus(p?.wordtest.status)) doneCells++;
+        if (includeMem && isStepDoneStatus(p?.mem.status)) doneCells++;
+      });
+    });
+    const pct = totalCells > 0 ? Math.round((doneCells / totalCells) * 100) : 0;
     const stats = { pct };
+    const roundLabel = g.round_no && g.round_no > 1 ? ` · ${g.round_no}회독` : "";
     const label = g.unit_label
-      ? `${g.unit_label} · ${denom}지문${assignedSuffix}`
+      ? `${g.unit_label} · ${denom}지문${assignedSuffix}${roundLabel}`
       : head.sentence_id
-        ? (codeLabelMap.get(head.sentence_id) ?? head.sentence_id)
+        ? `${codeLabelMap.get(head.sentence_id) ?? head.sentence_id}${roundLabel}`
         : "—";
     return (
       <tr key={g.key} className="border-b border-border/60 hover:bg-muted/40">
         <td className="py-2 px-2 align-top">
-          <div className="font-bold text-sm leading-tight">{g.title}</div>
+          <div className="font-bold text-sm leading-tight">
+            {g.title}
+            {g.round_no && g.round_no > 1 && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 text-[10px] font-extrabold align-middle">
+                {g.round_no}회독
+              </span>
+            )}
+          </div>
           <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{label}</div>
         </td>
         <td className="py-2 px-2 align-top text-sm whitespace-nowrap">
@@ -1538,6 +1567,11 @@ const Assignments = () => {
             <span className="text-muted-foreground font-normal">
               문장 {doneCountForTarget}/{denom}{assignedSuffix}
             </span>
+            {stepsPer > 0 && totalCells > 0 && (
+              <span className="text-muted-foreground font-normal">
+                · 단계 {doneCells}/{totalCells}
+              </span>
+            )}
           </div>
           <div className="h-1.5 mt-1 w-full max-w-[9rem] rounded-full bg-muted overflow-hidden">
             <div
