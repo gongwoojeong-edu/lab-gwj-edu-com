@@ -723,29 +723,55 @@ const Assignments = () => {
       const targets: (string | null)[] = form.studentIds;
 
       // 출제 모드별 지문 코드 결정:
-      // - unit  : 선택된 유닛의 모든 지문 자동 부여 (기존 동작 유지)
-      // - sentence: 사용자가 명시 선택한 단일 문장만 부여
-      let passageCodes: string[];
+      // - unit    : 선택된 유닛의 모든 지문 자동 부여
+      // - sentence : 사용자가 명시 선택한 단일 문장만 부여
+      // - book    : 선택된 책의 모든 유닛의 모든 지문 자동 부여
+      let codePairs: Array<{ code: string; unit_id: string | null }> = [];
+      let unitCountForNotify = 0;
       if (form.mode === "sentence") {
-        passageCodes = form.selectedPassageCode ? [form.selectedPassageCode] : [];
+        if (form.selectedPassageCode) {
+          codePairs = [{ code: form.selectedPassageCode, unit_id: null }];
+        }
+      } else if (form.mode === "book") {
+        const units =
+          unitsByTb[form.selectedTbId] ??
+          (await fetchUnitsByTextbook(form.selectedTbId));
+        const perUnit = await Promise.all(
+          units.map(async (u) => {
+            const cached = passagesByUnit[u.id];
+            const list = cached ?? (await fetchPassagesByUnit(u.id));
+            return { unit: u, list };
+          }),
+        );
+        for (const { unit, list } of perUnit
+          .slice()
+          .sort((a, b) => a.unit.unit_no - b.unit.unit_no)) {
+          list
+            .slice()
+            .sort((a, b) => a.passage_no - b.passage_no)
+            .forEach((p) => codePairs.push({ code: p.code, unit_id: unit.id }));
+        }
+        unitCountForNotify = units.length;
       } else {
         const unitPassages = form.selectedUnitId
           ? passagesByUnit[form.selectedUnitId] ?? []
           : [];
-        passageCodes =
+        const uid = form.selectedUnitId || null;
+        codePairs =
           unitPassages.length > 0
             ? unitPassages
                 .slice()
                 .sort((a, b) => a.passage_no - b.passage_no)
-                .map((p) => p.code)
+                .map((p) => ({ code: p.code, unit_id: uid }))
             : form.selectedPassageCode
-            ? [form.selectedPassageCode]
+            ? [{ code: form.selectedPassageCode, unit_id: uid }]
             : [];
       }
 
-      if (passageCodes.length === 0) {
+      if (codePairs.length === 0) {
         throw new Error("부여할 지문을 찾을 수 없습니다");
       }
+      const passageCodes = codePairs.map((c) => c.code);
 
       const taskMode = deriveTaskModeFromSteps(form);
 
@@ -761,7 +787,7 @@ const Assignments = () => {
       await sealPreviousRounds(Array.from(roundPlan.values()));
 
       const rowsToInsert = targets.flatMap((sid) =>
-        passageCodes.map((code) => {
+        codePairs.map(({ code, unit_id }) => {
           const plan = sid ? roundPlan.get(`${sid}::${code}`) : undefined;
           return {
             teacher_id: teacherId,
@@ -769,7 +795,7 @@ const Assignments = () => {
             title: form.title.trim(),
             description: form.description.trim() || null,
             sentence_id: code,
-            unit_id: form.mode === "unit" ? form.selectedUnitId || null : null,
+            unit_id,
             task_mode: taskMode,
             due_at: dueAtIso,
             include_pre: form.includePre,
@@ -789,6 +815,8 @@ const Assignments = () => {
       const unitLabel =
         form.mode === "sentence"
           ? `문장 1개`
+          : form.mode === "book"
+          ? `책 전체 (유닛 ${unitCountForNotify}개 · 지문 ${passageCodes.length}개)`
           : `유닛 지문 ${passageCodes.length}개`;
       const notified = await notifyStudentsForNewAssignment({
         title: form.title.trim(),
@@ -798,6 +826,7 @@ const Assignments = () => {
         taskMode,
         passageCount: passageCodes.length,
         mode: form.mode,
+        unitCount: unitCountForNotify,
       });
       toast({
         title: "✅ 과제가 생성되었습니다",
