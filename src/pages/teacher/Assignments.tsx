@@ -1479,13 +1479,15 @@ const Assignments = () => {
     const doneCountForTarget = g.rows.filter((r) =>
       isAssignmentDone(r, progressByAsg[r.id], allTargetIds),
     ).length;
-    // % 표기를 "완료 문장 / 전체 문장"과 일치시켜 표기 혼동 제거
-    const pct = g.totalCount > 0
-      ? Math.round((doneCountForTarget / g.totalCount) * 100)
-      : 0;
+    // 분모는 "해당 유닛 전체 문장 수" — 유닛 정보가 있으면 사용, 없으면 배정 문장 수
+    const unitTotal = g.unit_id ? (passagesByUnit[g.unit_id]?.length ?? 0) : 0;
+    const denom = unitTotal > 0 ? unitTotal : g.totalCount;
+    const assignedSuffix =
+      unitTotal > 0 && g.totalCount !== unitTotal ? ` (배정 ${g.totalCount})` : "";
+    const pct = denom > 0 ? Math.round((doneCountForTarget / denom) * 100) : 0;
     const stats = { pct };
     const label = g.unit_label
-      ? `${g.unit_label} · ${g.totalCount}지문`
+      ? `${g.unit_label} · ${denom}지문${assignedSuffix}`
       : head.sentence_id
         ? (codeLabelMap.get(head.sentence_id) ?? head.sentence_id)
         : "—";
@@ -1512,7 +1514,7 @@ const Assignments = () => {
               {stats.pct}%
             </span>
             <span className="text-muted-foreground font-normal">
-              문장 {doneCountForTarget}/{g.totalCount}
+              문장 {doneCountForTarget}/{denom}{assignedSuffix}
             </span>
           </div>
           <div className="h-1.5 mt-1 w-full max-w-[9rem] rounded-full bg-muted overflow-hidden">
