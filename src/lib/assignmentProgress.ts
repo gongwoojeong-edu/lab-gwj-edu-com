@@ -182,5 +182,12 @@ export async function fetchAssignmentProgress(
     }
   });
 
+  // 단어테스트가 done/pass면 pre(단어학습)도 완료로 간주 — pre는 wordtest 준비 단계
+  map.forEach((cur) => {
+    if (cur.pre.status === "missing" && (cur.wordtest.status === "pass" || cur.wordtest.status === "done")) {
+      cur.pre = { status: "done", score: null };
+    }
+  });
+
   return map;
 }
