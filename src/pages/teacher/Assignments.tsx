@@ -1833,6 +1833,11 @@ const Assignments = () => {
                   <span className="text-sm font-medium">특정 문장만</span>
                   <span className="text-[10px] text-muted-foreground">(테스트·보충용)</span>
                 </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="book" id="mode-book" />
+                  <span className="text-sm font-medium">책 전체</span>
+                  <span className="text-[10px] text-muted-foreground">(모든 유닛·지문 일괄 부여)</span>
+                </label>
               </RadioGroup>
             </div>
             {renderTextbookPickers(form, setForm)}
