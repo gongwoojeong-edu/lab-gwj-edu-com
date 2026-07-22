@@ -118,19 +118,22 @@ export async function fetchAssignmentProgress(
     const cur = map.get(uid);
     if (!cur) return;
     // 분석: attempt log가 없어 missing이면 sentence_progress의 즉시 저장 점수로 대체
-    if (cur.analysis.status === "missing" && row.analysis_done) {
+    if (row.analysis_done && cur.analysis.status !== "pass") {
       const rate = row.analysis_match_rate != null ? Number(row.analysis_match_rate) : null;
       cur.analysis = {
         status: "done",
-        score: rate != null ? Math.round(rate * 100) : null,
+        score: rate != null ? Math.round(rate * 100) : cur.analysis.score,
       };
     }
     // pre/wordtest는 progress 플래그도 확인 (일부 row 누락 보완)
     if (cur.pre.status === "missing" && row.pre_done) {
       cur.pre = { status: "done", score: null };
     }
-    if (cur.wordtest.status === "missing" && row.word_test_done) {
+    if (row.word_test_done && cur.wordtest.status !== "pass") {
       cur.wordtest = { status: "pass", score: null };
+    }
+    if (cur.translation.status === "missing" && row.translation_done) {
+      cur.translation = { status: "done", score: null };
     }
     if (row.mem_passed_at) {
       cur.mem = { status: "pass", score: null };
