@@ -872,6 +872,7 @@ const Assignments = () => {
         description: `${studentMsg} × ${unitLabel} = ${rowsToInsert.length}건 부여됨${notified > 0 ? ` · 알림 ${notified}명` : ""}`,
       });
       setForm(emptyForm());
+      setTitleTouched(false);
       void load();
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
