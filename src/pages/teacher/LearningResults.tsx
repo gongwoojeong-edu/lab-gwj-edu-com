@@ -770,6 +770,15 @@ const LearningResults = () => {
       if (currentTeacherId) {
         const due = new Date();
         due.setDate(due.getDate() + 1);
+        // 회독(Round) 봉인 + 다음 회독 번호 부여
+        const { planRoundsForNewAssignments, sealPreviousRounds } = await import(
+          "@/lib/roundArchive"
+        );
+        const plan = await planRoundsForNewAssignments([
+          { student_id: userId, sentence_id: sentenceId },
+        ]);
+        const entry = plan.get(`${userId}::${sentenceId}`);
+        await sealPreviousRounds(Array.from(plan.values()));
         await supabase.from("assignments").insert({
           teacher_id: currentTeacherId,
           student_id: userId,
@@ -781,6 +790,7 @@ const LearningResults = () => {
           include_analysis: true,
           include_translation: true,
           include_wordtest: true,
+          round_no: entry?.next_round_no ?? 1,
         });
       }
       toast({

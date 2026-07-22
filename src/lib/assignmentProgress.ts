@@ -49,6 +49,7 @@ export async function fetchAssignmentProgress(
       .from("sentence_attempt_logs")
       .select("user_id, analysis_passed, analysis_match_rate")
       .eq("sentence_id", sentenceId)
+      .is("assignment_id", null) // 현재 회독만
       .in("user_id", targetUserIds),
     supabase
       .from("sentence_translations")
@@ -65,6 +66,7 @@ export async function fetchAssignmentProgress(
       .from("sentence_progress")
       .select("user_id, pre_done, analysis_done, translation_done, word_test_done, analysis_match_rate, mem_passed_at, mem_listen_done")
       .eq("sentence_id", sentenceId)
+      .is("assignment_id", null) // 현재 회독만
       .in("user_id", targetUserIds),
   ]);
 
