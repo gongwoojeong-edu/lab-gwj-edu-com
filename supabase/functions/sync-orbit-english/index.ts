@@ -122,6 +122,23 @@ function loginIdToEmail(loginId: string): string {
   return `${loginId.trim().toLowerCase()}@gwj.local`;
 }
 
+/**
+ * 오르빗 학년 문자열 → 구문랩 시작 레벨.
+ * L03(예비중)·L07(예비고) 은 수동 승급 전용이므로 자동 배정하지 않음.
+ * 매핑 불가 학년은 null → 호출부에서 기본값 유지.
+ */
+function gradeToStartLevel(grade: string | null | undefined): string | null {
+  if (!grade) return null;
+  const g = grade.replace(/\s+/g, "").replace(/초등/, "초").replace(/중등/, "중").replace(/고등/, "고");
+  const map: Record<string, string> = {
+    "초1": "L01", "초2": "L01", "초3": "L01", "초4": "L01",
+    "초5": "L02", "초6": "L02",
+    "중1": "L04", "중2": "L05", "중3": "L06",
+    "고1": "L08", "고2": "L09", "고3": "L10",
+  };
+  return map[g] ?? null;
+}
+
 async function loadEnglishStudentIds(sb: SupabaseClient): Promise<Set<string>> {
   const ids = new Set<string>();
 
@@ -366,9 +383,13 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: orbitProbe.error }, 500);
   }
 
-  const caller = await verifyCaller(labSb, orbitSb, accessToken);
-  if (!caller.ok) {
-    return json({ ok: false, error: caller.error }, 403);
+  // pg_cron/서비스 자동호출 우회: 서비스 롤 키를 Bearer 로 주면 사용자 검증 생략
+  const isServiceCall = accessToken === labServiceKey;
+  if (!isServiceCall) {
+    const caller = await verifyCaller(labSb, orbitSb, accessToken);
+    if (!caller.ok) {
+      return json({ ok: false, error: caller.error }, 403);
+    }
   }
 
   try {
@@ -532,20 +553,27 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existing) {
+          // 기존 프로필: start_level/current_level 은 건드리지 않음 (원장 수동 조정 보존)
           const { error: uErr } = await labSb
             .from("student_profiles")
             .update(patch)
             .eq("user_id", userId);
           if (uErr) throw new Error(uErr.message);
         } else {
-          const { error: iErr } = await labSb.from("student_profiles").upsert(
-            {
-              user_id: userId,
-              student_no: hakbun,
-              ...patch,
-            },
-            { onConflict: "user_id" },
-          );
+          // 신규 프로필: 오르빗 학년으로 초기 레벨 자동 배정 (L03/L07 제외, 매핑 없으면 미설정)
+          const autoLevel = gradeToStartLevel(row.grade);
+          const insertRow: Record<string, unknown> = {
+            user_id: userId,
+            student_no: hakbun,
+            ...patch,
+          };
+          if (autoLevel) {
+            insertRow.start_level = autoLevel;
+            insertRow.current_level = autoLevel;
+          }
+          const { error: iErr } = await labSb
+            .from("student_profiles")
+            .upsert(insertRow, { onConflict: "user_id" });
           if (iErr) throw new Error(iErr.message);
         }
 
