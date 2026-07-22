@@ -1509,7 +1509,7 @@ const Assignments = () => {
               {stats.pct}%
             </span>
             <span className="text-muted-foreground font-normal">
-              지문 {doneCountForTarget}/{g.totalCount}
+              문장 {doneCountForTarget}/{g.totalCount}
             </span>
           </div>
           <div className="h-1.5 mt-1 w-full max-w-[9rem] rounded-full bg-muted overflow-hidden">

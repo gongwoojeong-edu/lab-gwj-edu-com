@@ -132,6 +132,9 @@ export async function fetchAssignmentProgress(
     if (cur.wordtest.status === "missing" && row.word_test_done) {
       cur.wordtest = { status: "pass", score: null };
     }
+    if (cur.translation.status === "missing" && row.translation_done) {
+      cur.translation = { status: "done", score: null };
+    }
     if (row.mem_passed_at) {
       cur.mem = { status: "pass", score: null };
     } else if (row.mem_listen_done) {

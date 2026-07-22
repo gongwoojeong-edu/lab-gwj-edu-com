@@ -53,9 +53,9 @@ const userPassedAssignment = (
 
   if (needsAnalysis) {
     if (asg.include_pre && p.pre.status !== "done" && p.pre.status !== "pass") return false;
-    if (asg.include_analysis && p.analysis.status !== "pass") return false;
+    if (asg.include_analysis && p.analysis.status !== "pass" && p.analysis.status !== "done") return false;
     if (asg.include_translation && p.translation.status !== "done") return false;
-    if (asg.include_wordtest && p.wordtest.status !== "pass") return false;
+    if (asg.include_wordtest && p.wordtest.status !== "pass" && p.wordtest.status !== "done") return false;
   }
   if (needsMem && p.mem.status !== "pass") return false;
   return true;
