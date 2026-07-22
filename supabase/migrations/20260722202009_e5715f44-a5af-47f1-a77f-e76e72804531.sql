@@ -1,0 +1,1 @@
+UPDATE public.student_profiles SET orbit_enrollment_active = false WHERE user_id = '2bf2dc5a-d6f0-49b7-b02d-788f456c97eb';
