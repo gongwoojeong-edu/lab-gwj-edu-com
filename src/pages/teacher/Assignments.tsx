@@ -313,8 +313,47 @@ const Assignments = () => {
 
   // Create form
   const [form, setForm] = useState<FormState>(emptyForm());
+  const [titleTouched, setTitleTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+
+  // 자동 제목: 사용자가 직접 입력한 적 없다면 선택 상태로부터 자동 생성
+  useEffect(() => {
+    if (titleTouched) return;
+    const tb = textbooks.find((t) => t.id === form.selectedTbId);
+    if (!tb) return;
+    const levelLabel = levelDisplay(form.selectedLevel as LevelCode) || form.selectedLevel || tb.level;
+    const base = `[${levelLabel}] ${tb.title}`;
+    let auto = base;
+    if (form.mode === "book") {
+      auto = `${base} 전체`;
+    } else {
+      const unit = (unitsByTb[form.selectedTbId] ?? []).find(
+        (u) => u.id === form.selectedUnitId,
+      );
+      if (unit) {
+        const unitLabel = `${unit.unit_no}과${unit.title ? ` ${unit.title}` : ""}`;
+        auto =
+          form.mode === "sentence" && form.selectedPassageCode
+            ? `${base} · ${unitLabel} · ${form.selectedPassageCode}`
+            : `${base} · ${unitLabel}`;
+      }
+    }
+    if (auto && auto !== form.title) {
+      setForm((p) => ({ ...p, title: auto }));
+    }
+  }, [
+    titleTouched,
+    form.mode,
+    form.selectedLevel,
+    form.selectedTbId,
+    form.selectedUnitId,
+    form.selectedPassageCode,
+    textbooks,
+    unitsByTb,
+    levelDisplay,
+    form.title,
+  ]);
 
   // 진행중 목록: 검색·필터·보기 모드
   const [listQuery, setListQuery] = useState("");
