@@ -151,6 +151,7 @@ const StudentHome = () => {
     sentenceId: string;
     title: string;
     taskMode: TaskMode | null;
+    assignmentId: string | null;
   } | null>(null);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [analysisPrintReqs, setAnalysisPrintReqs] = useState<Record<string, PrintRequest>>({});
