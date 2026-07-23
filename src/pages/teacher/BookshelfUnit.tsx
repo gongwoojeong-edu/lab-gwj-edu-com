@@ -1453,7 +1453,12 @@ const BookshelfUnit = () => {
                           {p.code}
                         </td>
                         <td className="py-2 px-3 text-xs text-foreground/80 max-w-xs">
-                          <span className="line-clamp-2">{p.english}</span>
+                          <span
+                            className="line-clamp-2 cursor-help"
+                            title={p.english ?? ""}
+                          >
+                            {p.english}
+                          </span>
                         </td>
                         <td className="py-2 px-3 text-xs max-w-[180px]">
                           {koreanEditId === p.id ? (
