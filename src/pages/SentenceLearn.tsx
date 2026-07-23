@@ -289,7 +289,7 @@ const SentenceLearn = () => {
       // 한글해석 제출 후 선생님 승인 대기 행 hydrate (pass 전 sentence_progress.status는 pending)
       const latestApproval = await fetchLatestApproval(found.id, currentUserId ?? undefined);
       const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
-      if (mounted && (latestApproval?.status === "pending" || latestApproval?.status === "held")) {
+      if (mounted && latestApproval?.status === "pending") {
         setPendingApproval(latestApproval);
       } else if (
         mounted &&
@@ -460,7 +460,7 @@ const SentenceLearn = () => {
       const uid = await getCurrentUserId();
       if (!uid || cancelled) return;
       const unsub = subscribeMyApproval(sentence.id, uid, (row) => {
-        if (row.status === "pending" || row.status === "held") {
+        if (row.status === "pending") {
           setPendingApproval(row);
           return;
         }
