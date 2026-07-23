@@ -1280,13 +1280,15 @@ const StudentHome = () => {
               variant="outline"
               onClick={async () => {
                 if (!resumeTarget) return;
-                const prog = await fetchSentenceProgress(resumeTarget.sentenceId);
+                const aid = resumeTarget.assignmentId ?? null;
+                const prog = await fetchSentenceProgress(resumeTarget.sentenceId, aid);
                 const mode = resumeTarget.taskMode ?? "analysis_only";
                 const analysisPassed = prog?.status === "pass";
-                const path = learnPathForSentence(resumeTarget.sentenceId, mode, analysisPassed);
+                const path = learnPathForSentence(resumeTarget.sentenceId, mode, analysisPassed, aid);
+                const sep = path.includes("?") ? "&" : "?";
                 const restart =
                   mode !== "memorize_only" && !(mode === "analysis_and_memorize" && analysisPassed)
-                    ? "?restart=1"
+                    ? `${sep}restart=1`
                     : "";
                 navigate(`${path}${restart}`);
                 setResumeTarget(null);
@@ -1297,13 +1299,15 @@ const StudentHome = () => {
             <AlertDialogAction
               onClick={async () => {
                 if (!resumeTarget) return;
-                const prog = await fetchSentenceProgress(resumeTarget.sentenceId);
+                const aid = resumeTarget.assignmentId ?? null;
+                const prog = await fetchSentenceProgress(resumeTarget.sentenceId, aid);
                 const mode = resumeTarget.taskMode ?? "analysis_only";
                 navigate(
                   learnPathForSentence(
                     resumeTarget.sentenceId,
                     mode,
                     prog?.status === "pass",
+                    aid,
                   ),
                 );
                 setResumeTarget(null);
