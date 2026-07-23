@@ -49,7 +49,10 @@ export interface SentenceProgressRow {
 }
 
 
-export const fetchSentenceProgress = async (sentenceId: string): Promise<SentenceProgressRow | null> => {
+export const fetchSentenceProgress = async (
+  sentenceId: string,
+  assignmentId?: string | null,
+): Promise<SentenceProgressRow | null> => {
   const userId = await getUserId();
   let q = supabase
     .from("sentence_progress")
@@ -58,6 +61,10 @@ export const fetchSentenceProgress = async (sentenceId: string): Promise<Sentenc
     .order("updated_at", { ascending: false })
     .limit(1);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
+  // 라운드 모델: assignmentId 가 명시되면 해당 라운드의 행만 대상으로 한다.
+  // (다른 회독의 완료 상태가 새 라운드로 새어들지 않도록 격리)
+  if (assignmentId === null) q = q.is("assignment_id", null);
+  else if (assignmentId) q = q.eq("assignment_id", assignmentId);
   const { data, error } = await q;
   if (error) throw error;
   return ((data?.[0] as SentenceProgressRow) ?? null);
