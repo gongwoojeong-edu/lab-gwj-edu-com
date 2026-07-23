@@ -1453,7 +1453,12 @@ const BookshelfUnit = () => {
                           {p.code}
                         </td>
                         <td className="py-2 px-3 text-xs text-foreground/80 max-w-xs">
-                          <span className="line-clamp-2">{p.english}</span>
+                          <span
+                            className="line-clamp-2 cursor-help"
+                            title={p.english ?? ""}
+                          >
+                            {p.english}
+                          </span>
                         </td>
                         <td className="py-2 px-3 text-xs max-w-[180px]">
                           {koreanEditId === p.id ? (
@@ -1475,9 +1480,9 @@ const BookshelfUnit = () => {
                           ) : (
                             <button
                               type="button"
-                              className="text-left line-clamp-2 hover:text-primary w-full"
+                              className="text-left line-clamp-2 hover:text-primary w-full cursor-help"
                               onClick={() => startKoreanEdit(p)}
-                              title="클릭하여 편집"
+                              title={p.korean?.trim() || "클릭하여 편집"}
                             >
                               {p.korean?.trim() || (
                                 <span className="text-muted-foreground italic">한글 입력…</span>

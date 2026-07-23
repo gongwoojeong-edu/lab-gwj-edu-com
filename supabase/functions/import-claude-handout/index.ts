@@ -123,6 +123,54 @@ function extractEnglishSource(text: string): string {
   return englishText;
 }
 
+/**
+ * 원문 뒤쪽의 한국어 해석 영역을 문장별로 분리.
+ * 영어 문장 개수(expected)와 정확히 일치할 때만 배열을 반환. 그렇지 않으면 빈 배열.
+ * 규칙: 한글 비율 > 30% 라인만 수집 → 원형숫자(➊/①) 또는 개행/마침표로 분할.
+ */
+function extractKoreanSentences(text: string, expected: number): string[] {
+  const raw = (text || "").replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
+  const lines = raw.split("\n");
+  const koreanLines: string[] = [];
+  let started = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (started) koreanLines.push("");
+      continue;
+    }
+    const kc = (trimmed.match(/[\uAC00-\uD7AF]/g) || []).length;
+    const isKorean = kc > trimmed.length * 0.3;
+    if (!started) {
+      if (isKorean) { started = true; koreanLines.push(trimmed); }
+      continue;
+    }
+    // 한국어 영역 시작 후: 어휘주석(*word) 나오면 종료
+    if (/^\*+[A-Za-z]/.test(trimmed)) break;
+    koreanLines.push(trimmed);
+  }
+  let ko = koreanLines.join("\n").trim();
+  if (!ko) return [];
+
+  const circledRegex = /[\u278A-\u2793\u2460-\u2473]/;
+  let parts: string[] = [];
+  if (circledRegex.test(ko)) {
+    const first = ko.search(circledRegex);
+    if (first > 0) ko = ko.slice(first);
+    parts = ko
+      .split(/(?=[\u278A-\u2793\u2460-\u2473])/)
+      .map((s) => s.replace(/^[\u278A-\u2793\u2460-\u2473]\s*/, "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  } else {
+    parts = ko
+      .split(/\n+|(?<=[.!?。！？])\s+/)
+      .map((s) => s.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  }
+  if (parts.length !== expected) return [];
+  return parts;
+
 function assertSentenceFidelity(passage: string, sentences: string[]): string | null {
   if (!sentences.length) return "passage에서 문장을 찾지 못했습니다";
 
@@ -446,7 +494,9 @@ Deno.serve(async (req) => {
   //   과거에는 첫 문장 korean에 "title / topic"을 저장했으나,
   //   그 값이 "한글해석 정답"으로 노출되어 실제 문장 해석과 무관한 문구가 학생/선생님 화면에 표시되는 문제가 있었다.
   //   문장 단위 한글해석 정답은 반드시 선생님이 문장별로 직접 입력한다.
-  // Build N rows. Single-sentence: code = codeRoot. Multi-sentence: codeRoot-1, -2, ...
+  //   단, 신텍스스튜디오(외부 분석기)에서 영문과 함께 한글 해석을 함께 전송한 경우
+  //   문장 수가 정확히 일치하면 문장별 korean 컬럼에 자동 매핑한다.
+  const koreanSentences = extractKoreanSentences(p.passage, sentences.length);
   const isMulti = sentences.length > 1;
   const rows = sentences.map((sent, i) => ({
     textbook_id: textbook!.id,
@@ -454,7 +504,7 @@ Deno.serve(async (req) => {
     passage_no: startNo + i,
     code: isMulti ? `${codeRoot}-${i + 1}` : codeRoot,
     english: sent,
-    korean: null,
+    korean: koreanSentences[i] ?? null,
     analysis_status: "draft", // 🆕 v4: 분석기 전송본은 draft 상태 — 선생님이 마스터키 입력 후 학생 공개 버튼으로 ready 전환
   }));
 
