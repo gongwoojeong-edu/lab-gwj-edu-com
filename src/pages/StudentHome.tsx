@@ -359,6 +359,8 @@ const StudentHome = () => {
             const headUnitId = head.sentence_id
               ? orderMeta.get(head.sentence_id)?.unit_id ?? null
               : null;
+            const nextPF = nextRow ? getPF(nextRow) : undefined;
+            const nextStarted = !!nextPF && (nextPF.pre || nextPF.wt || nextPF.an || nextPF.tr || nextPF.mem);
             return {
               key,
               title: head.title,
@@ -375,6 +377,8 @@ const StudentHome = () => {
               doneCount: doneList.length,
               inProgressCount: startedList.length,
               nextSentenceId: nextRow?.sentence_id ?? null,
+              nextAssignmentId: nextRow?.id ?? null,
+              nextStarted,
               nextPosition,
               unitId: nextUnitId ?? headUnitId,
               round_no: sorted.reduce<number | null>((m, r) => {
