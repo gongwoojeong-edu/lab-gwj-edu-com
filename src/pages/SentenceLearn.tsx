@@ -99,11 +99,11 @@ const SentenceLearn = () => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("assignment") || null;
   }, [sentenceId]);
-  const readMyProg = (sid: string) => fetchSentenceProgress(sid, assignmentIdParam);
+  const readMyProg = (sid: string) => readMyProg(sid, assignmentIdParam);
   const writeMyProg = (
     sid: string,
     patch: Parameters<typeof upsertSentenceProgress>[1],
-  ) => upsertSentenceProgress(sid, { assignmentId: assignmentIdParam, ...patch });
+  ) => writeMyProg(sid, { assignmentId: assignmentIdParam, ...patch });
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
@@ -231,7 +231,7 @@ const SentenceLearn = () => {
       const restartParam = new URLSearchParams(window.location.search).get("restart") === "1";
       if (restartParam) {
         try {
-          await upsertSentenceProgress(found.id, {
+          await writeMyProg(found.id, {
             pre_done: false,
             word_test_done: false,
             analysis_done: false,
@@ -249,7 +249,7 @@ const SentenceLearn = () => {
 
       const currentUserId = await getCurrentUserId();
       const [prog, extraction, owners, prof, logs, attemptCnt, assignRes, overrideRes] = await Promise.all([
-        fetchSentenceProgress(found.id),
+        readMyProg(found.id),
         fetchExtraction(found.id),
         fetchOwnerProgressForSentence(found.id),
         fetchMyProfile(),
@@ -335,7 +335,7 @@ const SentenceLearn = () => {
       }
       if (Object.keys(autoPatch).length > 0) {
         try {
-          await upsertSentenceProgress(found.id, autoPatch);
+          await writeMyProg(found.id, autoPatch);
         } catch (e) {
           console.warn("auto-skip upsert failed", e);
         }
@@ -586,18 +586,18 @@ const SentenceLearn = () => {
 
       // 복습(이미 PASS한 sentence) 진입 시 status를 fail로 덮어쓰지 않음 — attempt만 누적
       // 또한 한글해석 제출 직전에 이미 PASS 처리된 경우(translation onSubmitted)도 동일하게 보호
-      const existingProg = await fetchSentenceProgress(sentence.id);
+      const existingProg = await readMyProg(sentence.id);
       const alreadyPass = previousStatus === "pass" || existingProg?.status === "pass";
       if (alreadyPass && !overallPass) {
         // 복습 실패: status 유지(PASS), word_test_done만 갱신
-        await upsertSentenceProgress(sentence.id, {
+        await writeMyProg(sentence.id, {
           word_test_done: wordTestPassed,
         });
       } else {
         const nextStatus: "pass" | "fail" = overallPass ? "pass" : "fail";
         // 마스터 부재 시 sentence_progress.analysis_match_rate는 건드리지 않음
         // (proceedToTranslation에서 status='hold' + match_rate=NULL로 최종 정리됨).
-        await upsertSentenceProgress(sentence.id, {
+        await writeMyProg(sentence.id, {
           word_test_done: wordTestPassed,
           ...(analysisPassed || opts?.teacherOverride ? { analysis_done: true } : {}),
           ...(grade.hasMaster ? { analysis_match_rate: grade.rate } : {}),
@@ -705,13 +705,13 @@ const SentenceLearn = () => {
     void (async () => {
       try {
         if (sentenceHasMaster) {
-          await upsertSentenceProgress(sid, {
+          await writeMyProg(sid, {
             word_test_done: true,
             analysis_done: true,
             analysis_match_rate: rateForSave,
           });
         } else {
-          await upsertSentenceProgress(sid, {
+          await writeMyProg(sid, {
             word_test_done: true,
             analysis_done: true,
             analysis_match_rate: null,
@@ -1166,7 +1166,7 @@ const SentenceLearn = () => {
               onCompleted={async () => {
                 setPreDone(true);
                 try {
-                  await upsertSentenceProgress(sentence.id, { pre_done: true });
+                  await writeMyProg(sentence.id, { pre_done: true });
                 } catch (e) {
                   toast({
                     title: "진행 저장 실패",
@@ -1270,7 +1270,7 @@ const SentenceLearn = () => {
                   description="의문점이나 오류가 있을 때 선생님 PIN을 확인하면 분석 단계를 스킵하고 한글 해석으로 넘어갑니다."
                   onApproved={async () => {
                     try {
-                      await upsertSentenceProgress(sentence.id, {
+                      await writeMyProg(sentence.id, {
                         word_test_done: true,
                         analysis_done: true,
                         analysis_match_rate: Math.max(analysisRate, 1),
@@ -1313,7 +1313,7 @@ const SentenceLearn = () => {
               // 3종 모두 통과 → 단어테스트 완료를 즉시 DB에 저장 (선생님 화면 실시간 반영)
               setWordtestDone(true);
               try {
-                await upsertSentenceProgress(sentence.id, { word_test_done: true });
+                await writeMyProg(sentence.id, { word_test_done: true });
               } catch (e) {
                 console.warn("word_test_done upsert failed", e);
               }
@@ -1371,7 +1371,7 @@ const SentenceLearn = () => {
                   const sp = new URLSearchParams(window.location.search);
                   const asnId = sp.get("assignment") || null;
                   // 정책: 한글해석 제출 = 단계 학습 완료, status=pass 확정은 선생님 승인 후.
-                  await upsertSentenceProgress(sentence.id, {
+                  await writeMyProg(sentence.id, {
                     translation_done: true,
                     analysis_done: true,
                     word_test_done: true,
