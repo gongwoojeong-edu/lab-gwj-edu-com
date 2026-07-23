@@ -1002,10 +1002,9 @@ const StudentHome = () => {
                       </div>
                       {g.nextSentenceId && g.doneCount < g.totalCount && (() => {
                         const nextSid = g.nextSentenceId;
-                        // 특별과제는 일반 진도/이전 유닛 승인과 무관하게 항상 시작 가능
-                        const pf = assignmentProgress.get(nextSid);
-                        const startedNext = !!pf && (pf.pre || pf.wt || pf.an || pf.tr || pf.mem);
-                        if (startedNext) {
+                        const nextAid = g.nextAssignmentId;
+                        // 회독별 진행상태로 판단 (다른 회독 완료가 새 라운드로 새어들지 않게)
+                        if (g.nextStarted) {
                           return (
                             <Button
                               size="sm"
@@ -1014,6 +1013,7 @@ const StudentHome = () => {
                                   sentenceId: nextSid,
                                   title: g.title,
                                   taskMode: g.task_mode,
+                                  assignmentId: nextAid,
                                 })
                               }
                               className="shrink-0"
@@ -1028,7 +1028,7 @@ const StudentHome = () => {
                         return (
                           <Button
                             size="sm"
-                            onClick={() => void goLearn(nextSid)}
+                            onClick={() => void goLearn(nextSid, nextAid)}
                             className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
                           >
                             <Play className="w-3 h-3 mr-1" />
