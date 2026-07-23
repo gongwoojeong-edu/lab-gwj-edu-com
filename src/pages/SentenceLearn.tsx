@@ -99,11 +99,11 @@ const SentenceLearn = () => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("assignment") || null;
   }, [sentenceId]);
-  const readMyProg = (sid: string) => readMyProg(sid, assignmentIdParam);
+  const readMyProg = (sid: string) => fetchSentenceProgress(sid, assignmentIdParam);
   const writeMyProg = (
     sid: string,
     patch: Parameters<typeof upsertSentenceProgress>[1],
-  ) => writeMyProg(sid, { assignmentId: assignmentIdParam, ...patch });
+  ) => upsertSentenceProgress(sid, { assignmentId: assignmentIdParam, ...patch });
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
