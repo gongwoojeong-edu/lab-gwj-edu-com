@@ -243,18 +243,20 @@ const StudentHome = () => {
         const assignSentenceIds = allAssignments
           .map((a) => a.sentence_id)
           .filter(Boolean) as string[];
-        const progressFlags = new Map<
-          string,
-          { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean; status: string }
-        >();
+        // 회독별로 진행상태를 분리하려면 (assignment_id, sentence_id) 로 매칭해야 한다.
+        // 레거시(assignment_id=null)는 round_no in (null,1) 인 과제에만 fallback 허용.
+        type PF = { pre: boolean; wt: boolean; an: boolean; tr: boolean; mem: boolean; status: string };
+        const progressByAssign = new Map<string, PF>(); // key: `${assignmentId}::${sentenceId}`
+        const progressByNullAssign = new Map<string, PF>(); // key: sentenceId
         if (assignSentenceIds.length > 0) {
           const { data: progRows } = await supabase
             .from("sentence_progress")
-            .select("sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at")
+            .select("sentence_id, assignment_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at")
             .eq("user_id", user.id)
             .in("sentence_id", assignSentenceIds);
           ((progRows ?? []) as Array<{
             sentence_id: string;
+            assignment_id: string | null;
             status: string;
             pre_done: boolean | null;
             word_test_done: boolean | null;
@@ -262,19 +264,33 @@ const StudentHome = () => {
             translation_done: boolean | null;
             mem_passed_at: string | null;
           }>).forEach((r) => {
-            progressFlags.set(r.sentence_id, {
+            const pf: PF = {
               pre: !!r.pre_done,
               wt: !!r.word_test_done,
               an: !!r.analysis_done,
               tr: !!r.translation_done,
               mem: !!r.mem_passed_at,
               status: r.status ?? "pending",
-            });
+            };
+            if (r.assignment_id) {
+              progressByAssign.set(`${r.assignment_id}::${r.sentence_id}`, pf);
+            } else {
+              progressByNullAssign.set(r.sentence_id, pf);
+            }
           });
         }
+        const getPF = (a: AssignmentRow): PF | undefined => {
+          if (!a.sentence_id) return undefined;
+          const hit = progressByAssign.get(`${a.id}::${a.sentence_id}`);
+          if (hit) return hit;
+          if (a.round_no == null || a.round_no <= 1) {
+            return progressByNullAssign.get(a.sentence_id);
+          }
+          return undefined;
+        };
         const isSentenceDone = (a: AssignmentRow): boolean => {
           if (!a.sentence_id) return false;
-          const pf = progressFlags.get(a.sentence_id);
+          const pf = getPF(a);
           if (!pf) return false;
           const mode = a.task_mode ?? "analysis_only";
           const needsMem = taskModeIncludesMemorize(mode);
@@ -293,9 +309,15 @@ const StudentHome = () => {
         };
         const isSentenceStarted = (a: AssignmentRow): boolean => {
           if (!a.sentence_id) return false;
-          const pf = progressFlags.get(a.sentence_id);
+          const pf = getPF(a);
           return !!pf && (pf.pre || pf.wt || pf.an || pf.tr || pf.mem);
         };
+        // 하위 호환: 다른 UI가 참조하는 sentence_id 키 맵
+        const progressFlags = new Map<string, PF>();
+        allAssignments.forEach((a) => {
+          const pf = getPF(a);
+          if (a.sentence_id && pf) progressFlags.set(a.sentence_id, pf);
+        });
 
         // 제목·마감·교재(권) 기준으로 묶음 → 1과-1~4처럼 유닛이 달라도 한 시퀀스
         const orderMeta = await fetchPassageOrderMeta(assignSentenceIds);
