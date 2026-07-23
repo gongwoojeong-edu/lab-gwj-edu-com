@@ -94,6 +94,16 @@ const SentenceLearn = () => {
   const { setMode } = useViewMode();
   const { displayStudent: levelDisplay } = useLevelLabels();
   const isStaff = roles.includes("teacher") || roles.includes("admin");
+  // 라운드 모델: ?assignment=<id> 로 특정 회독 진행행을 격리해서 다룬다.
+  const assignmentIdParam = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("assignment") || null;
+  }, [sentenceId]);
+  const readMyProg = (sid: string) => fetchSentenceProgress(sid, assignmentIdParam);
+  const writeMyProg = (
+    sid: string,
+    patch: Parameters<typeof upsertSentenceProgress>[1],
+  ) => upsertSentenceProgress(sid, { assignmentId: assignmentIdParam, ...patch });
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
