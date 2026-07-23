@@ -116,6 +116,8 @@ interface AssignmentGroup {
   doneCount: number;
   inProgressCount: number;
   nextSentenceId: string | null;
+  nextAssignmentId: string | null;
+  nextStarted: boolean;
   nextPosition: number | null;
   unitId: string | null;
   round_no: number | null;
@@ -149,6 +151,7 @@ const StudentHome = () => {
     sentenceId: string;
     title: string;
     taskMode: TaskMode | null;
+    assignmentId: string | null;
   } | null>(null);
   const [printReqs, setPrintReqs] = useState<Record<string, PrintRequest>>({});
   const [analysisPrintReqs, setAnalysisPrintReqs] = useState<Record<string, PrintRequest>>({});
@@ -356,6 +359,8 @@ const StudentHome = () => {
             const headUnitId = head.sentence_id
               ? orderMeta.get(head.sentence_id)?.unit_id ?? null
               : null;
+            const nextPF = nextRow ? getPF(nextRow) : undefined;
+            const nextStarted = !!nextPF && (nextPF.pre || nextPF.wt || nextPF.an || nextPF.tr || nextPF.mem);
             return {
               key,
               title: head.title,
@@ -372,6 +377,8 @@ const StudentHome = () => {
               doneCount: doneList.length,
               inProgressCount: startedList.length,
               nextSentenceId: nextRow?.sentence_id ?? null,
+              nextAssignmentId: nextRow?.id ?? null,
+              nextStarted,
               nextPosition,
               unitId: nextUnitId ?? headUnitId,
               round_no: sorted.reduce<number | null>((m, r) => {
@@ -718,13 +725,13 @@ const StudentHome = () => {
     }
   };
 
-  const goLearn = async (sentenceId: string) => {
+  const goLearn = async (sentenceId: string, assignmentId?: string | null) => {
     const [ctx, prog] = await Promise.all([
       fetchTaskModeForSentence(sentenceId),
-      fetchSentenceProgress(sentenceId),
+      fetchSentenceProgress(sentenceId, assignmentId ?? null),
     ]);
     navigate(
-      learnPathForSentence(sentenceId, ctx.taskMode, prog?.status === "pass"),
+      learnPathForSentence(sentenceId, ctx.taskMode, prog?.status === "pass", assignmentId ?? null),
     );
   };
 
@@ -995,10 +1002,9 @@ const StudentHome = () => {
                       </div>
                       {g.nextSentenceId && g.doneCount < g.totalCount && (() => {
                         const nextSid = g.nextSentenceId;
-                        // 특별과제는 일반 진도/이전 유닛 승인과 무관하게 항상 시작 가능
-                        const pf = assignmentProgress.get(nextSid);
-                        const startedNext = !!pf && (pf.pre || pf.wt || pf.an || pf.tr || pf.mem);
-                        if (startedNext) {
+                        const nextAid = g.nextAssignmentId;
+                        // 회독별 진행상태로 판단 (다른 회독 완료가 새 라운드로 새어들지 않게)
+                        if (g.nextStarted) {
                           return (
                             <Button
                               size="sm"
@@ -1007,6 +1013,7 @@ const StudentHome = () => {
                                   sentenceId: nextSid,
                                   title: g.title,
                                   taskMode: g.task_mode,
+                                  assignmentId: nextAid,
                                 })
                               }
                               className="shrink-0"
@@ -1021,7 +1028,7 @@ const StudentHome = () => {
                         return (
                           <Button
                             size="sm"
-                            onClick={() => void goLearn(nextSid)}
+                            onClick={() => void goLearn(nextSid, nextAid)}
                             className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
                           >
                             <Play className="w-3 h-3 mr-1" />
@@ -1273,13 +1280,15 @@ const StudentHome = () => {
               variant="outline"
               onClick={async () => {
                 if (!resumeTarget) return;
-                const prog = await fetchSentenceProgress(resumeTarget.sentenceId);
+                const aid = resumeTarget.assignmentId ?? null;
+                const prog = await fetchSentenceProgress(resumeTarget.sentenceId, aid);
                 const mode = resumeTarget.taskMode ?? "analysis_only";
                 const analysisPassed = prog?.status === "pass";
-                const path = learnPathForSentence(resumeTarget.sentenceId, mode, analysisPassed);
+                const path = learnPathForSentence(resumeTarget.sentenceId, mode, analysisPassed, aid);
+                const sep = path.includes("?") ? "&" : "?";
                 const restart =
                   mode !== "memorize_only" && !(mode === "analysis_and_memorize" && analysisPassed)
-                    ? "?restart=1"
+                    ? `${sep}restart=1`
                     : "";
                 navigate(`${path}${restart}`);
                 setResumeTarget(null);
@@ -1290,13 +1299,15 @@ const StudentHome = () => {
             <AlertDialogAction
               onClick={async () => {
                 if (!resumeTarget) return;
-                const prog = await fetchSentenceProgress(resumeTarget.sentenceId);
+                const aid = resumeTarget.assignmentId ?? null;
+                const prog = await fetchSentenceProgress(resumeTarget.sentenceId, aid);
                 const mode = resumeTarget.taskMode ?? "analysis_only";
                 navigate(
                   learnPathForSentence(
                     resumeTarget.sentenceId,
                     mode,
                     prog?.status === "pass",
+                    aid,
                   ),
                 );
                 setResumeTarget(null);

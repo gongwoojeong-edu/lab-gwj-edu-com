@@ -102,15 +102,17 @@ export function learnPathForSentence(
   sentenceId: string,
   mode: TaskMode,
   analysisPassed: boolean,
+  assignmentId?: string | null,
 ): string {
   const enc = encodeURIComponent(sentenceId);
+  const qs = assignmentId ? `?assignment=${encodeURIComponent(assignmentId)}` : "";
   if (mode === "memorize_only") {
-    return `/learn/sentence/${enc}/memorize`;
+    return `/learn/sentence/${enc}/memorize${qs}`;
   }
   if (mode === "analysis_and_memorize" && analysisPassed) {
-    return `/learn/sentence/${enc}/memorize`;
+    return `/learn/sentence/${enc}/memorize${qs}`;
   }
-  return `/learn/sentence/${enc}`;
+  return `/learn/sentence/${enc}${qs}`;
 }
 
 export function startButtonLabel(mode: TaskMode, analysisPassed: boolean): string {
