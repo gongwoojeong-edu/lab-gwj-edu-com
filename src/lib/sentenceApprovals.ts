@@ -251,7 +251,8 @@ export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
 };
 
 /** 선생님: 승인을 "보류" 상태로 넘김. 상세 첨삭은 나중에 진행.
- *  sentence_progress 는 손대지 않아 학생 잠금이 유지된다. */
+ *  학생이 다음 문장으로 넘어갈 수 있도록 sentence_progress 는 통과(pass)로 임시 처리한다.
+ *  (등급은 비워두고, 선생님이 나중에 최종 등급을 확정) */
 export const holdApprovalRequest = async (input: {
   approvalId: string;
   studentUserId?: string;
@@ -273,13 +274,44 @@ export const holdApprovalRequest = async (input: {
     .eq("id", input.approvalId);
   if (error) throw error;
 
+  // sentence_progress 를 임시 통과 처리해 학생 학습 흐름을 잠그지 않는다.
+  const targetUserId = input.studentUserId ?? approverId;
+  if (targetUserId && input.sentenceId) {
+    const progressUpdate = {
+      status: "pass" as const,
+      passed_at: nowIso,
+      translation_done: true,
+      analysis_done: true,
+      word_test_done: true,
+      last_memo: memoTrimmed,
+      redo_requested_at: null,
+    };
+    const { data: updated, error: progErr } = await supabase
+      .from("sentence_progress")
+      .update(progressUpdate as never)
+      .eq("user_id", targetUserId)
+      .eq("sentence_id", input.sentenceId)
+      .select("user_id");
+    if (progErr) {
+      console.warn("[holdApprovalRequest] progress update failed", progErr);
+    } else if (!updated?.length) {
+      const { error: insErr } = await supabase.from("sentence_progress").insert({
+        user_id: targetUserId,
+        sentence_id: input.sentenceId,
+        pre_done: false,
+        ...progressUpdate,
+      } as never);
+      if (insErr) console.warn("[holdApprovalRequest] progress insert failed", insErr);
+    }
+  }
+
   if (input.studentUserId) {
     try {
       await createNotification({
         userId: input.studentUserId,
         kind: "evaluation",
-        title: "선생님이 자세한 첨삭을 준비 중이에요",
-        body: memoTrimmed ?? "잠시 후 상세한 피드백이 도착합니다.",
+        title: "선생님이 자세한 첨삭을 준비 중이에요 — 다음 문장 진행 가능",
+        body: memoTrimmed ?? "임시로 통과 처리했어요. 다음 문장으로 계속 학습하세요.",
         sentenceId: input.sentenceId,
         approvalId: input.approvalId,
       });
