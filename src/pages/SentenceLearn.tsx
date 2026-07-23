@@ -460,7 +460,7 @@ const SentenceLearn = () => {
       const uid = await getCurrentUserId();
       if (!uid || cancelled) return;
       const unsub = subscribeMyApproval(sentence.id, uid, (row) => {
-        if (row.status === "pending" || row.status === "held") {
+        if (row.status === "pending") {
           setPendingApproval(row);
           return;
         }
