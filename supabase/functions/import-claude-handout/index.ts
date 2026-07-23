@@ -123,6 +123,54 @@ function extractEnglishSource(text: string): string {
   return englishText;
 }
 
+/**
+ * 원문 뒤쪽의 한국어 해석 영역을 문장별로 분리.
+ * 영어 문장 개수(expected)와 정확히 일치할 때만 배열을 반환. 그렇지 않으면 빈 배열.
+ * 규칙: 한글 비율 > 30% 라인만 수집 → 원형숫자(➊/①) 또는 개행/마침표로 분할.
+ */
+function extractKoreanSentences(text: string, expected: number): string[] {
+  const raw = (text || "").replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
+  const lines = raw.split("\n");
+  const koreanLines: string[] = [];
+  let started = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (started) koreanLines.push("");
+      continue;
+    }
+    const kc = (trimmed.match(/[\uAC00-\uD7AF]/g) || []).length;
+    const isKorean = kc > trimmed.length * 0.3;
+    if (!started) {
+      if (isKorean) { started = true; koreanLines.push(trimmed); }
+      continue;
+    }
+    // 한국어 영역 시작 후: 어휘주석(*word) 나오면 종료
+    if (/^\*+[A-Za-z]/.test(trimmed)) break;
+    koreanLines.push(trimmed);
+  }
+  let ko = koreanLines.join("\n").trim();
+  if (!ko) return [];
+
+  const circledRegex = /[\u278A-\u2793\u2460-\u2473]/;
+  let parts: string[] = [];
+  if (circledRegex.test(ko)) {
+    const first = ko.search(circledRegex);
+    if (first > 0) ko = ko.slice(first);
+    parts = ko
+      .split(/(?=[\u278A-\u2793\u2460-\u2473])/)
+      .map((s) => s.replace(/^[\u278A-\u2793\u2460-\u2473]\s*/, "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  } else {
+    parts = ko
+      .split(/\n+|(?<=[.!?。！？])\s+/)
+      .map((s) => s.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  }
+  if (parts.length !== expected) return [];
+  return parts;
+
 function assertSentenceFidelity(passage: string, sentences: string[]): string | null {
   if (!sentences.length) return "passage에서 문장을 찾지 못했습니다";
 
