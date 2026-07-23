@@ -1480,9 +1480,9 @@ const BookshelfUnit = () => {
                           ) : (
                             <button
                               type="button"
-                              className="text-left line-clamp-2 hover:text-primary w-full"
+                              className="text-left line-clamp-2 hover:text-primary w-full cursor-help"
                               onClick={() => startKoreanEdit(p)}
-                              title="클릭하여 편집"
+                              title={p.korean?.trim() || "클릭하여 편집"}
                             >
                               {p.korean?.trim() || (
                                 <span className="text-muted-foreground italic">한글 입력…</span>
