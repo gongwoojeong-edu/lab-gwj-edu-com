@@ -116,6 +116,8 @@ interface AssignmentGroup {
   doneCount: number;
   inProgressCount: number;
   nextSentenceId: string | null;
+  nextAssignmentId: string | null;
+  nextStarted: boolean;
   nextPosition: number | null;
   unitId: string | null;
   round_no: number | null;
