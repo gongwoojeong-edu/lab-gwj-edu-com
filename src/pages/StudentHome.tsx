@@ -725,13 +725,13 @@ const StudentHome = () => {
     }
   };
 
-  const goLearn = async (sentenceId: string) => {
+  const goLearn = async (sentenceId: string, assignmentId?: string | null) => {
     const [ctx, prog] = await Promise.all([
       fetchTaskModeForSentence(sentenceId),
-      fetchSentenceProgress(sentenceId),
+      fetchSentenceProgress(sentenceId, assignmentId ?? null),
     ]);
     navigate(
-      learnPathForSentence(sentenceId, ctx.taskMode, prog?.status === "pass"),
+      learnPathForSentence(sentenceId, ctx.taskMode, prog?.status === "pass", assignmentId ?? null),
     );
   };
 
