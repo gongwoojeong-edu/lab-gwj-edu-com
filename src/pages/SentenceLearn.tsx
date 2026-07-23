@@ -255,9 +255,17 @@ const SentenceLearn = () => {
         fetchMyProfile(),
         fetchAttemptLogs(found.id),
         fetchAttemptCount(found.id),
-        // 특별과제 lookup (마감일 무관 · 본인 또는 전체 대상) — 최근 부여 1건
+        // 특별과제 lookup (마감일 무관 · 본인) — 회독(assignment id)이 지정되면 그 회독의 옵션을 사용
         (async () => {
           if (!currentUserId) return null;
+          if (assignmentIdParam) {
+            const { data } = await supabase
+              .from("assignments")
+              .select("include_pre, include_analysis, include_translation, include_wordtest")
+              .eq("id", assignmentIdParam)
+              .maybeSingle();
+            return data;
+          }
           const { data } = await supabase
             .from("assignments")
             .select("include_pre, include_analysis, include_translation, include_wordtest")
