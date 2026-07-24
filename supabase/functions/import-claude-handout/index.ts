@@ -170,6 +170,36 @@ function extractKoreanSentences(text: string, expected: number): string[] {
   }
   if (parts.length !== expected) return [];
   return parts;
+}
+
+/**
+ * 신텍스스튜디오 최신 내보내기는 passage 본문이 아니라
+ * sentences[].ko / sentences[].translation 필드에 한줄해석을 따로 보낸다.
+ * 우선 이 구조화된 값을 사용하고, 없을 때만 passage 뒤쪽 한글 영역 파싱으로 폴백한다.
+ */
+function extractPayloadKoreanSentences(p: Payload, expected: number): string[] {
+  const normalize = (value: unknown) =>
+    typeof value === "string"
+      ? value.replace(/^▶?\s*직독[·ㆍ]\s*의역\s*/i, "").replace(/\s+/g, " ").trim()
+      : "";
+
+  const explicitArrays = [p.korean_sentences, p.translations, p.sentence_translations];
+  for (const arr of explicitArrays) {
+    if (Array.isArray(arr) && arr.length === expected) {
+      const lines = arr.map(normalize);
+      if (lines.every(Boolean)) return lines;
+    }
+  }
+
+  if (Array.isArray(p.sentences) && p.sentences.length === expected) {
+    const lines = p.sentences.map((s) =>
+      normalize(s?.ko) || normalize(s?.translation) || normalize(s?.korean)
+    );
+    if (lines.every(Boolean)) return lines;
+  }
+
+  return extractKoreanSentences(p.passage, expected);
+}
 
 function assertSentenceFidelity(passage: string, sentences: string[]): string | null {
   if (!sentences.length) return "passage에서 문장을 찾지 못했습니다";
@@ -202,6 +232,17 @@ interface Payload {
   topic_ko?: string;
   topic_en?: string;
   passage: string;
+  sentences?: Array<{
+    number?: number | string;
+    en?: string;
+    sentence_en?: string;
+    ko?: string;
+    translation?: string;
+    korean?: string;
+  }>;
+  korean_sentences?: string[];
+  translations?: string[];
+  sentence_translations?: string[];
   analysis_html?: string;
   structure_html?: string;
   // New hierarchy fields
@@ -231,6 +272,14 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
     return { ok: false, error: "analysis_html must be string" };
   if (p.structure_html != null && typeof p.structure_html !== "string")
     return { ok: false, error: "structure_html must be string" };
+  if (p.sentences != null && !Array.isArray(p.sentences))
+    return { ok: false, error: "sentences must be array" };
+  for (const k of ["korean_sentences", "translations", "sentence_translations"]) {
+    if (p[k] != null && !Array.isArray(p[k])) return { ok: false, error: `${k} must be array` };
+    if (Array.isArray(p[k]) && p[k].some((v: unknown) => typeof v !== "string")) {
+      return { ok: false, error: `${k} must contain strings` };
+    }
+  }
   if (p.analysis_html && p.analysis_html.length > 500_000)
     return { ok: false, error: "analysis_html too large" };
   if (p.structure_html && p.structure_html.length > 500_000)
@@ -496,7 +545,7 @@ Deno.serve(async (req) => {
   //   문장 단위 한글해석 정답은 반드시 선생님이 문장별로 직접 입력한다.
   //   단, 신텍스스튜디오(외부 분석기)에서 영문과 함께 한글 해석을 함께 전송한 경우
   //   문장 수가 정확히 일치하면 문장별 korean 컬럼에 자동 매핑한다.
-  const koreanSentences = extractKoreanSentences(p.passage, sentences.length);
+  const koreanSentences = extractPayloadKoreanSentences(p, sentences.length);
   const isMulti = sentences.length > 1;
   const rows = sentences.map((sent, i) => ({
     textbook_id: textbook!.id,
