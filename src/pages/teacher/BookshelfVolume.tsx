@@ -1263,6 +1263,7 @@ const BookshelfVolume = () => {
           if (!o) {
             setPassagesUnit(null);
             setUnitPassages([]);
+            clearPassageSel();
           }
         }}
       >
@@ -1273,6 +1274,41 @@ const BookshelfVolume = () => {
               본문 수정 — {passagesUnit?.title} (U{passagesUnit?.unit_no})
             </DialogTitle>
           </DialogHeader>
+          {unitPassages.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap px-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={togglePassageSelAll}
+                disabled={bulkPassageBusy}
+              >
+                {allPassagesSelected ? "선택 해제" : "전체 선택"}
+              </Button>
+              <div className="text-xs text-muted-foreground">
+                {passageSel.size > 0 ? `${passageSel.size}개 선택됨` : "문장 왼쪽 체크박스로 선택"}
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setMergeConfirmOpen(true)}
+                  disabled={bulkPassageBusy || passageSel.size < 2}
+                  title="선택한 2개 이상의 문장을 하나로 합칩니다"
+                >
+                  합치기
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  disabled={bulkPassageBusy || passageSel.size === 0}
+                >
+                  <Trash2 className="size-3.5 mr-1" />
+                  삭제 ({passageSel.size})
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="max-h-[60vh] overflow-auto -mx-6 px-6">
             {loadingPassages ? (
               <div className="flex justify-center py-10">
@@ -1284,29 +1320,50 @@ const BookshelfVolume = () => {
               </div>
             ) : (
               <ul className="divide-y divide-border">
-                {unitPassages.map((p) => (
-                  <li key={p.id} className="py-2 flex items-start gap-3">
-                    <div className="font-mono text-xs text-muted-foreground w-10 shrink-0 pt-0.5">
-                      {String(p.passage_no).padStart(3, "0")}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono text-[10px] text-primary truncate">
-                        {p.code}
-                      </div>
-                      <div className="text-xs text-foreground/80 line-clamp-2">
-                        {p.english}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openEditPassage(p)}
-                      title="본문 수정"
+                {unitPassages.map((p) => {
+                  const checked = passageSel.has(p.id);
+                  return (
+                    <li
+                      key={p.id}
+                      className={cn(
+                        "py-2 flex items-start gap-3",
+                        checked && "bg-primary/5",
+                      )}
                     >
-                      <Pencil className="size-3.5" />
-                    </Button>
-                  </li>
-                ))}
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => togglePassageSel(p.id)}
+                        disabled={bulkPassageBusy}
+                        className="mt-1"
+                      />
+                      <div className="font-mono text-xs text-muted-foreground w-10 shrink-0 pt-0.5">
+                        {String(p.passage_no).padStart(3, "0")}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-[10px] text-primary truncate">
+                          {p.code}
+                        </div>
+                        <div className="text-xs text-foreground/80 line-clamp-2">
+                          {p.english}
+                        </div>
+                        {p.korean && (
+                          <div className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                            {p.korean}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEditPassage(p)}
+                        title="본문 수정"
+                        disabled={bulkPassageBusy}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -1317,6 +1374,57 @@ const BookshelfVolume = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 문장 합치기 확인 */}
+      <AlertDialog open={mergeConfirmOpen} onOpenChange={setMergeConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>선택한 {passageSel.size}개 문장을 하나로 합칠까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              가장 앞 번호 문장에 이어붙이고, 나머지는 삭제됩니다. 분석/단어추출 캐시는 자동으로 정리되고,
+              나머지 문장의 학생 학습 기록은 함께 사라집니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkPassageBusy}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleMergeSelectedPassages();
+              }}
+              disabled={bulkPassageBusy}
+            >
+              {bulkPassageBusy && <Loader2 className="size-3.5 mr-1 animate-spin" />}합치기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 문장 일괄 삭제 확인 */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>선택한 {passageSel.size}개 문장을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              해당 문장과 관련된 학생 학습 기록도 함께 사라집니다. 되돌릴 수 없어요.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkPassageBusy}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeleteSelectedPassages();
+              }}
+              disabled={bulkPassageBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkPassageBusy && <Loader2 className="size-3.5 mr-1 animate-spin" />}삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* Edit a single passage */}
       <Dialog
