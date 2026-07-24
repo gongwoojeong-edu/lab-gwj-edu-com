@@ -16,6 +16,7 @@ import {
 import { TASK_MODE_LABEL, showsMemorizeLearn, type TaskMode } from "@/lib/taskMode";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchSentenceProgress } from "@/integrations/supabase/storage";
+import { resetMemProgressForRetry } from "@/lib/memorizationProgress";
 import {
   firstIncompleteMemStep,
   markMemStepDone,
