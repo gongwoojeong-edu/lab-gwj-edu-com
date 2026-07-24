@@ -170,6 +170,36 @@ function extractKoreanSentences(text: string, expected: number): string[] {
   }
   if (parts.length !== expected) return [];
   return parts;
+}
+
+/**
+ * 신텍스스튜디오 최신 내보내기는 passage 본문이 아니라
+ * sentences[].ko / sentences[].translation 필드에 한줄해석을 따로 보낸다.
+ * 우선 이 구조화된 값을 사용하고, 없을 때만 passage 뒤쪽 한글 영역 파싱으로 폴백한다.
+ */
+function extractPayloadKoreanSentences(p: Payload, expected: number): string[] {
+  const normalize = (value: unknown) =>
+    typeof value === "string"
+      ? value.replace(/^▶?\s*직독[·ㆍ]\s*의역\s*/i, "").replace(/\s+/g, " ").trim()
+      : "";
+
+  const explicitArrays = [p.korean_sentences, p.translations, p.sentence_translations];
+  for (const arr of explicitArrays) {
+    if (Array.isArray(arr) && arr.length === expected) {
+      const lines = arr.map(normalize);
+      if (lines.every(Boolean)) return lines;
+    }
+  }
+
+  if (Array.isArray(p.sentences) && p.sentences.length === expected) {
+    const lines = p.sentences.map((s) =>
+      normalize(s?.ko) || normalize(s?.translation) || normalize(s?.korean)
+    );
+    if (lines.every(Boolean)) return lines;
+  }
+
+  return extractKoreanSentences(p.passage, expected);
+}
 
 function assertSentenceFidelity(passage: string, sentences: string[]): string | null {
   if (!sentences.length) return "passage에서 문장을 찾지 못했습니다";
@@ -202,6 +232,17 @@ interface Payload {
   topic_ko?: string;
   topic_en?: string;
   passage: string;
+  sentences?: Array<{
+    number?: number | string;
+    en?: string;
+    sentence_en?: string;
+    ko?: string;
+    translation?: string;
+    korean?: string;
+  }>;
+  korean_sentences?: string[];
+  translations?: string[];
+  sentence_translations?: string[];
   analysis_html?: string;
   structure_html?: string;
   // New hierarchy fields
