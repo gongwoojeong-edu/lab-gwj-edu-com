@@ -43,6 +43,10 @@ const MemorizeLearn = () => {
   const navigate = useNavigate();
   const { roles } = useAuth();
   const isStaff = roles.includes("teacher") || roles.includes("admin");
+  const assignmentIdParam = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("assignment") || null;
+  }, [sentenceId]);
 
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [passage, setPassage] = useState<MemPassageData | null>(null);
