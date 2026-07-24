@@ -419,6 +419,7 @@ export const subscribeMyApproval = (
   sentenceId: string,
   userId: string,
   onChange: (row: SentenceApproval) => void,
+  assignmentId?: string | null,
 ) => {
   const channel = supabase
     .channel(`sa_my_${sentenceId}_${Math.random().toString(36).slice(2)}`)
@@ -432,7 +433,11 @@ export const subscribeMyApproval = (
       },
       (payload) => {
         const row = (payload.new ?? payload.old) as SentenceApproval;
-        if (row && row.user_id === userId) onChange(row);
+        if (!row || row.user_id !== userId) return;
+        const rowAssignmentId = row.assignment_id ?? null;
+        const targetAssignmentId = assignmentId ?? null;
+        if (rowAssignmentId !== targetAssignmentId) return;
+        onChange(row);
       },
     )
     .subscribe();
