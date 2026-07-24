@@ -1754,7 +1754,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <ClipboardList className="size-6 text-primary" />
-              {showBox ? "과제함" : "특별과제 출제"}
+              {showBox ? "과제함" : "과제출제"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {showBox

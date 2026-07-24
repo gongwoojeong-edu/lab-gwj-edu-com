@@ -54,7 +54,7 @@ const TILES = [
   { to: "/teacher/bookshelf", title: "책장", desc: "레벨별 교재 관리", icon: BookOpen },
   { to: "/teacher/roster", title: "학생목록", desc: "재원생·선생님 계정 (Orbit)", icon: Users },
   { to: "/teacher/students", title: "학습 설정", desc: "통과기준·PIN·시작 레벨", icon: Settings2 },
-  { to: "/teacher/assignments", title: "특별과제", desc: "학생에게 특별과제 부여", icon: ClipboardList },
+  { to: "/teacher/assignments", title: "과제출제", desc: "학생에게 과제 출제", icon: ClipboardList },
   { to: "/teacher/print-queue", title: "인쇄 대기열", desc: "시험지 승인·출력", icon: Printer },
   { to: "/teacher/results", title: "학습결과", desc: "오늘 학습 결과·HO 입력", icon: RefreshCcw },
 ];
