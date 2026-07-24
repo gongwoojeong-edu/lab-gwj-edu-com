@@ -17,6 +17,8 @@ export interface NextSentenceResult {
   done: boolean;
   /** 지정 범위에 등록된 지문 자체가 0개인 경우(학습 자료 미준비) */
   noContent?: boolean;
+  /** 특별과제 회독 id (있으면 학습 URL에 유지) */
+  assignmentId?: string | null;
 }
 
 /**
@@ -174,6 +176,7 @@ export const advanceAfterPass = async (justPassed: Sentence): Promise<void> => {
 };
 
 type AssignNavRow = {
+  id: string;
   sentence_id: string | null;
   title: string;
   due_at: string | null;
@@ -183,6 +186,7 @@ type AssignNavRow = {
   include_translation: boolean;
   include_wordtest: boolean;
   task_mode: string | null;
+  round_no?: number | null;
 };
 
 type StepFlags = {
@@ -194,10 +198,58 @@ type StepFlags = {
   status?: string;
 };
 
+type ProgRow = {
+  sentence_id: string;
+  assignment_id: string | null;
+  status: string | null;
+  pre_done: boolean | null;
+  word_test_done: boolean | null;
+  analysis_done: boolean | null;
+  translation_done: boolean | null;
+  mem_passed_at: string | null;
+};
+
+const toStepFlags = (r: ProgRow): StepFlags => ({
+  pre: !!r.pre_done,
+  wt: !!r.word_test_done,
+  an: !!r.analysis_done,
+  tr: !!r.translation_done,
+  mem: !!r.mem_passed_at,
+  status: r.status ?? undefined,
+});
+
+/** assignment.id 우선, 레거시(null) 진도는 1회독/구과제에만 fallback */
+const buildAssignmentProgressLookup = (progRows: ProgRow[]) => {
+  const byAssignId = new Map<string, StepFlags>();
+  const byNullSentence = new Map<string, StepFlags>();
+  progRows.forEach((r) => {
+    const pf = toStepFlags(r);
+    if (r.assignment_id) byAssignId.set(r.assignment_id, pf);
+    else byNullSentence.set(r.sentence_id, pf);
+  });
+  const getFlags = (a: AssignNavRow): StepFlags | undefined => {
+    const hit = byAssignId.get(a.id);
+    if (hit) return hit;
+    if (a.round_no == null || a.round_no <= 1) {
+      return a.sentence_id ? byNullSentence.get(a.sentence_id) : undefined;
+    }
+    return undefined;
+  };
+  return getFlags;
+};
+
+const ASSIGN_NAV_SELECT =
+  "id, sentence_id, title, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode, round_no";
+
 const pickCurrentAssignmentRow = (
   rows: AssignNavRow[],
   sentenceId: string,
+  assignmentId?: string | null,
 ): AssignNavRow | undefined => {
+  if (assignmentId) {
+    const byId = rows.find((a) => a.id === assignmentId);
+    if (byId) return byId;
+  }
   const matches = rows.filter((a) => a.sentence_id === sentenceId);
   if (matches.length === 0) return undefined;
   return matches.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
@@ -230,8 +282,8 @@ const loadSentenceById = async (code: string): Promise<Sentence | null> => {
 const resolveFirstIncompleteInSameUnit = async (
   currentSentenceId: string,
   allAssignments: AssignNavRow[],
-  progressFlags: Map<string, StepFlags>,
-): Promise<Sentence | null> => {
+  getFlags: (a: AssignNavRow) => StepFlags | undefined,
+): Promise<{ sentence: Sentence; assignmentId: string } | null> => {
   const { data: currentPassage } = await supabase
     .from("textbook_passages")
     .select("unit_id")
@@ -260,8 +312,10 @@ const resolveFirstIncompleteInSameUnit = async (
   for (const code of orderedCodes) {
     const row = assignmentByCode.get(code);
     if (!row) continue;
-    if (!assignmentSentenceDone(row, progressFlags.get(code))) {
-      return code === currentSentenceId ? null : loadSentenceById(code);
+    if (!assignmentSentenceDone(row, getFlags(row))) {
+      if (code === currentSentenceId) return null;
+      const sentence = await loadSentenceById(code);
+      return sentence ? { sentence, assignmentId: row.id } : null;
     }
   }
   return null;
@@ -273,15 +327,14 @@ const resolveFirstIncompleteInSameUnit = async (
  */
 export const resolveEarlierIncompleteInAssignment = async (
   currentSentenceId: string,
-): Promise<Sentence | null> => {
+  currentAssignmentId?: string | null,
+): Promise<{ sentence: Sentence; assignmentId: string | null } | null> => {
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
   const { data: assignData } = await supabase
     .from("assignments")
-    .select(
-      "sentence_id, title, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode",
-    )
+    .select(ASSIGN_NAV_SELECT)
     .or(`student_id.eq.${userId},student_id.is.null`)
     .not("sentence_id", "is", null);
 
@@ -292,7 +345,11 @@ export const resolveEarlierIncompleteInAssignment = async (
     .map((a) => a.sentence_id)
     .filter((c): c is string => !!c);
   const orderMeta = await fetchPassageOrderMeta(assignCodes);
-  const currentRow = pickCurrentAssignmentRow(allAssignments, currentSentenceId);
+  const currentRow = pickCurrentAssignmentRow(
+    allAssignments,
+    currentSentenceId,
+    currentAssignmentId,
+  );
   if (!currentRow) return null;
 
   const groupKey = assignmentSequenceKey({
@@ -316,49 +373,36 @@ export const resolveEarlierIncompleteInAssignment = async (
   const { data: progRows } = await supabase
     .from("sentence_progress")
     .select(
-      "sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
+      "sentence_id, assignment_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
     )
     .eq("user_id", userId)
-    .is("assignment_id", null) // 현재 회독만
     .in("sentence_id", assignCodes);
 
-  const progressFlags = new Map<string, StepFlags>();
-  (
-    (progRows ?? []) as Array<{
-      sentence_id: string;
-      status: string | null;
-      pre_done: boolean | null;
-      word_test_done: boolean | null;
-      analysis_done: boolean | null;
-      translation_done: boolean | null;
-      mem_passed_at: string | null;
-    }>
-  ).forEach((r) => {
-    progressFlags.set(r.sentence_id, {
-      pre: !!r.pre_done,
-      wt: !!r.word_test_done,
-      an: !!r.analysis_done,
-      tr: !!r.translation_done,
-      mem: !!r.mem_passed_at,
-      status: r.status ?? undefined,
-    });
-  });
+  const getFlags = buildAssignmentProgressLookup((progRows ?? []) as ProgRow[]);
 
   // 같은 유닛 안에서는 URL/버튼으로 어느 문장에 들어가도 항상 가장 앞의 미완료로 복구한다.
   const unitResume = await resolveFirstIncompleteInSameUnit(
     currentSentenceId,
     allAssignments,
-    progressFlags,
+    getFlags,
   );
-  if (unitResume) return unitResume;
+  if (unitResume) {
+    return { sentence: unitResume.sentence, assignmentId: unitResume.assignmentId };
+  }
 
-  const currentIdx = groupRows.findIndex((a) => a.sentence_id === currentSentenceId);
+  const currentIdx = groupRows.findIndex((a) =>
+    currentAssignmentId
+      ? a.id === currentAssignmentId
+      : a.sentence_id === currentSentenceId,
+  );
   if (currentIdx <= 0) return null;
   const earlier = groupRows.slice(0, currentIdx).find(
-    (a) => a.sentence_id && !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+    (a) => a.sentence_id && !assignmentSentenceDone(a, getFlags(a)),
   );
   if (!earlier?.sentence_id) return null;
-  return loadSentenceById(earlier.sentence_id);
+  const sentence = await loadSentenceById(earlier.sentence_id);
+  if (!sentence) return null;
+  return { sentence, assignmentId: earlier.id };
 };
 
 /**
@@ -367,6 +411,7 @@ export const resolveEarlierIncompleteInAssignment = async (
  */
 export const resolveNextAfterPass = async (
   currentSentenceId: string,
+  currentAssignmentId?: string | null,
 ): Promise<NextSentenceResult> => {
   await hydrateSentencesFromDb();
   const profile = await fetchMyProfile();
@@ -375,9 +420,7 @@ export const resolveNextAfterPass = async (
 
   const { data: assignData } = await supabase
     .from("assignments")
-    .select(
-      "sentence_id, title, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode",
-    )
+    .select(ASSIGN_NAV_SELECT)
     .or(`student_id.eq.${userId},student_id.is.null`)
     .not("sentence_id", "is", null);
 
@@ -390,37 +433,20 @@ export const resolveNextAfterPass = async (
     const { data: progRows } = await supabase
       .from("sentence_progress")
       .select(
-        "sentence_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
+        "sentence_id, assignment_id, status, pre_done, word_test_done, analysis_done, translation_done, mem_passed_at",
       )
       .eq("user_id", userId)
-      .is("assignment_id", null) // 현재 회독만
       .in("sentence_id", assignCodes);
 
-    const progressFlags = new Map<string, StepFlags>();
-    (
-      (progRows ?? []) as Array<{
-        sentence_id: string;
-        status: string | null;
-        pre_done: boolean | null;
-        word_test_done: boolean | null;
-        analysis_done: boolean | null;
-        translation_done: boolean | null;
-        mem_passed_at: string | null;
-      }>
-    ).forEach((r) => {
-      progressFlags.set(r.sentence_id, {
-        pre: !!r.pre_done,
-        wt: !!r.word_test_done,
-        an: !!r.analysis_done,
-        tr: !!r.translation_done,
-        mem: !!r.mem_passed_at,
-        status: r.status ?? undefined,
-      });
-    });
+    const getFlags = buildAssignmentProgressLookup((progRows ?? []) as ProgRow[]);
 
     const orderMeta = await fetchPassageOrderMeta(assignCodes);
 
-    const currentRow = pickCurrentAssignmentRow(allAssignments, currentSentenceId);
+    const currentRow = pickCurrentAssignmentRow(
+      allAssignments,
+      currentSentenceId,
+      currentAssignmentId,
+    );
     if (!currentRow) {
       return { sentence: null, profile, done: false };
     }
@@ -446,37 +472,51 @@ export const resolveNextAfterPass = async (
       })
       .sort((a, b) => comparePassageOrder(a.sentence_id, b.sentence_id, orderMeta));
 
-    const currentIdx = groupRows.findIndex((a) => a.sentence_id === currentSentenceId);
+    const currentIdx = groupRows.findIndex((a) =>
+      currentAssignmentId
+        ? a.id === currentAssignmentId
+        : a.sentence_id === currentSentenceId,
+    );
     // 현재 문장보다 앞의 미완료가 있으면 그곳으로 (순서 이탈 복구)
     const earlierIncomplete =
       currentIdx > 0
         ? groupRows.slice(0, currentIdx).find(
-            (a) =>
-              a.sentence_id &&
-              !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+            (a) => a.sentence_id && !assignmentSentenceDone(a, getFlags(a)),
           )
         : undefined;
     if (earlierIncomplete?.sentence_id) {
       const sentence = await loadSentenceById(earlierIncomplete.sentence_id);
-      if (sentence) return { sentence, profile, done: false };
+      if (sentence) {
+        return {
+          sentence,
+          profile,
+          done: false,
+          assignmentId: earlierIncomplete.id,
+        };
+      }
     }
 
     const nextRow =
       currentIdx >= 0
         ? groupRows.slice(currentIdx + 1).find(
-            (a) =>
-              a.sentence_id &&
-              !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+            (a) => a.sentence_id && !assignmentSentenceDone(a, getFlags(a)),
           )
         : groupRows.find(
             (a) =>
               a.sentence_id &&
               a.sentence_id !== currentSentenceId &&
-              !assignmentSentenceDone(a, progressFlags.get(a.sentence_id)),
+              !assignmentSentenceDone(a, getFlags(a)),
           );
     if (nextRow?.sentence_id && nextRow.sentence_id !== currentSentenceId) {
       const sentence = await loadSentenceById(nextRow.sentence_id);
-      if (sentence) return { sentence, profile, done: false };
+      if (sentence) {
+        return {
+          sentence,
+          profile,
+          done: false,
+          assignmentId: nextRow.id,
+        };
+      }
     }
 
     // 같은 시퀀스 내 남은 문장 없음 → 홈 (다른 교재로 점프하지 않음)

@@ -42,10 +42,15 @@ export interface SentenceApproval {
   held_at?: string | null;
   held_by?: string | null;
   held_memo?: string | null;
+  /** 회독(특별과제) 격리 키. null/미지정 = 레거시 진도 */
   assignment_id?: string | null;
 }
 
-/** 본 학생의 해당 문장 최신 행. assignmentId 를 명시하면 해당 라운드만 조회. */
+/** 본 학생의 해당 문장 최신 행.
+ *  - assignmentId 문자열: 해당 회독만
+ *  - null: 레거시(assignment_id IS NULL)만
+ *  - undefined: 회독 무관 최신 1건
+ */
 export const fetchLatestApproval = async (
   sentenceId: string,
   userId?: string,
@@ -62,7 +67,6 @@ export const fetchLatestApproval = async (
     .limit(1);
   if (assignmentId === null) q = q.is("assignment_id", null);
   else if (assignmentId) q = q.eq("assignment_id", assignmentId);
-  else q = q.is("assignment_id", null);
   const { data } = await q.maybeSingle();
   return (data as SentenceApproval) ?? null;
 };
@@ -158,6 +162,7 @@ export const approveSentenceRequest = async (input: {
         ...baseUpdate,
         status: "pass",
         passed_at: nowIso,
+        pre_done: true,
         translation_done: true,
         analysis_done: true,
         word_test_done: true,
@@ -180,13 +185,13 @@ export const approveSentenceRequest = async (input: {
     const { error: insErr } = await supabase.from("sentence_progress").insert({
       user_id: targetUserId,
       sentence_id: input.sentenceId,
-      pre_done: false,
+      ...(assignmentId ? { assignment_id: assignmentId } : {}),
+      pre_done: !isRedo,
       analysis_done: !isRedo,
       translation_done: !isRedo,
       word_test_done: !isRedo,
       status: isRedo ? "pending" : "pass",
       passed_at: isRedo ? null : nowIso,
-      ...(assignmentId ? { assignment_id: assignmentId } : {}),
       ...update,
     } as never);
     if (insErr) throw insErr;
@@ -212,7 +217,10 @@ export const approveSentenceRequest = async (input: {
 };
 
 /** 학생 본인 세션: 승인 행을 sentence_progress에 반영 (선생님 UPDATE 실패 시 보완) */
-export async function applyApprovalToMyProgress(approval: SentenceApproval): Promise<void> {
+export async function applyApprovalToMyProgress(
+  approval: SentenceApproval,
+  fallbackAssignmentId?: string | null,
+): Promise<void> {
   const userId = await getCurrentUserId();
   if (!userId || approval.user_id !== userId) return;
   if (approval.status !== "approved" || !approval.grade) return;
@@ -221,8 +229,7 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
   const isRedo = approval.grade === "redo";
   const nowIso = new Date().toISOString();
   const memoTrimmed = approval.memo?.trim() || null;
-
-  const assignmentId = approval.assignment_id ?? null;
+  const assignmentId = approval.assignment_id ?? fallbackAssignmentId ?? null;
 
   if (isRedo) {
     await upsertSentenceProgress(approval.sentence_id, {
@@ -241,6 +248,7 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
     last_memo: memoTrimmed,
     status: "pass",
     passed_at: approval.approved_at ?? nowIso,
+    pre_done: true,
     translation_done: true,
     analysis_done: true,
     word_test_done: true,
@@ -248,6 +256,43 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
     touchActivity: true,
     assignmentId,
   });
+}
+
+/**
+ * 이어하기 직전: 승인만 되고 progress가 안 바뀐 문장을 pass로 맞춘 뒤
+ * 실제 다음 미완료 문장(+회독)을 반환한다. (같은 문장 반복 방지)
+ */
+export async function resolveContinueSentenceId(
+  sentenceId: string,
+  assignmentId?: string | null,
+): Promise<{ sentenceId: string; assignmentId: string | null }> {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return { sentenceId, assignmentId: assignmentId ?? null };
+  }
+
+  let latest = await fetchLatestApproval(sentenceId, userId, assignmentId);
+  // 회독 키 없이 승인된 레거시 행도 잡는다
+  if (!latest && assignmentId) {
+    latest = await fetchLatestApproval(sentenceId, userId, undefined);
+  }
+  if (
+    latest?.status === "approved" &&
+    latest.grade &&
+    latest.grade !== "redo"
+  ) {
+    await applyApprovalToMyProgress(latest, assignmentId);
+  }
+
+  const { resolveNextAfterPass } = await import("@/lib/nextSentence");
+  const next = await resolveNextAfterPass(sentenceId, assignmentId);
+  if (next.sentence?.id && next.sentence.id !== sentenceId) {
+    return {
+      sentenceId: next.sentence.id,
+      assignmentId: next.assignmentId ?? null,
+    };
+  }
+  return { sentenceId, assignmentId: assignmentId ?? null };
 }
 
 
@@ -309,6 +354,7 @@ export const holdApprovalRequest = async (input: {
     const progressUpdate = {
       status: "pass" as const,
       passed_at: nowIso,
+      pre_done: true,
       translation_done: true,
       analysis_done: true,
       word_test_done: true,
@@ -329,7 +375,6 @@ export const holdApprovalRequest = async (input: {
       const { error: insErr } = await supabase.from("sentence_progress").insert({
         user_id: targetUserId,
         sentence_id: input.sentenceId,
-        pre_done: false,
         ...(assignmentId ? { assignment_id: assignmentId } : {}),
         ...progressUpdate,
       } as never);

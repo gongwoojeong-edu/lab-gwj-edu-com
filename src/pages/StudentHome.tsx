@@ -63,6 +63,7 @@ import {
 } from "@/lib/materialViewRequests";
 import { fetchTaskModeForSentence } from "@/lib/fetchTaskMode";
 import { fetchSentenceProgress } from "@/integrations/supabase/storage";
+import { resolveContinueSentenceId } from "@/lib/sentenceApprovals";
 import {
   learnPathForSentence,
   startButtonLabel,
@@ -295,6 +296,8 @@ const StudentHome = () => {
           if (!a.sentence_id) return false;
           const pf = getPF(a);
           if (!pf) return false;
+          // 선생님 승인(pass)이면 단계 플래그와 무관하게 완료 — 이어하기가 같은 문장에 고정되는 것 방지
+          if (pf.status === "pass") return true;
           const mode = a.task_mode ?? "analysis_only";
           const needsMem = taskModeIncludesMemorize(mode);
           const needsAnalysis = mode !== "memorize_only";
@@ -726,12 +729,19 @@ const StudentHome = () => {
   };
 
   const goLearn = async (sentenceId: string, assignmentId?: string | null) => {
+    // 승인만 되고 pass 반영이 안 된 경우 → 동기화 후 진짜 다음 문장으로
+    const cont = await resolveContinueSentenceId(sentenceId, assignmentId ?? null);
     const [ctx, prog] = await Promise.all([
-      fetchTaskModeForSentence(sentenceId),
-      fetchSentenceProgress(sentenceId, assignmentId ?? null),
+      fetchTaskModeForSentence(cont.sentenceId),
+      fetchSentenceProgress(cont.sentenceId, cont.assignmentId),
     ]);
     navigate(
-      learnPathForSentence(sentenceId, ctx.taskMode, prog?.status === "pass", assignmentId ?? null),
+      learnPathForSentence(
+        cont.sentenceId,
+        ctx.taskMode,
+        prog?.status === "pass",
+        cont.assignmentId,
+      ),
     );
   };
 
@@ -1296,14 +1306,21 @@ const StudentHome = () => {
               onClick={async () => {
                 if (!resumeTarget) return;
                 const aid = resumeTarget.assignmentId ?? null;
-                const prog = await fetchSentenceProgress(resumeTarget.sentenceId, aid);
+                const cont = await resolveContinueSentenceId(
+                  resumeTarget.sentenceId,
+                  aid,
+                );
+                const prog = await fetchSentenceProgress(
+                  cont.sentenceId,
+                  cont.assignmentId,
+                );
                 const mode = resumeTarget.taskMode ?? "analysis_only";
                 navigate(
                   learnPathForSentence(
-                    resumeTarget.sentenceId,
+                    cont.sentenceId,
                     mode,
                     prog?.status === "pass",
-                    aid,
+                    cont.assignmentId,
                   ),
                 );
                 setResumeTarget(null);

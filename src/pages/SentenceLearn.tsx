@@ -218,9 +218,18 @@ const SentenceLearn = () => {
 
       // 특별과제: 앞 유닛/문장이 미완료면 그곳으로 강제 (1과-3을 먼저 여는 등 순서 이탈 방지)
       try {
-        const earlier = await resolveEarlierIncompleteInAssignment(found.id);
-        if (mounted && earlier && earlier.id !== found.id) {
-          navigate(`/learn/sentence/${encodeURIComponent(earlier.id)}`, { replace: true });
+        const earlier = await resolveEarlierIncompleteInAssignment(
+          found.id,
+          assignmentIdParam,
+        );
+        if (mounted && earlier && earlier.sentence.id !== found.id) {
+          const qs = earlier.assignmentId
+            ? `?assignment=${encodeURIComponent(earlier.assignmentId)}`
+            : "";
+          navigate(
+            `/learn/sentence/${encodeURIComponent(earlier.sentence.id)}${qs}`,
+            { replace: true },
+          );
           return;
         }
       } catch (e) {
@@ -287,7 +296,11 @@ const SentenceLearn = () => {
       if (mounted) setOpenRequest(openReq);
 
       // 한글해석 제출 후 선생님 승인 대기 행 hydrate (pass 전 sentence_progress.status는 pending)
-      const latestApproval = await fetchLatestApproval(found.id, currentUserId ?? undefined);
+      const latestApproval = await fetchLatestApproval(
+        found.id,
+        currentUserId ?? undefined,
+        assignmentIdParam,
+      );
       const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
       if (mounted && latestApproval?.status === "pending") {
         setPendingApproval(latestApproval);
@@ -297,19 +310,17 @@ const SentenceLearn = () => {
         latestApproval.grade &&
         latestApproval.grade !== "redo"
       ) {
-        // 승인됐는데 progress가 아직 pass가 아닌 경우만 복구 (옛 승인 행으로 중간 학습을 뺏기지 않음)
-        const needsApprovalSync = progStatus !== "pass" && !!prog?.translation_done;
-        if (needsApprovalSync) {
+        // 승인됐으면 progress를 pass로 맞춘 뒤 다음 문장으로 (translation_done 여부와 무관)
+        if (progStatus !== "pass") {
           await applyApprovalToMyProgress(latestApproval);
         }
-        // pass(또는 방금 복구된 pass)인 문장을 연 경우 → 다음 미완료 문장으로만 이동.
-        // 다음이 없으면 홈으로 튕기지 않음 (이어하기 중 홈 튕김 방지).
-        if (progStatus === "pass" || needsApprovalSync) {
-          const r = await resolveNextAfterPass(found.id);
-          if (r.sentence && r.sentence.id !== found.id) {
-            navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
-            return;
-          }
+        const r = await resolveNextAfterPass(found.id, assignmentIdParam);
+        if (r.sentence && r.sentence.id !== found.id) {
+          const qs = r.assignmentId
+            ? `?assignment=${encodeURIComponent(r.assignmentId)}`
+            : "";
+          navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}${qs}`);
+          return;
         }
       }
 
@@ -629,9 +640,12 @@ const SentenceLearn = () => {
       navigate("/learn");
       return;
     }
-    const r = await resolveNextAfterPass(sid);
+    const r = await resolveNextAfterPass(sid, assignmentIdParam);
     if (r.sentence) {
-      navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
+      const qs = r.assignmentId
+        ? `?assignment=${encodeURIComponent(r.assignmentId)}`
+        : "";
+      navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}${qs}`);
     } else {
       navigate("/learn");
     }
