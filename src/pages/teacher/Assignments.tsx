@@ -288,7 +288,13 @@ const emptyForm = (): FormState => ({
   memDirection: "",
 });
 
-const Assignments = () => {
+interface AssignmentsProps {
+  /** "create" = 과제 출제 화면(기본), "box" = 과제함(목록) */
+  viewMode?: "create" | "box";
+}
+const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
+  const showCreate = viewMode === "create";
+  const showBox = viewMode === "box";
   const { display: levelDisplay } = useLevelLabels();
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
