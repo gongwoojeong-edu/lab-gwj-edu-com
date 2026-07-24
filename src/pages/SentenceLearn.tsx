@@ -87,6 +87,23 @@ const STEP_LABELS: Record<Step, string> = {
 
 const STEP_ORDER: Step[] = ["pre", "wordtest", "analysis", "translation"];
 
+const LEARN_LOAD_TIMEOUT_MS = 12000;
+
+const withLearnLoadTimeout = async <T,>(promise: Promise<T>, label: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} 요청 시간이 초과되었습니다`));
+    }, LEARN_LOAD_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+};
+
 const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
@@ -197,12 +214,18 @@ const SentenceLearn = () => {
         const myLevel = (prof0?.current_level ?? prof0?.start_level) as
           | LevelCode
           | undefined;
-        await hydrateSentencesFromDb(false, myLevel ? { levels: [myLevel] } : undefined);
+        await withLearnLoadTimeout(
+          hydrateSentencesFromDb(false, myLevel ? { levels: [myLevel] } : undefined),
+          "문장 목록 불러오기",
+        );
 
         // 2) 현재 sentence 1건은 tokens 포함해 직접 fetch (hydrate 결과를 덮어씀)
         let found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
         if (sentenceId) {
-          const one = await loadSentenceByCode(sentenceId).catch(() => null);
+          const one = await withLearnLoadTimeout(
+            loadSentenceByCode(sentenceId).catch(() => null),
+            "현재 문장 불러오기",
+          );
           if (one) {
             const idx = SENTENCES.findIndex((s) => s.id === one.id);
             if (idx >= 0) SENTENCES[idx] = { ...SENTENCES[idx], ...one };
@@ -220,9 +243,9 @@ const SentenceLearn = () => {
 
       // 특별과제: 앞 유닛/문장이 미완료면 그곳으로 강제 (1과-3을 먼저 여는 등 순서 이탈 방지)
       try {
-        const earlier = await resolveEarlierIncompleteInAssignment(
-          found.id,
-          assignmentIdParam,
+        const earlier = await withLearnLoadTimeout(
+          resolveEarlierIncompleteInAssignment(found.id, assignmentIdParam),
+          "이어하기 위치 확인",
         );
         if (mounted && earlier && earlier.sentence.id !== found.id) {
           const qs = earlier.assignmentId
@@ -259,49 +282,54 @@ const SentenceLearn = () => {
       }
 
       const currentUserId = await getCurrentUserId();
-      const [prog, extraction, owners, prof, logs, attemptCnt, assignRes, overrideRes] = await Promise.all([
-        readMyProg(found.id),
-        fetchExtraction(found.id),
-        fetchOwnerProgressForSentence(found.id),
-        fetchMyProfile(),
-        fetchAttemptLogs(found.id),
-        fetchAttemptCount(found.id),
-        // 특별과제 lookup (마감일 무관 · 본인) — 회독(assignment id)이 지정되면 그 회독의 옵션을 사용
-        (async () => {
-          if (!currentUserId) return null;
-          if (assignmentIdParam) {
+      const [prog, extraction, owners, prof, logs, attemptCnt, assignRes, overrideRes] = await withLearnLoadTimeout(
+        Promise.all([
+          readMyProg(found.id),
+          fetchExtraction(found.id),
+          fetchOwnerProgressForSentence(found.id),
+          fetchMyProfile(),
+          fetchAttemptLogs(found.id),
+          fetchAttemptCount(found.id),
+          // 특별과제 lookup (마감일 무관 · 본인) — 회독(assignment id)이 지정되면 그 회독의 옵션을 사용
+          (async () => {
+            if (!currentUserId) return null;
+            if (assignmentIdParam) {
+              const { data } = await supabase
+                .from("assignments")
+                .select("include_pre, include_analysis, include_translation, include_wordtest")
+                .eq("id", assignmentIdParam)
+                .maybeSingle();
+              return data;
+            }
             const { data } = await supabase
               .from("assignments")
               .select("include_pre, include_analysis, include_translation, include_wordtest")
-              .eq("id", assignmentIdParam)
+              .eq("sentence_id", found.id)
+              .or(`student_id.eq.${currentUserId},student_id.is.null`)
+              .order("created_at", { ascending: false })
+              .limit(1)
               .maybeSingle();
             return data;
-          }
-          const { data } = await supabase
-            .from("assignments")
-            .select("include_pre, include_analysis, include_translation, include_wordtest")
-            .eq("sentence_id", found.id)
-            .or(`student_id.eq.${currentUserId},student_id.is.null`)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return data;
-        })(),
-        // 학생×지문 단위 학습 옵션 오버라이드 (단어학습 스킵 등)
-        fetchMyOverrideForSentence(found.id),
-      ]);
+          })(),
+          // 학생×지문 단위 학습 옵션 오버라이드 (단어학습 스킵 등)
+          fetchMyOverrideForSentence(found.id),
+        ]),
+        "학습 진행상태 불러오기",
+      );
       if (!mounted) return;
       const nextAttemptNo = attemptCnt + 1;
       setCurrentAttemptNo(nextAttemptNo);
       // 현재 attempt에 대한 미해결 요청(있으면 표시)
-      const openReq = await fetchOpenRequest(found.id, nextAttemptNo);
+      const openReq = await withLearnLoadTimeout(
+        fetchOpenRequest(found.id, nextAttemptNo),
+        "첨삭 요청 상태 불러오기",
+      );
       if (mounted) setOpenRequest(openReq);
 
       // 한글해석 제출 후 선생님 승인 대기 행 hydrate (pass 전 sentence_progress.status는 pending)
-      const latestApproval = await fetchLatestApproval(
-        found.id,
-        currentUserId ?? undefined,
-        assignmentIdParam,
+      const latestApproval = await withLearnLoadTimeout(
+        fetchLatestApproval(found.id, currentUserId ?? undefined, assignmentIdParam),
+        "승인 상태 불러오기",
       );
       const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
       if (mounted && latestApproval?.status === "pending") {
@@ -408,12 +436,15 @@ const SentenceLearn = () => {
       setEntries(built);
 
       // 초기 step 결정 — 이미 뒤 단계까지 온 학생은 이전 단계로 되돌리지 않음
-      const wordTestPassedRow = await supabase
-        .from("word_test_results")
-        .select("passed, mode")
-        .eq("sentence_id", found.id)
-        .eq("user_id", currentUserId ?? "")
-        .eq("passed", true);
+      const wordTestPassedRow = await withLearnLoadTimeout(
+        supabase
+          .from("word_test_results")
+          .select("passed, mode")
+          .eq("sentence_id", found.id)
+          .eq("user_id", currentUserId ?? "")
+          .eq("passed", true),
+        "단어 테스트 결과 불러오기",
+      );
       const passedModes = new Set(((wordTestPassedRow.data ?? []) as { mode: string }[]).map((r) => r.mode));
       const wordtestAllPassed = passedModes.has("spell") && passedModes.has("meaning") && passedModes.has("mixed");
 
