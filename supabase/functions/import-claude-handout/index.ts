@@ -272,6 +272,14 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
     return { ok: false, error: "analysis_html must be string" };
   if (p.structure_html != null && typeof p.structure_html !== "string")
     return { ok: false, error: "structure_html must be string" };
+  if (p.sentences != null && !Array.isArray(p.sentences))
+    return { ok: false, error: "sentences must be array" };
+  for (const k of ["korean_sentences", "translations", "sentence_translations"]) {
+    if (p[k] != null && !Array.isArray(p[k])) return { ok: false, error: `${k} must be array` };
+    if (Array.isArray(p[k]) && p[k].some((v: unknown) => typeof v !== "string")) {
+      return { ok: false, error: `${k} must contain strings` };
+    }
+  }
   if (p.analysis_html && p.analysis_html.length > 500_000)
     return { ok: false, error: "analysis_html too large" };
   if (p.structure_html && p.structure_html.length > 500_000)
@@ -537,7 +545,7 @@ Deno.serve(async (req) => {
   //   문장 단위 한글해석 정답은 반드시 선생님이 문장별로 직접 입력한다.
   //   단, 신텍스스튜디오(외부 분석기)에서 영문과 함께 한글 해석을 함께 전송한 경우
   //   문장 수가 정확히 일치하면 문장별 korean 컬럼에 자동 매핑한다.
-  const koreanSentences = extractKoreanSentences(p.passage, sentences.length);
+  const koreanSentences = extractPayloadKoreanSentences(p, sentences.length);
   const isMulti = sentences.length > 1;
   const rows = sentences.map((sent, i) => ({
     textbook_id: textbook!.id,
