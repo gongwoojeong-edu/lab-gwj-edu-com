@@ -42,6 +42,7 @@ export interface SentenceApproval {
   held_at?: string | null;
   held_by?: string | null;
   held_memo?: string | null;
+  assignment_id?: string | null;
 }
 
 /** 본 학생의 해당 문장 최신 행. assignmentId 를 명시하면 해당 라운드만 조회. */
