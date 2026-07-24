@@ -424,10 +424,12 @@ const LearningResults = () => {
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no, current_level")
+          .select("user_id, display_name, student_no, current_level, orbit_enrollment_active")
           .in("user_id", allUserIds);
         (sp ?? []).forEach((s) => {
-          const row = s as { user_id: string; display_name: string | null; student_no: string; current_level: string | null };
+          const row = s as { user_id: string; display_name: string | null; student_no: string; current_level: string | null; orbit_enrollment_active: boolean | null };
+          // 퇴원/휴원(orbit_enrollment_active=false) 학생은 학습결과에서 숨김
+          if (row.orbit_enrollment_active === false) return;
           sMap[row.user_id] = {
             user_id: row.user_id,
             display_name: row.display_name,
@@ -435,6 +437,7 @@ const LearningResults = () => {
             current_level: row.current_level,
           };
         });
+
 
         const { data: uwRows } = await (supabase as unknown as {
           from: (table: string) => {
@@ -659,25 +662,29 @@ const LearningResults = () => {
 
   const groupedEntries = useMemo(
     () =>
-      Object.entries(studentSentences).sort(([a, sa], [b, sb]) => {
-        // 최신순: 학생별 최근 제출일시 desc
-        const latest = (uid: string, sids: string[]) => {
-          let mx = "";
-          for (const sid of sids) {
-            const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
-            if (t > mx) mx = t;
-          }
-          return mx;
-        };
-        const ta = latest(a, sa);
-        const tb = latest(b, sb);
-        if (ta !== tb) return tb.localeCompare(ta);
-        const na = students[a]?.display_name ?? "";
-        const nb = students[b]?.display_name ?? "";
-        return na.localeCompare(nb, "ko", { sensitivity: "base" });
-      }),
+      Object.entries(studentSentences)
+        // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
+        .filter(([uid]) => students[uid])
+        .sort(([a, sa], [b, sb]) => {
+          // 최신순: 학생별 최근 제출일시 desc
+          const latest = (uid: string, sids: string[]) => {
+            let mx = "";
+            for (const sid of sids) {
+              const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
+              if (t > mx) mx = t;
+            }
+            return mx;
+          };
+          const ta = latest(a, sa);
+          const tb = latest(b, sb);
+          if (ta !== tb) return tb.localeCompare(ta);
+          const na = students[a]?.display_name ?? "";
+          const nb = students[b]?.display_name ?? "";
+          return na.localeCompare(nb, "ko", { sensitivity: "base" });
+        }),
     [studentSentences, students, pairSubmitAt],
   );
+
 
 
   // ===== 액션 =====
