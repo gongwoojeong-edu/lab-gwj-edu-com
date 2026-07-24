@@ -377,10 +377,17 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
   const [updating, setUpdating] = useState(false);
 
   const load = async () => {
+    // 과제함 모드에서만 assignments 목록을 로드한다.
+    // 출제 화면에서는 목록/진도 계산을 완전히 건너뛰어 초기 로딩을 가볍게 유지.
+    const studentsPromise = fetchAllStudents();
+    const textbooksPromise = fetchAllTextbooks();
+    const assignmentsPromise = showBox
+      ? supabase.from("assignments").select("*").order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as AssignmentRow[] } as { data: AssignmentRow[] });
     const [studs, { data }, tbs] = await Promise.all([
-      fetchAllStudents(),
-      supabase.from("assignments").select("*").order("created_at", { ascending: false }),
-      fetchAllTextbooks(),
+      studentsPromise,
+      assignmentsPromise,
+      textbooksPromise,
     ]);
     setStudents(studs);
     setRows((data ?? []) as AssignmentRow[]);
@@ -389,7 +396,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [showBox]);
 
   // ───── 캐스케이딩 로더들 ─────
   const ensureSeries = async (level: LevelCode | "") => {
