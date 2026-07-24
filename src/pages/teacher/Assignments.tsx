@@ -1809,35 +1809,47 @@ const Assignments = () => {
                     </button>
                   </div>
                   <div className="space-y-1">
-                    {students.map((s) => {
-                      const checked = form.studentIds.includes(s.user_id);
-                      return (
-                        <label
-                          key={s.user_id}
-                          className="flex items-stretch rounded hover:bg-muted cursor-pointer text-sm overflow-x-auto"
-                        >
-                          {/* 좌측 고정: 체크박스 + 이름 + 학번 */}
-                          <div className="sticky left-0 z-10 bg-popover flex items-center gap-2 px-2 py-1 min-w-[12rem] pr-3 border-r border-border/40">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(v) =>
-                                setForm((p) => ({
-                                  ...p,
-                                  studentIds: v
-                                    ? [...p.studentIds, s.user_id]
-                                    : p.studentIds.filter((id) => id !== s.user_id),
-                                }))
-                              }
-                            />
-                            <span className="truncate">
-                              {s.display_name ?? s.student_no}{" "}
-                              <span className="text-xs text-muted-foreground">({s.student_no})</span>
-                            </span>
+                    {(() => {
+                      const sortedStudents = sortStudents(students);
+                      let lastClass: string | null | undefined = undefined;
+                      return sortedStudents.map((s) => {
+                        const checked = form.studentIds.includes(s.user_id);
+                        const cls = s.orbit_class_name ?? null;
+                        const showHeader = cls !== lastClass;
+                        lastClass = cls;
+                        return (
+                          <div key={s.user_id}>
+                            {showHeader && (
+                              <div className="px-2 pt-2 pb-1 text-[10px] font-bold text-primary/70 uppercase tracking-wide">
+                                {cls ?? "반 미배정"}
+                              </div>
+                            )}
+                            <label className="flex items-stretch rounded hover:bg-muted cursor-pointer text-sm overflow-x-auto">
+                              <div className="sticky left-0 z-10 bg-popover flex items-center gap-2 px-2 py-1 min-w-[12rem] pr-3 border-r border-border/40">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(v) =>
+                                    setForm((p) => ({
+                                      ...p,
+                                      studentIds: v
+                                        ? [...p.studentIds, s.user_id]
+                                        : p.studentIds.filter((id) => id !== s.user_id),
+                                    }))
+                                  }
+                                />
+                                <span className="truncate">
+                                  {s.display_name ?? s.student_no}{" "}
+                                  <span className="text-xs text-muted-foreground">
+                                    ({s.student_no}
+                                    {s.actual_grade ? ` · ${s.actual_grade}` : ""})
+                                  </span>
+                                </span>
+                              </div>
+                            </label>
                           </div>
-                          {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
-                        </label>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 </PopoverContent>
               </Popover>
