@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { toast } from "@/hooks/use-toast";
 import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
+import { sortStudents } from "@/lib/studentSort";
 import {
   fetchAllTextbooks,
   fetchSeriesByLevel,
