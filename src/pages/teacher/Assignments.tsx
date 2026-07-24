@@ -1937,7 +1937,9 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           </>
           )}
         </Card>
+        )}
 
+        {showBox && (<>
         <Card className="p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="text-sm font-bold uppercase tracking-wider text-primary">
