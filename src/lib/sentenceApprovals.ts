@@ -222,6 +222,8 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
   const nowIso = new Date().toISOString();
   const memoTrimmed = approval.memo?.trim() || null;
 
+  const assignmentId = approval.assignment_id ?? null;
+
   if (isRedo) {
     await upsertSentenceProgress(approval.sentence_id, {
       last_grade: approval.grade,
@@ -229,6 +231,7 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
       redo_requested_at: nowIso,
       last_redo_memo: memoTrimmed,
       touchActivity: true,
+      assignmentId,
     });
     return;
   }
@@ -243,8 +246,10 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
     word_test_done: true,
     redo_requested_at: null,
     touchActivity: true,
+    assignmentId,
   });
 }
+
 
 
 /** 선생님 대시보드: 특정 상태 승인 목록 (기본 pending) */
