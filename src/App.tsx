@@ -247,7 +247,15 @@ const App = () => (
               path="/teacher/assignments"
               element={
                 <RequireAuth requireRole="teacher">
-                  <Assignments />
+                  <Assignments viewMode="create" />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/assignments/box"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <Assignments viewMode="box" />
                 </RequireAuth>
               }
             />

@@ -288,7 +288,13 @@ const emptyForm = (): FormState => ({
   memDirection: "",
 });
 
-const Assignments = () => {
+interface AssignmentsProps {
+  /** "create" = 과제 출제 화면(기본), "box" = 과제함(목록) */
+  viewMode?: "create" | "box";
+}
+const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
+  const showCreate = viewMode === "create";
+  const showBox = viewMode === "box";
   const { display: levelDisplay } = useLevelLabels();
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
@@ -316,7 +322,7 @@ const Assignments = () => {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [titleTouched, setTitleTouched] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(showCreate);
 
   // 자동 제목: 사용자가 직접 입력한 적 없다면 선택 상태로부터 자동 생성
   useEffect(() => {
@@ -371,10 +377,17 @@ const Assignments = () => {
   const [updating, setUpdating] = useState(false);
 
   const load = async () => {
+    // 과제함 모드에서만 assignments 목록을 로드한다.
+    // 출제 화면에서는 목록/진도 계산을 완전히 건너뛰어 초기 로딩을 가볍게 유지.
+    const studentsPromise = fetchAllStudents();
+    const textbooksPromise = fetchAllTextbooks();
+    const assignmentsPromise = showBox
+      ? supabase.from("assignments").select("*").order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as AssignmentRow[] } as { data: AssignmentRow[] });
     const [studs, { data }, tbs] = await Promise.all([
-      fetchAllStudents(),
-      supabase.from("assignments").select("*").order("created_at", { ascending: false }),
-      fetchAllTextbooks(),
+      studentsPromise,
+      assignmentsPromise,
+      textbooksPromise,
     ]);
     setStudents(studs);
     setRows((data ?? []) as AssignmentRow[]);
@@ -383,7 +396,7 @@ const Assignments = () => {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [showBox]);
 
   // ───── 캐스케이딩 로더들 ─────
   const ensureSeries = async (level: LevelCode | "") => {
@@ -1740,20 +1753,41 @@ const Assignments = () => {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <ClipboardList className="size-6 text-primary" /> 특별과제
+              <ClipboardList className="size-6 text-primary" />
+              {showBox ? "과제함" : "특별과제 출제"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              출제·학생별 진도를 검색해 빠르게 확인하세요. 안내 마감일은 학습을 막지 않습니다.
+              {showBox
+                ? "출제한 과제 목록과 학생별 진도를 확인·관리합니다."
+                : "새 과제를 출제합니다. 진행중 과제는 [과제함]에서 확인하세요."}
             </p>
           </div>
-          <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
-            <Link to="/teacher/assignments/past">
-              <ClipboardList className="size-3.5" />
-              완료 과제함
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {showCreate ? (
+              <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
+                <Link to="/teacher/assignments/box">
+                  <ClipboardList className="size-3.5" />
+                  과제함
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="default" className="h-8 text-xs font-bold gap-1">
+                <Link to="/teacher/assignments">
+                  <Plus className="size-3.5" />
+                  새 과제 출제
+                </Link>
+              </Button>
+            )}
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
+              <Link to="/teacher/assignments/past">
+                <ClipboardList className="size-3.5" />
+                완료 과제함
+              </Link>
+            </Button>
+          </div>
         </div>
 
+        {showCreate && (
         <Card className="p-4 space-y-3">
           <button
             type="button"
@@ -1903,7 +1937,9 @@ const Assignments = () => {
           </>
           )}
         </Card>
+        )}
 
+        {showBox && (<>
         <Card className="p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="text-sm font-bold uppercase tracking-wider text-primary">
@@ -2210,6 +2246,7 @@ const Assignments = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </>)}
       </div>
     </TeacherLayout>
   );
