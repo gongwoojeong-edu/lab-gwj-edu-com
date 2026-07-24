@@ -662,25 +662,29 @@ const LearningResults = () => {
 
   const groupedEntries = useMemo(
     () =>
-      Object.entries(studentSentences).sort(([a, sa], [b, sb]) => {
-        // 최신순: 학생별 최근 제출일시 desc
-        const latest = (uid: string, sids: string[]) => {
-          let mx = "";
-          for (const sid of sids) {
-            const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
-            if (t > mx) mx = t;
-          }
-          return mx;
-        };
-        const ta = latest(a, sa);
-        const tb = latest(b, sb);
-        if (ta !== tb) return tb.localeCompare(ta);
-        const na = students[a]?.display_name ?? "";
-        const nb = students[b]?.display_name ?? "";
-        return na.localeCompare(nb, "ko", { sensitivity: "base" });
-      }),
+      Object.entries(studentSentences)
+        // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
+        .filter(([uid]) => students[uid])
+        .sort(([a, sa], [b, sb]) => {
+          // 최신순: 학생별 최근 제출일시 desc
+          const latest = (uid: string, sids: string[]) => {
+            let mx = "";
+            for (const sid of sids) {
+              const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
+              if (t > mx) mx = t;
+            }
+            return mx;
+          };
+          const ta = latest(a, sa);
+          const tb = latest(b, sb);
+          if (ta !== tb) return tb.localeCompare(ta);
+          const na = students[a]?.display_name ?? "";
+          const nb = students[b]?.display_name ?? "";
+          return na.localeCompare(nb, "ko", { sensitivity: "base" });
+        }),
     [studentSentences, students, pairSubmitAt],
   );
+
 
 
   // ===== 액션 =====
