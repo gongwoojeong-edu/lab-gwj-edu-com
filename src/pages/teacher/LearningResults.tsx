@@ -424,10 +424,12 @@ const LearningResults = () => {
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no, current_level")
+          .select("user_id, display_name, student_no, current_level, orbit_enrollment_active")
           .in("user_id", allUserIds);
         (sp ?? []).forEach((s) => {
-          const row = s as { user_id: string; display_name: string | null; student_no: string; current_level: string | null };
+          const row = s as { user_id: string; display_name: string | null; student_no: string; current_level: string | null; orbit_enrollment_active: boolean | null };
+          // 퇴원/휴원(orbit_enrollment_active=false) 학생은 학습결과에서 숨김
+          if (row.orbit_enrollment_active === false) return;
           sMap[row.user_id] = {
             user_id: row.user_id,
             display_name: row.display_name,
@@ -435,6 +437,7 @@ const LearningResults = () => {
             current_level: row.current_level,
           };
         });
+
 
         const { data: uwRows } = await (supabase as unknown as {
           from: (table: string) => {
