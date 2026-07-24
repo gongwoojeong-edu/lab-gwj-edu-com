@@ -1957,19 +1957,12 @@ const Assignments = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">전체 학생</SelectItem>
-                {students
-                  .slice()
-                  .sort((a, b) =>
-                    (a.display_name ?? a.student_no).localeCompare(
-                      b.display_name ?? b.student_no,
-                      "ko",
-                    ),
-                  )
-                  .map((s) => (
-                    <SelectItem key={s.user_id} value={s.user_id}>
-                      {s.display_name ?? s.student_no} ({s.student_no})
-                    </SelectItem>
-                  ))}
+                {sortStudents(students).map((s) => (
+                  <SelectItem key={s.user_id} value={s.user_id}>
+                    {s.orbit_class_name ? `[${s.orbit_class_name}] ` : ""}
+                    {s.display_name ?? s.student_no} ({s.student_no})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select
