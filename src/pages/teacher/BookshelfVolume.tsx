@@ -337,6 +337,100 @@ const BookshelfVolume = () => {
   const [editPassageEnglish, setEditPassageEnglish] = useState("");
   const [editPassageKorean, setEditPassageKorean] = useState("");
   const [savingPassage, setSavingPassage] = useState(false);
+  const [passageSel, setPassageSel] = useState<Set<string>>(new Set());
+  const [bulkPassageBusy, setBulkPassageBusy] = useState(false);
+  const [mergeConfirmOpen, setMergeConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const togglePassageSel = (id: string) => {
+    setPassageSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearPassageSel = () => setPassageSel(new Set());
+  const allPassagesSelected =
+    unitPassages.length > 0 && passageSel.size === unitPassages.length;
+  const togglePassageSelAll = () => {
+    if (allPassagesSelected) clearPassageSel();
+    else setPassageSel(new Set(unitPassages.map((p) => p.id)));
+  };
+
+  const handleDeleteSelectedPassages = async () => {
+    const ids = Array.from(passageSel);
+    if (ids.length === 0) return;
+    setBulkPassageBusy(true);
+    try {
+      await deletePassages(ids);
+      const remaining = unitPassages.filter((p) => !passageSel.has(p.id));
+      // 남은 지문들 번호 재정렬 (1..N)
+      if (remaining.length > 0) {
+        await reorderPassagesInUnit(remaining.map((p) => p.id));
+      }
+      // 새로 불러오기
+      if (passagesUnit) {
+        const refreshed = await fetchPassagesByUnit(passagesUnit.id);
+        setUnitPassages(refreshed);
+      }
+      clearPassageSel();
+      await hydrateSentencesFromDb(true);
+      toast({ title: `${ids.length}개 문장 삭제됨` });
+      setDeleteConfirmOpen(false);
+    } catch (e) {
+      toast({ title: "삭제 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setBulkPassageBusy(false);
+    }
+  };
+
+  const handleMergeSelectedPassages = async () => {
+    const selected = unitPassages
+      .filter((p) => passageSel.has(p.id))
+      .sort((a, b) => a.passage_no - b.passage_no);
+    if (selected.length < 2) return;
+    const [keep, ...rest] = selected;
+    const mergedEnglish = selected
+      .map((p) => p.english.trim())
+      .filter(Boolean)
+      .join(" ");
+    const koreanParts = selected
+      .map((p) => (p.korean ?? "").trim())
+      .filter(Boolean);
+    const mergedKorean = koreanParts.length > 0 ? koreanParts.join(" ") : null;
+
+    setBulkPassageBusy(true);
+    try {
+      await updatePassage(keep.id, {
+        english: mergedEnglish,
+        korean: mergedKorean,
+      });
+      await deletePassages(rest.map((p) => p.id));
+      // 재정렬
+      const remaining = unitPassages
+        .filter((p) => p.id === keep.id || !passageSel.has(p.id))
+        .sort((a, b) => a.passage_no - b.passage_no);
+      if (remaining.length > 0) {
+        await reorderPassagesInUnit(remaining.map((p) => p.id));
+      }
+      if (passagesUnit) {
+        const refreshed = await fetchPassagesByUnit(passagesUnit.id);
+        setUnitPassages(refreshed);
+      }
+      clearPassageSel();
+      await hydrateSentencesFromDb(true);
+      toast({
+        title: `${selected.length}개 문장을 1개로 합쳤어요`,
+        description: `${keep.code} 에 이어붙였고, 나머지 ${rest.length}개는 삭제했어요.`,
+      });
+      setMergeConfirmOpen(false);
+    } catch (e) {
+      toast({ title: "합치기 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setBulkPassageBusy(false);
+    }
+  };
 
   const openPassagesEditor = async (u: Unit) => {
     setPassagesUnit(u);
