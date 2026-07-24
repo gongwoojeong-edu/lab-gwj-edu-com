@@ -138,6 +138,7 @@ const MemorizeLearn = () => {
         directionSetting: memSettings.directionSetting,
         requireRecord,
         dictationScore: extra?.dictationScore,
+        assignmentId: assignmentIdParam,
       });
       setMemFlags(next);
       if (next.advancedToSecondTrack) {
