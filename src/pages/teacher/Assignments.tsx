@@ -1753,20 +1753,41 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <ClipboardList className="size-6 text-primary" /> 특별과제
+              <ClipboardList className="size-6 text-primary" />
+              {showBox ? "과제함" : "특별과제 출제"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              출제·학생별 진도를 검색해 빠르게 확인하세요. 안내 마감일은 학습을 막지 않습니다.
+              {showBox
+                ? "출제한 과제 목록과 학생별 진도를 확인·관리합니다."
+                : "새 과제를 출제합니다. 진행중 과제는 [과제함]에서 확인하세요."}
             </p>
           </div>
-          <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
-            <Link to="/teacher/assignments/past">
-              <ClipboardList className="size-3.5" />
-              완료 과제함
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {showCreate ? (
+              <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
+                <Link to="/teacher/assignments/box">
+                  <ClipboardList className="size-3.5" />
+                  과제함
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="default" className="h-8 text-xs font-bold gap-1">
+                <Link to="/teacher/assignments">
+                  <Plus className="size-3.5" />
+                  새 과제 출제
+                </Link>
+              </Button>
+            )}
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
+              <Link to="/teacher/assignments/past">
+                <ClipboardList className="size-3.5" />
+                완료 과제함
+              </Link>
+            </Button>
+          </div>
         </div>
 
+        {showCreate && (
         <Card className="p-4 space-y-3">
           <button
             type="button"
