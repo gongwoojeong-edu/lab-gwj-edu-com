@@ -2246,6 +2246,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </>)}
       </div>
     </TeacherLayout>
   );
