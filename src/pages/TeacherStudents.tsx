@@ -38,6 +38,7 @@ import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
+import { compareStudents } from "@/lib/studentSort";
 import {
   fetchAllSeries,
   fetchTextbooksBySeries,
@@ -429,8 +430,25 @@ const TeacherStudents = () => {
         );
       });
     }
-    return list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  }, [students, isViewingAsOther, effectiveTeacherAuthUserId]);
+    return list.sort((a, b) =>
+      compareStudents(
+        {
+          display_name: a.name,
+          student_no: a.name,
+          orbit_class_name: a.orbitClassName ?? null,
+          actual_grade: actualGradeByName[a.name] ?? null,
+          campus: a.campus ?? null,
+        },
+        {
+          display_name: b.name,
+          student_no: b.name,
+          orbit_class_name: b.orbitClassName ?? null,
+          actual_grade: actualGradeByName[b.name] ?? null,
+          campus: b.campus ?? null,
+        },
+      ),
+    );
+  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName]);
 
   const openCreate = () => {
     setEditing(null);
