@@ -189,32 +189,34 @@ const SentenceLearn = () => {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      setLoading(true);
-      // 1) 학생 본인 level만 hydrate (tokens 제외, 가벼운 메타만)
-      const prof0 = await fetchMyProfile().catch(() => null);
-      const myLevel = (prof0?.current_level ?? prof0?.start_level) as
-        | LevelCode
-        | undefined;
-      await hydrateSentencesFromDb(false, myLevel ? { levels: [myLevel] } : undefined);
+      try {
+        setLoading(true);
+        setHydrationError(null);
+        // 1) 학생 본인 level만 hydrate (tokens 제외, 가벼운 메타만)
+        const prof0 = await fetchMyProfile().catch(() => null);
+        const myLevel = (prof0?.current_level ?? prof0?.start_level) as
+          | LevelCode
+          | undefined;
+        await hydrateSentencesFromDb(false, myLevel ? { levels: [myLevel] } : undefined);
 
-      // 2) 현재 sentence 1건은 tokens 포함해 직접 fetch (hydrate 결과를 덮어씀)
-      let found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
-      if (sentenceId) {
-        const one = await loadSentenceByCode(sentenceId).catch(() => null);
-        if (one) {
-          const idx = SENTENCES.findIndex((s) => s.id === one.id);
-          if (idx >= 0) SENTENCES[idx] = { ...SENTENCES[idx], ...one };
-          else SENTENCES.push(one);
-          found = SENTENCES.find((s) => s.id === sentenceId) ?? one;
+        // 2) 현재 sentence 1건은 tokens 포함해 직접 fetch (hydrate 결과를 덮어씀)
+        let found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
+        if (sentenceId) {
+          const one = await loadSentenceByCode(sentenceId).catch(() => null);
+          if (one) {
+            const idx = SENTENCES.findIndex((s) => s.id === one.id);
+            if (idx >= 0) SENTENCES[idx] = { ...SENTENCES[idx], ...one };
+            else SENTENCES.push(one);
+            found = SENTENCES.find((s) => s.id === sentenceId) ?? one;
+          }
         }
-      }
-      if (!mounted) return;
-      setSentence(found);
+        if (!mounted) return;
+        setSentence(found);
 
-      if (!found) {
-        setLoading(false);
-        return;
-      }
+        if (!found) {
+          setLoading(false);
+          return;
+        }
 
       // 특별과제: 앞 유닛/문장이 미완료면 그곳으로 강제 (1과-3을 먼저 여는 등 순서 이탈 방지)
       try {
@@ -312,7 +314,7 @@ const SentenceLearn = () => {
       ) {
         // 승인됐으면 progress를 pass로 맞춘 뒤 다음 문장으로 (translation_done 여부와 무관)
         if (progStatus !== "pass") {
-          await applyApprovalToMyProgress(latestApproval);
+          await applyApprovalToMyProgress(latestApproval, assignmentIdParam);
         }
         const r = await resolveNextAfterPass(found.id, assignmentIdParam);
         if (r.sentence && r.sentence.id !== found.id) {
@@ -430,11 +432,17 @@ const SentenceLearn = () => {
       else setStep("translation");
 
       setLoading(false);
+      } catch (e) {
+        console.error("[SentenceLearn] load failed", e);
+        if (!mounted) return;
+        setHydrationError("학습 내용을 불러오지 못했습니다. 다시 불러오기를 눌러 주세요.");
+        setLoading(false);
+      }
     })();
     return () => {
       mounted = false;
     };
-  }, [sentenceId]);
+  }, [sentenceId, hydrationReloadNonce]);
 
   // 학생: 본인 요청의 상태 변화(승인/거절/취소) 실시간 수신
   useEffect(() => {
@@ -478,7 +486,7 @@ const SentenceLearn = () => {
         if (row.status === "approved") {
           void advanceAfterApproval(row);
         }
-      });
+      }, assignmentIdParam);
       if (cancelled) unsub();
       else (window as any).__sa_unsub__ = unsub;
     })();
@@ -490,7 +498,7 @@ const SentenceLearn = () => {
         (window as any).__sa_unsub__ = null;
       }
     };
-  }, [sentence, navigate]);
+  }, [sentence, navigate, assignmentIdParam]);
 
   const stepStates = useMemo(
     () => ({
