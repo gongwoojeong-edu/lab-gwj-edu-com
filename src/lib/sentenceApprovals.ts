@@ -112,6 +112,15 @@ export const approveSentenceRequest = async (input: {
   const approverId = await getCurrentUserId();
   const nowIso = new Date().toISOString();
 
+  // 승인 대상 행에서 assignment_id 를 읽어 라운드 격리에 사용한다.
+  const { data: approvalRow } = await supabase
+    .from("sentence_approvals")
+    .select("assignment_id")
+    .eq("id", input.approvalId)
+    .maybeSingle();
+  const assignmentId =
+    (approvalRow as { assignment_id: string | null } | null)?.assignment_id ?? null;
+
   // 1) 승인 행 갱신
   const { error: apErr } = await supabase
     .from("sentence_approvals")
@@ -155,12 +164,15 @@ export const approveSentenceRequest = async (input: {
         redo_requested_at: null,
       };
 
-  const { data: updatedRows, error: progErr } = await supabase
+  let updateQ = supabase
     .from("sentence_progress")
     .update(update as never)
     .eq("user_id", targetUserId)
-    .eq("sentence_id", input.sentenceId)
-    .select("user_id");
+    .eq("sentence_id", input.sentenceId);
+  // 라운드 격리: 같은 (user, sentence) 여도 assignment_id 가 다른 행은 건드리지 않는다.
+  if (assignmentId) updateQ = updateQ.eq("assignment_id", assignmentId);
+  else updateQ = updateQ.is("assignment_id", null);
+  const { data: updatedRows, error: progErr } = await updateQ.select("user_id");
   if (progErr) throw progErr;
 
   if (!updatedRows?.length) {
@@ -173,10 +185,12 @@ export const approveSentenceRequest = async (input: {
       word_test_done: !isRedo,
       status: isRedo ? "pending" : "pass",
       passed_at: isRedo ? null : nowIso,
+      ...(assignmentId ? { assignment_id: assignmentId } : {}),
       ...update,
     } as never);
     if (insErr) throw insErr;
   }
+
 
   // 3) 학생 알림함에 평가 전송 (실패해도 승인 흐름은 진행)
   try {
