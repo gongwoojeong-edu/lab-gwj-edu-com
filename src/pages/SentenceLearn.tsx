@@ -662,8 +662,8 @@ const SentenceLearn = () => {
       });
       return;
     }
-    // 다른 등급(excellent/good/fair/poor): 자동 이동하지 않고 평가 배너로 표시.
-    // 학생이 코멘트를 확인한 뒤 "다음 문장으로" 버튼으로 진행.
+    // 다른 등급(excellent/good/fair/poor): 코멘트 배너 표시 후 자동으로 다음 문장 이동.
+    // (학생이 "다음 문장으로" 버튼을 놓쳐 갇히는 사고 방지 — 김민성 케이스 대응)
     try {
       await applyApprovalToMyProgress(approval);
       setPreviousStatus("pass");
@@ -677,8 +677,12 @@ const SentenceLearn = () => {
       }
       toast({
         title: `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
-        description: approval.memo ?? "코멘트를 확인한 뒤 다음 문장으로 이동하세요.",
+        description: "잠시 후 다음 문장으로 이동합니다.",
       });
+      // 2.5초 뒤 자동 이동 — 배너를 잠깐 보여준 뒤 다음 문장으로.
+      window.setTimeout(() => {
+        void handleSkipToNext(approval.sentence_id);
+      }, 2500);
     } catch (e) {
       toast({
         title: "평가 적용 실패",
@@ -687,6 +691,7 @@ const SentenceLearn = () => {
       });
     }
   };
+
 
   const startRetryNow = () => {
     setShowFailIntro(false);
