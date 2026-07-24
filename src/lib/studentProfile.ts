@@ -20,6 +20,9 @@ export interface StudentProfile {
   analysis_pass_threshold: number;
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;
+  orbit_class_name?: string | null;
+  actual_grade?: string | null;
+  campus?: string | null;
 }
 
 export const updateStudentWordTestTimeLimit = async (
