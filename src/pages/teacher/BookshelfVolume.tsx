@@ -65,6 +65,8 @@ import {
   splitPassageText,
   moveUnitToTextbook,
   reorderUnitsInTextbook,
+  reorderPassagesInUnit,
+  deletePassages,
   fetchAllSeries,
   type Series,
   type Textbook,
