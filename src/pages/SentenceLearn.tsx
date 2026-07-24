@@ -89,18 +89,18 @@ const STEP_ORDER: Step[] = ["pre", "wordtest", "analysis", "translation"];
 
 const LEARN_LOAD_TIMEOUT_MS = 12000;
 
-const withLearnLoadTimeout = async <T,>(promise: Promise<T>, label: string): Promise<T> => {
-  let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
+const withLearnLoadTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timeoutId = window.setTimeout(() => {
+    timeoutId = setTimeout(() => {
       reject(new Error(`${label} 요청 시간이 초과되었습니다`));
     }, LEARN_LOAD_TIMEOUT_MS);
   });
 
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([Promise.resolve(promise), timeout]);
   } finally {
-    if (timeoutId) window.clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
   }
 };
 
