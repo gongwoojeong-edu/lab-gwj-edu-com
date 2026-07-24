@@ -322,7 +322,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [titleTouched, setTitleTouched] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(showCreate);
 
   // 자동 제목: 사용자가 직접 입력한 적 없다면 선택 상태로부터 자동 생성
   useEffect(() => {
