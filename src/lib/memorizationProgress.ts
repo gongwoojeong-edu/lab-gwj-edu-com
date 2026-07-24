@@ -140,9 +140,11 @@ export async function markMemStepDone(
     directionSetting: MemDirectionSetting;
     requireRecord: boolean;
     dictationScore?: number;
+    assignmentId?: string | null;
   },
 ): Promise<MemProgressFlags & { advancedToSecondTrack?: boolean }> {
-  const existing = await fetchSentenceProgress(sentenceId);
+  const aid = opts.assignmentId ?? null;
+  const existing = await fetchSentenceProgress(sentenceId, aid);
   const flags = memFlagsFromProgress(existing);
   const patch: Record<string, unknown> = {
     mem_attempt_count: flags.mem_attempt_count + 1,
@@ -171,17 +173,24 @@ export async function markMemStepDone(
       !flags.mem_ko_to_en_done;
   }
 
-  await upsertSentenceProgress(sentenceId, patch as Partial<SentenceProgressRow>);
-  const updated = await fetchSentenceProgress(sentenceId);
+  await upsertSentenceProgress(sentenceId, { assignmentId: aid, ...(patch as Partial<SentenceProgressRow>) });
+  const updated = await fetchSentenceProgress(sentenceId, aid);
   return { ...memFlagsFromProgress(updated), advancedToSecondTrack };
 }
 
-export async function resetMemProgressForRetry(sentenceId: string): Promise<void> {
+export async function resetMemProgressForRetry(
+  sentenceId: string,
+  assignmentId?: string | null,
+): Promise<void> {
   await upsertSentenceProgress(sentenceId, {
+    assignmentId: assignmentId ?? null,
     ...resetStepFlags(),
     mem_ko_to_en_done: false,
     mem_en_to_ko_done: false,
     mem_passed_at: null,
+    mem_attempt_count: 0,
+    mem_direction: null,
+    mem_dictation_score: null,
     touchActivity: true,
-  } as Partial<SentenceProgressRow>);
+  } as Partial<SentenceProgressRow> & { assignmentId?: string | null });
 }

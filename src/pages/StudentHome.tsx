@@ -1286,11 +1286,7 @@ const StudentHome = () => {
                 const analysisPassed = prog?.status === "pass";
                 const path = learnPathForSentence(resumeTarget.sentenceId, mode, analysisPassed, aid);
                 const sep = path.includes("?") ? "&" : "?";
-                const restart =
-                  mode !== "memorize_only" && !(mode === "analysis_and_memorize" && analysisPassed)
-                    ? `${sep}restart=1`
-                    : "";
-                navigate(`${path}${restart}`);
+                navigate(`${path}${sep}restart=1`);
                 setResumeTarget(null);
               }}
             >

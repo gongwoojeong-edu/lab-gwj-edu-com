@@ -20,6 +20,7 @@ import {
   firstIncompleteMemStep,
   markMemStepDone,
   memFlagsFromProgress,
+  resetMemProgressForRetry,
   type MemStep,
 } from "@/lib/memorizationProgress";
 import type { MemDirection } from "@/lib/memorizationText";
@@ -42,6 +43,10 @@ const MemorizeLearn = () => {
   const navigate = useNavigate();
   const { roles } = useAuth();
   const isStaff = roles.includes("teacher") || roles.includes("admin");
+  const assignmentIdParam = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("assignment") || null;
+  }, [sentenceId]);
 
   const [sentence, setSentence] = useState<Sentence | null>(null);
   const [passage, setPassage] = useState<MemPassageData | null>(null);
@@ -73,10 +78,28 @@ const MemorizeLearn = () => {
         setError("지문을 찾을 수 없습니다.");
         return;
       }
+
+      // restart=1: 이 회독의 mem_* 진행 플래그를 리셋하고 1단계부터 시작
+      const restartParam =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("restart") === "1";
+      if (restartParam) {
+        try {
+          await resetMemProgressForRetry(sentenceId, assignmentIdParam);
+        } catch (e) {
+          console.warn("mem restart reset failed", e);
+        }
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("restart");
+          window.history.replaceState({}, "", url.toString());
+        }
+      }
+
       const [ctx, memPassage, prog, settings] = await Promise.all([
         fetchTaskModeForSentence(sentenceId),
         fetchMemPassageByCode(sentenceId),
-        fetchSentenceProgress(sentenceId),
+        fetchSentenceProgress(sentenceId, assignmentIdParam),
         fetchMemSettingsForSentence(sentenceId),
       ]);
       const analysisOk = prog?.status === "pass";
@@ -100,7 +123,7 @@ const MemorizeLearn = () => {
     } finally {
       setLoading(false);
     }
-  }, [sentenceId, isStaff]);
+  }, [sentenceId, isStaff, assignmentIdParam]);
 
   useEffect(() => {
     void load();
@@ -115,6 +138,7 @@ const MemorizeLearn = () => {
         directionSetting: memSettings.directionSetting,
         requireRecord,
         dictationScore: extra?.dictationScore,
+        assignmentId: assignmentIdParam,
       });
       setMemFlags(next);
       if (next.advancedToSecondTrack) {
