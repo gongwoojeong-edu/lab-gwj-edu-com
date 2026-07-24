@@ -277,6 +277,15 @@ export const holdApprovalRequest = async (input: {
   const nowIso = new Date().toISOString();
   const memoTrimmed = input.memo?.trim() || null;
 
+  // 라운드 격리를 위해 승인 행의 assignment_id 를 먼저 읽는다.
+  const { data: approvalRow } = await supabase
+    .from("sentence_approvals")
+    .select("assignment_id")
+    .eq("id", input.approvalId)
+    .maybeSingle();
+  const assignmentId =
+    (approvalRow as { assignment_id: string | null } | null)?.assignment_id ?? null;
+
   const { error } = await supabase
     .from("sentence_approvals")
     .update({
@@ -300,12 +309,14 @@ export const holdApprovalRequest = async (input: {
       last_memo: memoTrimmed,
       redo_requested_at: null,
     };
-    const { data: updated, error: progErr } = await supabase
+    let updQ = supabase
       .from("sentence_progress")
       .update(progressUpdate as never)
       .eq("user_id", targetUserId)
-      .eq("sentence_id", input.sentenceId)
-      .select("user_id");
+      .eq("sentence_id", input.sentenceId);
+    if (assignmentId) updQ = updQ.eq("assignment_id", assignmentId);
+    else updQ = updQ.is("assignment_id", null);
+    const { data: updated, error: progErr } = await updQ.select("user_id");
     if (progErr) {
       console.warn("[holdApprovalRequest] progress update failed", progErr);
     } else if (!updated?.length) {
@@ -313,11 +324,13 @@ export const holdApprovalRequest = async (input: {
         user_id: targetUserId,
         sentence_id: input.sentenceId,
         pre_done: false,
+        ...(assignmentId ? { assignment_id: assignmentId } : {}),
         ...progressUpdate,
       } as never);
       if (insErr) console.warn("[holdApprovalRequest] progress insert failed", insErr);
     }
   }
+
 
   if (input.studentUserId) {
     try {
