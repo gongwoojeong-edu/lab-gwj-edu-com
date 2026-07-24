@@ -42,6 +42,7 @@ export interface SentenceApproval {
   held_at?: string | null;
   held_by?: string | null;
   held_memo?: string | null;
+  assignment_id?: string | null;
 }
 
 /** 본 학생의 해당 문장 최신 행. assignmentId 를 명시하면 해당 라운드만 조회. */
@@ -112,6 +113,15 @@ export const approveSentenceRequest = async (input: {
   const approverId = await getCurrentUserId();
   const nowIso = new Date().toISOString();
 
+  // 승인 대상 행에서 assignment_id 를 읽어 라운드 격리에 사용한다.
+  const { data: approvalRow } = await supabase
+    .from("sentence_approvals")
+    .select("assignment_id")
+    .eq("id", input.approvalId)
+    .maybeSingle();
+  const assignmentId =
+    (approvalRow as { assignment_id: string | null } | null)?.assignment_id ?? null;
+
   // 1) 승인 행 갱신
   const { error: apErr } = await supabase
     .from("sentence_approvals")
@@ -155,12 +165,15 @@ export const approveSentenceRequest = async (input: {
         redo_requested_at: null,
       };
 
-  const { data: updatedRows, error: progErr } = await supabase
+  let updateQ = supabase
     .from("sentence_progress")
     .update(update as never)
     .eq("user_id", targetUserId)
-    .eq("sentence_id", input.sentenceId)
-    .select("user_id");
+    .eq("sentence_id", input.sentenceId);
+  // 라운드 격리: 같은 (user, sentence) 여도 assignment_id 가 다른 행은 건드리지 않는다.
+  if (assignmentId) updateQ = updateQ.eq("assignment_id", assignmentId);
+  else updateQ = updateQ.is("assignment_id", null);
+  const { data: updatedRows, error: progErr } = await updateQ.select("user_id");
   if (progErr) throw progErr;
 
   if (!updatedRows?.length) {
@@ -173,10 +186,12 @@ export const approveSentenceRequest = async (input: {
       word_test_done: !isRedo,
       status: isRedo ? "pending" : "pass",
       passed_at: isRedo ? null : nowIso,
+      ...(assignmentId ? { assignment_id: assignmentId } : {}),
       ...update,
     } as never);
     if (insErr) throw insErr;
   }
+
 
   // 3) 학생 알림함에 평가 전송 (실패해도 승인 흐름은 진행)
   try {
@@ -207,6 +222,8 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
   const nowIso = new Date().toISOString();
   const memoTrimmed = approval.memo?.trim() || null;
 
+  const assignmentId = approval.assignment_id ?? null;
+
   if (isRedo) {
     await upsertSentenceProgress(approval.sentence_id, {
       last_grade: approval.grade,
@@ -214,6 +231,7 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
       redo_requested_at: nowIso,
       last_redo_memo: memoTrimmed,
       touchActivity: true,
+      assignmentId,
     });
     return;
   }
@@ -228,8 +246,10 @@ export async function applyApprovalToMyProgress(approval: SentenceApproval): Pro
     word_test_done: true,
     redo_requested_at: null,
     touchActivity: true,
+    assignmentId,
   });
 }
+
 
 
 /** 선생님 대시보드: 특정 상태 승인 목록 (기본 pending) */
@@ -263,6 +283,15 @@ export const holdApprovalRequest = async (input: {
   const nowIso = new Date().toISOString();
   const memoTrimmed = input.memo?.trim() || null;
 
+  // 라운드 격리를 위해 승인 행의 assignment_id 를 먼저 읽는다.
+  const { data: approvalRow } = await supabase
+    .from("sentence_approvals")
+    .select("assignment_id")
+    .eq("id", input.approvalId)
+    .maybeSingle();
+  const assignmentId =
+    (approvalRow as { assignment_id: string | null } | null)?.assignment_id ?? null;
+
   const { error } = await supabase
     .from("sentence_approvals")
     .update({
@@ -286,12 +315,14 @@ export const holdApprovalRequest = async (input: {
       last_memo: memoTrimmed,
       redo_requested_at: null,
     };
-    const { data: updated, error: progErr } = await supabase
+    let updQ = supabase
       .from("sentence_progress")
       .update(progressUpdate as never)
       .eq("user_id", targetUserId)
-      .eq("sentence_id", input.sentenceId)
-      .select("user_id");
+      .eq("sentence_id", input.sentenceId);
+    if (assignmentId) updQ = updQ.eq("assignment_id", assignmentId);
+    else updQ = updQ.is("assignment_id", null);
+    const { data: updated, error: progErr } = await updQ.select("user_id");
     if (progErr) {
       console.warn("[holdApprovalRequest] progress update failed", progErr);
     } else if (!updated?.length) {
@@ -299,11 +330,13 @@ export const holdApprovalRequest = async (input: {
         user_id: targetUserId,
         sentence_id: input.sentenceId,
         pre_done: false,
+        ...(assignmentId ? { assignment_id: assignmentId } : {}),
         ...progressUpdate,
       } as never);
       if (insErr) console.warn("[holdApprovalRequest] progress insert failed", insErr);
     }
   }
+
 
   if (input.studentUserId) {
     try {
