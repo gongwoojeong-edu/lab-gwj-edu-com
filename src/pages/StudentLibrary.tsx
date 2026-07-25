@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { fetchApprovedMaterialUnits } from "@/lib/materialViewRequests";
 import { supabase } from "@/integrations/supabase/client";
 import { getAnalysisPdfSignedUrl, getStructurePdfSignedUrl } from "@/lib/textbooks";
+import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
 import { GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 
@@ -92,6 +93,7 @@ const StudentLibrary = () => {
 
   const openPdf = async (kind: "analysis" | "structure", unit: LibraryUnit) => {
     const path = kind === "analysis" ? unit.analysisPdfUrl : unit.structurePdfUrl;
+    const fileName = kind === "analysis" ? unit.analysisPdfName : unit.structurePdfName;
     if (!path) {
       toast({ title: "자료가 아직 등록되지 않았습니다.", variant: "destructive" });
       return;
@@ -103,7 +105,7 @@ const StudentLibrary = () => {
           ? await getAnalysisPdfSignedUrl(path)
           : await getStructurePdfSignedUrl(path);
       if (!url) throw new Error("URL 생성 실패");
-      window.open(url, "_blank", "noopener,noreferrer");
+      await openSignedStorageFile(url, path, { fileName });
     } catch (e) {
       toast({ title: "열람 실패", description: String(e), variant: "destructive" });
     } finally {

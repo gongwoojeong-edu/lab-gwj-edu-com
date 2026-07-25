@@ -28,6 +28,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
+import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -516,8 +517,11 @@ const RequestsInbox = () => {
                           onClick={async () => {
                             if (!req.file_url) return;
                             const url = await getAnalysisPdfSignedUrl(req.file_url);
-                            if (url) window.open(url, "_blank", "noopener,noreferrer");
-                            else toast({ title: "PDF 열람 실패", variant: "destructive" });
+                            if (url) {
+                              await openSignedStorageFile(url, req.file_url);
+                            } else {
+                              toast({ title: "PDF 열람 실패", variant: "destructive" });
+                            }
                           }}
                         >
                           <FileText className="size-3 mr-1" /> PDF 열기

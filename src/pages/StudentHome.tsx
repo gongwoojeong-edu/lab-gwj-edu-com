@@ -42,6 +42,7 @@ import {
 } from "@/lib/analysisReview";
 import { gradeAnalysis } from "@/lib/analysisGrading";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
+import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
 import { GWJ_SYNTAX_LOGO_ALT, GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
 import gwjSymbolAsset from "@/assets/gwj-symbol-purple.png.asset.json";
@@ -568,7 +569,9 @@ const StudentHome = () => {
         toast({ title: "분석자료 열람 실패", variant: "destructive" });
         return;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
+      await openSignedStorageFile(url, meta.storagePath, {
+        fileName: meta.name,
+      });
     } finally {
       setBusyFor(`analysis:${sentenceId}`, false);
     }
