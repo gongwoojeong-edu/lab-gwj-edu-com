@@ -87,12 +87,17 @@ export const updateMyProgress = async (level: LevelCode, no: number): Promise<vo
     .eq("user_id", userId);
 };
 
-export const fetchAllStudents = async (): Promise<StudentProfile[]> => {
+export const fetchAllStudents = async (
+  opts: { includeInactive?: boolean } = {},
+): Promise<StudentProfile[]> => {
   const { data } = await supabase
     .from("student_profiles")
     .select("*")
     .order("student_no", { ascending: true });
-  return (data as StudentProfile[]) ?? [];
+  const rows = (data as StudentProfile[]) ?? [];
+  if (opts.includeInactive) return rows;
+  // 휴원/퇴원(orbit_enrollment_active === false)만 제외. null은 유지(비-Orbit 계정 보존).
+  return rows.filter((s) => s.orbit_enrollment_active !== false);
 };
 
 /** 재원(Orbit 등록 활성) 학생만 — 대시보드 등원자용 */
