@@ -167,8 +167,21 @@ function parseDaysValue(input: unknown): string[] | null {
 
 function parseDaysFromLabel(label: string | null | undefined): string[] | null {
   if (!label) return null;
+  // 반 이름 전체에서 글자마다 요일을 뽑으면 "일반/일대일/월요일"의 「일」이 SUN으로 오인됨.
+  // 명시적 요일 덩어리만 인정: 월화수목, 화·목, 토요 등
+  const compact = label.replace(/\s+/g, "");
+  const chunk =
+    compact.match(/[월화수목금토일]{2,}/)?.[0] ??
+    compact.match(/(?:월|화|수|목|금|토|일)(?:[·･,/]? (?:월|화|수|목|금|토|일)){1,6}/)?.[0] ??
+    null;
+  // "토요" / "토요반" 단독
+  if (!chunk) {
+    if (/토요|토요일|토반/.test(compact)) return ["SAT"];
+    if (/일요|일요일(?!반)/.test(compact)) return ["SUN"]; // 일요만, 「일반」제외
+    return null;
+  }
   const out: string[] = [];
-  for (const ch of label) {
+  for (const ch of chunk.replace(/[·･,/]/g, "")) {
     const c = normalizeDayToken(ch);
     if (c && !out.includes(c)) out.push(c);
   }
@@ -636,10 +649,11 @@ Deno.serve(async (req) => {
     const classDaysById = await loadClassDaysById(orbitSb);
     for (const [id, row] of classById) {
       const fromDb = classDaysById.get(id) ?? null;
+      // 구조화 요일 우선. 반 이름은 "월화수목"·"토요"처럼 명시적일 때만.
       const fromLabel =
         parseDaysFromLabel(row.class_name) ??
         parseDaysFromLabel(row.filter_label);
-      row.days = fromDb ?? fromLabel;
+      row.days = fromDb ?? fromLabel ?? null;
     }
 
     const englishStudentIds = await loadEnglishStudentIds(orbitSb);

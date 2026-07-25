@@ -80,16 +80,21 @@ export function parseOrbitDays(input: unknown): WeekdayCode[] | null {
   } else if (typeof input === "string") {
     const s = input.trim();
     if (!s) return null;
-    // "MON,TUE" / "월화수목" / "월·화·수"
     const parts = s.split(/[,|/\s·･]+/).filter(Boolean);
     if (parts.length > 1) {
       parts.forEach((p) => push(normalizeDayToken(p)));
     } else {
-      // 붙여쓴 한글 요일
-      for (const ch of s) {
-        push(normalizeDayToken(ch));
+      // 붙여쓴 요일만 (월화수목). 한 글자씩 전체 문장 스캔은 「일반」→일 오인 방지
+      const chunk = s.match(/[월화수목금토일]{2,}/)?.[0];
+      if (chunk) {
+        for (const ch of chunk) push(normalizeDayToken(ch));
+      } else if (/토요|토요일|토반/.test(s)) {
+        push("SAT");
+      } else if (/^일요|일요일$/.test(s)) {
+        push("SUN");
+      } else {
+        push(normalizeDayToken(s));
       }
-      if (out.length === 0) push(normalizeDayToken(s));
     }
   }
 

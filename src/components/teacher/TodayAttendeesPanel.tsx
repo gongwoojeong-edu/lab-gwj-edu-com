@@ -60,7 +60,8 @@ export default function TodayAttendeesPanel({
   dateIso: dateIsoProp,
 }: Props) {
   const dateIso = dateIsoProp ?? localDateIso();
-  const [scope, setScope] = useState<ScopeMode>("mine");
+  // 어드민/분원장은 기본 전원 — 「내 담당」만 켜면 teacher_id 미연결 시 0명으로 보임
+  const [scope, setScope] = useState<ScopeMode>(canToggleScope ? "all" : "mine");
   const [summaries, setSummaries] = useState<AttendeeSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,17 +72,23 @@ export default function TodayAttendeesPanel({
     return new Date(y, (m ?? 1) - 1, d ?? 1);
   }, [dateIso]);
 
-  const scopedStudents = useMemo(() => {
+  const scopeBase = useMemo(() => {
     let list = students;
     if (!canToggleScope || scope === "mine") {
       if (!teacherAuthUserId) return [];
       list = list.filter((s) => isStudentOfTeacher(s, teacherAuthUserId));
     }
-    return list.filter((s) => {
+    return list;
+  }, [students, teacherAuthUserId, canToggleScope, scope]);
+
+  const scopedStudents = useMemo(() => {
+    return scopeBase.filter((s) => {
       const days = parseOrbitDays(s.orbit_class_days ?? null) as WeekdayCode[] | null;
       return isAttendingOnDate(days, date);
     });
-  }, [students, teacherAuthUserId, canToggleScope, scope, date]);
+  }, [scopeBase, date]);
+
+  const excludedByDay = scopeBase.length - scopedStudents.length;
 
   // 배열 참조 대신 id 목록으로 effect 트리거 — 부모 리렌더 루프 방지
   const scopedIdsKey = useMemo(
@@ -206,7 +213,16 @@ export default function TodayAttendeesPanel({
         <div className="text-xs text-muted-foreground py-6 text-center space-y-1">
           <div>오늘 등원으로 표시된 학생이 없습니다.</div>
           <div className="text-[10px]">
-            등원요일 미정 학생은 매일로 취급됩니다. Orbit 동기화 후 요일이 채워지면 자동으로 줄어듭니다.
+            범위 {scope === "mine" ? "내 담당" : "전원"} {scopeBase.length}명
+            {excludedByDay > 0
+              ? ` · 요일 때문에 제외 ${excludedByDay}명`
+              : ""}
+            {scope === "mine" && scopeBase.length === 0
+              ? " · teacher_id/담임 미연결일 수 있어요 → 전원을 눌러보세요"
+              : ""}
+          </div>
+          <div className="text-[10px]">
+            등원요일 미정은 매일로 취급합니다. 요일이 잘못 들어갔으면 Orbit 동기화를 다시 실행하세요.
           </div>
         </div>
       ) : (
