@@ -78,6 +78,8 @@ export type Database = {
           mem_direction:
             | Database["public"]["Enums"]["mem_direction_setting"]
             | null
+          mem_include_interpret: boolean | null
+          mem_include_translate: boolean | null
           round_no: number
           sentence_id: string | null
           student_id: string | null
@@ -99,6 +101,8 @@ export type Database = {
           mem_direction?:
             | Database["public"]["Enums"]["mem_direction_setting"]
             | null
+          mem_include_interpret?: boolean | null
+          mem_include_translate?: boolean | null
           round_no?: number
           sentence_id?: string | null
           student_id?: string | null
@@ -120,6 +124,8 @@ export type Database = {
           mem_direction?:
             | Database["public"]["Enums"]["mem_direction_setting"]
             | null
+          mem_include_interpret?: boolean | null
+          mem_include_translate?: boolean | null
           round_no?: number
           sentence_id?: string | null
           student_id?: string | null
@@ -812,12 +818,16 @@ export type Database = {
           mem_dictation_score: number | null
           mem_direction: string | null
           mem_en_to_ko_done: boolean
+          mem_interpret_done: boolean
+          mem_interpret_score: number | null
           mem_ko_to_en_done: boolean
           mem_listen_done: boolean
           mem_passed_at: string | null
           mem_record_done: boolean
           mem_scramble_done: boolean
           mem_speech_done: boolean
+          mem_translate_done: boolean
+          mem_translate_score: number | null
           passed_at: string | null
           pre_done: boolean
           redo_requested_at: string | null
@@ -844,12 +854,16 @@ export type Database = {
           mem_dictation_score?: number | null
           mem_direction?: string | null
           mem_en_to_ko_done?: boolean
+          mem_interpret_done?: boolean
+          mem_interpret_score?: number | null
           mem_ko_to_en_done?: boolean
           mem_listen_done?: boolean
           mem_passed_at?: string | null
           mem_record_done?: boolean
           mem_scramble_done?: boolean
           mem_speech_done?: boolean
+          mem_translate_done?: boolean
+          mem_translate_score?: number | null
           passed_at?: string | null
           pre_done?: boolean
           redo_requested_at?: string | null
@@ -876,12 +890,16 @@ export type Database = {
           mem_dictation_score?: number | null
           mem_direction?: string | null
           mem_en_to_ko_done?: boolean
+          mem_interpret_done?: boolean
+          mem_interpret_score?: number | null
           mem_ko_to_en_done?: boolean
           mem_listen_done?: boolean
           mem_passed_at?: string | null
           mem_record_done?: boolean
           mem_scramble_done?: boolean
           mem_speech_done?: boolean
+          mem_translate_done?: boolean
+          mem_translate_score?: number | null
           passed_at?: string | null
           pre_done?: boolean
           redo_requested_at?: string | null
@@ -1266,6 +1284,8 @@ export type Database = {
           id: string
           mem_dictation_blank_ratio: number
           mem_dictation_min_score: number
+          mem_include_interpret: boolean
+          mem_include_translate: boolean
           mem_require_record: boolean
           structure_pdf_name: string | null
           structure_pdf_uploaded_at: string | null
@@ -1287,6 +1307,8 @@ export type Database = {
           id?: string
           mem_dictation_blank_ratio?: number
           mem_dictation_min_score?: number
+          mem_include_interpret?: boolean
+          mem_include_translate?: boolean
           mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
@@ -1308,6 +1330,8 @@ export type Database = {
           id?: string
           mem_dictation_blank_ratio?: number
           mem_dictation_min_score?: number
+          mem_include_interpret?: boolean
+          mem_include_translate?: boolean
           mem_require_record?: boolean
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
