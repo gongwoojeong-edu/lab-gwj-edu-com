@@ -9,13 +9,23 @@ import {
 import type { MemDirection } from "@/lib/memorizationText";
 import type { MemDirectionSetting } from "@/lib/fetchMemSettings";
 
-export type MemStep = "listen" | "scramble" | "cloze" | "dictation" | "speech" | "record";
+export type MemStep =
+  | "listen"
+  | "scramble"
+  | "cloze"
+  | "dictation"
+  | "interpret"
+  | "translate"
+  | "speech"
+  | "record";
 
 export interface MemProgressFlags {
   mem_listen_done: boolean;
   mem_scramble_done: boolean;
   mem_cloze_done: boolean;
   mem_dictation_done: boolean;
+  mem_interpret_done: boolean;
+  mem_translate_done: boolean;
   mem_speech_done: boolean;
   mem_record_done: boolean;
   mem_ko_to_en_done: boolean;
@@ -24,6 +34,14 @@ export interface MemProgressFlags {
   mem_attempt_count: number;
   mem_direction: string | null;
   mem_dictation_score: number | null;
+  mem_interpret_score: number | null;
+  mem_translate_score: number | null;
+}
+
+export interface MemStepOptions {
+  requireRecord: boolean;
+  requireInterpret: boolean;
+  requireTranslate: boolean;
 }
 
 export const emptyMemFlags = (): MemProgressFlags => ({
@@ -31,6 +49,8 @@ export const emptyMemFlags = (): MemProgressFlags => ({
   mem_scramble_done: false,
   mem_cloze_done: false,
   mem_dictation_done: false,
+  mem_interpret_done: false,
+  mem_translate_done: false,
   mem_speech_done: false,
   mem_record_done: false,
   mem_ko_to_en_done: false,
@@ -39,6 +59,8 @@ export const emptyMemFlags = (): MemProgressFlags => ({
   mem_attempt_count: 0,
   mem_direction: null,
   mem_dictation_score: null,
+  mem_interpret_score: null,
+  mem_translate_score: null,
 });
 
 export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgressFlags {
@@ -48,6 +70,8 @@ export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgre
     mem_scramble_done: r?.mem_scramble_done ?? false,
     mem_cloze_done: r?.mem_cloze_done ?? false,
     mem_dictation_done: r?.mem_dictation_done ?? false,
+    mem_interpret_done: r?.mem_interpret_done ?? false,
+    mem_translate_done: r?.mem_translate_done ?? false,
     mem_speech_done: r?.mem_speech_done ?? false,
     mem_record_done: r?.mem_record_done ?? false,
     mem_ko_to_en_done: r?.mem_ko_to_en_done ?? false,
@@ -55,13 +79,19 @@ export function memFlagsFromProgress(row: SentenceProgressRow | null): MemProgre
     mem_passed_at: r?.mem_passed_at ?? null,
     mem_attempt_count: r?.mem_attempt_count ?? 0,
     mem_direction: r?.mem_direction ?? null,
-    mem_dictation_score: (r as { mem_dictation_score?: number | null })?.mem_dictation_score ?? null,
+    mem_dictation_score: r?.mem_dictation_score ?? null,
+    mem_interpret_score: r?.mem_interpret_score ?? null,
+    mem_translate_score: r?.mem_translate_score ?? null,
   };
 }
 
-export function requiredMemSteps(requireRecord: boolean): MemStep[] {
-  const base: MemStep[] = ["listen", "scramble", "cloze", "dictation", "speech"];
-  return requireRecord ? [...base, "record"] : base;
+export function requiredMemSteps(opts: MemStepOptions): MemStep[] {
+  const steps: MemStep[] = ["listen", "scramble", "cloze", "dictation"];
+  if (opts.requireInterpret) steps.push("interpret");
+  if (opts.requireTranslate) steps.push("translate");
+  steps.push("speech");
+  if (opts.requireRecord) steps.push("record");
+  return steps;
 }
 
 export function isMemStepDone(flags: MemProgressFlags, step: MemStep): boolean {
@@ -69,15 +99,17 @@ export function isMemStepDone(flags: MemProgressFlags, step: MemStep): boolean {
   if (step === "scramble") return flags.mem_scramble_done;
   if (step === "cloze") return flags.mem_cloze_done;
   if (step === "dictation") return flags.mem_dictation_done;
+  if (step === "interpret") return flags.mem_interpret_done;
+  if (step === "translate") return flags.mem_translate_done;
   if (step === "speech") return flags.mem_speech_done;
   return flags.mem_record_done;
 }
 
 export function firstIncompleteMemStep(
   flags: MemProgressFlags,
-  requireRecord: boolean,
+  opts: MemStepOptions,
 ): MemStep {
-  for (const s of requiredMemSteps(requireRecord)) {
+  for (const s of requiredMemSteps(opts)) {
     if (!isMemStepDone(flags, s)) return s;
   }
   return "speech";
@@ -85,9 +117,9 @@ export function firstIncompleteMemStep(
 
 export function allRequiredMemStepsDone(
   flags: MemProgressFlags,
-  requireRecord: boolean,
+  opts: MemStepOptions,
 ): boolean {
-  return requiredMemSteps(requireRecord).every((s) => isMemStepDone(flags, s));
+  return requiredMemSteps(opts).every((s) => isMemStepDone(flags, s));
 }
 
 const stepPatch = (step: MemStep): Partial<MemProgressFlags> => {
@@ -95,6 +127,8 @@ const stepPatch = (step: MemStep): Partial<MemProgressFlags> => {
   if (step === "scramble") return { mem_scramble_done: true };
   if (step === "cloze") return { mem_cloze_done: true };
   if (step === "dictation") return { mem_dictation_done: true };
+  if (step === "interpret") return { mem_interpret_done: true };
+  if (step === "translate") return { mem_translate_done: true };
   if (step === "speech") return { mem_speech_done: true };
   return { mem_record_done: true };
 };
@@ -104,6 +138,8 @@ const resetStepFlags = (): Partial<MemProgressFlags> => ({
   mem_scramble_done: false,
   mem_cloze_done: false,
   mem_dictation_done: false,
+  mem_interpret_done: false,
+  mem_translate_done: false,
   mem_speech_done: false,
   mem_record_done: false,
 });
@@ -138,8 +174,10 @@ export async function markMemStepDone(
   opts: {
     activeDirection: MemDirection;
     directionSetting: MemDirectionSetting;
-    requireRecord: boolean;
+    stepOptions: MemStepOptions;
     dictationScore?: number;
+    interpretScore?: number;
+    translateScore?: number;
     assignmentId?: string | null;
   },
 ): Promise<MemProgressFlags & { advancedToSecondTrack?: boolean }> {
@@ -156,15 +194,20 @@ export async function markMemStepDone(
   if (step === "dictation" && opts.dictationScore != null) {
     patch.mem_dictation_score = opts.dictationScore;
   }
+  if (step === "interpret" && opts.interpretScore != null) {
+    patch.mem_interpret_score = opts.interpretScore;
+  }
+  if (step === "translate" && opts.translateScore != null) {
+    patch.mem_translate_score = opts.translateScore;
+  }
 
   const merged = { ...flags, ...patch } as MemProgressFlags;
   let advancedToSecondTrack = false;
 
-  const isFinalStep =
-    (opts.requireRecord && step === "record") ||
-    (!opts.requireRecord && step === "speech");
+  const required = requiredMemSteps(opts.stepOptions);
+  const isFinalStep = required[required.length - 1] === step;
 
-  if (isFinalStep && allRequiredMemStepsDone(merged, opts.requireRecord)) {
+  if (isFinalStep && allRequiredMemStepsDone(merged, opts.stepOptions)) {
     const trackPatch = trackComplete(merged, opts.activeDirection, opts.directionSetting);
     Object.assign(patch, trackPatch);
     advancedToSecondTrack =
@@ -191,6 +234,8 @@ export async function resetMemProgressForRetry(
     mem_attempt_count: 0,
     mem_direction: null,
     mem_dictation_score: null,
+    mem_interpret_score: null,
+    mem_translate_score: null,
     touchActivity: true,
   } as Partial<SentenceProgressRow> & { assignmentId?: string | null });
 }
