@@ -140,13 +140,13 @@ export type DictationSegment =
   | { type: "text"; value: string }
   | { type: "blank"; id: string; answer: string };
 
-/** 부분 받아쓰기 — blankRatio만큼 단어/어구를 빈칸 (전체는 불가) */
+/** 부분 받아쓰기 — blankRatio만큼 단어/어구를 빈칸 (100%면 전체 받아쓰기) */
 export function buildPartialDictationSegments(
   expected: string,
   blankRatio: number,
   direction: MemDirection,
 ): DictationSegment[] {
-  const ratio = Math.min(0.65, Math.max(0.15, blankRatio));
+  const ratio = Math.min(1.0, Math.max(0.6, blankRatio));
   const parts =
     direction === "ko_to_en"
       ? tokenizeEnglishForDictation(expected)
@@ -154,7 +154,7 @@ export function buildPartialDictationSegments(
 
   if (parts.length === 0) return [{ type: "text", value: expected }];
 
-  const maxBlanks = Math.max(1, parts.length - 1);
+  const maxBlanks = ratio >= 1.0 ? parts.length : Math.max(1, parts.length - 1);
   const blankCount = Math.min(maxBlanks, Math.max(1, Math.ceil(parts.length * ratio)));
   const ranked = parts
     .map((p, i) => ({ i, len: p.answer.length }))
