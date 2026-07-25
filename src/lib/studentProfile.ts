@@ -21,8 +21,10 @@ export interface StudentProfile {
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;
   orbit_class_name?: string | null;
-  /** Orbit 반 수업요일 MON..SUN. null/빈 = 등원 미정 → 매일 fallback */
+  /** Orbit 반 수업요일 MON..SUN. null/빈 = 등원 미정 */
   orbit_class_days?: string[] | null;
+  /** false = 휴원/퇴원 (등원자·학습결과에서 제외) */
+  orbit_enrollment_active?: boolean | null;
   actual_grade?: string | null;
   campus?: string | null;
 }
@@ -84,6 +86,16 @@ export const fetchAllStudents = async (): Promise<StudentProfile[]> => {
   const { data } = await supabase
     .from("student_profiles")
     .select("*")
+    .order("student_no", { ascending: true });
+  return (data as StudentProfile[]) ?? [];
+};
+
+/** 재원(Orbit 등록 활성) 학생만 — 대시보드 등원자용 */
+export const fetchActiveStudents = async (): Promise<StudentProfile[]> => {
+  const { data } = await supabase
+    .from("student_profiles")
+    .select("*")
+    .eq("orbit_enrollment_active", true)
     .order("student_no", { ascending: true });
   return (data as StudentProfile[]) ?? [];
 };

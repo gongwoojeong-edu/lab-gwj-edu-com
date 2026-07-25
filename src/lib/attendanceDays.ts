@@ -55,7 +55,6 @@ export function normalizeDayToken(raw: string): WeekdayCode | null {
   const t = raw.trim().toUpperCase();
   if (!t) return null;
   if (TOKEN_MAP[t]) return TOKEN_MAP[t];
-  // 한글 한 글자
   if (TOKEN_MAP[raw.trim()]) return TOKEN_MAP[raw.trim()];
   return null;
 }
@@ -72,7 +71,6 @@ export function parseOrbitDays(input: unknown): WeekdayCode[] | null {
     input.forEach((v) => {
       if (typeof v === "string") push(normalizeDayToken(v));
       else if (typeof v === "number") {
-        // 0=일 … 6=토 (JS) 또는 1=월 … 7=일
         if (v >= 0 && v <= 6) push(JS_DAY_TO_CODE[v]);
         else if (v >= 1 && v <= 7) push(JS_DAY_TO_CODE[v % 7]);
       }
@@ -84,7 +82,6 @@ export function parseOrbitDays(input: unknown): WeekdayCode[] | null {
     if (parts.length > 1) {
       parts.forEach((p) => push(normalizeDayToken(p)));
     } else {
-      // 붙여쓴 요일만 (월화수목). 한 글자씩 전체 문장 스캔은 「일반」→일 오인 방지
       const chunk = s.match(/[월화수목금토일]{2,}/)?.[0];
       if (chunk) {
         for (const ch of chunk) push(normalizeDayToken(ch));
@@ -101,11 +98,33 @@ export function parseOrbitDays(input: unknown): WeekdayCode[] | null {
   return out.length > 0 ? out : null;
 }
 
+/** 반 이름에서만 추론 (「일반」의 일 오인 없음) */
+export function inferDaysFromClassName(
+  className: string | null | undefined,
+): WeekdayCode[] | null {
+  if (!className) return null;
+  const compact = className.replace(/\s+/g, "");
+  if (/토요|토요일/.test(compact)) return ["SAT"];
+  if (/일요|일요일/.test(compact) && !/일반/.test(compact)) return ["SUN"];
+  const chunk = compact.match(/[월화수목금토일]{2,}/)?.[0];
+  if (!chunk) return null;
+  const out: WeekdayCode[] = [];
+  for (const ch of chunk) {
+    const c = normalizeDayToken(ch);
+    if (c && !out.includes(c)) out.push(c);
+  }
+  return out.length > 0 ? out : null;
+}
+
+export function isHighSchoolGrade(grade: string | null | undefined): boolean {
+  if (!grade) return false;
+  const g = grade.replace(/\s+/g, "").replace(/고등/, "고");
+  return /^고[123]/.test(g) || /^고등/.test(grade.replace(/\s+/g, ""));
+}
+
 /**
  * 수업요일 → 등원요일.
  * 주 4회(월화수목) 구문반: 화·목만 등원.
- * 그 외(2·3회 등): Orbit 요일 그대로.
- * null/빈값: 미정 → 호출부에서 매일 fallback.
  */
 export function toAttendanceDays(
   classDays: WeekdayCode[] | null | undefined,
@@ -122,7 +141,39 @@ export function toAttendanceDays(
   return [...classDays];
 }
 
-/** 등원요일 미정이면 true(매일). 정해져 있으면 해당 요일만. */
+/**
+ * 대시보드 「오늘 등원자」전용.
+ * - 휴퇴원(orbit_enrollment_active=false) 제외
+ * - 요일이 있으면 그 날만
+ * - 요일 미정: 토요=고등부만, 일요=숨김, 평일=표시(기존 구문 운영 fallback)
+ * - 「매일」로 전원·휴퇴 노출하지 않음
+ */
+export function isDashboardAttendingToday(input: {
+  classDays?: string[] | null;
+  className?: string | null;
+  actualGrade?: string | null;
+  enrollmentActive?: boolean | null;
+  date?: Date;
+}): boolean {
+  if (input.enrollmentActive === false) return false;
+
+  const date = input.date ?? new Date();
+  const today = JS_DAY_TO_CODE[date.getDay()];
+
+  const fromDb = parseOrbitDays(input.classDays ?? null);
+  const fromName = inferDaysFromClassName(input.className);
+  const effective = toAttendanceDays(fromDb ?? fromName);
+
+  if (effective) return effective.includes(today);
+
+  // 요일 미정
+  if (today === "SAT") return isHighSchoolGrade(input.actualGrade);
+  if (today === "SUN") return false;
+  // 평일 미정: 재원생만 이미 통과했으므로 표시 (구문 주중반)
+  return true;
+}
+
+/** @deprecated 대시보드에서는 isDashboardAttendingToday 사용 */
 export function isAttendingOnDate(
   classDays: WeekdayCode[] | null | undefined,
   date: Date = new Date(),
@@ -135,8 +186,13 @@ export function isAttendingOnDate(
 
 export function formatAttendanceDays(
   classDays: WeekdayCode[] | null | undefined,
+  className?: string | null,
+  actualGrade?: string | null,
 ): string {
-  const attend = toAttendanceDays(classDays ?? null);
-  if (!attend) return "매일(미정)";
-  return attend.map((d) => WEEKDAY_LABEL[d]).join("");
+  const fromDb = parseOrbitDays(classDays ?? null);
+  const fromName = inferDaysFromClassName(className);
+  const attend = toAttendanceDays(fromDb ?? fromName);
+  if (attend) return attend.map((d) => WEEKDAY_LABEL[d]).join("");
+  if (isHighSchoolGrade(actualGrade)) return "토(고등부)";
+  return "평일(미정)";
 }

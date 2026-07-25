@@ -11,7 +11,7 @@ import {
   RefreshCcw,
   AlertTriangle,
 } from "lucide-react";
-import { fetchAllStudents, type StudentProfile } from "@/lib/studentProfile";
+import { fetchActiveStudents, type StudentProfile } from "@/lib/studentProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useStaff } from "@/lib/staff-context";
 import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
@@ -67,7 +67,7 @@ const TeacherHome = () => {
 
   useEffect(() => {
     let mounted = true;
-    fetchAllStudents().then((s) => {
+    fetchActiveStudents().then((s) => {
       if (mounted) {
         setStudents(s);
         setLoading(false);

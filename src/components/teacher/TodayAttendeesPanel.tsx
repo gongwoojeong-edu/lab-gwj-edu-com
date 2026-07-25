@@ -15,9 +15,7 @@ import type { StudentProfile } from "@/lib/studentProfile";
 import { isStudentOfTeacher } from "@/lib/teacher-scope";
 import {
   formatAttendanceDays,
-  isAttendingOnDate,
-  parseOrbitDays,
-  type WeekdayCode,
+  isDashboardAttendingToday,
 } from "@/lib/attendanceDays";
 import {
   fetchAttendeeSummaries,
@@ -60,7 +58,6 @@ export default function TodayAttendeesPanel({
   dateIso: dateIsoProp,
 }: Props) {
   const dateIso = dateIsoProp ?? localDateIso();
-  // 어드민/분원장은 기본 전원 — 「내 담당」만 켜면 teacher_id 미연결 시 0명으로 보임
   const [scope, setScope] = useState<ScopeMode>(canToggleScope ? "all" : "mine");
   const [summaries, setSummaries] = useState<AttendeeSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +70,8 @@ export default function TodayAttendeesPanel({
   }, [dateIso]);
 
   const scopeBase = useMemo(() => {
-    let list = students;
+    // 휴퇴원 방어 (상위에서 active만 넘겨도 이중 필터)
+    let list = students.filter((s) => s.orbit_enrollment_active !== false);
     if (!canToggleScope || scope === "mine") {
       if (!teacherAuthUserId) return [];
       list = list.filter((s) => isStudentOfTeacher(s, teacherAuthUserId));
@@ -82,10 +80,15 @@ export default function TodayAttendeesPanel({
   }, [students, teacherAuthUserId, canToggleScope, scope]);
 
   const scopedStudents = useMemo(() => {
-    return scopeBase.filter((s) => {
-      const days = parseOrbitDays(s.orbit_class_days ?? null) as WeekdayCode[] | null;
-      return isAttendingOnDate(days, date);
-    });
+    return scopeBase.filter((s) =>
+      isDashboardAttendingToday({
+        classDays: s.orbit_class_days,
+        className: s.orbit_class_name,
+        actualGrade: s.actual_grade,
+        enrollmentActive: s.orbit_enrollment_active,
+        date,
+      }),
+    );
   }, [scopeBase, date]);
 
   const excludedByDay = scopeBase.length - scopedStudents.length;
@@ -222,14 +225,13 @@ export default function TodayAttendeesPanel({
               : ""}
           </div>
           <div className="text-[10px]">
-            등원요일 미정은 매일로 취급합니다. 요일이 잘못 들어갔으면 Orbit 동기화를 다시 실행하세요.
+            휴퇴원 제외 · 토요일은 고등부(또는 토요 반)만 · 요일 있으면 해당 요일만 표시합니다.
           </div>
         </div>
       ) : (
         <ul className={cn("divide-y divide-border", loading && "opacity-60")}>
           {summaries.map((row) => {
             const name = row.profile.display_name ?? row.profile.student_no;
-            const days = parseOrbitDays(row.profile.orbit_class_days ?? null);
             const href = workflowHref(row.workflow);
             return (
               <li key={row.userId} className="py-3 space-y-1.5">
@@ -242,7 +244,12 @@ export default function TodayAttendeesPanel({
                       </span>
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      등원 {formatAttendanceDays(days)}
+                      등원{" "}
+                      {formatAttendanceDays(
+                        row.profile.orbit_class_days,
+                        row.profile.orbit_class_name,
+                        row.profile.actual_grade,
+                      )}
                     </div>
                   </div>
                   <Link to={href}>
