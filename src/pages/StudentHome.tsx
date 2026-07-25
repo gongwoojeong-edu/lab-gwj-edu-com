@@ -79,6 +79,7 @@ import {
   comparePassageOrder,
   fetchPassageOrderMeta,
 } from "@/lib/assignmentSequence";
+import { classifyAssignmentTrack } from "@/lib/assignmentTrack";
 
 interface RecentItem {
   sentence: Sentence;
@@ -122,6 +123,8 @@ interface AssignmentGroup {
   nextPosition: number | null;
   unitId: string | null;
   round_no: number | null;
+  /** Path A: 내신처럼 보이는 시퀀스 vs 진짜 특별과제 */
+  track: "naeshin" | "special";
 }
 
 /** sentence_id에서 유닛 prefix 추출. 'L08-U260338-001' → 'L08-U260338'. 매칭 안 되면 null. */
@@ -389,6 +392,10 @@ const StudentHome = () => {
                 if (rn == null) return m;
                 return m == null ? rn : Math.max(m, rn);
               }, null),
+              track: classifyAssignmentTrack({
+                title: head.title,
+                groupSize: sorted.length,
+              }),
             } as AssignmentGroup;
           })
           // 진행 중이거나, 유닛 학습은 끝났지만 선생님 승인 전인 그룹 유지
@@ -851,14 +858,14 @@ const StudentHome = () => {
               </div>
             )}
 
-            {/* 특별과제 — 일반 진도/완료 여부와 무관하게 항상 최상단에 노출 */}
+            {/* 과제 트랙 — 내신(시퀀스) / 특별과제. Path A */}
             {visibleAssignmentGroups.length > 0 && (
             <Card className="p-5 sm:p-6 space-y-4 border-amber-500/40 bg-gradient-to-br from-amber-500/5 to-transparent">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <ClipboardList className="w-4 h-4 text-amber-600" />
                   <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
-                    특별과제
+                    학습 과제
                   </h2>
                   <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold">
                     {visibleAssignmentGroups.length}
@@ -866,7 +873,7 @@ const StudentHome = () => {
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground -mt-2">
-                선생님이 부여한 과제예요. 같은 과제 안에서는 순서대로만 이어가요. 안내 마감일이 지나도 계속 학습할 수 있어요.
+                내신 진도(여러 지문 시퀀스)와 특별과제가 여기에 보여요. 같은 과제 안에서는 순서대로만 이어가요.
               </p>
               <ul className="space-y-3">
                 {visibleAssignmentGroups.map((g) => {
@@ -882,6 +889,16 @@ const StudentHome = () => {
                     >
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={cn(
+                              "inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded",
+                              g.track === "naeshin"
+                                ? "bg-sky-500/15 text-sky-800 dark:text-sky-300"
+                                : "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+                            )}
+                          >
+                            {g.track === "naeshin" ? "내신" : "특별"}
+                          </span>
                           <span className="text-sm font-bold truncate">{g.title}</span>
                           {g.round_no != null && g.round_no > 1 && (
                             <span className="inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300">

@@ -21,6 +21,8 @@ export interface StudentProfile {
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;
   orbit_class_name?: string | null;
+  /** Orbit 반 수업요일 MON..SUN. null/빈 = 등원 미정 → 매일 fallback */
+  orbit_class_days?: string[] | null;
   actual_grade?: string | null;
   campus?: string | null;
 }

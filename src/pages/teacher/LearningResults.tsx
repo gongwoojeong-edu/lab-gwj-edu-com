@@ -1133,16 +1133,22 @@ const LearningResults = () => {
     <TeacherLayout>
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Archive className="size-6 text-primary" />
-            학습결과
-            <span className="text-sm font-normal text-muted-foreground">
-              · 학생 {groupedEntries.length}명
-            </span>
-          </h1>
-          <p className="w-full text-xs text-muted-foreground -mt-1">
-            학습완료 처리·핸드아웃(HO) 성적 입력은 이 페이지에서 진행합니다. 인쇄·자료열람 요청은 <Link to="/teacher/requests" className="text-primary hover:underline">요청확인</Link>으로.
-          </p>
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Archive className="size-6 text-primary" />
+              학습결과
+              <span className="text-sm font-normal text-muted-foreground">
+                · 학생 {groupedEntries.length}명
+              </span>
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              HO·학습완료·재시험(솔루션) 처리. 유닛 인쇄·자료는{" "}
+              <Link to="/teacher/inbox" className="text-primary hover:underline">
+                요청확인
+              </Link>
+              . HO는 워크북 제출(채점 대기) 이후 활성화됩니다.
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <label
               className={`text-xs flex items-center gap-1.5 px-2.5 h-9 rounded-md border cursor-pointer transition-colors ${
@@ -1454,6 +1460,15 @@ const LearningResults = () => {
                                       const stateKey = `${userId}::${sid}`;
                                       const printedAt = printedSet[stateKey] ?? a?.printed_at ?? null;
                                       const isPrinted = !!printedAt;
+                                      // HO: 유닛 워크북 제출(채점 대기) 또는 학습완료 후 입력
+                                      // (인쇄 게이트는 요청확인 · 유닛 워크플로와 역할 분리)
+                                      const unitWf = g.unitId
+                                        ? unitWorkflowMap[`${userId}::${g.unitId}`]
+                                        : null;
+                                      const hoEnabled = unitWf
+                                        ? unitWf.status === "workbook_submitted" ||
+                                          unitWf.status === "completed"
+                                        : isPrinted;
                                       const printKey = `print:${userId}:${sid}`;
                                       const retestKey = `retest:${userId}:${sid}`;
                                       const cachedTrans = translationTextCache[stateKey];
@@ -1690,7 +1705,7 @@ const LearningResults = () => {
                                               sentenceId={sid}
                                               current={handoutMap[`${userId}::${sid}`] ?? null}
                                               onSaved={handleHandoutSaved}
-                                              disabled={!isPrinted}
+                                              disabled={!hoEnabled}
                                             />
                                           </td>
                                           <td className="px-3 py-2">
@@ -1701,7 +1716,7 @@ const LearningResults = () => {
                                               sentenceId={sid}
                                               current={handoutMap[`${userId}::${sid}`] ?? null}
                                               onSaved={handleHandoutSaved}
-                                              disabled={!isPrinted}
+                                              disabled={!hoEnabled}
                                             />
                                           </td>
                                           <td className="px-3 py-2">

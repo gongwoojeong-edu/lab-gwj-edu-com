@@ -225,6 +225,14 @@ const PrintQueue = () => {
           </h1>
         </div>
 
+        <Card className="px-4 py-3 text-xs border-amber-500/40 bg-amber-50/50 dark:bg-amber-500/5 text-amber-950 dark:text-amber-100">
+          유닛 워크북·자료 요청 인쇄는{" "}
+          <a href="/teacher/inbox" className="font-bold underline">
+            요청확인
+          </a>
+          에서 처리하세요. 이 화면은 레거시 시험지 요청용이며, 대시보드에서는 더 이상 안내하지 않습니다.
+        </Card>
+
         <Card className="px-4 py-2 text-xs text-muted-foreground bg-muted/30">
           [구문]/[단어]/[전체] 클릭 시 <b>현재 화면에서 OS 인쇄 대화상자가 즉시</b> 뜹니다.
           처리되면 학습결과 화면에 자동 합류합니다. PDF 작업이 필요하면 [📄] 버튼으로 미리보기를 새 탭에서 여세요.
