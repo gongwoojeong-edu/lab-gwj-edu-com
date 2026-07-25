@@ -94,6 +94,8 @@ export async function updateUnitMemSettings(
   opts: {
     defaultMemDirection?: "ko_to_en" | "en_to_ko" | "both";
     memRequireRecord?: boolean;
+    memIncludeInterpret?: boolean;
+    memIncludeTranslate?: boolean;
     memDictationBlankRatio?: number;
     memDictationMinScore?: number;
   },
@@ -101,6 +103,8 @@ export async function updateUnitMemSettings(
   const patch: Record<string, unknown> = {};
   if (opts.defaultMemDirection != null) patch.default_mem_direction = opts.defaultMemDirection;
   if (opts.memRequireRecord != null) patch.mem_require_record = opts.memRequireRecord;
+  if (opts.memIncludeInterpret != null) patch.mem_include_interpret = opts.memIncludeInterpret;
+  if (opts.memIncludeTranslate != null) patch.mem_include_translate = opts.memIncludeTranslate;
   if (opts.memDictationBlankRatio != null) patch.mem_dictation_blank_ratio = opts.memDictationBlankRatio;
   if (opts.memDictationMinScore != null) patch.mem_dictation_min_score = opts.memDictationMinScore;
   if (Object.keys(patch).length === 0) return;

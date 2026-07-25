@@ -7,6 +7,8 @@ const ALL_STEPS: { key: MemStep; label: string }[] = [
   { key: "scramble", label: "B. 어순" },
   { key: "cloze", label: "C. 빈칸" },
   { key: "dictation", label: "D. 받아쓰기" },
+  { key: "interpret", label: "G. 동시통역" },
+  { key: "translate", label: "H. 번역" },
   { key: "speech", label: "E. 발화" },
   { key: "record", label: "F. 녹음" },
 ];
@@ -17,9 +19,13 @@ interface Props {
   scrambleDone: boolean;
   clozeDone: boolean;
   dictationDone: boolean;
+  interpretDone: boolean;
+  translateDone: boolean;
   speechDone: boolean;
   recordDone: boolean;
   requireRecord: boolean;
+  includeInterpret: boolean;
+  includeTranslate: boolean;
 }
 
 export const MemStepProgressBar = ({
@@ -28,16 +34,27 @@ export const MemStepProgressBar = ({
   scrambleDone,
   clozeDone,
   dictationDone,
+  interpretDone,
+  translateDone,
   speechDone,
   recordDone,
   requireRecord,
+  includeInterpret,
+  includeTranslate,
 }: Props) => {
-  const steps = requireRecord ? ALL_STEPS : ALL_STEPS.filter((s) => s.key !== "record");
+  const steps = ALL_STEPS.filter((s) => {
+    if (s.key === "record") return requireRecord;
+    if (s.key === "interpret") return includeInterpret;
+    if (s.key === "translate") return includeTranslate;
+    return true;
+  });
   const isDone = (k: MemStep) => {
     if (k === "listen") return listenDone;
     if (k === "scramble") return scrambleDone;
     if (k === "cloze") return clozeDone;
     if (k === "dictation") return dictationDone;
+    if (k === "interpret") return interpretDone;
+    if (k === "translate") return translateDone;
     if (k === "speech") return speechDone;
     return recordDone;
   };

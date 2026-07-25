@@ -1,5 +1,5 @@
 // ============================================================
-// fetchMemSettings — 암기 방향·녹음 필수 (선생님 설정 resolve)
+// fetchMemSettings — 암기 방향·녹음 필수·옵션단계 (선생님 설정 resolve)
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
@@ -16,6 +16,8 @@ export const MEM_DIRECTION_SETTING_LABEL: Record<MemDirectionSetting, string> = 
 export interface MemSettingsContext {
   directionSetting: MemDirectionSetting;
   requireRecord: boolean;
+  includeInterpret: boolean;
+  includeTranslate: boolean;
   dictationBlankRatio: number;
   dictationMinScore: number;
   unitId: string | null;
@@ -36,29 +38,39 @@ export async function fetchMemSettingsForSentence(
 
   let unitDirection: MemDirectionSetting = "ko_to_en";
   let requireRecord = false;
+  let includeInterpret = false;
+  let includeTranslate = false;
   let dictationBlankRatio = 0.6;
   let dictationMinScore = 0;
   if (unitId) {
     const { data: unitRow } = await supabase
       .from("textbook_units")
-      .select("default_mem_direction, mem_require_record, mem_dictation_blank_ratio, mem_dictation_min_score")
+      .select(
+        "default_mem_direction, mem_require_record, mem_include_interpret, mem_include_translate, mem_dictation_blank_ratio, mem_dictation_min_score",
+      )
       .eq("id", unitId)
       .maybeSingle();
     const u = unitRow as {
       default_mem_direction?: MemDirectionSetting;
       mem_require_record?: boolean;
+      mem_include_interpret?: boolean;
+      mem_include_translate?: boolean;
       mem_dictation_blank_ratio?: number;
       mem_dictation_min_score?: number;
     } | null;
     unitDirection = u?.default_mem_direction ?? "ko_to_en";
     requireRecord = !!u?.mem_require_record;
+    includeInterpret = !!u?.mem_include_interpret;
+    includeTranslate = !!u?.mem_include_translate;
     dictationBlankRatio = u?.mem_dictation_blank_ratio ?? 0.6;
     dictationMinScore = u?.mem_dictation_min_score ?? 0;
   }
 
   let assignQuery = supabase
     .from("assignments")
-    .select("sentence_id, unit_id, mem_direction, due_at")
+    .select(
+      "sentence_id, unit_id, mem_direction, mem_include_interpret, mem_include_translate, due_at",
+    )
     .not("mem_direction", "is", null);
 
   if (userId) {
@@ -72,6 +84,8 @@ export async function fetchMemSettingsForSentence(
     sentence_id: string | null;
     unit_id: string | null;
     mem_direction: MemDirectionSetting | null;
+    mem_include_interpret: boolean | null;
+    mem_include_translate: boolean | null;
   }>).filter((a) => {
     if (!a.mem_direction) return false;
     return (
@@ -85,7 +99,20 @@ export async function fetchMemSettingsForSentence(
   const directionSetting =
     sentenceHit?.mem_direction ?? unitHit?.mem_direction ?? unitDirection;
 
-  return { directionSetting, requireRecord, dictationBlankRatio, dictationMinScore, unitId };
+  const overrideInterp = sentenceHit?.mem_include_interpret ?? unitHit?.mem_include_interpret;
+  const overrideTrans = sentenceHit?.mem_include_translate ?? unitHit?.mem_include_translate;
+  if (overrideInterp != null) includeInterpret = overrideInterp;
+  if (overrideTrans != null) includeTranslate = overrideTrans;
+
+  return {
+    directionSetting,
+    requireRecord,
+    includeInterpret,
+    includeTranslate,
+    dictationBlankRatio,
+    dictationMinScore,
+    unitId,
+  };
 }
 
 /** both 모드에서 현재 진행 중인 트랙 */
