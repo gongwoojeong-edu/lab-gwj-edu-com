@@ -1392,6 +1392,22 @@ const BookshelfUnit = () => {
               />
               F. 녹음 필수
             </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <Checkbox
+                checked={unitIncludeInterpret}
+                onCheckedChange={(v) => void handleUnitIncludeInterpretChange(!!v)}
+                disabled={savingUnitMem}
+              />
+              G. 동시통역 포함
+            </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <Checkbox
+                checked={unitIncludeTranslate}
+                onCheckedChange={(v) => void handleUnitIncludeTranslateChange(!!v)}
+                disabled={savingUnitMem}
+              />
+              H. 번역 포함
+            </label>
             {unit && (
               <Button variant="outline" size="sm" asChild>
                 <Link to={`/learn/unit/${unit.id}/flow`}>단락흐름 미리보기</Link>
