@@ -20,8 +20,10 @@ import {
   firstIncompleteMemStep,
   markMemStepDone,
   memFlagsFromProgress,
+  requiredMemSteps,
   resetMemProgressForRetry,
   type MemStep,
+  type MemStepOptions,
 } from "@/lib/memorizationProgress";
 import type { MemDirection } from "@/lib/memorizationText";
 import { MemStepProgressBar } from "@/components/learning/memorization/MemStepProgressBar";
@@ -29,14 +31,11 @@ import { MemListenStep } from "@/components/learning/memorization/MemListenStep"
 import { MemScrambleStep } from "@/components/learning/memorization/MemScrambleStep";
 import { MemClozeStep } from "@/components/learning/memorization/MemClozeStep";
 import { MemDictationStep } from "@/components/learning/memorization/MemDictationStep";
+import { MemInterpretStep } from "@/components/learning/memorization/MemInterpretStep";
+import { MemTranslateStep } from "@/components/learning/memorization/MemTranslateStep";
 import { MemSpeechStep } from "@/components/learning/memorization/MemSpeechStep";
 import { MemRecordStep } from "@/components/learning/memorization/MemRecordStep";
 import { resolveNextSentence } from "@/lib/nextSentence";
-
-const MEM_STEP_ORDER = (requireRecord: boolean) =>
-  requireRecord
-    ? (["listen", "scramble", "cloze", "dictation", "speech", "record"] as const)
-    : (["listen", "scramble", "cloze", "dictation", "speech"] as const);
 
 const MemorizeLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
@@ -64,7 +63,14 @@ const MemorizeLearn = () => {
     return activeMemTrack(memSettings.directionSetting, memFlags.mem_ko_to_en_done);
   }, [memSettings, memFlags.mem_ko_to_en_done]);
 
-  const requireRecord = memSettings?.requireRecord ?? false;
+  const stepOptions: MemStepOptions = useMemo(
+    () => ({
+      requireRecord: memSettings?.requireRecord ?? false,
+      requireInterpret: memSettings?.includeInterpret ?? false,
+      requireTranslate: memSettings?.includeTranslate ?? false,
+    }),
+    [memSettings],
+  );
 
   const load = useCallback(async () => {
     if (!sentenceId) return;
@@ -79,7 +85,6 @@ const MemorizeLearn = () => {
         return;
       }
 
-      // restart=1: 이 회독의 mem_* 진행 플래그를 리셋하고 1단계부터 시작
       const restartParam =
         typeof window !== "undefined" &&
         new URLSearchParams(window.location.search).get("restart") === "1";
@@ -112,12 +117,17 @@ const MemorizeLearn = () => {
         return;
       }
       const flags = memFlagsFromProgress(prog);
+      const opts: MemStepOptions = {
+        requireRecord: settings.requireRecord,
+        requireInterpret: settings.includeInterpret,
+        requireTranslate: settings.includeTranslate,
+      };
       setSentence(found);
       setPassage(memPassage);
       setTaskMode(ctx.taskMode);
       setMemSettings(settings);
       setMemFlags(flags);
-      setStep(flags.mem_passed_at ? "speech" : firstIncompleteMemStep(flags, settings.requireRecord));
+      setStep(flags.mem_passed_at ? "speech" : firstIncompleteMemStep(flags, opts));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -129,15 +139,20 @@ const MemorizeLearn = () => {
     void load();
   }, [load]);
 
-  const handleStepPassed = async (s: MemStep, extra?: { dictationScore?: number }) => {
+  const handleStepPassed = async (
+    s: MemStep,
+    extra?: { dictationScore?: number; interpretScore?: number; translateScore?: number },
+  ) => {
     if (!sentenceId || saving || !memSettings) return;
     setSaving(true);
     try {
       const next = await markMemStepDone(sentenceId, s, {
         activeDirection,
         directionSetting: memSettings.directionSetting,
-        requireRecord,
+        stepOptions,
         dictationScore: extra?.dictationScore,
+        interpretScore: extra?.interpretScore,
+        translateScore: extra?.translateScore,
         assignmentId: assignmentIdParam,
       });
       setMemFlags(next);
@@ -147,7 +162,7 @@ const MemorizeLearn = () => {
         return;
       }
       if (next.mem_passed_at) return;
-      const order = [...MEM_STEP_ORDER(requireRecord)];
+      const order = requiredMemSteps(stepOptions);
       const idx = order.indexOf(s);
       if (idx >= 0 && idx < order.length - 1) setStep(order[idx + 1]);
     } finally {
@@ -194,6 +209,17 @@ const MemorizeLearn = () => {
     direction: activeDirection,
   };
 
+  // 이전 단계가 끝났어야 다음 단계 렌더링 (기존 로직 유지, 옵션 단계는 조건부)
+  const priorForInterpret = memFlags.mem_dictation_done;
+  const priorForTranslate = stepOptions.requireInterpret
+    ? memFlags.mem_interpret_done
+    : memFlags.mem_dictation_done;
+  const priorForSpeech = stepOptions.requireTranslate
+    ? memFlags.mem_translate_done
+    : stepOptions.requireInterpret
+      ? memFlags.mem_interpret_done
+      : memFlags.mem_dictation_done;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur px-4 py-3 space-y-2">
@@ -213,9 +239,13 @@ const MemorizeLearn = () => {
           scrambleDone={memFlags.mem_scramble_done}
           clozeDone={memFlags.mem_cloze_done}
           dictationDone={memFlags.mem_dictation_done}
+          interpretDone={memFlags.mem_interpret_done}
+          translateDone={memFlags.mem_translate_done}
           speechDone={memFlags.mem_speech_done}
           recordDone={memFlags.mem_record_done}
-          requireRecord={requireRecord}
+          requireRecord={stepOptions.requireRecord}
+          includeInterpret={stepOptions.requireInterpret}
+          includeTranslate={stepOptions.requireTranslate}
         />
       </header>
 
@@ -235,11 +265,7 @@ const MemorizeLearn = () => {
           <Card className="p-8 text-center space-y-4">
             <Trophy className="w-14 h-14 mx-auto text-violet-600" />
             <h2 className="text-xl font-bold">문장암기 완료!</h2>
-            <p className="text-sm text-muted-foreground">
-              {requireRecord
-                ? "듣기 · 어순 · 빈칸 · 받아쓰기 · 발화 · 녹음을 모두 통과했습니다."
-                : "듣기 · 어순 · 빈칸 · 받아쓰기 · 발화를 모두 통과했습니다."}
-            </p>
+            <p className="text-sm text-muted-foreground">모든 단계를 통과했습니다.</p>
             <div className="flex flex-wrap justify-center gap-2 pt-2">
               <Button onClick={() => void goNextSentence()}>다음 지문</Button>
               {memSettings.unitId && (
@@ -281,10 +307,24 @@ const MemorizeLearn = () => {
                 onPassed={(score) => void handleStepPassed("dictation", { dictationScore: score })}
               />
             )}
-            {step === "speech" && memFlags.mem_dictation_done && !memFlags.mem_speech_done && (
+            {step === "interpret" && stepOptions.requireInterpret && priorForInterpret && !memFlags.mem_interpret_done && (
+              <MemInterpretStep
+                {...stepProps}
+                onPassed={(score) => void handleStepPassed("interpret", { interpretScore: score })}
+              />
+            )}
+            {step === "translate" && stepOptions.requireTranslate && priorForTranslate && !memFlags.mem_translate_done && (
+              <MemTranslateStep
+                english={passage.english}
+                korean={passage.korean}
+                direction={activeDirection}
+                onPassed={(score) => void handleStepPassed("translate", { translateScore: score })}
+              />
+            )}
+            {step === "speech" && priorForSpeech && !memFlags.mem_speech_done && (
               <MemSpeechStep {...stepProps} onPassed={() => void handleStepPassed("speech")} />
             )}
-            {step === "record" && requireRecord && memFlags.mem_speech_done && !memFlags.mem_record_done && (
+            {step === "record" && stepOptions.requireRecord && memFlags.mem_speech_done && !memFlags.mem_record_done && (
               <MemRecordStep
                 sentenceId={sentence.id}
                 {...stepProps}
