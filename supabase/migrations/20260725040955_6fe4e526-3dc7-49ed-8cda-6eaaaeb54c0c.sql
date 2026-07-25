@@ -1,0 +1,1 @@
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS orbit_class_schedule jsonb NULL;
