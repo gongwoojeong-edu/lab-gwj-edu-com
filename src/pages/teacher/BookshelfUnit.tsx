@@ -629,6 +629,34 @@ const BookshelfUnit = () => {
     }
   };
 
+  const handleUnitIncludeInterpretChange = async (v: boolean) => {
+    if (!unit || savingUnitMem) return;
+    setSavingUnitMem(true);
+    try {
+      await updateUnitMemSettings(unit.id, { memIncludeInterpret: v });
+      setUnitIncludeInterpret(v);
+      toast({ title: v ? "동시통역 단계 ON" : "동시통역 단계 OFF" });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingUnitMem(false);
+    }
+  };
+
+  const handleUnitIncludeTranslateChange = async (v: boolean) => {
+    if (!unit || savingUnitMem) return;
+    setSavingUnitMem(true);
+    try {
+      await updateUnitMemSettings(unit.id, { memIncludeTranslate: v });
+      setUnitIncludeTranslate(v);
+      toast({ title: v ? "번역 단계 ON" : "번역 단계 OFF" });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setSavingUnitMem(false);
+    }
+  };
+
   const handleUnitDictationBlankRatioChange = async (ratio: number) => {
     if (!unit || savingUnitMem) return;
     setSavingUnitMem(true);
