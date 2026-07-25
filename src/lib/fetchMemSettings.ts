@@ -52,7 +52,7 @@ export async function fetchMemSettingsForSentence(
     } | null;
     unitDirection = u?.default_mem_direction ?? "ko_to_en";
     requireRecord = !!u?.mem_require_record;
-    dictationBlankRatio = u?.mem_dictation_blank_ratio ?? 0.35;
+    dictationBlankRatio = u?.mem_dictation_blank_ratio ?? 0.6;
     dictationMinScore = u?.mem_dictation_min_score ?? 0;
   }
 
