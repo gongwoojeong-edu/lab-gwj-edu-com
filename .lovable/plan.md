@@ -1,44 +1,26 @@
-## 목표
-대시보드에서 인쇄/HO 성적 입력 UI를 제거하고, 「오늘의 학습 진행 현황」에 집중. 인쇄·자료열람 요청은 **요청확인**에서, 학습완료 조치는 **학습결과**에서만 처리 → 중복 기능 정리.
 
-## 변경 사항 (프론트만)
+# sync-orbit-english 재배포 + orbit_class_days 컬럼 적용
 
-### 1) `src/pages/teacher/TeacherHome.tsx`
-- **제거**
-  - 상단 타일 중 `인쇄 대기열` 타일 (이미 좌측 메뉴/요청확인에 있음)
-  - `오늘의 핸드아웃 성적 입력` 카드 전체 (섹션 + 학생 추가 팝오버 + 테이블)
-  - `SessionDateBar`, `WordHoInput`, `SyntaxHoToggle`, `handoutMap`, `printedTodayUserIds`, `ensureHandoutRow`, `fetchHandoutResultsByDate`, `print_requests` 조회 관련 상태/effect/import
-  - 안내 문구 "오늘의 핸드아웃 점수를 입력하거나…" → "오늘의 학습 진행 현황을 확인하세요."
-- **유지/강화**
-  - `ClassKpiCards` (반 통계)
-  - `정체/마감임박` 요약 카드
-  - `마감 임박 특별과제` 카드 (진도 배지 포함 — 이게 "오늘의 학습 진행 현황" 역할)
-- **타일 재정렬**: 요청확인(선생님분석본보기요청) · 과제출제 · 학습결과 · 학생목록 · 학습설정 · 책장
+## 현황
+- `supabase/functions/sync-orbit-english/index.ts` 코드에는 이미 요일 파싱/저장 로직이 포함됨 (수정 없음).
+- 마이그레이션 파일 `supabase/migrations/20260725120000_orbit_class_days.sql` 존재하나 **DB에 미적용** (컬럼 조회 시 0 rows).
 
-### 2) `src/pages/teacher/LearningResults.tsx` (경미)
-- 페이지 상단 안내에 "학습완료 처리 · 핸드아웃 성적 입력은 여기에서" 한 줄 추가 (기존 HO 입력 UI 이미 있음 — 그대로 유지).
+## 실행 순서 (build 모드 전환 후)
 
-### 3) `src/pages/teacher/RequestsInbox.tsx` (변경 없음)
-- 이미 인쇄요청 + 자료열람요청 처리 UI 보유.
+1. **마이그레이션 적용** — `student_profiles.orbit_class_days text[]` 추가 + GIN 인덱스
+2. **Edge Function 재배포** — `sync-orbit-english` 1개만
+3. **배포/컬럼 존재 검증** — `supabase--curl_edge_functions`로 함수 헬스 확인 or 로그 확인
+4. **동기화 실행 안내** — 함수는 `SYNC_CRON_SECRET` 필요하므로 UI 경로 안내:
+   - **선생님 화면 → 학생정보(TeacherStudents) → 상단 "오르빗 동기화" 버튼** (또는 pg_cron이 매일 04:00 KST 자동 실행)
 
-## 발생 가능한 새 문제 검토
+## 손대지 않는 것
+- 함수 로직/리팩터
+- 다른 Edge Function
+- 프론트 UI
 
-1. **"오늘 인쇄된 학생만 채점" 워크플로가 사라짐**  
-   → 학습결과 페이지에도 동일 `WordHoInput`/`SyntaxHoToggle` 존재. 인쇄 대기열에서 PDF 열 때 자동 행 생성(`ensureHandoutRow`) 로직은 인쇄 대기열 화면 자체에 남아있는지 확인 필요 → **PrintQueue.tsx 확인만** (변경 없음, 코드 유지). 없으면 학습결과에서 학생 검색으로 추가하는 방식으로 대체.
+## 완료 보고 항목
+- 마이그레이션 성공 여부
+- 재배포 대상 함수명·프로젝트 ref (vyiwfkctilezvpafqjek)
+- 동기화 실행 결과 또는 실행 경로
 
-2. **날짜 선택(SessionDateBar) 이동**  
-   → 대시보드에서 오늘 이외 날짜의 성적을 보고 수정하던 경로가 사라짐. 학습결과 페이지에 이미 날짜 필터가 있으므로 실질 손실 없음.
-
-3. **대시보드 첫 화면 밀도 감소**  
-   → 마감임박 과제 + 정체알림 + KPI 만 남음. 사용자 요청 자체가 "진도율 정도만" 이므로 의도와 일치.
-
-4. **인쇄 대기열 타일 제거 시 접근성**  
-   → 좌측 `TeacherLayout` 사이드바 메뉴에 인쇄/요청확인 링크가 이미 존재하는지 확인만 하면 됨. 없다면 사이드바 유지 필수.
-
-5. **오늘 등원자 뷰 계획(이전 대화)과의 관계**  
-   → 이전에 제안했던 "등원자 기반 대시보드"는 이번 단순화와 상충. 이번 정리 이후 별도 turn 에서 재검토.
-
-## 확인 필요 (한 가지)
-「오늘의 학습 진행 현황」= **마감 임박 특별과제 카드**로 대체하는 것이 맞나요, 아니면 담당 학생 전원의 오늘 진도(메인 진도 포함)를 새로 표시하는 위젯을 원하시나요? 후자라면 별도 위젯 신설이 필요합니다.
-
-승인해 주시면 위 대로 진행합니다.
+승인해주시면 마이그레이션 → 재배포 순으로 즉시 진행합니다.
