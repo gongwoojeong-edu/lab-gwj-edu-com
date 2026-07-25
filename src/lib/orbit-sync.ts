@@ -9,6 +9,9 @@ export type OrbitEnglishSyncResult = {
   studentsExcluded?: number;
   studentsFailed?: number;
   deactivated?: number;
+  classesTotal?: number;
+  classesWithDays?: number;
+  classesWithTimes?: number;
 };
 
 /** Orbit(영어과) → student_profiles · 선생님 계정 동기화 */

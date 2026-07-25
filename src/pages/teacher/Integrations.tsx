@@ -216,7 +216,7 @@ const Integrations = () => {
       void loadOrbitStatus();
       toast({
         title: "Orbit 동기화 완료",
-        description: `선생님 ${result.teachersSynced ?? 0}명 · 학생 ${result.studentsSynced ?? 0}명`,
+        description: `선생님 ${result.teachersSynced ?? 0}명 · 학생 ${result.studentsSynced ?? 0}명 · 시간표 ${result.classesWithTimes ?? 0}/${result.classesTotal ?? 0}반`,
       });
     } finally {
       setOrbitSyncing(false);
@@ -350,6 +350,9 @@ structure_html 문자열  구조도 HTML (선택)`;
             {orbitResult?.ok && (
               <p className="text-sm text-muted-foreground">
                 선생님 {orbitResult.teachersSynced ?? 0}명 · 학생 {orbitResult.studentsSynced ?? 0}명
+                {typeof orbitResult.classesWithTimes === "number"
+                  ? ` · 시간표 ${orbitResult.classesWithTimes}/${orbitResult.classesTotal ?? 0}반`
+                  : ""}
                 동기화 · 건너뜀 {orbitResult.studentsSkipped ?? 0} · 제외(비영어/휴퇴원){" "}
                 {orbitResult.studentsExcluded ?? 0}
                 {(orbitResult.studentsFailed ?? 0) > 0 &&

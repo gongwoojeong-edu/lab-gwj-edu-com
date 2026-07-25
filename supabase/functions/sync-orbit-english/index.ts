@@ -104,6 +104,7 @@ type OrbitClassRow = {
   class_id: string;
   class_name: string;
   filter_label: string;
+  schedule_label?: string | null;
   subject: string | null;
   days?: string[] | null;
   /** MON → HH:MM */
@@ -188,6 +189,63 @@ function parseDaysFromLabel(label: string | null | undefined): string[] | null {
     if (c && !out.includes(c)) out.push(c);
   }
   return out.length > 0 ? out : null;
+}
+
+/**
+ * Orbit filter_label / schedule_label → 요일+시작시각.
+ * 예: "화토 14:00", "월수 16:00 · 토 10:00", "판교 · 김선생 · 화토 14:00"
+ */
+function parseScheduleFromLabel(
+  label: string | null | undefined,
+): { days: string[]; times: Record<string, string> } | null {
+  if (!label) return null;
+  const days: string[] = [];
+  const times: Record<string, string> = {};
+  const push = (code: string | null, hm: string | null) => {
+    if (!code) return;
+    if (!days.includes(code)) days.push(code);
+    if (hm && !times[code]) times[code] = hm;
+  };
+
+  const parts = String(label)
+    .split(/[·･|]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  for (const part of parts) {
+    // "화토 14:00" / "화토14:00" / "토 14:00~16:00"
+    const withTime = part.match(
+      /^([월화수목금토일]{1,7})\s*(\d{1,2}:\d{2})(?:\s*[~\-–]\s*\d{1,2}:\d{2})?/,
+    );
+    if (withTime) {
+      const hm = timeToHm(withTime[2]);
+      for (const ch of withTime[1]) push(normalizeDayToken(ch), hm);
+      continue;
+    }
+    // 요일만 (시간 없음)
+    const daysOnly = parseDaysFromLabel(part);
+    if (daysOnly) {
+      for (const d of daysOnly) push(d, null);
+    }
+  }
+
+  // 분할 실패 시 전체 문자열에서 "요일덩어리 + 시각" 재시도
+  if (days.length === 0) {
+    const global = String(label).match(
+      /([월화수목금토일]{1,7})\s*(\d{1,2}:\d{2})/g,
+    );
+    if (global) {
+      for (const g of global) {
+        const m = g.match(/([월화수목금토일]{1,7})\s*(\d{1,2}:\d{2})/);
+        if (!m) continue;
+        const hm = timeToHm(m[2]);
+        for (const ch of m[1]) push(normalizeDayToken(ch), hm);
+      }
+    }
+  }
+
+  if (days.length === 0 && Object.keys(times).length === 0) return null;
+  return { days, times };
 }
 
 /** Orbit classes / schedules → 요일 + 시작시각 */
@@ -593,6 +651,9 @@ Deno.serve(async (req) => {
       studentsExcluded: 0,
       studentsFailed: 0,
       deactivated: 0,
+      classesTotal: 0,
+      classesWithDays: 0,
+      classesWithTimes: 0,
     };
 
     const campusNameById = new Map<string, string>();
@@ -663,32 +724,78 @@ Deno.serve(async (req) => {
         .not("id", "in", `(${validStaffIds.map((v) => `"${v}"`).join(",")})`);
     }
 
-    const { data: orbitClasses, error: classErr } = await orbitSb
-      .schema("orbit")
-      .from("v_class_filter_options")
-      .select("class_id, class_name, filter_label, subject")
-      .eq("subject", "영어");
-
-    if (classErr && !/schema|v_class_filter|does not exist/i.test(classErr.message)) {
-      throw new Error(classErr.message);
+    let orbitClasses: OrbitClassRow[] | null = null;
+    {
+      const withSchedule = await orbitSb
+        .schema("orbit")
+        .from("v_class_filter_options")
+        .select("class_id, class_name, filter_label, schedule_label, subject")
+        .eq("subject", "영어");
+      if (
+        withSchedule.error &&
+        /schedule_label|column/i.test(withSchedule.error.message)
+      ) {
+        const fallback = await orbitSb
+          .schema("orbit")
+          .from("v_class_filter_options")
+          .select("class_id, class_name, filter_label, subject")
+          .eq("subject", "영어");
+        if (
+          fallback.error &&
+          !/schema|v_class_filter|does not exist/i.test(fallback.error.message)
+        ) {
+          throw new Error(fallback.error.message);
+        }
+        orbitClasses = (fallback.data ?? []) as OrbitClassRow[];
+      } else if (
+        withSchedule.error &&
+        !/schema|v_class_filter|does not exist/i.test(withSchedule.error.message)
+      ) {
+        throw new Error(withSchedule.error.message);
+      } else {
+        orbitClasses = (withSchedule.data ?? []) as OrbitClassRow[];
+      }
     }
 
     const classById = new Map<string, OrbitClassRow>();
-    for (const c of (orbitClasses ?? []) as OrbitClassRow[]) {
+    for (const c of orbitClasses ?? []) {
       classById.set(c.class_id, c);
     }
 
-    // 반 요일·시간표 보강 (컬럼이 없어도 sync 실패하지 않음)
+    // 반 요일·시간표 보강 (DB 스케줄 우선, 없으면 filter/schedule_label 파싱)
     const classScheduleById = await loadClassScheduleById(orbitSb);
-    for (const [id, row] of classById) {
-      const fromDb = classScheduleById.get(id) ?? null;
+    let classesWithTimes = 0;
+    let classesWithDays = 0;
+    for (const row of classById.values()) {
+      const fromDb = classScheduleById.get(row.class_id) ?? null;
       const fromLabel =
+        parseScheduleFromLabel(row.schedule_label) ??
+        parseScheduleFromLabel(row.filter_label) ??
+        parseScheduleFromLabel(row.class_name);
+
+      const days =
+        (fromDb?.days?.length ? fromDb.days : null) ??
+        (fromLabel?.days?.length ? fromLabel.days : null) ??
         parseDaysFromLabel(row.class_name) ??
-        parseDaysFromLabel(row.filter_label);
-      row.days = (fromDb?.days?.length ? fromDb.days : null) ?? fromLabel ?? null;
-      row.times =
+        parseDaysFromLabel(row.filter_label) ??
+        null;
+
+      const timesFromDb =
         fromDb && Object.keys(fromDb.times).length > 0 ? fromDb.times : null;
+      const timesFromLabel =
+        fromLabel && Object.keys(fromLabel.times).length > 0
+          ? fromLabel.times
+          : null;
+      const times = timesFromDb ?? timesFromLabel;
+
+      row.days = days;
+      row.times = times;
+      if (days?.length) classesWithDays += 1;
+      if (times && Object.keys(times).length > 0) classesWithTimes += 1;
     }
+    stats.classesWithDays = classesWithDays;
+    stats.classesWithTimes = classesWithTimes;
+    stats.classesTotal = classById.size;
 
     const englishStudentIds = await loadEnglishStudentIds(orbitSb);
 
@@ -765,10 +872,18 @@ Deno.serve(async (req) => {
 
         if (existing) {
           // 기존 프로필: start_level/current_level 은 건드리지 않음 (원장 수동 조정 보존)
-          const { error: uErr } = await labSb
+          let { error: uErr } = await labSb
             .from("student_profiles")
             .update(patch)
             .eq("user_id", userId);
+          // 마이그레이션 전: schedule 컬럼 없으면 요일만이라도 저장
+          if (uErr && /orbit_class_schedule/i.test(uErr.message)) {
+            const { orbit_class_schedule: _drop, ...rest } = patch;
+            ({ error: uErr } = await labSb
+              .from("student_profiles")
+              .update(rest)
+              .eq("user_id", userId));
+          }
           if (uErr) throw new Error(uErr.message);
         } else {
           // 신규 프로필: 오르빗 학년으로 초기 레벨 자동 배정 (L03/L07 제외, 매핑 없으면 미설정)
@@ -782,9 +897,15 @@ Deno.serve(async (req) => {
             insertRow.start_level = autoLevel;
             insertRow.current_level = autoLevel;
           }
-          const { error: iErr } = await labSb
+          let { error: iErr } = await labSb
             .from("student_profiles")
             .upsert(insertRow, { onConflict: "user_id" });
+          if (iErr && /orbit_class_schedule/i.test(iErr.message)) {
+            const { orbit_class_schedule: _drop, ...rest } = insertRow;
+            ({ error: iErr } = await labSb
+              .from("student_profiles")
+              .upsert(rest, { onConflict: "user_id" }));
+          }
           if (iErr) throw new Error(iErr.message);
         }
 
