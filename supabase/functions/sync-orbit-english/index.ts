@@ -115,6 +115,8 @@ type OrbitClassRow = {
   class_name: string;
   filter_label: string;
   schedule_label?: string | null;
+  /** Orbit classes.schedule jsonb { slots: [{ day, start, end }] } */
+  schedule?: unknown;
   subject: string | null;
   days?: string[] | null;
   /** MON → HH:MM */
@@ -258,6 +260,57 @@ function parseScheduleFromLabel(
   return { days, times };
 }
 
+/** Orbit classes.schedule jsonb → 요일+시작시각 */
+function parseOrbitScheduleJson(
+  raw: unknown,
+): { days: string[]; times: Record<string, string> } | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const days: string[] = [];
+  const times: Record<string, string> = {};
+  const push = (dayRaw: unknown, startRaw: unknown) => {
+    const code =
+      typeof dayRaw === "string"
+        ? normalizeDayToken(dayRaw)
+        : typeof dayRaw === "number"
+          ? ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][
+              dayRaw >= 0 && dayRaw <= 6
+                ? dayRaw
+                : dayRaw >= 1 && dayRaw <= 7
+                  ? dayRaw % 7
+                  : -1
+            ] ?? null
+          : null;
+    if (!code) return;
+    if (!days.includes(code)) days.push(code);
+    const hm = timeToHm(startRaw);
+    if (hm && !times[code]) times[code] = hm;
+  };
+
+  // 표준: { slots: [{ day: "화", start: "16:00", end: "18:00" }] }
+  if (Array.isArray(obj.slots)) {
+    for (const slot of obj.slots) {
+      if (!slot || typeof slot !== "object") continue;
+      const s = slot as Record<string, unknown>;
+      push(s.day ?? s.weekday ?? s.day_of_week, s.start ?? s.start_time);
+    }
+  } else if (Array.isArray(obj.days)) {
+    // 레거시: { days: ["화","토"], start, end }
+    for (const d of obj.days) push(d, obj.start ?? obj.start_time);
+  } else {
+    // attendance_schedule 스타일: { SAT: { start, end }, ... }
+    for (const [k, v] of Object.entries(obj)) {
+      if (!v || typeof v !== "object" || Array.isArray(v)) continue;
+      const slot = v as Record<string, unknown>;
+      if (slot.start == null && slot.start_time == null) continue;
+      push(k, slot.start ?? slot.start_time);
+    }
+  }
+
+  if (days.length === 0 && Object.keys(times).length === 0) return null;
+  return { days, times };
+}
+
 /** Orbit classes / schedules → 요일 + 시작시각 */
 type ClassScheduleInfo = {
   days: string[];
@@ -273,6 +326,17 @@ function timeToHm(raw: unknown): string | null {
   const h = Math.min(23, Math.max(0, Number(m[1])));
   const min = Math.min(59, Math.max(0, Number(m[2])));
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+async function labHasClassScheduleColumn(labSb: SupabaseClient): Promise<boolean> {
+  const { error } = await labSb
+    .from("student_profiles")
+    .select("orbit_class_schedule")
+    .limit(1);
+  if (!error) return true;
+  if (/orbit_class_schedule/i.test(error.message)) return false;
+  // 다른 오류(권한 등)면 컬럼은 있다고 보고 진행 — 이후 update에서 재확인
+  return true;
 }
 
 async function loadClassScheduleById(
@@ -296,56 +360,54 @@ async function loadClassScheduleById(
     if (timeHm && !row.times[code]) row.times[code] = timeHm;
   };
 
-  // class_schedules 우선 (요일+시간)
-  const schedSelects = [
-    "class_id, day_of_week, start_time, end_time",
-    "class_id, weekday, start_time",
-    "class_id, day, start_time, begin_time",
-  ];
-  for (const sel of schedSelects) {
-    const { data, error } = await orbitSb
-      .schema("orbit")
-      .from("class_schedules")
-      .select(sel)
-      .limit(8000);
-    if (error || !data?.length) continue;
-    for (const r of data as Record<string, unknown>[]) {
-      const id = String(r.class_id ?? "");
-      const raw = r.day_of_week ?? r.weekday ?? r.day;
-      let code: string | null = null;
-      if (typeof raw === "number") {
-        const names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-        const js = raw >= 0 && raw <= 6 ? raw : raw >= 1 && raw <= 7 ? raw % 7 : -1;
-        code = js >= 0 ? names[js] : null;
-      } else if (typeof raw === "string") {
-        code = normalizeDayToken(raw);
-      }
-      const hm = timeToHm(r.start_time ?? r.begin_time);
-      addDay(id, code, hm);
-    }
-    if (map.size > 0) break;
-  }
-
-  // classes 테이블 요일 컬럼 보강
-  for (const col of ["days", "weekdays", "class_days", "schedule_days", "lesson_days"]) {
+  // 1) Orbit 정식: classes.schedule jsonb
+  {
     const { data, error } = await orbitSb
       .schema("orbit")
       .from("classes")
-      .select(`id, ${col}, start_time, class_time, time_slot`)
+      .select("id, schedule, subject")
+      .eq("subject", "영어")
       .limit(2000);
-    if (error || !data) continue;
-    let hit = 0;
-    for (const r of data as Record<string, unknown>[]) {
-      const id = String(r.id ?? "");
-      if (!id) continue;
-      const parsed = parseDaysValue(r[col]);
-      if (!parsed) continue;
-      hit += 1;
-      const defaultHm =
-        timeToHm(r.start_time) ?? timeToHm(r.class_time) ?? timeToHm(r.time_slot);
-      for (const d of parsed) addDay(id, d, defaultHm);
+    if (!error && data?.length) {
+      for (const r of data as Record<string, unknown>[]) {
+        const id = String(r.id ?? "");
+        if (!id) continue;
+        const parsed = parseOrbitScheduleJson(r.schedule);
+        if (!parsed) continue;
+        for (const d of parsed.days) addDay(id, d, parsed.times[d] ?? null);
+      }
     }
-    if (hit > 0) break;
+  }
+
+  // 2) 레거시 class_schedules (있으면 보강)
+  if (map.size === 0) {
+    const schedSelects = [
+      "class_id, day_of_week, start_time, end_time",
+      "class_id, weekday, start_time",
+    ];
+    for (const sel of schedSelects) {
+      const { data, error } = await orbitSb
+        .schema("orbit")
+        .from("class_schedules")
+        .select(sel)
+        .limit(8000);
+      if (error || !data?.length) continue;
+      for (const r of data as Record<string, unknown>[]) {
+        const id = String(r.class_id ?? "");
+        const raw = r.day_of_week ?? r.weekday ?? r.day;
+        let code: string | null = null;
+        if (typeof raw === "number") {
+          const names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+          const js =
+            raw >= 0 && raw <= 6 ? raw : raw >= 1 && raw <= 7 ? raw % 7 : -1;
+          code = js >= 0 ? names[js] : null;
+        } else if (typeof raw === "string") {
+          code = normalizeDayToken(raw);
+        }
+        addDay(id, code, timeToHm(r.start_time ?? r.begin_time));
+      }
+      if (map.size > 0) break;
+    }
   }
 
   return map;
@@ -666,6 +728,17 @@ Deno.serve(async (req) => {
       classesWithTimes: 0,
     };
 
+    if (!(await labHasClassScheduleColumn(labSb))) {
+      return json(
+        {
+          ok: false,
+          error:
+            "DB에 student_profiles.orbit_class_schedule 컬럼이 없습니다. Lovable SQL Editor에서 아래를 실행한 뒤 다시 동기화하세요:\n\nALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS orbit_class_schedule jsonb NULL;",
+        },
+        400,
+      );
+    }
+
     const campusNameById = new Map<string, string>();
     const { data: campuses } = await orbitSb
       .schema("orbit")
@@ -739,12 +812,12 @@ Deno.serve(async (req) => {
       const withSchedule = await orbitSb
         .schema("orbit")
         .from("v_class_filter_options")
-        .select("class_id, class_name, filter_label, schedule_label, subject")
+        .select(
+          "class_id, class_name, filter_label, schedule_label, schedule, subject",
+        )
         .eq("subject", "영어");
-      if (
-        withSchedule.error &&
-        /schedule_label|column/i.test(withSchedule.error.message)
-      ) {
+      if (withSchedule.error) {
+        // schedule 컬럼/라벨 없는 구버전 뷰 대비
         const fallback = await orbitSb
           .schema("orbit")
           .from("v_class_filter_options")
@@ -756,12 +829,16 @@ Deno.serve(async (req) => {
         ) {
           throw new Error(fallback.error.message);
         }
+        if (
+          withSchedule.error &&
+          !fallback.data?.length &&
+          !/schema|v_class_filter|does not exist|column|schedule/i.test(
+            withSchedule.error.message,
+          )
+        ) {
+          throw new Error(withSchedule.error.message);
+        }
         orbitClasses = (fallback.data ?? []) as OrbitClassRow[];
-      } else if (
-        withSchedule.error &&
-        !/schema|v_class_filter|does not exist/i.test(withSchedule.error.message)
-      ) {
-        throw new Error(withSchedule.error.message);
       } else {
         orbitClasses = (withSchedule.data ?? []) as OrbitClassRow[];
       }
@@ -772,11 +849,12 @@ Deno.serve(async (req) => {
       classById.set(c.class_id, c);
     }
 
-    // 반 요일·시간표 보강 (DB 스케줄 우선, 없으면 filter/schedule_label 파싱)
+    // 반 요일·시간표: classes.schedule jsonb 우선 → 라벨 파싱
     const classScheduleById = await loadClassScheduleById(orbitSb);
     let classesWithTimes = 0;
     let classesWithDays = 0;
     for (const row of classById.values()) {
+      const fromJson = parseOrbitScheduleJson(row.schedule);
       const fromDb = classScheduleById.get(row.class_id) ?? null;
       const fromLabel =
         parseScheduleFromLabel(row.schedule_label) ??
@@ -784,19 +862,21 @@ Deno.serve(async (req) => {
         parseScheduleFromLabel(row.class_name);
 
       const days =
+        (fromJson?.days?.length ? fromJson.days : null) ??
         (fromDb?.days?.length ? fromDb.days : null) ??
         (fromLabel?.days?.length ? fromLabel.days : null) ??
         parseDaysFromLabel(row.class_name) ??
         parseDaysFromLabel(row.filter_label) ??
         null;
 
-      const timesFromDb =
-        fromDb && Object.keys(fromDb.times).length > 0 ? fromDb.times : null;
-      const timesFromLabel =
-        fromLabel && Object.keys(fromLabel.times).length > 0
+      const times =
+        (fromJson && Object.keys(fromJson.times).length > 0
+          ? fromJson.times
+          : null) ??
+        (fromDb && Object.keys(fromDb.times).length > 0 ? fromDb.times : null) ??
+        (fromLabel && Object.keys(fromLabel.times).length > 0
           ? fromLabel.times
-          : null;
-      const times = timesFromDb ?? timesFromLabel;
+          : null);
 
       row.days = days;
       row.times = times;

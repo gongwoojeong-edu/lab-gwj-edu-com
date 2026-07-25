@@ -252,7 +252,13 @@ export default function TodayAttendeesPanel({
                       {name}
                       <span className="ml-2 text-[11px] font-normal text-muted-foreground">
                         {row.profile.orbit_class_name ?? "—"}
-                        {startHm ? ` · ${startHm}` : ""}
+                        {startHm ? (
+                          <span className="ml-1.5 font-semibold text-foreground/80">
+                            {startHm}
+                          </span>
+                        ) : (
+                          <span className="ml-1.5 text-amber-700/80">시각미정</span>
+                        )}
                       </span>
                     </div>
                     <div className="text-[10px] text-muted-foreground">
