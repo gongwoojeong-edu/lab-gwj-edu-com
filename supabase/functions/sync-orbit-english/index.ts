@@ -38,17 +38,27 @@ async function deactivateOrbitStudentByHakbun(
   labSb: SupabaseClient,
   hakbun: string,
 ): Promise<boolean> {
-  const { data, error } = await labSb
+  const full = {
+    orbit_enrollment_active: false,
+    orbit_class_id: null,
+    orbit_class_name: null,
+    orbit_class_days: null,
+    orbit_class_schedule: null as null,
+  };
+  let { data, error } = await labSb
     .from("student_profiles")
-    .update({
-      orbit_enrollment_active: false,
-      orbit_class_id: null,
-      orbit_class_name: null,
-      orbit_class_days: null,
-      orbit_class_schedule: null,
-    })
+    .update(full)
     .eq("student_no", hakbun)
     .select("user_id");
+  // 마이그레이션 전: schedule 컬럼 없으면 나머지라도 갱신
+  if (error && /orbit_class_schedule/i.test(error.message)) {
+    const { orbit_class_schedule: _drop, ...rest } = full;
+    ({ data, error } = await labSb
+      .from("student_profiles")
+      .update(rest)
+      .eq("student_no", hakbun)
+      .select("user_id"));
+  }
   if (error) throw new Error(error.message);
   return (data?.length ?? 0) > 0;
 }
