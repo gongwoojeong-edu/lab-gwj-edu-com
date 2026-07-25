@@ -1048,6 +1048,7 @@ export type Database = {
           hint_mode_enabled: boolean
           homeroom_teacher_id: string | null
           notes: string | null
+          orbit_class_days: string[] | null
           orbit_class_id: string | null
           orbit_class_name: string | null
           orbit_enrollment_active: boolean
@@ -1083,6 +1084,7 @@ export type Database = {
           hint_mode_enabled?: boolean
           homeroom_teacher_id?: string | null
           notes?: string | null
+          orbit_class_days?: string[] | null
           orbit_class_id?: string | null
           orbit_class_name?: string | null
           orbit_enrollment_active?: boolean
@@ -1118,6 +1120,7 @@ export type Database = {
           hint_mode_enabled?: boolean
           homeroom_teacher_id?: string | null
           notes?: string | null
+          orbit_class_days?: string[] | null
           orbit_class_id?: string | null
           orbit_class_name?: string | null
           orbit_enrollment_active?: boolean
