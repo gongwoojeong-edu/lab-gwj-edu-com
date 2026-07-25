@@ -165,7 +165,7 @@ const BookshelfUnit = () => {
   const [unitTaskMode, setUnitTaskMode] = useState<TaskMode>(DEFAULT_TASK_MODE);
   const [unitMemDirection, setUnitMemDirection] = useState<MemDirectionSetting>("ko_to_en");
   const [unitRequireRecord, setUnitRequireRecord] = useState(false);
-  const [unitDictationBlankRatio, setUnitDictationBlankRatio] = useState(0.35);
+  const [unitDictationBlankRatio, setUnitDictationBlankRatio] = useState(0.6);
   const [unitDictationMinScore, setUnitDictationMinScore] = useState(0);
   const [savingUnitTask, setSavingUnitTask] = useState(false);
   const [savingUnitMem, setSavingUnitMem] = useState(false);
@@ -813,7 +813,7 @@ const BookshelfUnit = () => {
           !!(u as Unit & { mem_require_record?: boolean }).mem_require_record,
         );
         setUnitDictationBlankRatio(
-          (u as Unit & { mem_dictation_blank_ratio?: number }).mem_dictation_blank_ratio ?? 0.35,
+          (u as Unit & { mem_dictation_blank_ratio?: number }).mem_dictation_blank_ratio ?? 0.6,
         );
         setUnitDictationMinScore(
           (u as Unit & { mem_dictation_min_score?: number }).mem_dictation_min_score ?? 0,
@@ -1320,9 +1320,9 @@ const BookshelfUnit = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[20, 25, 30, 35, 40, 45, 50, 55, 60].map((pct) => (
+                  {[60, 65, 70, 75, 80, 85, 90, 95, 100].map((pct) => (
                     <SelectItem key={pct} value={String(pct / 100)}>
-                      {pct}% (전체 불가)
+                      {pct}%{pct === 100 ? " (전체 받아쓰기)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
