@@ -45,6 +45,7 @@ async function deactivateOrbitStudentByHakbun(
       orbit_class_id: null,
       orbit_class_name: null,
       orbit_class_days: null,
+      orbit_class_schedule: null,
     })
     .eq("student_no", hakbun)
     .select("user_id");
@@ -104,8 +105,9 @@ type OrbitClassRow = {
   class_name: string;
   filter_label: string;
   subject: string | null;
-  /** 정규화된 요일 MON..SUN (sync 중 보강) */
   days?: string[] | null;
+  /** MON → HH:MM */
+  times?: Record<string, string> | null;
 };
 
 const DAY_TOKEN: Record<string, string> = {
@@ -188,63 +190,94 @@ function parseDaysFromLabel(label: string | null | undefined): string[] | null {
   return out.length > 0 ? out : null;
 }
 
-/** Orbit classes / schedules 에서 요일을 최대한 채운다. 실패해도 sync는 계속. */
-async function loadClassDaysById(
-  orbitSb: SupabaseClient,
-): Promise<Map<string, string[]>> {
-  const map = new Map<string, string[]>();
+/** Orbit classes / schedules → 요일 + 시작시각 */
+type ClassScheduleInfo = {
+  days: string[];
+  /** MON → "14:00" */
+  times: Record<string, string>;
+};
 
-  const trySelect = async (select: string) => {
-    const { data, error } = await orbitSb
-      .schema("orbit")
-      .from("classes")
-      .select(select)
-      .limit(2000);
-    if (error) return null;
-    return data as Record<string, unknown>[] | null;
+function timeToHm(raw: unknown): string | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const h = Math.min(23, Math.max(0, Number(m[1])));
+  const min = Math.min(59, Math.max(0, Number(m[2])));
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+async function loadClassScheduleById(
+  orbitSb: SupabaseClient,
+): Promise<Map<string, ClassScheduleInfo>> {
+  const map = new Map<string, ClassScheduleInfo>();
+
+  const ensure = (id: string) => {
+    let row = map.get(id);
+    if (!row) {
+      row = { days: [], times: {} };
+      map.set(id, row);
+    }
+    return row;
   };
 
-  // 후보 컬럼 순회
-  for (const col of ["days", "weekdays", "class_days", "schedule_days", "lesson_days"]) {
-    const rows = await trySelect(`id, ${col}`);
-    if (!rows) continue;
-    let hit = 0;
-    for (const r of rows) {
-      const id = String(r.id ?? "");
-      if (!id) continue;
-      const parsed = parseDaysValue(r[col]);
-      if (parsed) {
-        map.set(id, parsed);
-        hit += 1;
-      }
-    }
-    if (hit > 0) return map;
-  }
+  const addDay = (id: string, code: string | null, timeHm: string | null) => {
+    if (!id || !code) return;
+    const row = ensure(id);
+    if (!row.days.includes(code)) row.days.push(code);
+    if (timeHm && !row.times[code]) row.times[code] = timeHm;
+  };
 
-  // class_schedules(class_id, day_of_week) 형태 시도
-  const { data: sched, error: schedErr } = await orbitSb
-    .schema("orbit")
-    .from("class_schedules")
-    .select("class_id, day_of_week, weekday, day")
-    .limit(5000);
-  if (!schedErr && sched) {
-    for (const r of sched as Record<string, unknown>[]) {
+  // class_schedules 우선 (요일+시간)
+  const schedSelects = [
+    "class_id, day_of_week, start_time, end_time",
+    "class_id, weekday, start_time",
+    "class_id, day, start_time, begin_time",
+  ];
+  for (const sel of schedSelects) {
+    const { data, error } = await orbitSb
+      .schema("orbit")
+      .from("class_schedules")
+      .select(sel)
+      .limit(8000);
+    if (error || !data?.length) continue;
+    for (const r of data as Record<string, unknown>[]) {
       const id = String(r.class_id ?? "");
-      if (!id) continue;
       const raw = r.day_of_week ?? r.weekday ?? r.day;
       let code: string | null = null;
       if (typeof raw === "number") {
-        const js = raw >= 0 && raw <= 6 ? raw : raw >= 1 && raw <= 7 ? raw % 7 : -1;
         const names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+        const js = raw >= 0 && raw <= 6 ? raw : raw >= 1 && raw <= 7 ? raw % 7 : -1;
         code = js >= 0 ? names[js] : null;
       } else if (typeof raw === "string") {
         code = normalizeDayToken(raw);
       }
-      if (!code) continue;
-      const prev = map.get(id) ?? [];
-      if (!prev.includes(code)) prev.push(code);
-      map.set(id, prev);
+      const hm = timeToHm(r.start_time ?? r.begin_time);
+      addDay(id, code, hm);
     }
+    if (map.size > 0) break;
+  }
+
+  // classes 테이블 요일 컬럼 보강
+  for (const col of ["days", "weekdays", "class_days", "schedule_days", "lesson_days"]) {
+    const { data, error } = await orbitSb
+      .schema("orbit")
+      .from("classes")
+      .select(`id, ${col}, start_time, class_time, time_slot`)
+      .limit(2000);
+    if (error || !data) continue;
+    let hit = 0;
+    for (const r of data as Record<string, unknown>[]) {
+      const id = String(r.id ?? "");
+      if (!id) continue;
+      const parsed = parseDaysValue(r[col]);
+      if (!parsed) continue;
+      hit += 1;
+      const defaultHm =
+        timeToHm(r.start_time) ?? timeToHm(r.class_time) ?? timeToHm(r.time_slot);
+      for (const d of parsed) addDay(id, d, defaultHm);
+    }
+    if (hit > 0) break;
   }
 
   return map;
@@ -645,15 +678,16 @@ Deno.serve(async (req) => {
       classById.set(c.class_id, c);
     }
 
-    // 반 요일 보강 (컬럼이 없어도 sync 실패하지 않음)
-    const classDaysById = await loadClassDaysById(orbitSb);
+    // 반 요일·시간표 보강 (컬럼이 없어도 sync 실패하지 않음)
+    const classScheduleById = await loadClassScheduleById(orbitSb);
     for (const [id, row] of classById) {
-      const fromDb = classDaysById.get(id) ?? null;
-      // 구조화 요일 우선. 반 이름은 "월화수목"·"토요"처럼 명시적일 때만.
+      const fromDb = classScheduleById.get(id) ?? null;
       const fromLabel =
         parseDaysFromLabel(row.class_name) ??
         parseDaysFromLabel(row.filter_label);
-      row.days = fromDb ?? fromLabel ?? null;
+      row.days = (fromDb?.days?.length ? fromDb.days : null) ?? fromLabel ?? null;
+      row.times =
+        fromDb && Object.keys(fromDb.times).length > 0 ? fromDb.times : null;
     }
 
     const englishStudentIds = await loadEnglishStudentIds(orbitSb);
@@ -714,7 +748,12 @@ Deno.serve(async (req) => {
           teacher_id: teacherAuthId,
           orbit_class_id: engClass?.class_id ?? null,
           orbit_class_name: engClass?.class_name ?? engClass?.filter_label ?? null,
-          orbit_class_days: engClass?.days ?? null,
+          orbit_class_days:
+            engClass?.days && engClass.days.length > 0 ? engClass.days : null,
+          orbit_class_schedule:
+            engClass?.times && Object.keys(engClass.times).length > 0
+              ? engClass.times
+              : null,
           orbit_enrollment_active: true,
         };
 

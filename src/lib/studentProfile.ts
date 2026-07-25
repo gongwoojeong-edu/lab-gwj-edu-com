@@ -21,8 +21,10 @@ export interface StudentProfile {
   hint_mode_enabled: boolean;
   word_test_time_limit_sec: number;
   orbit_class_name?: string | null;
-  /** Orbit 반 수업요일 MON..SUN. null/빈 = 등원 미정 */
+  /** Orbit 반 수업요일 MON..SUN. null/빈 = 등원 미정(대시보드 미표시) */
   orbit_class_days?: string[] | null;
+  /** Orbit 반 시간표 { SAT: "14:00", ... } */
+  orbit_class_schedule?: Record<string, string> | null;
   /** false = 휴원/퇴원 (등원자·학습결과에서 제외) */
   orbit_enrollment_active?: boolean | null;
   actual_grade?: string | null;

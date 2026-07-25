@@ -14,8 +14,11 @@ import { RefreshCcw, Users, ExternalLink } from "lucide-react";
 import type { StudentProfile } from "@/lib/studentProfile";
 import { isStudentOfTeacher } from "@/lib/teacher-scope";
 import {
+  compareAttendeesBySchedule,
   formatAttendanceDays,
   isDashboardAttendingToday,
+  parseClassSchedule,
+  todayClassStartTime,
 } from "@/lib/attendanceDays";
 import {
   fetchAttendeeSummaries,
@@ -84,7 +87,6 @@ export default function TodayAttendeesPanel({
       isDashboardAttendingToday({
         classDays: s.orbit_class_days,
         className: s.orbit_class_name,
-        actualGrade: s.actual_grade,
         enrollmentActive: s.orbit_enrollment_active,
         date,
       }),
@@ -109,14 +111,21 @@ export default function TodayAttendeesPanel({
       try {
         const rows = await fetchAttendeeSummaries(list);
         if (cancelled) return;
-        rows.sort((a, b) => {
-          const ca = a.profile.orbit_class_name ?? "";
-          const cb = b.profile.orbit_class_name ?? "";
-          if (ca !== cb) return ca.localeCompare(cb, "ko");
-          const na = a.profile.display_name ?? a.profile.student_no;
-          const nb = b.profile.display_name ?? b.profile.student_no;
-          return na.localeCompare(nb, "ko");
-        });
+        rows.sort((a, b) =>
+          compareAttendeesBySchedule(
+            {
+              schedule: parseClassSchedule(a.profile.orbit_class_schedule),
+              className: a.profile.orbit_class_name,
+              name: a.profile.display_name ?? a.profile.student_no,
+            },
+            {
+              schedule: parseClassSchedule(b.profile.orbit_class_schedule),
+              className: b.profile.orbit_class_name,
+              name: b.profile.display_name ?? b.profile.student_no,
+            },
+            date,
+          ),
+        );
         setSummaries(rows);
       } catch (e) {
         if (cancelled) return;
@@ -133,7 +142,7 @@ export default function TodayAttendeesPanel({
     };
     // scopedStudents는 scopedIdsKey로 대리; list는 해당 렌더 스냅샷 사용
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedIdsKey, tick]);
+  }, [scopedIdsKey, tick, dateIso]);
 
   const weekdayLabel = date.toLocaleDateString("ko-KR", { weekday: "short" });
   const countLabel = loading
@@ -225,7 +234,7 @@ export default function TodayAttendeesPanel({
               : ""}
           </div>
           <div className="text-[10px]">
-            휴퇴원 제외 · 토요일은 고등부(또는 토요 반)만 · 요일 있으면 해당 요일만 표시합니다.
+            Orbit 수업요일에 오늘이 있는 재원생만 표시합니다. (고등부≠자동 토요)
           </div>
         </div>
       ) : (
@@ -233,6 +242,8 @@ export default function TodayAttendeesPanel({
           {summaries.map((row) => {
             const name = row.profile.display_name ?? row.profile.student_no;
             const href = workflowHref(row.workflow);
+            const schedule = parseClassSchedule(row.profile.orbit_class_schedule);
+            const startHm = todayClassStartTime(schedule, date);
             return (
               <li key={row.userId} className="py-3 space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
@@ -241,6 +252,7 @@ export default function TodayAttendeesPanel({
                       {name}
                       <span className="ml-2 text-[11px] font-normal text-muted-foreground">
                         {row.profile.orbit_class_name ?? "—"}
+                        {startHm ? ` · ${startHm}` : ""}
                       </span>
                     </div>
                     <div className="text-[10px] text-muted-foreground">
@@ -248,7 +260,6 @@ export default function TodayAttendeesPanel({
                       {formatAttendanceDays(
                         row.profile.orbit_class_days,
                         row.profile.orbit_class_name,
-                        row.profile.actual_grade,
                       )}
                     </div>
                   </div>

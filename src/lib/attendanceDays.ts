@@ -1,8 +1,11 @@
 // ============================================================
-// attendanceDays — Orbit 반 요일 → 오늘 등원 판정
+// attendanceDays — Orbit 반 요일/시간표 → 오늘 등원 판정
 // ============================================================
 
 export type WeekdayCode = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+
+/** day → "HH:MM" */
+export type ClassScheduleMap = Partial<Record<WeekdayCode, string>>;
 
 const JS_DAY_TO_CODE: WeekdayCode[] = [
   "SUN",
@@ -51,6 +54,10 @@ export const WEEKDAY_LABEL: Record<WeekdayCode, string> = {
   SUN: "일",
 };
 
+export function todayWeekdayCode(date: Date = new Date()): WeekdayCode {
+  return JS_DAY_TO_CODE[date.getDay()];
+}
+
 export function normalizeDayToken(raw: string): WeekdayCode | null {
   const t = raw.trim().toUpperCase();
   if (!t) return null;
@@ -59,7 +66,29 @@ export function normalizeDayToken(raw: string): WeekdayCode | null {
   return null;
 }
 
-/** Orbit/DB에서 온 값을 WeekdayCode[] 로 정규화. 파싱 실패·빈값 → null */
+/** "14:00" / "14:00:00" / "2:30 PM" → "HH:MM" */
+export function normalizeTimeToken(raw: unknown): string | null {
+  if (raw == null) return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    // 분 단위(0~24*60) 또는 시(0~23)
+    if (raw >= 0 && raw < 24) {
+      return `${String(Math.floor(raw)).padStart(2, "0")}:00`;
+    }
+    if (raw >= 0 && raw < 24 * 60) {
+      const h = Math.floor(raw / 60);
+      const m = Math.floor(raw % 60);
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+  const s = String(raw).trim();
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!m) return null;
+  const h = Math.min(23, Math.max(0, Number(m[1])));
+  const min = Math.min(59, Math.max(0, Number(m[2])));
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
 export function parseOrbitDays(input: unknown): WeekdayCode[] | null {
   if (input == null) return null;
   const out: WeekdayCode[] = [];
@@ -98,7 +127,7 @@ export function parseOrbitDays(input: unknown): WeekdayCode[] | null {
   return out.length > 0 ? out : null;
 }
 
-/** 반 이름에서만 추론 (「일반」의 일 오인 없음) */
+/** 반 이름에 명시된 요일만 (고등부≠토요) */
 export function inferDaysFromClassName(
   className: string | null | undefined,
 ): WeekdayCode[] | null {
@@ -114,12 +143,6 @@ export function inferDaysFromClassName(
     if (c && !out.includes(c)) out.push(c);
   }
   return out.length > 0 ? out : null;
-}
-
-export function isHighSchoolGrade(grade: string | null | undefined): boolean {
-  if (!grade) return false;
-  const g = grade.replace(/\s+/g, "").replace(/고등/, "고");
-  return /^고[123]/.test(g) || /^고등/.test(grade.replace(/\s+/g, ""));
 }
 
 /**
@@ -141,58 +164,83 @@ export function toAttendanceDays(
   return [...classDays];
 }
 
+export function parseClassSchedule(raw: unknown): ClassScheduleMap | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: ClassScheduleMap = {};
+  let hit = 0;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const day = normalizeDayToken(k);
+    const time = normalizeTimeToken(v);
+    if (day && time) {
+      out[day] = time;
+      hit += 1;
+    }
+  }
+  return hit > 0 ? out : null;
+}
+
+/** 오늘 수업 시작 HH:MM. 없으면 null */
+export function todayClassStartTime(
+  schedule: ClassScheduleMap | null | undefined,
+  date: Date = new Date(),
+): string | null {
+  if (!schedule) return null;
+  return schedule[todayWeekdayCode(date)] ?? null;
+}
+
 /**
- * 대시보드 「오늘 등원자」전용.
- * - 휴퇴원(orbit_enrollment_active=false) 제외
- * - 요일이 있으면 그 날만
- * - 요일 미정: 토요=고등부만, 일요=숨김, 평일=표시(기존 구문 운영 fallback)
- * - 「매일」로 전원·휴퇴 노출하지 않음
+ * 대시보드 등원: Orbit 요일(또는 반명에 명시된 요일)만.
+ * 고등부 휴리스틱·매일 fallback 없음 — 전승우처럼 토요 아닌 고등부 제외.
  */
 export function isDashboardAttendingToday(input: {
   classDays?: string[] | null;
   className?: string | null;
-  actualGrade?: string | null;
   enrollmentActive?: boolean | null;
   date?: Date;
 }): boolean {
   if (input.enrollmentActive === false) return false;
 
   const date = input.date ?? new Date();
-  const today = JS_DAY_TO_CODE[date.getDay()];
+  const today = todayWeekdayCode(date);
 
   const fromDb = parseOrbitDays(input.classDays ?? null);
   const fromName = inferDaysFromClassName(input.className);
+  // DB 요일 우선. 반명은 DB가 비었을 때만(토요반 등)
   const effective = toAttendanceDays(fromDb ?? fromName);
-
-  if (effective) return effective.includes(today);
-
-  // 요일 미정
-  if (today === "SAT") return isHighSchoolGrade(input.actualGrade);
-  if (today === "SUN") return false;
-  // 평일 미정: 재원생만 이미 통과했으므로 표시 (구문 주중반)
-  return true;
-}
-
-/** @deprecated 대시보드에서는 isDashboardAttendingToday 사용 */
-export function isAttendingOnDate(
-  classDays: WeekdayCode[] | null | undefined,
-  date: Date = new Date(),
-): boolean {
-  const attend = toAttendanceDays(classDays ?? null);
-  if (!attend) return true;
-  const code = JS_DAY_TO_CODE[date.getDay()];
-  return attend.includes(code);
+  if (!effective) return false;
+  return effective.includes(today);
 }
 
 export function formatAttendanceDays(
   classDays: WeekdayCode[] | null | undefined,
   className?: string | null,
-  actualGrade?: string | null,
 ): string {
   const fromDb = parseOrbitDays(classDays ?? null);
   const fromName = inferDaysFromClassName(className);
   const attend = toAttendanceDays(fromDb ?? fromName);
   if (attend) return attend.map((d) => WEEKDAY_LABEL[d]).join("");
-  if (isHighSchoolGrade(actualGrade)) return "토(고등부)";
-  return "평일(미정)";
+  return "미정";
+}
+
+/** 등원자 정렬: 오늘 시작시각 → 반명 → 이름 */
+export function compareAttendeesBySchedule(
+  a: {
+    schedule?: ClassScheduleMap | null;
+    className?: string | null;
+    name: string;
+  },
+  b: {
+    schedule?: ClassScheduleMap | null;
+    className?: string | null;
+    name: string;
+  },
+  date: Date = new Date(),
+): number {
+  const ta = todayClassStartTime(a.schedule, date) ?? "99:99";
+  const tb = todayClassStartTime(b.schedule, date) ?? "99:99";
+  if (ta !== tb) return ta.localeCompare(tb);
+  const ca = a.className ?? "";
+  const cb = b.className ?? "";
+  if (ca !== cb) return ca.localeCompare(cb, "ko");
+  return a.name.localeCompare(b.name, "ko");
 }
