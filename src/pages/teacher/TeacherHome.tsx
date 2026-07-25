@@ -184,7 +184,7 @@ const TeacherHome = () => {
           />
         )}
 
-        <DailyTestSummary />
+        {teacherAuthUserId && <DailyTestSummary userId={teacherAuthUserId} />}
       </div>
     </TeacherLayout>
   );
