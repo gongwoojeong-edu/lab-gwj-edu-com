@@ -88,6 +88,7 @@ function assignmentDone(
 
 /**
  * 오늘 등원자 목록에 대한 메인덱·과제(내신/특별)·유닛 워크플로 요약.
+ * 대시보드용 — 전교생 과제 전체 스캔은 피하고, 대상 학생 과제 + 소량 전체과제만.
  */
 export async function fetchAttendeeSummaries(
   students: StudentProfile[],
@@ -95,15 +96,22 @@ export async function fetchAttendeeSummaries(
   if (students.length === 0) return [];
   const userIds = students.map((s) => s.user_id);
 
-  const [{ data: personalAssign }, { data: classAssign }, { data: wfData }] =
-    await Promise.all([
+  // 워크플로만 먼저 (가벼움). 과제·진도는 실패해도 메인덱만이라도 표시.
+  let personalAssign: AssignRow[] = [];
+  let classAssign: AssignRow[] = [];
+  let wfData: { user_id: string; status: UnitWorkflowStatus }[] = [];
+
+  try {
+    const [pRes, cRes, wRes] = await Promise.all([
       supabase
         .from("assignments")
         .select(
           "id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest",
         )
         .in("student_id", userIds)
-        .not("sentence_id", "is", null),
+        .not("sentence_id", "is", null)
+        .limit(500),
+      // 전체학생 과제는 대시보드에서 최대 80건만 (URL·부하 폭주 방지)
       supabase
         .from("assignments")
         .select(
@@ -111,39 +119,53 @@ export async function fetchAttendeeSummaries(
         )
         .is("student_id", null)
         .not("sentence_id", "is", null)
-        .limit(300),
+        .order("created_at", { ascending: false })
+        .limit(80),
       supabase
         .from("unit_workflows")
         .select("user_id, unit_id, status, updated_at")
         .in("user_id", userIds)
-        .order("updated_at", { ascending: false }),
+        .order("updated_at", { ascending: false })
+        .limit(200),
     ]);
+    if (pRes.error) console.warn("[todayAttendees] personal assign", pRes.error);
+    if (cRes.error) console.warn("[todayAttendees] class assign", cRes.error);
+    if (wRes.error) console.warn("[todayAttendees] workflows", wRes.error);
+    personalAssign = (pRes.data ?? []) as AssignRow[];
+    classAssign = (cRes.data ?? []) as AssignRow[];
+    wfData = (wRes.data ?? []) as {
+      user_id: string;
+      status: UnitWorkflowStatus;
+    }[];
+  } catch (e) {
+    console.warn("[todayAttendees] assign/wf fetch failed", e);
+  }
 
-  const assignments = [
-    ...((personalAssign ?? []) as AssignRow[]),
-    ...((classAssign ?? []) as AssignRow[]),
-  ];
+  const assignments = [...personalAssign, ...classAssign];
   const relevant = assignments;
 
   const sentenceIds = [
     ...new Set(
       relevant.map((a) => a.sentence_id).filter((c): c is string => !!c),
     ),
-  ];
+  ].slice(0, 200); // PostgREST .in URL 한도 방어
 
-  const { data: progData } =
-    sentenceIds.length > 0
-      ? await supabase
-          .from("sentence_progress")
-          .select(
-            "user_id, sentence_id, assignment_id, status, pre_done, word_test_done, analysis_done, translation_done",
-          )
-          .in("user_id", userIds)
-          .in("sentence_id", sentenceIds)
-      : { data: [] };
-
-  type ProgWithUser = ProgRow & { user_id: string };
-  const progRows = (progData ?? []) as ProgWithUser[];
+  let progRows: (ProgRow & { user_id: string })[] = [];
+  if (sentenceIds.length > 0) {
+    try {
+      const { data, error } = await supabase
+        .from("sentence_progress")
+        .select(
+          "user_id, sentence_id, assignment_id, status, pre_done, word_test_done, analysis_done, translation_done",
+        )
+        .in("user_id", userIds)
+        .in("sentence_id", sentenceIds);
+      if (error) console.warn("[todayAttendees] progress", error);
+      progRows = (data ?? []) as (ProgRow & { user_id: string })[];
+    } catch (e) {
+      console.warn("[todayAttendees] progress fetch failed", e);
+    }
+  }
 
   const progByUserAssign = new Map<string, ProgRow>();
   const progByUserNull = new Map<string, ProgRow>();
@@ -155,19 +177,17 @@ export async function fetchAttendeeSummaries(
     }
   });
 
-  const orderMeta =
-    sentenceIds.length > 0
-      ? await fetchPassageOrderMeta(sentenceIds)
-      : new Map();
+  let orderMeta = new Map<string, { textbook_id: string | null }>();
+  if (sentenceIds.length > 0) {
+    try {
+      orderMeta = await fetchPassageOrderMeta(sentenceIds);
+    } catch (e) {
+      console.warn("[todayAttendees] orderMeta failed", e);
+    }
+  }
 
-  // 최신 워크플로만 (user 당 1)
   const latestWf = new Map<string, UnitWorkflowStatus>();
-  (
-    (wfData ?? []) as {
-      user_id: string;
-      status: UnitWorkflowStatus;
-    }[]
-  ).forEach((r) => {
+  wfData.forEach((r) => {
     if (!latestWf.has(r.user_id)) latestWf.set(r.user_id, r.status);
   });
 
@@ -189,7 +209,6 @@ export async function fetchAttendeeSummaries(
       (a) => !a.student_id || a.student_id === uid,
     );
 
-    // 시퀀스 그룹
     const groupMap = new Map<string, AssignRow[]>();
     mine.forEach((a) => {
       if (!a.sentence_id) return;
@@ -221,7 +240,6 @@ export async function fetchAttendeeSummaries(
       });
       const total = rows.length;
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-      // 전부 완료된 시퀀스는 대시보드에서 숨김
       if (done >= total && total > 0) continue;
       tracks.push({
         track,
@@ -233,7 +251,6 @@ export async function fetchAttendeeSummaries(
       });
     }
 
-    // 내신 먼저, 특별 나중
     tracks.sort((a, b) => {
       if (a.track === b.track) return 0;
       return a.track === "naeshin" ? -1 : 1;

@@ -33,7 +33,8 @@ interface Props {
   teacherAuthUserId: string | null;
   /** 어드민/분원장: 담당|전원 토글 표시 */
   canToggleScope: boolean;
-  date?: Date;
+  /** YYYY-MM-DD — 미지정 시 브라우저 오늘(안정 키, 렌더마다 new Date 금지) */
+  dateIso?: string;
 }
 
 const WF_CLASS: Record<string, string> = {
@@ -45,16 +46,30 @@ const WF_CLASS: Record<string, string> = {
   none: "bg-muted text-muted-foreground",
 };
 
+function localDateIso(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function TodayAttendeesPanel({
   students,
   teacherAuthUserId,
   canToggleScope,
-  date = new Date(),
+  dateIso: dateIsoProp,
 }: Props) {
+  const dateIso = dateIsoProp ?? localDateIso();
   const [scope, setScope] = useState<ScopeMode>("mine");
   const [summaries, setSummaries] = useState<AttendeeSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+
+  const date = useMemo(() => {
+    const [y, m, d] = dateIso.split("-").map(Number);
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
+  }, [dateIso]);
 
   const scopedStudents = useMemo(() => {
     let list = students;
@@ -68,12 +83,22 @@ export default function TodayAttendeesPanel({
     });
   }, [students, teacherAuthUserId, canToggleScope, scope, date]);
 
+  // 배열 참조 대신 id 목록으로 effect 트리거 — 부모 리렌더 루프 방지
+  const scopedIdsKey = useMemo(
+    () => scopedStudents.map((s) => s.user_id).join(","),
+    [scopedStudents],
+  );
+
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
     setLoading(true);
-    fetchAttendeeSummaries(scopedStudents)
-      .then((rows) => {
-        if (!mounted) return;
+    setError(null);
+
+    const list = scopedStudents;
+    void (async () => {
+      try {
+        const rows = await fetchAttendeeSummaries(list);
+        if (cancelled) return;
         rows.sort((a, b) => {
           const ca = a.profile.orbit_class_name ?? "";
           const cb = b.profile.orbit_class_name ?? "";
@@ -83,16 +108,27 @@ export default function TodayAttendeesPanel({
           return na.localeCompare(nb, "ko");
         });
         setSummaries(rows);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[TodayAttendeesPanel]", e);
+        setError(e instanceof Error ? e.message : String(e));
+        setSummaries([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
     return () => {
-      mounted = false;
+      cancelled = true;
     };
-  }, [scopedStudents, tick]);
+    // scopedStudents는 scopedIdsKey로 대리; list는 해당 렌더 스냅샷 사용
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedIdsKey, tick]);
 
   const weekdayLabel = date.toLocaleDateString("ko-KR", { weekday: "short" });
+  const countLabel = loading
+    ? scopedStudents.length
+    : summaries.length;
 
   return (
     <Card className="p-5 space-y-3">
@@ -101,7 +137,8 @@ export default function TodayAttendeesPanel({
           <Users className="size-4 text-primary shrink-0" />
           <h2 className="text-sm font-bold">오늘 등원자</h2>
           <span className="text-xs text-muted-foreground">
-            ({weekdayLabel}) · {summaries.length}명
+            ({weekdayLabel}) · {countLabel}명
+            {loading ? " · 불러오는 중" : ""}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -150,9 +187,22 @@ export default function TodayAttendeesPanel({
         에서 처리하세요.
       </p>
 
-      {loading ? (
+      {error && (
+        <div className="text-xs text-destructive py-2">
+          진도 요약 로드 실패: {error}
+          <Button
+            variant="link"
+            className="h-auto p-0 ml-2 text-xs"
+            onClick={() => setTick((t) => t + 1)}
+          >
+            다시 시도
+          </Button>
+        </div>
+      )}
+
+      {loading && summaries.length === 0 ? (
         <div className="text-xs text-muted-foreground py-6 text-center">불러오는 중…</div>
-      ) : summaries.length === 0 ? (
+      ) : !loading && summaries.length === 0 ? (
         <div className="text-xs text-muted-foreground py-6 text-center space-y-1">
           <div>오늘 등원으로 표시된 학생이 없습니다.</div>
           <div className="text-[10px]">
@@ -160,7 +210,7 @@ export default function TodayAttendeesPanel({
           </div>
         </div>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className={cn("divide-y divide-border", loading && "opacity-60")}>
           {summaries.map((row) => {
             const name = row.profile.display_name ?? row.profile.student_no;
             const days = parseOrbitDays(row.profile.orbit_class_days ?? null);
