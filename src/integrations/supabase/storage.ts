@@ -38,6 +38,8 @@ export interface SentenceProgressRow {
   mem_scramble_done?: boolean;
   mem_cloze_done?: boolean;
   mem_dictation_done?: boolean;
+  mem_interpret_done?: boolean;
+  mem_translate_done?: boolean;
   mem_speech_done?: boolean;
   mem_record_done?: boolean;
   mem_ko_to_en_done?: boolean;
@@ -46,6 +48,8 @@ export interface SentenceProgressRow {
   mem_passed_at?: string | null;
   mem_attempt_count?: number;
   mem_dictation_score?: number | null;
+  mem_interpret_score?: number | null;
+  mem_translate_score?: number | null;
 }
 
 
@@ -111,13 +115,17 @@ export const upsertSentenceProgress = async (
     "mem_scramble_done" in rest ||
     "mem_cloze_done" in rest ||
     "mem_dictation_done" in rest ||
+    "mem_interpret_done" in rest ||
+    "mem_translate_done" in rest ||
     "mem_speech_done" in rest ||
     "mem_record_done" in rest ||
     "mem_ko_to_en_done" in rest ||
     "mem_en_to_ko_done" in rest ||
     "mem_passed_at" in rest ||
     "mem_attempt_count" in rest ||
-    "mem_dictation_score" in rest;
+    "mem_dictation_score" in rest ||
+    "mem_interpret_score" in rest ||
+    "mem_translate_score" in rest;
 
   if (existingRow?.id) {
     const update: Record<string, unknown> = { ...rest };
@@ -149,6 +157,8 @@ export const upsertSentenceProgress = async (
     mem_scramble_done: false,
     mem_cloze_done: false,
     mem_dictation_done: false,
+    mem_interpret_done: false,
+    mem_translate_done: false,
     mem_speech_done: false,
     mem_record_done: false,
     mem_ko_to_en_done: false,
@@ -157,6 +167,8 @@ export const upsertSentenceProgress = async (
     mem_passed_at: null,
     mem_attempt_count: 0,
     mem_dictation_score: null,
+    mem_interpret_score: null,
+    mem_translate_score: null,
     ...(assignmentId ? { assignment_id: assignmentId } : {}),
     ...rest,
   };
