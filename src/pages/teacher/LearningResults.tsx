@@ -1140,6 +1140,9 @@ const LearningResults = () => {
               · 학생 {groupedEntries.length}명
             </span>
           </h1>
+          <p className="w-full text-xs text-muted-foreground -mt-1">
+            학습완료 처리·핸드아웃(HO) 성적 입력은 이 페이지에서 진행합니다. 인쇄·자료열람 요청은 <Link to="/teacher/requests" className="text-primary hover:underline">요청확인</Link>으로.
+          </p>
           <div className="flex items-center gap-2">
             <label
               className={`text-xs flex items-center gap-1.5 px-2.5 h-9 rounded-md border cursor-pointer transition-colors ${
