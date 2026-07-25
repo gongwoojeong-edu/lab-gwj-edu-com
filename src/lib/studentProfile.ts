@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import type { LevelCode } from "@/lib/levels";
+import type { WeekdayCode } from "@/lib/attendanceDays";
+
 
 export interface StudentProfile {
   user_id: string;
