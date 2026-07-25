@@ -1069,7 +1069,6 @@ export type Database = {
           orbit_class_days: string[] | null
           orbit_class_id: string | null
           orbit_class_name: string | null
-          orbit_class_schedule: Record<string, string> | null
           orbit_enrollment_active: boolean
           points: number
           school_name: string | null
@@ -1106,7 +1105,6 @@ export type Database = {
           orbit_class_days?: string[] | null
           orbit_class_id?: string | null
           orbit_class_name?: string | null
-          orbit_class_schedule?: Record<string, string> | null
           orbit_enrollment_active?: boolean
           points?: number
           school_name?: string | null
@@ -1143,7 +1141,6 @@ export type Database = {
           orbit_class_days?: string[] | null
           orbit_class_id?: string | null
           orbit_class_name?: string | null
-          orbit_class_schedule?: Record<string, string> | null
           orbit_enrollment_active?: boolean
           points?: number
           school_name?: string | null
