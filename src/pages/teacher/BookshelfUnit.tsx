@@ -165,6 +165,8 @@ const BookshelfUnit = () => {
   const [unitTaskMode, setUnitTaskMode] = useState<TaskMode>(DEFAULT_TASK_MODE);
   const [unitMemDirection, setUnitMemDirection] = useState<MemDirectionSetting>("ko_to_en");
   const [unitRequireRecord, setUnitRequireRecord] = useState(false);
+  const [unitIncludeInterpret, setUnitIncludeInterpret] = useState(false);
+  const [unitIncludeTranslate, setUnitIncludeTranslate] = useState(false);
   const [unitDictationBlankRatio, setUnitDictationBlankRatio] = useState(0.6);
   const [unitDictationMinScore, setUnitDictationMinScore] = useState(0);
   const [savingUnitTask, setSavingUnitTask] = useState(false);
@@ -811,6 +813,12 @@ const BookshelfUnit = () => {
         );
         setUnitRequireRecord(
           !!(u as Unit & { mem_require_record?: boolean }).mem_require_record,
+        );
+        setUnitIncludeInterpret(
+          !!(u as Unit & { mem_include_interpret?: boolean }).mem_include_interpret,
+        );
+        setUnitIncludeTranslate(
+          !!(u as Unit & { mem_include_translate?: boolean }).mem_include_translate,
         );
         setUnitDictationBlankRatio(
           (u as Unit & { mem_dictation_blank_ratio?: number }).mem_dictation_blank_ratio ?? 0.6,
