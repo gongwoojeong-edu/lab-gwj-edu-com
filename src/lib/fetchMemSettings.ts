@@ -36,7 +36,7 @@ export async function fetchMemSettingsForSentence(
 
   let unitDirection: MemDirectionSetting = "ko_to_en";
   let requireRecord = false;
-  let dictationBlankRatio = 0.35;
+  let dictationBlankRatio = 0.6;
   let dictationMinScore = 0;
   if (unitId) {
     const { data: unitRow } = await supabase
