@@ -442,13 +442,7 @@ const StudentHome = () => {
           if (p.kind === "analysis") analysisPrintMap[p.sentence_id] = p;
           else printMap[p.sentence_id] = p;
         });
-        const reviewPairs = await Promise.all(
-          sentenceIds.map(async (sid) => [sid, await fetchOpenRequest(sid, 1)] as const),
-        );
-        const reviewMap: Record<string, AnalysisReviewRequest> = {};
-        reviewPairs.forEach(([sid, r]) => {
-          if (r) reviewMap[sid] = r;
-        });
+        const reviewMap = await fetchOpenRequestsForSentences(sentenceIds, 1);
 
         // Hand out 학습 완료 여부 (handout_results 행 존재)
         let handoutSet = new Set<string>();
