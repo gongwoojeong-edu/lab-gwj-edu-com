@@ -76,6 +76,7 @@ import {
 } from "@/lib/materialViewRequests";
 import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
 import { launchPrintHtml } from "@/lib/printLauncher";
+import { cleanupInboxBefore } from "@/lib/inboxCleanup";
 
 interface StudentInfo {
   user_id: string;
@@ -397,12 +398,39 @@ const RequestsInbox = () => {
     }
   };
 
+  const handleCleanupBeforeJuly = async () => {
+    const ok = window.confirm(
+      "2026년 7월 1일 이전 요청 내역을 모두 삭제할까요?\n" +
+        "(시험지·정답보기·자료열람·유닛인쇄 대기)\n" +
+        "이미 인쇄·학습완료된 유닛 진도는 유지됩니다. 되돌릴 수 없습니다.",
+    );
+    if (!ok) return;
+    setBusy((p) => ({ ...p, cleanup: true }));
+    try {
+      const r = await cleanupInboxBefore();
+      const total =
+        r.printRequests + r.reviewRequests + r.materialViews + r.unitPrintPending;
+      toast({
+        title: total > 0 ? `7월 이전 ${total}건 삭제` : "삭제할 7월 이전 내역이 없습니다",
+        description:
+          total > 0
+            ? `시험지 ${r.printRequests} · 정답보기 ${r.reviewRequests} · 자료열람 ${r.materialViews} · 유닛인쇄대기 ${r.unitPrintPending}`
+            : undefined,
+      });
+      await refresh();
+    } catch (e) {
+      toast({ title: "삭제 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setBusy((p) => ({ ...p, cleanup: false }));
+    }
+  };
+
   const items = tab === "pending" ? pendingItems : doneItems;
 
   return (
     <TeacherLayout>
       <div className="p-6 max-w-6xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Inbox className="size-6 text-primary" /> 요청확인
@@ -411,6 +439,20 @@ const RequestsInbox = () => {
               유닛 인쇄·자료열람·정답보기 요청을 한 곳에서 처리합니다.
             </p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive border-destructive/40 hover:bg-destructive/10"
+            disabled={!!busy.cleanup}
+            onClick={() => void handleCleanupBeforeJuly()}
+          >
+            {busy.cleanup ? (
+              <Loader2 className="size-3 mr-1 animate-spin" />
+            ) : (
+              <Trash2 className="size-3 mr-1" />
+            )}
+            7월 이전 삭제
+          </Button>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as "pending" | "done")}>
