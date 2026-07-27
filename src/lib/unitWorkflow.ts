@@ -64,6 +64,19 @@ export async function fetchPendingUnitPrintWorkflows(): Promise<UnitWorkflowRow[
   return (data ?? []) as unknown as UnitWorkflowRow[];
 }
 
+/** 요청확인 처리완료함: 최근 유닛 인쇄 처리 건 */
+export async function fetchRecentlyPrintedUnitWorkflows(
+  limit = 100,
+): Promise<UnitWorkflowRow[]> {
+  const { data, error } = await unitWorkflows()
+    .select("*")
+    .not("printed_at", "is", null)
+    .order("printed_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as unknown as UnitWorkflowRow[];
+}
+
 export async function fetchWorkbookSubmittedWorkflows(): Promise<UnitWorkflowRow[]> {
   const { data, error } = await unitWorkflows()
     .select("*")

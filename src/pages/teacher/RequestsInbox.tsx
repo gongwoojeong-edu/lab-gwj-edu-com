@@ -61,12 +61,14 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   fetchPendingUnitPrintWorkflows,
+  fetchRecentlyPrintedUnitWorkflows,
   markUnitPrinted,
   subscribeToUnitWorkflows,
   type UnitWorkflowRow,
 } from "@/lib/unitWorkflow";
 import {
   fetchPendingMaterialViewRequests,
+  fetchHandledMaterialViewRequests,
   approveMaterialViewRequest,
   rejectMaterialViewRequest,
   subscribeToMaterialViewRequests,
@@ -93,7 +95,9 @@ const RequestsInbox = () => {
   const [handledPrintRows, setHandledPrintRows] = useState<PrintRequest[]>([]);
   const [reviewRows, setReviewRows] = useState<AnalysisReviewRequest[]>([]);
   const [unitPrintRows, setUnitPrintRows] = useState<UnitWorkflowRow[]>([]);
+  const [handledUnitPrintRows, setHandledUnitPrintRows] = useState<UnitWorkflowRow[]>([]);
   const [materialViewRows, setMaterialViewRows] = useState<MaterialViewRequest[]>([]);
+  const [handledMaterialViewRows, setHandledMaterialViewRows] = useState<MaterialViewRequest[]>([]);
   const [unitLabels, setUnitLabels] = useState<Record<string, string>>({});
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
   const [masterMap, setMasterMap] = useState<Record<string, boolean>>({});
@@ -104,25 +108,31 @@ const RequestsInbox = () => {
   const refresh = async () => {
     setLoading(true);
     try {
-      const [pl, hp, rl, up, mv] = await Promise.all([
+      const [pl, hp, rl, up, hup, mv, hmv] = await Promise.all([
         fetchPendingPrintRequests(),
         fetchHandledPrintRequests(100),
         fetchInboxReviewRequests(),
         fetchPendingUnitPrintWorkflows(),
+        fetchRecentlyPrintedUnitWorkflows(100),
         fetchPendingMaterialViewRequests(),
+        fetchHandledMaterialViewRequests(100),
       ]);
       setPrintRows(pl);
       setHandledPrintRows(hp);
       setReviewRows(rl);
       setUnitPrintRows(up);
+      setHandledUnitPrintRows(hup);
       setMaterialViewRows(mv);
+      setHandledMaterialViewRows(hmv);
       const userIds = Array.from(
         new Set([
           ...pl.map((r) => r.user_id),
           ...hp.map((r) => r.user_id),
           ...rl.map((r) => r.user_id),
           ...up.map((r) => r.user_id),
+          ...hup.map((r) => r.user_id),
           ...mv.map((r) => r.user_id),
+          ...hmv.map((r) => r.user_id),
         ]),
       );
       if (userIds.length > 0) {
@@ -142,7 +152,12 @@ const RequestsInbox = () => {
         setStudents(map);
       }
       const unitIds = Array.from(
-        new Set([...up.map((r) => r.unit_id), ...mv.map((r) => r.unit_id)]),
+        new Set([
+          ...up.map((r) => r.unit_id),
+          ...hup.map((r) => r.unit_id),
+          ...mv.map((r) => r.unit_id),
+          ...hmv.map((r) => r.unit_id),
+        ]),
       );
       if (unitIds.length > 0) {
         const { data: units } = await supabase
@@ -227,10 +242,20 @@ const RequestsInbox = () => {
           created_at: r.responded_at ?? r.requested_at ?? r.created_at,
           row: r,
         })),
+      ...handledUnitPrintRows.map((r): InboxItem => ({
+        kind: "unit_print",
+        created_at: r.printed_at ?? r.print_requested_at ?? r.created_at,
+        row: r,
+      })),
+      ...handledMaterialViewRows.map((r): InboxItem => ({
+        kind: "material_view",
+        created_at: r.responded_at ?? r.requested_at,
+        row: r,
+      })),
     ];
     out.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     return out;
-  }, [handledPrintRows, reviewRows]);
+  }, [handledPrintRows, reviewRows, handledUnitPrintRows, handledMaterialViewRows]);
 
   const pendingCount = pendingItems.length;
   const doneCount = doneItems.length;
@@ -425,9 +450,10 @@ const RequestsInbox = () => {
               if (it.kind === "unit_print") {
                 const wf = it.row;
                 const busyKey = `unit:${wf.user_id}:${wf.unit_id}`;
+                const isDone = tab === "done";
                 return (
                   <Card
-                    key={`up-${wf.user_id}-${wf.unit_id}`}
+                    key={`up-${wf.user_id}-${wf.unit_id}-${wf.printed_at ?? "p"}`}
                     className="p-3 flex items-center gap-3 flex-wrap border-l-4 border-l-amber-500"
                   >
                     <Badge className="bg-amber-600 text-white font-bold">유닛 인쇄</Badge>
@@ -439,26 +465,36 @@ const RequestsInbox = () => {
                           {unitLabels[wf.unit_id] ?? wf.unit_id.slice(0, 8)}
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground">{time}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {time}
+                        {isDone && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px]">
+                            인쇄완료
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <Button
-                      size="sm"
-                      disabled={!!busy[busyKey]}
-                      onClick={() => triggerUnitPrint(wf)}
-                    >
-                      {busy[busyKey] ? (
-                        <Loader2 className="size-3 mr-1 animate-spin" />
-                      ) : (
-                        <Printer className="size-3 mr-1" />
-                      )}
-                      워크북 인쇄
-                    </Button>
+                    {!isDone && (
+                      <Button
+                        size="sm"
+                        disabled={!!busy[busyKey]}
+                        onClick={() => triggerUnitPrint(wf)}
+                      >
+                        {busy[busyKey] ? (
+                          <Loader2 className="size-3 mr-1 animate-spin" />
+                        ) : (
+                          <Printer className="size-3 mr-1" />
+                        )}
+                        워크북 인쇄
+                      </Button>
+                    )}
                   </Card>
                 );
               }
 
               if (it.kind === "material_view") {
                 const mv = it.row;
+                const isDone = tab === "done";
                 return (
                   <Card
                     key={`mv-${mv.id}`}
@@ -473,14 +509,25 @@ const RequestsInbox = () => {
                           {unitLabels[mv.unit_id] ?? mv.unit_id.slice(0, 8)}
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground">{time}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {time}
+                        {isDone && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px]">
+                            {mv.status === "approved" ? "승인됨" : "반려됨"}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <Button size="sm" onClick={() => handleMaterialApprove(mv.id)}>
-                      <CheckCircle2 className="size-3 mr-1" /> 승인
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleMaterialReject(mv.id)}>
-                      <XCircle className="size-3 mr-1" /> 반려
-                    </Button>
+                    {!isDone && (
+                      <>
+                        <Button size="sm" onClick={() => handleMaterialApprove(mv.id)}>
+                          <CheckCircle2 className="size-3 mr-1" /> 승인
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleMaterialReject(mv.id)}>
+                          <XCircle className="size-3 mr-1" /> 반려
+                        </Button>
+                      </>
+                    )}
                   </Card>
                 );
               }

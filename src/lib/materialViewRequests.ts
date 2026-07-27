@@ -42,6 +42,19 @@ export async function fetchPendingMaterialViewRequests(): Promise<MaterialViewRe
   return (data ?? []) as MaterialViewRequest[];
 }
 
+/** 요청확인 처리완료함: 승인·반려된 자료열람 */
+export async function fetchHandledMaterialViewRequests(
+  limit = 100,
+): Promise<MaterialViewRequest[]> {
+  const { data, error } = await materialViewRequests()
+    .select("*")
+    .in("status", ["approved", "rejected"])
+    .order("responded_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as MaterialViewRequest[];
+}
+
 /** 인쇄 완료 후 자료열람 요청 */
 export async function requestMaterialView(userId: string, unitId: string): Promise<MaterialViewRequest> {
   const wf = await fetchUnitWorkflow(userId, unitId);
