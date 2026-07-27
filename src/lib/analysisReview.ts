@@ -57,6 +57,30 @@ export const fetchOpenRequest = async (
   return (data as AnalysisReviewRequest) ?? null;
 };
 
+/** 배치 조회: 여러 지문에 대한 (pending|approved) 요청을 한 번의 쿼리로 가져온다. */
+export const fetchOpenRequestsForSentences = async (
+  sentenceIds: string[],
+  attemptNo: number,
+): Promise<Record<string, AnalysisReviewRequest>> => {
+  const out: Record<string, AnalysisReviewRequest> = {};
+  if (sentenceIds.length === 0) return out;
+  const userId = await getCurrentUserId();
+  if (!userId) return out;
+  const { data } = await supabase
+    .from("analysis_review_requests")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("attempt_no", attemptNo)
+    .in("sentence_id", sentenceIds)
+    .in("status", ["pending", "approved"])
+    .order("requested_at", { ascending: false });
+  ((data ?? []) as AnalysisReviewRequest[]).forEach((r) => {
+    // 최신순 정렬이므로 첫 항목만 보존
+    if (!out[r.sentence_id]) out[r.sentence_id] = r;
+  });
+  return out;
+};
+
 /** 학생: 정답 대조 요청 생성 */
 export const createReviewRequest = async (input: {
   sentence_id: string;
