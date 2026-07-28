@@ -142,6 +142,19 @@ export const markPrintRequestHandled = async (id: string): Promise<void> => {
     .eq("id", id);
 };
 
+/** 선생님: 처리완료 취소 → pending 으로 되돌리기 */
+export const unmarkPrintRequestHandled = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from("print_requests")
+    .update({
+      status: "pending",
+      handled_at: null,
+      handled_by: null,
+    })
+    .eq("id", id);
+  if (error) throw error;
+};
+
 /** 실시간 구독 (선생님 대시보드/사이드바 뱃지용) */
 export const subscribeToPrintRequests = (
   onChange: (event: "INSERT" | "UPDATE" | "DELETE", row: PrintRequest) => void,
