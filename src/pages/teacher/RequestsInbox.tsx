@@ -518,6 +518,31 @@ const RequestsInbox = () => {
                         </Button>
                       </div>
                     )}
+                    {isDone && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        disabled={!!busy[busyKey]}
+                        title="처리완료를 취소하고 대기 상태로 되돌립니다"
+                        onClick={async () => {
+                          if (!window.confirm("처리완료를 취소하고 대기로 되돌릴까요?")) return;
+                          setBusy((p) => ({ ...p, [busyKey]: true }));
+                          try {
+                            await unmarkUnitPrinted(wf.user_id, wf.unit_id);
+                            toast({ title: "대기로 되돌렸습니다" });
+                            setTab("pending");
+                            await refresh();
+                          } catch (e) {
+                            toast({ title: "취소 실패", description: errMsg(e), variant: "destructive" });
+                          } finally {
+                            setBusy((p) => ({ ...p, [busyKey]: false }));
+                          }
+                        }}
+                      >
+                        <XCircle className="size-3 mr-1" /> 취소
+                      </Button>
+                    )}
                   </Card>
                 );
               }
