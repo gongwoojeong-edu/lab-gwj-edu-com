@@ -806,19 +806,24 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         }
         unitCountForNotify = units.length;
       } else {
-        const unitPassages = form.selectedUnitId
-          ? passagesByUnit[form.selectedUnitId] ?? []
-          : [];
+        // 유닛 모드: 캐시가 비어 있어도 DB에서 지문을 가져와 전체 배정 (레이스로 1문장만 들어가는 사고 방지)
         const uid = form.selectedUnitId || null;
-        codePairs =
-          unitPassages.length > 0
-            ? unitPassages
-                .slice()
-                .sort((a, b) => a.passage_no - b.passage_no)
-                .map((p) => ({ code: p.code, unit_id: uid }))
-            : form.selectedPassageCode
-            ? [{ code: form.selectedPassageCode, unit_id: uid }]
-            : [];
+        if (!uid) {
+          throw new Error("유닛을 선택해주세요");
+        }
+        let unitPassages = passagesByUnit[uid] ?? [];
+        if (unitPassages.length === 0) {
+          unitPassages = await fetchPassagesByUnit(uid);
+          setPassagesByUnit((m) => ({ ...m, [uid]: unitPassages }));
+        }
+        if (unitPassages.length === 0) {
+          throw new Error("이 유닛에 배정할 지문이 없습니다");
+        }
+        codePairs = unitPassages
+          .slice()
+          .sort((a, b) => a.passage_no - b.passage_no)
+          .map((p) => ({ code: p.code, unit_id: uid }));
+        unitCountForNotify = 1;
       }
 
       if (codePairs.length === 0) {

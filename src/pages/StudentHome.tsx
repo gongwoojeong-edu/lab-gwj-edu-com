@@ -196,7 +196,8 @@ const StudentHome = () => {
       setRewards(rw);
 
       if (user) {
-        const [{ data: progressData }, { data: assignData }] = await Promise.all([
+        const [{ data: progressData }, { data: myAssignData }, { data: sharedAssignData }] =
+          await Promise.all([
           supabase
             .from("sentence_progress")
             .select("sentence_id, status, updated_at, passed_at")
@@ -206,11 +207,24 @@ const StudentHome = () => {
           supabase
             .from("assignments")
             .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode, round_no")
-            .or(`student_id.eq.${user.id},student_id.is.null`)
+            .eq("student_id", user.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("assignments")
+            .select("id, title, description, sentence_id, due_at, created_at, include_pre, include_analysis, include_translation, include_wordtest, task_mode, round_no")
+            .is("student_id", null)
             .order("created_at", { ascending: false })
-            .limit(200),
+            .limit(100),
         ]);
         const rows = (progressData ?? []) as { sentence_id: string; status: "pass" | "fail" | "hold" | "pending"; updated_at: string; passed_at: string | null }[];
+        // 본인 과제 우선 · 공용(student_id null)은 보조. limit(200) 혼합 조회 시 본인 과제가  Truncate 되던 문제 방지
+        const assignById = new Map<string, AssignmentRow>();
+        [...((myAssignData ?? []) as AssignmentRow[]), ...((sharedAssignData ?? []) as AssignmentRow[])].forEach(
+          (a) => {
+            if (!assignById.has(a.id)) assignById.set(a.id, a);
+          },
+        );
+        const allAssignments = Array.from(assignById.values());
 
         // 정적 SENTENCES에 없는 코드(textbook_passages 기반)는 DB에서 fallback 조회
         const missingIds = rows
@@ -248,7 +262,6 @@ const StudentHome = () => {
           .filter(Boolean) as RecentItem[];
 
         // 완료된 특별과제(해당 sentence가 PASS) 카드는 숨김
-        const allAssignments = (assignData ?? []) as AssignmentRow[];
         const assignSentenceIds = allAssignments
           .map((a) => a.sentence_id)
           .filter(Boolean) as string[];
@@ -399,11 +412,6 @@ const StudentHome = () => {
                 groupSize: sorted.length,
               }),
             } as AssignmentGroup;
-          })
-          // 진행 중이거나, 유닛 학습은 끝났지만 선생님 승인 전인 그룹 유지
-          .filter((g) => {
-            if (g.doneCount < g.totalCount) return true;
-            return !!g.unitId;
           })
           // 마감일 가까운 순 (무기한은 뒤)
           .sort((a, b) => compareAssignmentDue(a.due_at, b.due_at));
@@ -765,7 +773,8 @@ const StudentHome = () => {
     () =>
       assignmentGroups.filter((g) => {
         if (g.doneCount < g.totalCount) return true;
-        if (!g.unitId) return false;
+        // 배정 문장을 다 끝낸 뒤에도 유닛 워크플로(인쇄·HO)가 남으면 카드 유지
+        if (!g.unitId) return g.doneCount > 0; // unit 메타 없으면 완료 카드라도 잠시 유지
         const wf = unitWorkflows[g.unitId];
         return !wf || wf.status !== "completed";
       }),
