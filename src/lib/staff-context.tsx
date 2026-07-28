@@ -78,25 +78,9 @@ async function fetchStaffFromCache(): Promise<OrbitStaffRow[]> {
 }
 
 async function fetchStaff(): Promise<{ rows: OrbitStaffRow[]; source: "orbit" | "cache" }> {
-  try {
-    const rows = await fetchStaffFromOrbit();
-    return { rows, source: "orbit" };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (!/schema|orbit|does not exist/i.test(msg)) throw e;
-    const rows = await fetchStaffFromCache();
-    return { rows, source: "cache" };
-  }
-}
-
-async function fetchCampusesFromOrbit(): Promise<OrbitCampusRow[]> {
-  const { data, error } = await db
-    .schema("orbit")
-    .from("campuses")
-    .select("id, name")
-    .order("name");
-  if (error) throw error;
-  return (data ?? []) as unknown as OrbitCampusRow[];
+  // orbit 스키마는 PostgREST에 노출되지 않아 항상 406 → 캐시 테이블로 직행.
+  const rows = await fetchStaffFromCache();
+  return { rows, source: "cache" };
 }
 
 async function fetchCampusesFromCache(): Promise<OrbitCampusRow[]> {
@@ -109,14 +93,11 @@ async function fetchCampusesFromCache(): Promise<OrbitCampusRow[]> {
 }
 
 async function fetchCampuses(): Promise<OrbitCampusRow[]> {
-  try {
-    return await fetchCampusesFromOrbit();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (!/schema|orbit|does not exist/i.test(msg)) throw e;
-    return fetchCampusesFromCache();
-  }
+  // 위와 동일 — 캐시 테이블로 직행.
+  return fetchCampusesFromCache();
 }
+
+
 
 export function staffOptionLabel(
   s: Pick<OrbitStaffRow, "name" | "rank" | "campus_id">,

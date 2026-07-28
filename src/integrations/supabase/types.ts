@@ -1585,6 +1585,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      class_kpis_today: {
+        Args: never
+        Returns: {
+          active_today: number
+          avg_integrated_today: number
+          pass_sentences_today: number
+          total_students: number
+          weekly_active_students: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
