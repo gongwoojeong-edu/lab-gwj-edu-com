@@ -496,18 +496,20 @@ export const resolveNextAfterPass = async (
       }
     }
 
-    const nextRow =
+    const nextCandidates =
       currentIdx >= 0
-        ? groupRows.slice(currentIdx + 1).find(
+        ? groupRows.slice(currentIdx + 1).filter(
             (a) => a.sentence_id && !assignmentSentenceDone(a, getFlags(a)),
           )
-        : groupRows.find(
+        : groupRows.filter(
             (a) =>
               a.sentence_id &&
               a.sentence_id !== currentSentenceId &&
               !assignmentSentenceDone(a, getFlags(a)),
           );
-    if (nextRow?.sentence_id && nextRow.sentence_id !== currentSentenceId) {
+    // 한 문장 로드 실패 시 시퀀스 전체를 끝내지 않고 다음 미완료로 진행
+    for (const nextRow of nextCandidates) {
+      if (!nextRow.sentence_id || nextRow.sentence_id === currentSentenceId) continue;
       const sentence = await loadSentenceById(nextRow.sentence_id);
       if (sentence) {
         return {

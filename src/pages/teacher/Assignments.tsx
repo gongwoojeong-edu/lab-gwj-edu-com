@@ -89,6 +89,8 @@ import {
   type MemDirectionSetting,
 } from "@/lib/fetchMemSettings";
 import { toIsoDate } from "@/lib/handoutResults";
+import { summarizePassageCodeGaps } from "@/lib/passageCoverage";
+import { trailingCodeNumber } from "@/lib/bookshelfOrder";
 
 interface AssignmentGroup {
   key: string;
@@ -857,11 +859,18 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           (await fetchUnitsByTextbook(form.selectedTbId));
         const perUnit = await Promise.all(
           units.map(async (u) => {
-            const cached = passagesByUnit[u.id];
-            const list = cached ?? (await fetchPassagesByUnit(u.id));
+            // 캐시 무시 — 출제 직전 DB에서 전체 지문 재조회
+            const list = await fetchPassagesByUnit(u.id);
             return { unit: u, list };
           }),
         );
+        setPassagesByUnit((m) => {
+          const next = { ...m };
+          perUnit.forEach(({ unit, list }) => {
+            next[unit.id] = list;
+          });
+          return next;
+        });
         for (const { unit, list } of perUnit
           .slice()
           .sort((a, b) => a.unit.unit_no - b.unit.unit_no)) {
@@ -872,16 +881,13 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         }
         unitCountForNotify = units.length;
       } else {
-        // 유닛 모드: 캐시가 비어 있어도 DB에서 지문을 가져와 전체 배정 (레이스로 1문장만 들어가는 사고 방지)
+        // 유닛 모드: 출제 직전 항상 DB에서 전체 지문 재조회 (부분 캐시로 일부만 배정되는 사고 방지)
         const uid = form.selectedUnitId || null;
         if (!uid) {
           throw new Error("유닛을 선택해주세요");
         }
-        let unitPassages = passagesByUnit[uid] ?? [];
-        if (unitPassages.length === 0) {
-          unitPassages = await fetchPassagesByUnit(uid);
-          setPassagesByUnit((m) => ({ ...m, [uid]: unitPassages }));
-        }
+        const unitPassages = await fetchPassagesByUnit(uid);
+        setPassagesByUnit((m) => ({ ...m, [uid]: unitPassages }));
         if (unitPassages.length === 0) {
           throw new Error("이 유닛에 배정할 지문이 없습니다");
         }
@@ -890,6 +896,19 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           .sort((a, b) => a.passage_no - b.passage_no)
           .map((p) => ({ code: p.code, unit_id: uid }));
         unitCountForNotify = 1;
+
+        const nos = unitPassages
+          .map((p) => trailingCodeNumber(p.code) ?? p.passage_no)
+          .sort((a, b) => a - b);
+        const ok = window.confirm(
+          `유닛 지문 ${unitPassages.length}개를 배정합니다.\n` +
+            `번호: ${nos.join(", ")}\n\n` +
+            `이 목록에 빠진 번호가 있으면 취소 후 교재 지문을 확인하세요.`,
+        );
+        if (!ok) {
+          setSaving(false);
+          return;
+        }
       }
 
       if (codePairs.length === 0) {
@@ -1020,10 +1039,9 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       const teacherId = await getCurrentUserId();
       if (!teacherId) throw new Error("로그인이 필요합니다");
       let unitPassages = passagesByUnit[group.unit_id] ?? [];
-      if (unitPassages.length === 0) {
-        unitPassages = await fetchPassagesByUnit(group.unit_id);
-        setPassagesByUnit((m) => ({ ...m, [group.unit_id!]: unitPassages }));
-      }
+      // 보충도 출제 직전 DB 재조회로 누락 방지
+      unitPassages = await fetchPassagesByUnit(group.unit_id);
+      setPassagesByUnit((m) => ({ ...m, [group.unit_id!]: unitPassages }));
       const assigned = new Set(
         group.rows.map((r) => r.sentence_id).filter((c): c is string => !!c),
       );
@@ -1035,8 +1053,17 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         toast({ title: "이미 유닛 전체 지문이 배정되어 있습니다" });
         return;
       }
+      const gap = summarizePassageCodeGaps({
+        assignedCodes: Array.from(assigned),
+        unitCodes: unitPassages.map((p) => p.code),
+      });
       const ok = window.confirm(
-        `미배정 지문 ${missing.length}개를 같은 설정으로 보충 배정할까요?\n(현재 배정 ${assigned.size} / 유닛 ${unitPassages.length})`,
+        `미배정 지문 ${missing.length}개를 같은 설정으로 보충 배정할까요?\n` +
+          `(현재 배정 ${assigned.size} / 유닛 ${unitPassages.length})\n` +
+          (gap.label ? `${gap.label}\n` : "") +
+          `추가 번호: ${missing
+            .map((p) => trailingCodeNumber(p.code) ?? p.passage_no)
+            .join(", ")}`,
       );
       if (!ok) return;
 
@@ -1776,6 +1803,17 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     const unitTotal = g.unit_id ? (passagesByUnit[g.unit_id]?.length ?? 0) : 0;
     const assignedCount = g.totalCount;
     const coverageGap = unitTotal > 0 && assignedCount < unitTotal;
+    const unitCodes = g.unit_id
+      ? (passagesByUnit[g.unit_id] ?? []).map((p) => p.code)
+      : [];
+    const gapSummary = coverageGap
+      ? summarizePassageCodeGaps({
+          assignedCodes: g.rows
+            .map((r) => r.sentence_id)
+            .filter((c): c is string => !!c),
+          unitCodes,
+        })
+      : null;
     const track = classifyAssignmentTrack({
       title: g.title,
       groupSize: g.totalCount,
@@ -1846,9 +1884,16 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
                 <span>
                   유닛 미배정 지문 있음 · 배정 {assignedCount} / 유닛 전체 {unitTotal}
-                  {assignedCount <= 2 && unitTotal >= 5
-                    ? " (예: 나예솔 6과처럼 2지문만 들어간 경우 → 유닛 전체 재배정/보충)"
-                    : ""}
+                  {gapSummary?.label ? (
+                    <>
+                      <br />
+                      <span className="font-mono font-normal">{gapSummary.label}</span>
+                    </>
+                  ) : null}
+                  <br />
+                  <span className="font-normal">
+                    이어하기는 배정된 문장만 순서대로 갑니다. 빠진 번호는 학습에서 건너뛴 게 아니라 미배정입니다.
+                  </span>
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
@@ -2347,8 +2392,9 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 유닛 미배정 지문이 있는 과제가 있습니다
               </div>
               <p className="leading-relaxed">
-                예: 나예솔 6과처럼 배정이 2지문만 보이면 「나머지 지문 보충」으로 유닛 전체를 맞춘 뒤,
-                학생 홈 <b>학습 과제</b>에서 이어하기·지문 수가 맞는지 확인하세요.
+                학습결과의 「1→3→4→5→7」처럼 번호가 뛰어 보이면, 이어하기가 건너뛴 게 아니라
+                <b> 그 번호가 과제에 없습니다</b>. 배정분만 끝나면 홈으로 돌아갑니다.
+                과제 행의 「나머지 지문 보충」으로 빠진 번호를 채운 뒤, 학생 「학습 과제」에서 이어하기를 확인하세요.
               </p>
             </div>
           )}
