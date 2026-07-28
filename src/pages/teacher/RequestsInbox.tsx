@@ -64,6 +64,7 @@ import {
   fetchPendingUnitPrintWorkflows,
   fetchRecentlyPrintedUnitWorkflows,
   markUnitPrinted,
+  unmarkUnitPrinted,
   subscribeToUnitWorkflows,
   type UnitWorkflowRow,
 } from "@/lib/unitWorkflow";
