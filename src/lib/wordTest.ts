@@ -71,7 +71,15 @@ export const buildQuestions = (
   });
 };
 
-const normSpell = (s: string) => s.trim().replace(/\s+/g, "").toLowerCase();
+const normSpell = (s: string) =>
+  s
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[’‘‛`´]/g, "'")
+    .replace(/[“”„]/g, '"')
+    .replace(/[–—−]/g, "-")
+    .replace(/[.,~!?·…/()'"\-]/g, "")
+    .toLowerCase();
 
 export const isQuestionCorrect = (q: Question, given: string): boolean => {
   if (!given.trim()) return false;
