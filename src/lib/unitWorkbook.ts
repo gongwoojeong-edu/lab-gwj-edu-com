@@ -308,14 +308,14 @@ const buildSyntaxUnit = async (
     </div>
     <div class="lg-stamp">
       <div>출력: ${escapeHtml(stamp)}</div>
-      <div>구조도 · 지스트 · 영작 · 정독해석 · 재영작</div>
+      <div>구조도 · 지스트 · 영작 · 어법·어휘 · 재영작</div>
     </div>
   </div>
   <div class="lg-section-title">① 구조도</div>
   ${answerKey
     ? '<div class="lg-ans-grid-note">구조도 정답은 DB에 저장되지 않습니다 — 화면 분석으로 대조하세요.</div>'
     : '<div class="lg-grid"></div>'}
-  <div class="lg-section-title">② 지스트 (주제문장)</div>
+  <div class="lg-section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
   ${answerKey
     ? '<div class="lg-ans-grid-note" style="min-height:18mm">지스트 정답은 DB에 저장되지 않습니다.</div>'
     : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
@@ -327,17 +327,14 @@ const buildSyntaxUnit = async (
           .join("\n") || '(지문 없음)'
       }</div>`
     : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
-  <div class="lg-section-title">④ 정독해석</div>
+  <div class="lg-section-title">④ 주요 어법과 어휘 정리칸 (유의어/반의어)</div>
   ${answerKey
-    ? `<div class="lg-ans-fill">${
-        passages
-          .map((p, i) => {
-            const ko = (p.korean ?? "").trim();
-            return `${i + 1}. ${ko ? escapeHtml(ko) : "(DB에 모범해석 없음)"}`;
-          })
-          .join("\n") || '(지문 없음)'
-      }</div>`
-    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
+    ? '<div class="lg-ans-grid-note" style="min-height:22mm">어법·어휘 정답은 DB에 저장되지 않습니다 — 수업 중 판서로 대조하세요.</div>'
+    : `<div class="lg-write">
+        <div class="lg-line"></div>
+        <div class="lg-line"></div>
+        <div class="lg-line"></div>
+      </div>`}
   <div class="lg-section-title">⑤ 재영작</div>
   ${answerKey
     ? `<div class="lg-ans-fill">${
@@ -525,7 +522,7 @@ export interface BuildUnitWorkbookInput {
   paperSize?: "A4" | "B5";
   /** 단어 통합 인쇄에서 첫 페이지 외에는 학생 헤더/로고 숨김 (기본 true) */
   showStudentHeader?: boolean;
-  /** 답지 모드 — syntax_unit 뒷면을 정답(영작/정독해석/재영작)으로 채움 */
+  /** 답지 모드 — syntax_unit 뒷면을 정답(영작/재영작)으로 채움 */
   answerKey?: boolean;
 }
 

@@ -388,7 +388,7 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
   </div>
   <div class="uo-end-grid-cols" style="padding: 0 5mm 4mm;">
     <div>
-      <div class="section-title">② 지스트 (주제문장)</div>
+      <div class="section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
       <div class="uo-end-write">
         <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
         <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
@@ -974,7 +974,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     </div>
     <div class="meta" style="text-align:right">
       <div>출력: ${stamp}</div>
-      <div>구조도 · 지스트 · 영작 · 정독해석 · 재영작</div>
+      <div>구조도 · 지스트 · 영작 · 어법·어휘 · 재영작</div>
     </div>
   </div>
   <div class="section">
@@ -982,7 +982,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     <div class="cb-grid"></div>
   </div>
   <div class="section">
-    <div class="section-title">② 지스트 (주제문장)</div>
+    <div class="section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
     <div class="cb-write cb-write-wide">
       <div class="cb-line"></div><div class="cb-line"></div>
     </div>
@@ -994,9 +994,9 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     </div>
   </div>
   <div class="section">
-    <div class="section-title">④ 정독해석</div>
+    <div class="section-title">④ 주요 어법과 어휘 정리칸 (유의어/반의어)</div>
     <div class="cb-write cb-write-wide">
-      <div class="cb-line"></div><div class="cb-line"></div>
+      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
   <div class="section">

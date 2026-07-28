@@ -283,8 +283,8 @@ export const UnitWorkbookPreviewDialog = ({
                 )}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                앞면 ②는 모범 한글해석, 뒷면 ③영작 · ④정독해석 · ⑤재영작 칸을 정답으로 채워 인쇄합니다.
-                구조도/지스트는 DB에 정답이 없어 빈칸으로 유지됩니다.
+                앞면 ②는 모범 한글해석, 뒷면 ③영작 · ⑤재영작 칸을 정답으로 채워 인쇄합니다.
+                구조도/지스트/어법·어휘는 DB에 정답이 없어 빈칸으로 유지됩니다.
               </div>
             </div>
           </label>
