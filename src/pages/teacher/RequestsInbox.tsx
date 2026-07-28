@@ -475,18 +475,46 @@ const RequestsInbox = () => {
                       </div>
                     </div>
                     {!isDone && (
-                      <Button
-                        size="sm"
-                        disabled={!!busy[busyKey]}
-                        onClick={() => triggerUnitPrint(wf)}
-                      >
-                        {busy[busyKey] ? (
-                          <Loader2 className="size-3 mr-1 animate-spin" />
-                        ) : (
-                          <Printer className="size-3 mr-1" />
-                        )}
-                        워크북 인쇄
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          disabled={!!busy[busyKey]}
+                          onClick={() => triggerUnitPrint(wf)}
+                        >
+                          {busy[busyKey] ? (
+                            <Loader2 className="size-3 mr-1 animate-spin" />
+                          ) : (
+                            <Printer className="size-3 mr-1" />
+                          )}
+                          워크북 인쇄
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 text-xs"
+                          disabled={!!busy[busyKey]}
+                          title="인쇄창이 뜨지 않았거나 이미 인쇄한 경우 — 인쇄 없이 처리완료로 기록"
+                          onClick={async () => {
+                            const ok = window.confirm(
+                              "인쇄 없이 '처리완료'로 기록할까요?\n(인쇄창이 열리지 않았거나 이미 다른 방법으로 출력한 경우 사용)",
+                            );
+                            if (!ok) return;
+                            setBusy((p) => ({ ...p, [busyKey]: true }));
+                            try {
+                              await markUnitPrinted(wf.user_id, wf.unit_id);
+                              toast({ title: "처리완료로 기록했습니다" });
+                              setTab("done");
+                              await refresh();
+                            } catch (e) {
+                              toast({ title: "처리 실패", description: errMsg(e), variant: "destructive" });
+                            } finally {
+                              setBusy((p) => ({ ...p, [busyKey]: false }));
+                            }
+                          }}
+                        >
+                          <CheckCircle2 className="size-3 mr-1" /> 처리완료
+                        </Button>
+                      </div>
                     )}
                   </Card>
                 );
@@ -675,6 +703,30 @@ const RequestsInbox = () => {
                         <Printer className="size-3 mr-1" />
                         전체
                       </Button>
+                      {tab === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          title="인쇄창이 뜨지 않았거나 이미 인쇄한 경우 — 인쇄 없이 처리완료로 기록"
+                          onClick={async () => {
+                            const ok = window.confirm(
+                              "인쇄 없이 '처리완료'로 기록할까요?\n(인쇄창이 열리지 않았거나 이미 다른 방법으로 출력한 경우 사용)",
+                            );
+                            if (!ok) return;
+                            try {
+                              await markPrintRequestHandled(req.id);
+                              toast({ title: "처리완료로 기록했습니다" });
+                              setTab("done");
+                              await refresh();
+                            } catch (e) {
+                              toast({ title: "처리 실패", description: errMsg(e), variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <CheckCircle2 className="size-3 mr-1" /> 처리완료
+                        </Button>
+                      )}
                       {tab === "done" && (
                         <Button
                           size="sm"
