@@ -323,6 +323,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
   /** unit_id → textbook_id (보충 배정 프리필용) */
   const [unitToTb, setUnitToTb] = useState<Record<string, string>>({});
   const [toppingUpKey, setToppingUpKey] = useState<string | null>(null);
+  const [bulkToppingUp, setBulkToppingUp] = useState(false);
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -1021,15 +1022,84 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     void load();
   };
 
-  /** 유닛 미배정 지문만 같은 설정으로 보충 배정 */
+  /** 한 그룹의 미배정 지문만 기존 과제 설정으로 insert (확인창 없음) */
+  const topUpGroupRows = async (
+    group: AssignmentGroup,
+    teacherId: string,
+  ): Promise<{ added: number; unitTotal: number; assignedBefore: number } | null> => {
+    if (!group.unit_id || !group.student_id) return null;
+    const unitPassages = await fetchPassagesByUnit(group.unit_id);
+    setPassagesByUnit((m) => ({ ...m, [group.unit_id!]: unitPassages }));
+    const assigned = new Set(
+      group.rows.map((r) => r.sentence_id).filter((c): c is string => !!c),
+    );
+    const missing = unitPassages
+      .slice()
+      .sort((a, b) => a.passage_no - b.passage_no)
+      .filter((p) => !assigned.has(p.code));
+    if (missing.length === 0) {
+      return { added: 0, unitTotal: unitPassages.length, assignedBefore: assigned.size };
+    }
+
+    const head = group.rows[0];
+    const taskMode =
+      group.task_mode ??
+      deriveTaskModeFromSteps({
+        includePre: group.include_pre,
+        includeAnalysis: group.include_analysis,
+        includeTranslation: group.include_translation,
+        includeWordtest: group.include_wordtest,
+        includeMemorize: taskModeIncludesMemorize(group.task_mode),
+      });
+    const passageCodes = missing.map((p) => p.code);
+    const { planRoundsForNewAssignments, sealPreviousRounds } = await import(
+      "@/lib/roundArchive"
+    );
+    const pairs = passageCodes.map((code) => ({
+      student_id: group.student_id!,
+      sentence_id: code,
+    }));
+    const roundPlan = await planRoundsForNewAssignments(pairs);
+    await sealPreviousRounds(Array.from(roundPlan.values()));
+
+    const rowsToInsert = missing.map((p) => {
+      const plan = roundPlan.get(`${group.student_id}::${p.code}`);
+      return {
+        teacher_id: teacherId,
+        student_id: group.student_id,
+        title: group.title,
+        description: group.description,
+        sentence_id: p.code,
+        unit_id: group.unit_id,
+        task_mode: taskMode,
+        due_at: group.due_at,
+        include_pre: group.include_pre,
+        include_analysis: group.include_analysis,
+        include_translation: group.include_translation,
+        include_wordtest: group.include_wordtest,
+        mem_direction: head.mem_direction ?? null,
+        // 기존 과제에 붙이는 보충: 이미 있던 문장만 회독+1, 신규 문장은 1회독
+        round_no: plan?.next_round_no ?? group.round_no ?? 1,
+      };
+    });
+    const { error } = await supabase.from("assignments").insert(rowsToInsert as never);
+    if (error) throw error;
+    return {
+      added: missing.length,
+      unitTotal: unitPassages.length,
+      assignedBefore: assigned.size,
+    };
+  };
+
+  /** 유닛 미배정 지문만 같은 설정으로 기존 과제에 추가 */
   const handleTopUpGroup = async (group: AssignmentGroup) => {
     if (!group.unit_id) {
-      toast({ title: "유닛 정보가 없어 보충 배정할 수 없습니다", variant: "destructive" });
+      toast({ title: "유닛 정보가 없어 보충할 수 없습니다", variant: "destructive" });
       return;
     }
     if (!group.student_id) {
       toast({
-        title: "대상 학생이 지정된 과제만 보충 배정할 수 있습니다",
+        title: "대상 학생이 지정된 과제만 보충할 수 있습니다",
         variant: "destructive",
       });
       return;
@@ -1038,86 +1108,96 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     try {
       const teacherId = await getCurrentUserId();
       if (!teacherId) throw new Error("로그인이 필요합니다");
-      let unitPassages = passagesByUnit[group.unit_id] ?? [];
-      // 보충도 출제 직전 DB 재조회로 누락 방지
-      unitPassages = await fetchPassagesByUnit(group.unit_id);
+      const unitPassages = await fetchPassagesByUnit(group.unit_id);
       setPassagesByUnit((m) => ({ ...m, [group.unit_id!]: unitPassages }));
-      const assigned = new Set(
-        group.rows.map((r) => r.sentence_id).filter((c): c is string => !!c),
-      );
-      const missing = unitPassages
-        .slice()
-        .sort((a, b) => a.passage_no - b.passage_no)
-        .filter((p) => !assigned.has(p.code));
+      const assignedCodes = group.rows
+        .map((r) => r.sentence_id)
+        .filter((c): c is string => !!c);
+      const assigned = new Set(assignedCodes);
+      const missing = unitPassages.filter((p) => !assigned.has(p.code));
       if (missing.length === 0) {
         toast({ title: "이미 유닛 전체 지문이 배정되어 있습니다" });
         return;
       }
       const gap = summarizePassageCodeGaps({
-        assignedCodes: Array.from(assigned),
+        assignedCodes,
         unitCodes: unitPassages.map((p) => p.code),
       });
+      const student = studentName(group.student_id);
       const ok = window.confirm(
-        `미배정 지문 ${missing.length}개를 같은 설정으로 보충 배정할까요?\n` +
-          `(현재 배정 ${assigned.size} / 유닛 ${unitPassages.length})\n` +
+        `「${group.title}」(${student}) 기존 과제에 누락 지문을 추가합니다.\n\n` +
+          `현재 배정 ${assigned.size} → ${assigned.size + missing.length} / 유닛 ${unitPassages.length}\n` +
           (gap.label ? `${gap.label}\n` : "") +
-          `추가 번호: ${missing
+          `추가: ${missing
             .map((p) => trailingCodeNumber(p.code) ?? p.passage_no)
-            .join(", ")}`,
+            .join(", ")}\n\n` +
+          `이미 학습한 문장 진도는 그대로 둡니다.`,
       );
       if (!ok) return;
 
-      const head = group.rows[0];
-      const taskMode =
-        group.task_mode ??
-        deriveTaskModeFromSteps({
-          includePre: group.include_pre,
-          includeAnalysis: group.include_analysis,
-          includeTranslation: group.include_translation,
-          includeWordtest: group.include_wordtest,
-          includeMemorize: taskModeIncludesMemorize(group.task_mode),
-        });
-      const passageCodes = missing.map((p) => p.code);
-      const { planRoundsForNewAssignments, sealPreviousRounds } = await import(
-        "@/lib/roundArchive"
-      );
-      const pairs = passageCodes.map((code) => ({
-        student_id: group.student_id!,
-        sentence_id: code,
-      }));
-      const roundPlan = await planRoundsForNewAssignments(pairs);
-      await sealPreviousRounds(Array.from(roundPlan.values()));
-
-      const rowsToInsert = missing.map((p) => {
-        const plan = roundPlan.get(`${group.student_id}::${p.code}`);
-        return {
-          teacher_id: teacherId,
-          student_id: group.student_id,
-          title: group.title,
-          description: group.description,
-          sentence_id: p.code,
-          unit_id: group.unit_id,
-          task_mode: taskMode,
-          due_at: group.due_at,
-          include_pre: group.include_pre,
-          include_analysis: group.include_analysis,
-          include_translation: group.include_translation,
-          include_wordtest: group.include_wordtest,
-          mem_direction: head.mem_direction ?? null,
-          round_no: plan?.next_round_no ?? group.round_no ?? 1,
-        };
-      });
-      const { error } = await supabase.from("assignments").insert(rowsToInsert as never);
-      if (error) throw error;
+      const result = await topUpGroupRows(group, teacherId);
+      if (!result || result.added === 0) {
+        toast({ title: "추가할 누락 지문이 없습니다" });
+        return;
+      }
       toast({
-        title: "✅ 미배정 지문 보충 완료",
-        description: `${missing.length}개 추가 · 배정 ${assigned.size + missing.length}/${unitPassages.length}`,
+        title: "✅ 기존 과제에 누락 지문 추가됨",
+        description: `${result.added}개 추가 · 배정 ${result.assignedBefore + result.added}/${result.unitTotal}`,
       });
       void load();
     } catch (e) {
-      toast({ title: "보충 배정 실패", description: String(e), variant: "destructive" });
+      toast({ title: "누락 지문 추가 실패", description: String(e), variant: "destructive" });
     } finally {
       setToppingUpKey(null);
+    }
+  };
+
+  /** 지금 목록(필터)에 보이는 미배정 과제들을 한꺼번에 기존 과제에 보충 */
+  const handleBulkTopUpFiltered = async () => {
+    const candidates = filteredGroups.filter((g) => !!g.unit_id && !!g.student_id);
+    if (candidates.length === 0) {
+      toast({
+        title: "보충할 과제가 없습니다",
+        description: "학생·유닛이 있는 과제만 기존 과제에 누락을 붙일 수 있습니다.",
+      });
+      return;
+    }
+    const ok = window.confirm(
+      `지금 목록의 과제 ${candidates.length}건을 검사해, 유닛에서 빠진 지문만 기존 과제에 추가합니다.\n` +
+        `이미 학습한 문장 진도는 유지됩니다.\n\n계속할까요?`,
+    );
+    if (!ok) return;
+
+    setBulkToppingUp(true);
+    try {
+      const teacherId = await getCurrentUserId();
+      if (!teacherId) throw new Error("로그인이 필요합니다");
+      let groupOk = 0;
+      let addedSum = 0;
+      let skippedFull = 0;
+      for (const g of candidates) {
+        const result = await topUpGroupRows(g, teacherId);
+        if (!result) continue;
+        if (result.added > 0) {
+          groupOk += 1;
+          addedSum += result.added;
+        } else {
+          skippedFull += 1;
+        }
+      }
+      toast({
+        title: addedSum > 0 ? "✅ 누락 지문 일괄 추가 완료" : "추가할 누락이 없었습니다",
+        description:
+          addedSum > 0
+            ? `과제 ${groupOk}건 · 지문 ${addedSum}개 추가` +
+              (skippedFull > 0 ? ` · 이미 완전한 과제 ${skippedFull}건` : "")
+            : `검사 ${candidates.length}건 모두 유닛 전체가 배정되어 있습니다.`,
+      });
+      void load();
+    } catch (e) {
+      toast({ title: "일괄 추가 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBulkToppingUp(false);
     }
   };
 
@@ -1900,12 +1980,14 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
-                  className="h-6 text-[10px] px-2 border-amber-500/40 text-amber-800 dark:text-amber-300"
-                  disabled={toppingUpKey === g.key || !g.student_id}
+                  variant="default"
+                  className="h-7 text-[11px] px-2"
+                  disabled={toppingUpKey === g.key || !g.student_id || bulkToppingUp}
                   onClick={() => void handleTopUpGroup(g)}
                 >
-                  {toppingUpKey === g.key ? "배정 중…" : `나머지 ${unitTotal - assignedCount}지문 보충`}
+                  {toppingUpKey === g.key
+                    ? "추가 중…"
+                    : `기존 과제에 누락 ${unitTotal - assignedCount}개 추가`}
                 </Button>
                 <Button
                   type="button"
@@ -1915,7 +1997,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                   disabled={!g.student_id || !g.unit_id}
                   onClick={() => openTopUpPrefill(g)}
                 >
-                  출제 화면에서 유닛 재배정
+                  출제 화면으로
                 </Button>
               </div>
             </div>
@@ -2037,12 +2119,14 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="h-7 text-[11px] border-amber-500/40"
-                disabled={toppingUpKey === g.key || !g.student_id}
+                variant="default"
+                className="h-7 text-[11px]"
+                disabled={toppingUpKey === g.key || !g.student_id || bulkToppingUp}
                 onClick={() => void handleTopUpGroup(g)}
               >
-                {toppingUpKey === g.key ? "배정 중…" : `나머지 ${unitTotal - g.totalCount}지문 보충`}
+                {toppingUpKey === g.key
+                  ? "추가 중…"
+                  : `기존 과제에 누락 ${unitTotal - g.totalCount}개 추가`}
               </Button>
               <Button
                 type="button"
@@ -2052,7 +2136,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 disabled={!g.student_id || !g.unit_id}
                 onClick={() => openTopUpPrefill(g)}
               >
-                출제에서 유닛 재배정
+                출제 화면으로
               </Button>
             </div>
           )}
@@ -2358,6 +2442,17 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
               <Button
                 type="button"
                 size="sm"
+                variant="default"
+                className="h-8 text-xs"
+                disabled={bulkToppingUp}
+                onClick={() => void handleBulkTopUpFiltered()}
+              >
+                <Plus className="size-3.5 mr-1" />
+                {bulkToppingUp ? "추가 중…" : "기존 과제에 누락 지문 일괄 추가"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
                 variant="destructive"
                 className="h-8 text-xs"
                 onClick={() => {
@@ -2369,7 +2464,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 특정 학생만 남기고 삭제…
               </Button>
               <span className="text-[11px] text-muted-foreground">
-                예: 검색창에 「김성연 1과」 입력 → 김서윤·김나연만 선택 → 나머지 일괄 삭제
+                일괄 추가: 지금 목록(검색·필터)에 보이는 과제에, 유닛에서 빠진 지문만 붙입니다. 기존 진도 유지.
               </span>
             </div>
           )}
@@ -2386,16 +2481,26 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
             const unitTotal = g.unit_id ? (passagesByUnit[g.unit_id]?.length ?? 0) : 0;
             return unitTotal > 0 && g.totalCount < unitTotal;
           }) && (
-            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-200 space-y-1">
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-200 space-y-2">
               <div className="font-bold flex items-center gap-1.5">
                 <AlertTriangle className="size-3.5" />
                 유닛 미배정 지문이 있는 과제가 있습니다
               </div>
               <p className="leading-relaxed">
-                학습결과의 「1→3→4→5→7」처럼 번호가 뛰어 보이면, 이어하기가 건너뛴 게 아니라
-                <b> 그 번호가 과제에 없습니다</b>. 배정분만 끝나면 홈으로 돌아갑니다.
-                과제 행의 「나머지 지문 보충」으로 빠진 번호를 채운 뒤, 학생 「학습 과제」에서 이어하기를 확인하세요.
+                새로 출제하지 마세요. <b>기존 과제에 빠진 지문만 추가</b>하면 됩니다.
+                위쪽 「기존 과제에 누락 지문 일괄 추가」또는 각 행의 「누락 추가」를 누르면
+                같은 제목·마감·단계 설정으로 붙고, 이미 끝낸 문장 진도는 그대로입니다.
               </p>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={bulkToppingUp}
+                onClick={() => void handleBulkTopUpFiltered()}
+              >
+                <Plus className="size-3.5 mr-1" />
+                {bulkToppingUp ? "추가 중…" : "지금 목록에 누락 지문 일괄 추가"}
+              </Button>
             </div>
           )}
           {listView === "compact" ? (
