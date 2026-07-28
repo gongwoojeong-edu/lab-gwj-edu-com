@@ -83,10 +83,20 @@ async function fetchStaff(): Promise<{ rows: OrbitStaffRow[]; source: "orbit" | 
   return { rows, source: "cache" };
 }
 
+async function fetchCampusesFromCache(): Promise<OrbitCampusRow[]> {
+  const { data, error } = await db
+    .from("orbit_campus_cache")
+    .select("id, name")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as unknown as OrbitCampusRow[];
+}
+
 async function fetchCampuses(): Promise<OrbitCampusRow[]> {
   // 위와 동일 — 캐시 테이블로 직행.
   return fetchCampusesFromCache();
 }
+
 
 
 export function staffOptionLabel(
