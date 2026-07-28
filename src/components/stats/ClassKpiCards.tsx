@@ -1,28 +1,18 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Activity, CheckCircle2, TrendingUp, Users } from "lucide-react";
 import { fetchClassKpis, type ClassKpis } from "@/lib/learningStats";
 
 const ClassKpiCards = () => {
-  const [kpis, setKpis] = useState<ClassKpis | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    fetchClassKpis()
-      .then((k) => {
-        if (mounted) {
-          setKpis(k);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { data: kpis, isLoading: loading } = useQuery<ClassKpis>({
+    queryKey: ["class-kpis-today"],
+    queryFn: fetchClassKpis,
+    // 5분 캐시 — 대시보드 왕복/재마운트마다 무거운 집계를 다시 부르지 않도록
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
 
   const cards = [
     {
