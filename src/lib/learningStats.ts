@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import { WEIGHTS } from "@/lib/dailyTest";
+import { toIsoDate } from "@/lib/handoutResults";
 
 // ─────────────────────────────────────────────────────────────────
 // Types
