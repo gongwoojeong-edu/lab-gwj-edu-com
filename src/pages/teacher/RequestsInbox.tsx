@@ -628,31 +628,55 @@ const RequestsInbox = () => {
                         >
                           <FileText className="size-3 mr-1" /> PDF 열기
                         </Button>
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={async () => {
-                            try {
-                              await markPrintRequestHandled(req.id);
-                              toast({ title: "처리 완료" });
-                              await refresh();
-                            } catch (e) {
-                              toast({ title: "처리 실패", description: errMsg(e), variant: "destructive" });
-                            }
-                          }}
-                        >
-                          <CheckCircle2 className="size-3 mr-1" /> 인쇄 완료
-                        </Button>
-                        {tab === "done" && (
+                        {tab === "pending" && (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(it)}
-                            title="요청 기록 삭제"
+                            className="h-7 px-2 text-xs"
+                            onClick={async () => {
+                              try {
+                                await markPrintRequestHandled(req.id);
+                                toast({ title: "처리 완료" });
+                                setTab("done");
+                                await refresh();
+                              } catch (e) {
+                                toast({ title: "처리 실패", description: errMsg(e), variant: "destructive" });
+                              }
+                            }}
                           >
-                            <Trash2 className="size-3" />
+                            <CheckCircle2 className="size-3 mr-1" /> 인쇄 완료
                           </Button>
+                        )}
+                        {tab === "done" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              title="처리완료를 취소하고 대기 상태로 되돌립니다"
+                              onClick={async () => {
+                                if (!window.confirm("처리완료를 취소하고 대기로 되돌릴까요?")) return;
+                                try {
+                                  await unmarkPrintRequestHandled(req.id);
+                                  toast({ title: "대기로 되돌렸습니다" });
+                                  setTab("pending");
+                                  await refresh();
+                                } catch (e) {
+                                  toast({ title: "취소 실패", description: errMsg(e), variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <XCircle className="size-3 mr-1" /> 취소
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(it)}
+                              title="요청 기록 삭제"
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </Card>
