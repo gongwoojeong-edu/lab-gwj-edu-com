@@ -147,6 +147,24 @@ export async function markUnitPrinted(userId: string, unitId: string): Promise<U
   return data as unknown as UnitWorkflowRow;
 }
 
+/** 선생님: 유닛 인쇄 완료 취소 → print_pending 으로 되돌리기 */
+export async function unmarkUnitPrinted(userId: string, unitId: string): Promise<UnitWorkflowRow> {
+  const { data, error } = await unitWorkflows()
+    .update({
+      status: "print_pending",
+      printed_at: null,
+      printed_by: null,
+    })
+    .eq("user_id", userId)
+    .eq("unit_id", unitId)
+    .eq("status", "printed")
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("취소할 인쇄완료 기록이 없습니다.");
+  return data as unknown as UnitWorkflowRow;
+}
+
 /** 학생: 워크북 탐구 활동 완료 */
 export async function submitUnitWorkbook(userId: string, unitId: string): Promise<UnitWorkflowRow> {
   const prev = await fetchUnitWorkflow(userId, unitId);
