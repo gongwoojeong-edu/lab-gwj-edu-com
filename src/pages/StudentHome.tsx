@@ -81,7 +81,7 @@ import {
   comparePassageOrder,
   fetchPassageOrderMeta,
 } from "@/lib/assignmentSequence";
-import { classifyAssignmentTrack } from "@/lib/assignmentTrack";
+import { classifyAssignmentTrack, ASSIGNMENT_TRACK_LABEL } from "@/lib/assignmentTrack";
 
 interface RecentItem {
   sentence: Sentence;
@@ -880,7 +880,7 @@ const StudentHome = () => {
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground -mt-2">
-                내신 진도(여러 지문 시퀀스)와 특별과제가 여기에 보여요. 같은 과제 안에서는 순서대로만 이어가요.
+                유닛·과 제목이 있으면 <b>내신</b>, [재시험]·단독 보충은 <b>특별</b>로 표시돼요. 같은 과제 안에서는 순서대로만 이어가요.
               </p>
               <ul className="space-y-3">
                 {visibleAssignmentGroups.map((g) => {
@@ -904,7 +904,7 @@ const StudentHome = () => {
                                 : "bg-amber-500/15 text-amber-800 dark:text-amber-300",
                             )}
                           >
-                            {g.track === "naeshin" ? "내신" : "특별"}
+                            {ASSIGNMENT_TRACK_LABEL[g.track]}
                           </span>
                           <span className="text-sm font-bold truncate">{g.title}</span>
                           {g.round_no != null && g.round_no > 1 && (

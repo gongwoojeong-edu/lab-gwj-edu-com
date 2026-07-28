@@ -7,9 +7,11 @@ import {
   fetchPassageOrderMeta,
 } from "@/lib/assignmentSequence";
 import {
+  ASSIGNMENT_TRACK_LABEL,
   classifyAssignmentTrack,
   type AssignmentTrack,
 } from "@/lib/assignmentTrack";
+import { allowsNullAssignmentFallback } from "@/lib/assignmentProgress";
 import type { StudentProfile } from "@/lib/studentProfile";
 import type { UnitWorkflowStatus } from "@/lib/unitWorkflow";
 import { LEVEL_LABEL } from "@/lib/levels";
@@ -51,6 +53,7 @@ type AssignRow = {
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
+  round_no?: number | null;
 };
 
 type ProgRow = {
@@ -106,7 +109,7 @@ export async function fetchAttendeeSummaries(
       supabase
         .from("assignments")
         .select(
-          "id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest",
+          "id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest, round_no",
         )
         .in("student_id", userIds)
         .not("sentence_id", "is", null)
@@ -115,7 +118,7 @@ export async function fetchAttendeeSummaries(
       supabase
         .from("assignments")
         .select(
-          "id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest",
+          "id, title, due_at, sentence_id, student_id, include_pre, include_analysis, include_translation, include_wordtest, round_no",
         )
         .is("student_id", null)
         .not("sentence_id", "is", null)
@@ -231,11 +234,14 @@ export async function fetchAttendeeSummaries(
       });
       let done = 0;
       rows.forEach((a) => {
-        const p =
-          progByUserAssign.get(`${uid}::${a.id}`) ??
-          (a.sentence_id
+        const scoped = progByUserAssign.get(`${uid}::${a.id}`);
+        const nullFb =
+          !scoped &&
+          allowsNullAssignmentFallback(a.round_no) &&
+          a.sentence_id
             ? progByUserNull.get(`${uid}::${a.sentence_id}`)
-            : undefined);
+            : undefined;
+        const p = scoped ?? nullFb;
         if (assignmentDone(a, p)) done += 1;
       });
       const total = rows.length;
@@ -243,7 +249,7 @@ export async function fetchAttendeeSummaries(
       if (done >= total && total > 0) continue;
       tracks.push({
         track,
-        label: track === "naeshin" ? "내신" : "특별과제",
+        label: ASSIGNMENT_TRACK_LABEL[track],
         detail: head.title,
         progressPct: pct,
         done,

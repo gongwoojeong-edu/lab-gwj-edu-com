@@ -39,6 +39,7 @@ interface AssignmentRow {
   include_analysis: boolean;
   include_translation: boolean;
   include_wordtest: boolean;
+  round_no?: number | null;
 }
 
 interface AssignmentGroup {
@@ -161,7 +162,10 @@ const AssignmentsPast = () => {
             .filter((r) => r.sentence_id)
             .map(async (r) => {
               const targets = r.student_id ? [r.student_id] : allIds;
-              const m = await fetchAssignmentProgress(r.sentence_id!, targets);
+              const m = await fetchAssignmentProgress(r.sentence_id!, targets, {
+                assignmentId: r.id,
+                roundNo: r.round_no ?? null,
+              });
               return [r.id, m] as const;
             }),
         );
