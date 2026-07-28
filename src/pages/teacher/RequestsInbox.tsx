@@ -36,6 +36,7 @@ import {
   fetchHandledPrintRequests,
   subscribeToPrintRequests,
   markPrintRequestHandled,
+  unmarkPrintRequestHandled,
   deletePrintRequest,
   type PrintRequest,
 } from "@/lib/printRequests";
