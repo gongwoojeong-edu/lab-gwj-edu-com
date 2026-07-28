@@ -63,11 +63,7 @@ const sentenceLevel = (sentenceId: string): string => {
 // Class-wide KPI
 // ─────────────────────────────────────────────────────────────────
 export async function fetchClassKpis(): Promise<ClassKpis> {
-  const today = toIsoDate(new Date());
-  const todayStart = `${today}T00:00:00`;
-  const todayEnd = `${today}T23:59:59.999`;
-
-  // 1) 카운터 4종은 서버 함수 한 번 호출로 처리 (수천 행 다운로드 제거)
+  // 서버 함수 한 번으로 카운터 + 평균 통합점수까지 처리 (대시보드 추가 다운로드 제거)
   const { data: kpiRow, error: kpiErr } = await (supabase as unknown as {
     rpc: (name: string) => Promise<{ data: any; error: any }>;
   }).rpc("class_kpis_today");
@@ -79,94 +75,9 @@ export async function fetchClassKpis(): Promise<ClassKpis> {
   const totalStudents = Number(row?.total_students ?? 0);
   const passSentencesToday = Number(row?.pass_sentences_today ?? 0);
   const weeklyActiveStudents = Number(row?.weekly_active_students ?? 0);
-
-  // 2) 통합점수는 오늘 활동한 학생만 대상으로 별도 계산.
-  //    활동자가 없으면 추가 요청조차 하지 않는다.
-  let avgIntegratedToday: number | null = null;
-  if (activeToday > 0) {
-    const [
-      { data: activeUsers },
-      { data: todaysHandouts },
-    ] = await Promise.all([
-      supabase
-        .from("sentence_attempt_logs")
-        .select("user_id")
-        .gte("completed_at", todayStart)
-        .lte("completed_at", todayEnd),
-      supabase
-        .from("handout_results")
-        .select("user_id, word_ho_score, syntax_ho_result")
-        .eq("test_date", today),
-    ]);
-
-    const activeTodaySet = new Set((activeUsers ?? []).map((r) => r.user_id));
-    const userIds = Array.from(activeTodaySet);
-    const onlineByUser = new Map<
-      string,
-      { analysisSum: number; analysisN: number; wordSum: number; wordN: number }
-    >();
-
-    if (userIds.length > 0) {
-      const [{ data: aRows }, { data: wRows }] = await Promise.all([
-        supabase
-          .from("sentence_attempt_logs")
-          .select("user_id, analysis_match_rate")
-          .in("user_id", userIds)
-          .gte("completed_at", todayStart)
-          .lte("completed_at", todayEnd),
-        supabase
-          .from("word_test_results")
-          .select("user_id, score")
-          .in("user_id", userIds)
-          .gte("taken_at", todayStart)
-          .lte("taken_at", todayEnd),
-      ]);
-      (aRows ?? []).forEach((r) => {
-        const u = r.user_id as string;
-        const v = Number(r.analysis_match_rate ?? 0) * 100;
-        const cur = onlineByUser.get(u) ?? { analysisSum: 0, analysisN: 0, wordSum: 0, wordN: 0 };
-        cur.analysisSum += v;
-        cur.analysisN += 1;
-        onlineByUser.set(u, cur);
-      });
-      (wRows ?? []).forEach((r) => {
-        const u = r.user_id as string;
-        const v = Number(r.score ?? 0) * 100;
-        const cur = onlineByUser.get(u) ?? { analysisSum: 0, analysisN: 0, wordSum: 0, wordN: 0 };
-        cur.wordSum += v;
-        cur.wordN += 1;
-        onlineByUser.set(u, cur);
-      });
-    }
-
-    const handoutByUser = new Map<string, { word: number | null; syntax: "PASS" | "FAIL" | null }>();
-    (todaysHandouts ?? []).forEach((r) => {
-      handoutByUser.set(r.user_id as string, {
-        word: r.word_ho_score == null ? null : Number(r.word_ho_score),
-        syntax: r.syntax_ho_result as "PASS" | "FAIL" | null,
-      });
-    });
-
-    const integratedScores: number[] = [];
-    const allUsers = new Set<string>([...activeTodaySet, ...handoutByUser.keys()]);
-    allUsers.forEach((u) => {
-      const o = onlineByUser.get(u);
-      const h = handoutByUser.get(u);
-      const parts: { v: number; w: number }[] = [];
-      if (o && o.analysisN > 0) parts.push({ v: o.analysisSum / o.analysisN, w: WEIGHTS.analysis });
-      if (o && o.wordN > 0) parts.push({ v: o.wordSum / o.wordN, w: WEIGHTS.wordTest });
-      if (h?.word != null) parts.push({ v: h.word, w: WEIGHTS.wordHo });
-      if (h?.syntax) parts.push({ v: h.syntax === "PASS" ? 100 : 0, w: WEIGHTS.syntaxHo });
-      if (parts.length === 0) return;
-      const totalW = parts.reduce((s, p) => s + p.w, 0);
-      const total = parts.reduce((s, p) => s + p.v * p.w, 0) / totalW;
-      integratedScores.push(total);
-    });
-    if (integratedScores.length > 0) {
-      avgIntegratedToday =
-        integratedScores.reduce((a, b) => a + b, 0) / integratedScores.length;
-    }
-  }
+  const avgIntegratedRaw = row?.avg_integrated_today;
+  const avgIntegratedToday =
+    avgIntegratedRaw == null ? null : Number(avgIntegratedRaw);
 
   return {
     activeToday,

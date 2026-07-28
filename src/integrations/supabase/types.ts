@@ -1589,6 +1589,7 @@ export type Database = {
         Args: never
         Returns: {
           active_today: number
+          avg_integrated_today: number
           pass_sentences_today: number
           total_students: number
           weekly_active_students: number
