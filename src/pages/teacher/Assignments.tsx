@@ -912,31 +912,141 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("assignments").delete().eq("id", id);
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
-      return;
+  /** .in() URL 한도 대비 청크 삭제. select로 실제 삭제 건수 확인(RLS로 0건이어도 성공처럼 보이던 문제 방지). */
+  const deleteAssignmentIds = async (ids: string[]) => {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return { deleted: 0 as number, deletedIds: [] as string[] };
+    const deletedIds: string[] = [];
+    for (let i = 0; i < unique.length; i += 200) {
+      const chunk = unique.slice(i, i + 200);
+      const { data, error } = await supabase
+        .from("assignments")
+        .delete()
+        .in("id", chunk)
+        .select("id");
+      if (error) throw error;
+      (data ?? []).forEach((row: { id: string }) => deletedIds.push(row.id));
     }
-    toast({ title: "🗑️ 과제 삭제됨" });
-    void load();
+    return { deleted: deletedIds.length, deletedIds };
   };
 
-  /** 그룹 전체(같은 유닛의 모든 지문 행)를 일괄 삭제 */
+  const handleDelete = async (id: string) => {
+    try {
+      const { deleted, deletedIds } = await deleteAssignmentIds([id]);
+      if (deleted === 0) {
+        toast({
+          title: "삭제되지 않음",
+          description: "권한(RLS) 또는 이미 없는 과제입니다. 새로고침 후 다시 확인하세요.",
+          variant: "destructive",
+        });
+        void load();
+        return;
+      }
+      setRows((prev) => prev.filter((r) => !deletedIds.includes(r.id)));
+      toast({ title: "🗑️ 과제 삭제됨" });
+      void load();
+    } catch (e) {
+      toast({
+        title: "삭제 실패",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  };
+
+  /**
+   * 그룹 삭제.
+   * 책전체 모드는 유닛마다 카드가 나뉘므로, 같은 title 카드가 여러 개면 전부 삭제할지 확인.
+   * (이전: 카드 1개(=한 유닛 지문만) 삭제 → 토스트는 성공인데 같은 제목 카드가 남아 "삭제가 안 됨"처럼 보임)
+   */
   const handleDeleteGroup = async (group: AssignmentGroup) => {
-    const ids = group.rows.map((r) => r.id);
-    if (ids.length === 0) return;
+    if (group.rows.length === 0) return;
+
+    const sameTitleGroups = activeGroups.filter((g) => g.title === group.title);
+    const deleteAllSameTitle = sameTitleGroups.length > 1;
+    const targetGroups = deleteAllSameTitle ? sameTitleGroups : [group];
+    const ids = targetGroups.flatMap((g) => g.rows.map((r) => r.id));
+
     const ok = window.confirm(
-      `이 유닛 과제(${group.totalCount}개 지문)를 모두 삭제할까요?`,
+      deleteAllSameTitle
+        ? `「${group.title}」과제가 유닛별로 ${sameTitleGroups.length}개 카드로 나뉘어 있습니다.\n` +
+            `총 ${ids.length}개 행을 모두 삭제할까요?\n\n` +
+            `※ 이 카드(${group.totalCount}개)만 지우면 다른 유닛 카드가 그대로 남습니다.`
+        : `이 유닛 과제(${group.totalCount}개 지문)를 모두 삭제할까요?`,
     );
     if (!ok) return;
-    const { error } = await supabase.from("assignments").delete().in("id", ids);
-    if (error) {
-      toast({ title: "삭제 실패", description: error.message, variant: "destructive" });
+
+    try {
+      const { deleted, deletedIds } = await deleteAssignmentIds(ids);
+      if (deleted === 0) {
+        toast({
+          title: "삭제되지 않음",
+          description: "DB에서 삭제된 행이 0건입니다. 로그인/권한을 확인하세요.",
+          variant: "destructive",
+        });
+        void load();
+        return;
+      }
+      const idSet = new Set(deletedIds);
+      setRows((prev) => prev.filter((r) => !idSet.has(r.id)));
+      toast({
+        title: `🗑️ ${deleted}개 과제 삭제됨`,
+        description:
+          deleteAllSameTitle && deleted < ids.length
+            ? `요청 ${ids.length}개 중 ${deleted}개만 삭제됨(권한/이미 삭제)`
+            : deleteAllSameTitle
+              ? `같은 제목 ${sameTitleGroups.length}개 카드 정리`
+              : undefined,
+      });
+      void load();
+    } catch (e) {
+      toast({
+        title: "삭제 실패",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  };
+
+  /** 현재 검색·필터에 보이는 과제 카드 전부 삭제 */
+  const handleDeleteFilteredList = async () => {
+    const ids = filteredGroups.flatMap((g) => g.rows.map((r) => r.id));
+    if (ids.length === 0) {
+      toast({ title: "삭제할 검색 결과가 없습니다", variant: "destructive" });
       return;
     }
-    toast({ title: `🗑️ ${ids.length}개 과제 삭제됨` });
-    void load();
+    const ok = window.confirm(
+      `지금 목록에 보이는 과제 ${filteredGroups.length}개 카드(총 ${ids.length}행)를 모두 삭제할까요?\n\n` +
+        (listQuery.trim()
+          ? `검색어: 「${listQuery.trim()}」\n`
+          : "검색어 없음(필터된 전체 목록)\n") +
+        "되돌릴 수 없습니다.",
+    );
+    if (!ok) return;
+    setBulkDeleting(true);
+    try {
+      const { deleted, deletedIds } = await deleteAssignmentIds(ids);
+      if (deleted === 0) {
+        toast({
+          title: "삭제되지 않음",
+          description: "DB에서 삭제된 행이 0건입니다.",
+          variant: "destructive",
+        });
+      } else {
+        const idSet = new Set(deletedIds);
+        setRows((prev) => prev.filter((r) => !idSet.has(r.id)));
+        toast({ title: `🗑️ ${deleted}개 과제 삭제됨` });
+      }
+      void load();
+    } catch (e) {
+      toast({
+        title: "일괄 삭제 실패",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   /**
@@ -1583,7 +1693,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         variant="ghost"
         className="h-7 px-2 text-destructive"
         onClick={() => handleDeleteGroup(g)}
-        title="삭제"
+        title="삭제 (같은 제목 카드가 여러 개면 전부 삭제)"
       >
         <Trash2 className="size-3.5" />
       </Button>
@@ -2041,6 +2151,17 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 size="sm"
                 variant="destructive"
                 className="h-8 text-xs"
+                disabled={bulkDeleting}
+                onClick={() => void handleDeleteFilteredList()}
+              >
+                <Trash2 className="size-3.5 mr-1" />
+                {bulkDeleting ? "삭제 중…" : "지금 목록 전부 삭제"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs border-destructive/40 text-destructive"
                 onClick={() => {
                   setKeepStudentIds([]);
                   setKeepOnlyOpen(true);
@@ -2050,7 +2171,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 특정 학생만 남기고 삭제…
               </Button>
               <span className="text-[11px] text-muted-foreground">
-                예: 검색창에 「김성연 1과」 입력 → 김서윤·김나연만 선택 → 나머지 일괄 삭제
+                예: 검색에 「김성연 2과」→「지금 목록 전부 삭제」(책전체는 유닛마다 카드가 나뉨)
               </span>
             </div>
           )}
