@@ -1071,7 +1071,9 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   }
   .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 2mm; }
   .cb-write-wide { gap: 9mm; padding-top: 2mm; padding-bottom: 0.5mm; }
+  .cb-write-large { gap: 10mm; padding-top: 2.5mm; padding-bottom: 1mm; }
   .cb-line { border-bottom: 0.5pt solid #000; height: 0; }
+
 </style>
 
 <div class="page cb-passage-page">
