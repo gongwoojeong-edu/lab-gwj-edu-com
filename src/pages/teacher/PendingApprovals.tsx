@@ -16,6 +16,7 @@ import {
 } from "@/lib/sentenceApprovals";
 import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDialog";
 import { toast } from "@/hooks/use-toast";
+import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Save, X } from "lucide-react";
@@ -76,13 +77,15 @@ const PendingApprovals = () => {
         fetchApprovalsByStatus(tab),
         fetchApprovalsByStatus(tab === "pending" ? "held" : "pending"),
       ]);
-      // update counters
+      // update counters + 사이드바/헤더 배지와 즉시 동기화
       if (tab === "pending") {
         setPendingCount(list.length);
         setHeldCount(otherList.length);
+        syncPendingApprovalsCount(list.length);
       } else {
         setHeldCount(list.length);
         setPendingCount(otherList.length);
+        syncPendingApprovalsCount(otherList.length);
       }
       if (list.length === 0) {
         setRows([]);
