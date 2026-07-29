@@ -786,23 +786,35 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           codePairs = [{ code: form.selectedPassageCode, unit_id: null }];
         }
       } else if (form.mode === "book") {
-        const units =
-          unitsByTb[form.selectedTbId] ??
-          (await fetchUnitsByTextbook(form.selectedTbId));
-        const perUnit = await Promise.all(
-          units.map(async (u) => {
-            const cached = passagesByUnit[u.id];
-            const list = cached ?? (await fetchPassagesByUnit(u.id));
-            return { unit: u, list };
-          }),
-        );
-        for (const { unit, list } of perUnit
-          .slice()
-          .sort((a, b) => a.unit.unit_no - b.unit.unit_no)) {
+        // 책 전체 모드: 캐시/상태에 의존하지 않고 DB에서 직접 조회 (레이스 방지)
+        const units = await fetchUnitsByTextbook(form.selectedTbId);
+        if (units.length === 0) {
+          throw new Error("이 책에 유닛이 없습니다. 책장에서 유닛을 먼저 등록해주세요.");
+        }
+        const unitIds = units.map((u) => u.id);
+        const { data: pRows, error: pErr } = await supabase
+          .from("textbook_passages")
+          .select("code, unit_id, passage_no")
+          .in("unit_id", unitIds)
+          .order("passage_no");
+        if (pErr) throw pErr;
+        const byUnit = new Map<string, Array<{ code: string; passage_no: number }>>();
+        (pRows ?? []).forEach((r: { code: string; unit_id: string | null; passage_no: number }) => {
+          if (!r.unit_id) return;
+          if (!byUnit.has(r.unit_id)) byUnit.set(r.unit_id, []);
+          byUnit.get(r.unit_id)!.push({ code: r.code, passage_no: r.passage_no });
+        });
+        for (const u of units.slice().sort((a, b) => a.unit_no - b.unit_no)) {
+          const list = byUnit.get(u.id) ?? [];
           list
             .slice()
             .sort((a, b) => a.passage_no - b.passage_no)
-            .forEach((p) => codePairs.push({ code: p.code, unit_id: unit.id }));
+            .forEach((p) => codePairs.push({ code: p.code, unit_id: u.id }));
+        }
+        if (codePairs.length === 0) {
+          throw new Error(
+            `이 책의 유닛에 지문이 없습니다 (유닛 ${units.length}개 확인). 책장에서 지문을 먼저 추가해주세요.`,
+          );
         }
         unitCountForNotify = units.length;
       } else {
