@@ -47,6 +47,8 @@ const userPassedAssignment = (
   if (!progress) return false;
   const p = progress.get(userId);
   if (!p) return false;
+  // 학생 홈과 동일: 선생님 승인(pass)이면 단계 플래그와 무관하게 완료
+  if (p.progressStatus === "pass") return true;
   const mode = resolveAssignmentMode(asg);
   const needsAnalysis = mode !== "memorize_only";
   const needsMem = taskModeIncludesMemorize(mode);

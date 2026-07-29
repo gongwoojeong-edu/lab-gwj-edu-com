@@ -13,9 +13,22 @@ export interface UserStepProgress {
   translation: StepResult;
   wordtest: StepResult;
   mem: StepResult;
+  /** sentence_progress.status — 선생님 승인(pass) 시 완료 단축 */
+  progressStatus?: string | null;
 }
 
 export type AssignmentProgressMap = Map<string, UserStepProgress>;
+
+export interface FetchAssignmentProgressOpts {
+  /** 회독 격리 키. 있으면 해당 assignment_id 행을 우선 */
+  assignmentId?: string | null;
+  /**
+   * 과제 round_no.
+   * null/≤1 이면 assignment_id IS NULL 레거시 진도를 fallback 허용 (학생 홈과 동일).
+   * ≥2 이면 sealed assignment_id 행만 사용.
+   */
+  roundNo?: number | null;
+}
 
 const empty = (): UserStepProgress => ({
   pre: { status: "missing", score: null },
@@ -23,15 +36,68 @@ const empty = (): UserStepProgress => ({
   translation: { status: "missing", score: null },
   wordtest: { status: "missing", score: null },
   mem: { status: "missing", score: null },
+  progressStatus: null,
 });
+
+/** 학생 홈과 동일: 1회독(또는 round 미지정)만 null assignment 진도 fallback */
+export const allowsNullAssignmentFallback = (
+  roundNo?: number | null,
+): boolean => roundNo == null || roundNo <= 1;
+
+type ScopedRow = { user_id: string | null; assignment_id?: string | null };
+
+/**
+ * 사용자별로 assignment_id 매칭 행을 고른다.
+ * - assignmentId가 있으면 그 행 우선
+ * - 없고 allowNull이면 assignment_id IS NULL
+ * - assignmentId 미지정 + allowNull → null만 (레거시 호출)
+ */
+function pickScopedRows<T extends ScopedRow>(
+  rows: T[],
+  targetUserIds: string[],
+  opts?: FetchAssignmentProgressOpts,
+): T[] {
+  const allowNull = allowsNullAssignmentFallback(opts?.roundNo);
+  const assignmentId = opts?.assignmentId ?? null;
+  const byUser = new Map<string, T[]>();
+  rows.forEach((row) => {
+    const uid = row.user_id;
+    if (!uid || !targetUserIds.includes(uid)) return;
+    const list = byUser.get(uid) ?? [];
+    list.push(row);
+    byUser.set(uid, list);
+  });
+
+  const out: T[] = [];
+  byUser.forEach((list) => {
+    if (assignmentId) {
+      const scoped = list.filter((r) => r.assignment_id === assignmentId);
+      if (scoped.length > 0) {
+        out.push(...scoped);
+        return;
+      }
+      if (allowNull) {
+        out.push(...list.filter((r) => r.assignment_id == null));
+      }
+      return;
+    }
+    // 레거시: assignmentId 미지정 → 현재 회독(null)만
+    out.push(...list.filter((r) => r.assignment_id == null));
+  });
+  return out;
+}
 
 /**
  * Fetch per-user progress on each assignment step for a sentence.
  * Returns Map<userId, UserStepProgress> covering exactly targetUserIds.
+ *
+ * 학생 홈과 같이 assignment_id를 존중한다.
+ * round_no ≤ 1(또는 null)일 때만 assignment_id IS NULL fallback.
  */
 export async function fetchAssignmentProgress(
   sentenceId: string,
   targetUserIds: string[],
+  opts?: FetchAssignmentProgressOpts,
 ): Promise<AssignmentProgressMap> {
   const map: AssignmentProgressMap = new Map();
   targetUserIds.forEach((id) => map.set(id, empty()));
@@ -47,9 +113,8 @@ export async function fetchAssignmentProgress(
       .order("taken_at", { ascending: false }),
     supabase
       .from("sentence_attempt_logs")
-      .select("user_id, analysis_passed, analysis_match_rate")
+      .select("user_id, assignment_id, analysis_passed, analysis_match_rate")
       .eq("sentence_id", sentenceId)
-      .is("assignment_id", null) // 현재 회독만
       .in("user_id", targetUserIds),
     supabase
       .from("sentence_translations")
@@ -64,13 +129,14 @@ export async function fetchAssignmentProgress(
     // sentence_progress: 즉시 저장된 부분 결과 (attempt log 생성 전이라도 활용)
     supabase
       .from("sentence_progress")
-      .select("user_id, pre_done, analysis_done, translation_done, word_test_done, analysis_match_rate, mem_passed_at, mem_listen_done")
+      .select(
+        "user_id, assignment_id, status, pre_done, analysis_done, translation_done, word_test_done, analysis_match_rate, mem_passed_at, mem_listen_done",
+      )
       .eq("sentence_id", sentenceId)
-      .is("assignment_id", null) // 현재 회독만
       .in("user_id", targetUserIds),
   ]);
 
-  // pre — latest row per user
+  // pre — latest row per user (pre는 assignment 스코프 없음)
   const seenPre = new Set<string>();
   ((preRes.data ?? []) as any[]).forEach((row) => {
     const uid = row.user_id as string | null;
@@ -87,9 +153,18 @@ export async function fetchAssignmentProgress(
     }
   });
 
-  // analysis — best PASS match rate per user; if no pass, best fail rate
+  // analysis — best PASS match rate per user within assignment scope
   const analysisBest = new Map<string, { passed: boolean; rate: number }>();
-  ((analysisRes.data ?? []) as any[]).forEach((row) => {
+  pickScopedRows(
+    (analysisRes.data ?? []) as Array<{
+      user_id: string | null;
+      assignment_id: string | null;
+      analysis_passed: boolean | null;
+      analysis_match_rate: number | null;
+    }>,
+    targetUserIds,
+    opts,
+  ).forEach((row) => {
     const uid = row.user_id as string | null;
     if (!uid) return;
     const passed = !!row.analysis_passed;
@@ -114,11 +189,27 @@ export async function fetchAssignmentProgress(
   });
 
   // sentence_progress fallback — attempt log이 아직 없어도 즉시 저장된 부분 결과를 활용
-  ((progressRes.data ?? []) as any[]).forEach((row) => {
+  pickScopedRows(
+    (progressRes.data ?? []) as Array<{
+      user_id: string | null;
+      assignment_id: string | null;
+      status: string | null;
+      pre_done: boolean | null;
+      analysis_done: boolean | null;
+      translation_done: boolean | null;
+      word_test_done: boolean | null;
+      analysis_match_rate: number | null;
+      mem_passed_at: string | null;
+      mem_listen_done: boolean | null;
+    }>,
+    targetUserIds,
+    opts,
+  ).forEach((row) => {
     const uid = row.user_id as string | null;
     if (!uid) return;
     const cur = map.get(uid);
     if (!cur) return;
+    if (row.status) cur.progressStatus = row.status;
     // 분석: attempt log가 없어 missing이면 sentence_progress의 즉시 저장 점수로 대체
     if (row.analysis_done && cur.analysis.status !== "pass") {
       const rate = row.analysis_match_rate != null ? Number(row.analysis_match_rate) : null;
@@ -144,7 +235,7 @@ export async function fetchAssignmentProgress(
     }
   });
 
-  // translation — existence
+  // translation — existence (assignment 스코프 컬럼 없음)
   const seenT = new Set<string>();
   ((translationRes.data ?? []) as any[]).forEach((row) => {
     const uid = row.user_id as string | null;

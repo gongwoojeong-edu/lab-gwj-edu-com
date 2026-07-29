@@ -38,7 +38,7 @@ import {
   BookOpen,
   ChevronDown,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { ensureHandoutRow, toIsoDate, type HandoutResult } from "@/lib/handoutResults";
@@ -88,7 +88,12 @@ const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 
 const LearningResults = () => {
-  const [date, setDate] = useState<string>(toIsoDate(new Date()));
+  const [searchParams] = useSearchParams();
+  const [date, setDate] = useState<string>(() => {
+    const d = searchParams.get("date");
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : toIsoDate(new Date());
+  });
+  const focusStudentId = searchParams.get("student");
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
   // key: `${user_id}::${sentence_id}` → HandoutResult (문장별 분리)
@@ -660,32 +665,51 @@ const LearningResults = () => {
     refresh();
   }, [date]);
 
-  const groupedEntries = useMemo(
-    () =>
-      Object.entries(studentSentences)
-        // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
-        .filter(([uid]) => students[uid])
-        .sort(([a, sa], [b, sb]) => {
-          // 최신순: 학생별 최근 제출일시 desc
-          const latest = (uid: string, sids: string[]) => {
-            let mx = "";
-            for (const sid of sids) {
-              const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
-              if (t > mx) mx = t;
-            }
-            return mx;
-          };
-          const ta = latest(a, sa);
-          const tb = latest(b, sb);
-          if (ta !== tb) return tb.localeCompare(ta);
-          const na = students[a]?.display_name ?? "";
-          const nb = students[b]?.display_name ?? "";
-          return na.localeCompare(nb, "ko", { sensitivity: "base" });
-        }),
-    [studentSentences, students, pairSubmitAt],
-  );
+  const groupedEntries = useMemo(() => {
+    const entries = Object.entries(studentSentences)
+      // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
+      .filter(([uid]) => students[uid])
+      .sort(([a, sa], [b, sb]) => {
+        // 딥링크 대상 학생을 맨 위
+        if (focusStudentId) {
+          if (a === focusStudentId && b !== focusStudentId) return -1;
+          if (b === focusStudentId && a !== focusStudentId) return 1;
+        }
+        // 최신순: 학생별 최근 제출일시 desc
+        const latest = (uid: string, sids: string[]) => {
+          let mx = "";
+          for (const sid of sids) {
+            const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
+            if (t > mx) mx = t;
+          }
+          return mx;
+        };
+        const ta = latest(a, sa);
+        const tb = latest(b, sb);
+        if (ta !== tb) return tb.localeCompare(ta);
+        const na = students[a]?.display_name ?? "";
+        const nb = students[b]?.display_name ?? "";
+        return na.localeCompare(nb, "ko", { sensitivity: "base" });
+      });
+    return entries;
+  }, [studentSentences, students, pairSubmitAt, focusStudentId]);
+
+  const focusStudentName = focusStudentId
+    ? (students[focusStudentId]?.display_name ?? students[focusStudentId]?.student_no ?? null)
+    : null;
 
 
+
+  useEffect(() => {
+    const d = searchParams.get("date");
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== date) setDate(d);
+  }, [searchParams]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!focusStudentId || loading) return;
+    const el = document.getElementById(`student-${focusStudentId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focusStudentId, loading, groupedEntries.length]);
 
   // ===== 액션 =====
   const handleOpenPdf = (userId: string, sentenceId: string) => {
@@ -1197,14 +1221,42 @@ const LearningResults = () => {
         ) : groupedEntries.length === 0 ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">
             해당 날짜에 학습 활동이 없습니다.
+            {focusStudentId && (
+              <p className="mt-2 text-xs">
+                과제함에서 연 학생 필터가 있습니다. 날짜를 바꿔 보거나{" "}
+                <Link to="/teacher/assignments/box" className="text-primary hover:underline">
+                  과제함
+                </Link>
+                으로 돌아가 주세요.
+              </p>
+            )}
           </Card>
         ) : (
           <div className="space-y-3">
+            {focusStudentId && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs flex items-center justify-between gap-2 flex-wrap">
+                <span>
+                  과제함에서 연 학생
+                  {focusStudentName ? (
+                    <b className="mx-1">{focusStudentName}</b>
+                  ) : (
+                    " "
+                  )}
+                  을 위에 표시합니다.
+                </span>
+                <Button asChild size="sm" variant="ghost" className="h-7 text-[11px]">
+                  <Link to={`/teacher/assignments/box?student=${encodeURIComponent(focusStudentId)}&view=byStudent`}>
+                    과제함으로
+                  </Link>
+                </Button>
+              </div>
+            )}
             {groupedEntries.map(([userId, sentenceIds]) => {
               const s = students[userId];
+              const isFocused = focusStudentId === userId;
               return (
-                <div key={userId}>
-                <Card className="p-4 space-y-3">
+                <div key={userId} id={isFocused ? `student-${userId}` : undefined}>
+                <Card className={`p-4 space-y-3 ${isFocused ? "ring-2 ring-primary/40" : ""}`}>
 
                   {/* 학생 헤더 */}
                   <div className="flex items-center gap-2 flex-wrap">

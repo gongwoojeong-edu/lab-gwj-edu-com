@@ -35,9 +35,11 @@ import {
   Rows3,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,6 +68,10 @@ import {
   type AssignmentProgressMap,
 } from "@/lib/assignmentProgress";
 import { isAssignmentDone } from "@/lib/assignmentCompletion";
+import {
+  ASSIGNMENT_TRACK_LABEL,
+  classifyAssignmentTrack,
+} from "@/lib/assignmentTrack";
 import { fetchMasterAvailability } from "@/lib/masterAvailability";
 import {
   deriveTaskModeFromSteps,
@@ -82,6 +88,9 @@ import {
   MEM_DIRECTION_SETTING_LABEL,
   type MemDirectionSetting,
 } from "@/lib/fetchMemSettings";
+import { toIsoDate } from "@/lib/handoutResults";
+import { summarizePassageCodeGaps } from "@/lib/passageCoverage";
+import { trailingCodeNumber } from "@/lib/bookshelfOrder";
 
 interface AssignmentGroup {
   key: string;
@@ -295,6 +304,8 @@ interface AssignmentsProps {
 const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
   const showCreate = viewMode === "create";
   const showBox = viewMode === "box";
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { display: levelDisplay } = useLevelLabels();
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
@@ -309,6 +320,10 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
   const [progressByAsg, setProgressByAsg] = useState<Record<string, AssignmentProgressMap>>({});
   /** sentence_id(=passage code) → unit_id 매핑 (그룹핑·라벨용) */
   const [codeToUnit, setCodeToUnit] = useState<Record<string, string>>({});
+  /** unit_id → textbook_id (보충 배정 프리필용) */
+  const [unitToTb, setUnitToTb] = useState<Record<string, string>>({});
+  const [toppingUpKey, setToppingUpKey] = useState<string | null>(null);
+  const [bulkToppingUp, setBulkToppingUp] = useState(false);
 
   const studentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -362,14 +377,15 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     form.title,
   ]);
 
-  // 진행중 목록: 검색·필터·보기 모드
+  // 진행중 목록: 검색·필터·보기 모드 (과제함 기본 = 학생별 운영 뷰)
   const [listQuery, setListQuery] = useState("");
   const [filterStudentId, setFilterStudentId] = useState<string>("all");
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>("all");
-  const [listView, setListView] = useState<ListViewMode>("cards");
+  const [listView, setListView] = useState<ListViewMode>("byStudent");
   const [keepOnlyOpen, setKeepOnlyOpen] = useState(false);
   const [keepStudentIds, setKeepStudentIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [prefillApplied, setPrefillApplied] = useState(false);
 
   // Edit dialog
   const [editingRow, setEditingRow] = useState<AssignmentRow | null>(null);
@@ -397,6 +413,49 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
   useEffect(() => {
     void load();
   }, [showBox]);
+
+  // 과제함 URL: ?student= 로 학생 필터 프리셋
+  useEffect(() => {
+    if (!showBox) return;
+    const sid = searchParams.get("student");
+    if (sid) setFilterStudentId(sid);
+    const view = searchParams.get("view");
+    if (view === "compact" || view === "cards" || view === "byStudent") {
+      setListView(view);
+    }
+  }, [showBox, searchParams]);
+
+  // 출제 URL: 유닛 미배정 보충용 프리필 (?student=&unit=&tb=&level=&mode=unit)
+  useEffect(() => {
+    if (!showCreate || prefillApplied) return;
+    const student = searchParams.get("student");
+    const unit = searchParams.get("unit");
+    const tb = searchParams.get("tb");
+    const level = searchParams.get("level") as LevelCode | null;
+    const mode = (searchParams.get("mode") as AssignMode | null) ?? "unit";
+    if (!student && !unit && !tb) return;
+    setPrefillApplied(true);
+    setCreateOpen(true);
+    setForm((p) => ({
+      ...p,
+      mode: mode === "sentence" || mode === "book" || mode === "unit" ? mode : "unit",
+      studentIds: student ? [student] : p.studentIds,
+      selectedLevel: level && LEVELS.some((l) => l.code === level) ? level : p.selectedLevel,
+      selectedTbId: tb ?? p.selectedTbId,
+      selectedUnitId: unit ?? p.selectedUnitId,
+      selectedPassageCode: "",
+    }));
+    if (level) void ensureSeries(level);
+    if (tb) {
+      void ensureUnits(tb);
+      const found = textbooks.find((t) => t.id === tb);
+      if (found?.series_id) {
+        setForm((p) => ({ ...p, selectedSeriesId: found.series_id }));
+        void ensureTextbooks(found.series_id);
+      }
+    }
+    if (unit) void ensurePassages(unit);
+  }, [showCreate, searchParams, prefillApplied, textbooks]); // eslint-disable-line
 
   // ───── 캐스케이딩 로더들 ─────
   const ensureSeries = async (level: LevelCode | "") => {
@@ -517,6 +576,13 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         rows2.forEach((r) => { if (r.unit_id) next[r.code] = r.unit_id; });
         return next;
       });
+      setUnitToTb((prev) => {
+        const next = { ...prev };
+        rows2.forEach((r) => {
+          if (r.unit_id && r.textbook_id) next[r.unit_id] = r.textbook_id;
+        });
+        return next;
+      });
       const unitIds = Array.from(new Set(rows2.map((d) => d.unit_id)));
       const tbIds = Array.from(new Set(rows2.map((d) => d.textbook_id)));
       for (const tbId of tbIds) {
@@ -549,7 +615,10 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           .filter((r) => r.sentence_id)
           .map(async (r) => {
             const targets = r.student_id ? [r.student_id] : allIds;
-            const m = await fetchAssignmentProgress(r.sentence_id!, targets);
+            const m = await fetchAssignmentProgress(r.sentence_id!, targets, {
+              assignmentId: r.id,
+              roundNo: r.round_no ?? null,
+            });
             return [r.id, m] as const;
           }),
       );
@@ -791,11 +860,18 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           (await fetchUnitsByTextbook(form.selectedTbId));
         const perUnit = await Promise.all(
           units.map(async (u) => {
-            const cached = passagesByUnit[u.id];
-            const list = cached ?? (await fetchPassagesByUnit(u.id));
+            // 캐시 무시 — 출제 직전 DB에서 전체 지문 재조회
+            const list = await fetchPassagesByUnit(u.id);
             return { unit: u, list };
           }),
         );
+        setPassagesByUnit((m) => {
+          const next = { ...m };
+          perUnit.forEach(({ unit, list }) => {
+            next[unit.id] = list;
+          });
+          return next;
+        });
         for (const { unit, list } of perUnit
           .slice()
           .sort((a, b) => a.unit.unit_no - b.unit.unit_no)) {
@@ -806,16 +882,13 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         }
         unitCountForNotify = units.length;
       } else {
-        // 유닛 모드: 캐시가 비어 있어도 DB에서 지문을 가져와 전체 배정 (레이스로 1문장만 들어가는 사고 방지)
+        // 유닛 모드: 출제 직전 항상 DB에서 전체 지문 재조회 (부분 캐시로 일부만 배정되는 사고 방지)
         const uid = form.selectedUnitId || null;
         if (!uid) {
           throw new Error("유닛을 선택해주세요");
         }
-        let unitPassages = passagesByUnit[uid] ?? [];
-        if (unitPassages.length === 0) {
-          unitPassages = await fetchPassagesByUnit(uid);
-          setPassagesByUnit((m) => ({ ...m, [uid]: unitPassages }));
-        }
+        const unitPassages = await fetchPassagesByUnit(uid);
+        setPassagesByUnit((m) => ({ ...m, [uid]: unitPassages }));
         if (unitPassages.length === 0) {
           throw new Error("이 유닛에 배정할 지문이 없습니다");
         }
@@ -824,6 +897,19 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
           .sort((a, b) => a.passage_no - b.passage_no)
           .map((p) => ({ code: p.code, unit_id: uid }));
         unitCountForNotify = 1;
+
+        const nos = unitPassages
+          .map((p) => trailingCodeNumber(p.code) ?? p.passage_no)
+          .sort((a, b) => a - b);
+        const ok = window.confirm(
+          `유닛 지문 ${unitPassages.length}개를 배정합니다.\n` +
+            `번호: ${nos.join(", ")}\n\n` +
+            `이 목록에 빠진 번호가 있으면 취소 후 교재 지문을 확인하세요.`,
+        );
+        if (!ok) {
+          setSaving(false);
+          return;
+        }
       }
 
       if (codePairs.length === 0) {
@@ -890,9 +976,18 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         title: "✅ 과제가 생성되었습니다",
         description: `${studentMsg} × ${unitLabel} = ${rowsToInsert.length}건 부여됨${notified > 0 ? ` · 알림 ${notified}명` : ""}`,
       });
+      const returnStudent = searchParams.get("returnStudent") ?? form.studentIds[0] ?? null;
       setForm(emptyForm());
       setTitleTouched(false);
-      void load();
+      setPrefillApplied(false);
+      if (showCreate) {
+        const q = returnStudent
+          ? `?student=${encodeURIComponent(returnStudent)}&view=byStudent`
+          : "?view=byStudent";
+        navigate(`/teacher/assignments/box${q}`);
+      } else {
+        void load();
+      }
     } catch (e) {
       toast({ title: "저장 실패", description: String(e), variant: "destructive" });
     } finally {
@@ -925,6 +1020,200 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     }
     toast({ title: `🗑️ ${ids.length}개 과제 삭제됨` });
     void load();
+  };
+
+  /** 한 그룹의 미배정 지문만 기존 과제 설정으로 insert (확인창 없음) */
+  const topUpGroupRows = async (
+    group: AssignmentGroup,
+    teacherId: string,
+  ): Promise<{ added: number; unitTotal: number; assignedBefore: number } | null> => {
+    if (!group.unit_id || !group.student_id) return null;
+    const unitPassages = await fetchPassagesByUnit(group.unit_id);
+    setPassagesByUnit((m) => ({ ...m, [group.unit_id!]: unitPassages }));
+    const assigned = new Set(
+      group.rows.map((r) => r.sentence_id).filter((c): c is string => !!c),
+    );
+    const missing = unitPassages
+      .slice()
+      .sort((a, b) => a.passage_no - b.passage_no)
+      .filter((p) => !assigned.has(p.code));
+    if (missing.length === 0) {
+      return { added: 0, unitTotal: unitPassages.length, assignedBefore: assigned.size };
+    }
+
+    const head = group.rows[0];
+    const taskMode =
+      group.task_mode ??
+      deriveTaskModeFromSteps({
+        includePre: group.include_pre,
+        includeAnalysis: group.include_analysis,
+        includeTranslation: group.include_translation,
+        includeWordtest: group.include_wordtest,
+        includeMemorize: taskModeIncludesMemorize(group.task_mode),
+      });
+    const passageCodes = missing.map((p) => p.code);
+    const { planRoundsForNewAssignments, sealPreviousRounds } = await import(
+      "@/lib/roundArchive"
+    );
+    const pairs = passageCodes.map((code) => ({
+      student_id: group.student_id!,
+      sentence_id: code,
+    }));
+    const roundPlan = await planRoundsForNewAssignments(pairs);
+    await sealPreviousRounds(Array.from(roundPlan.values()));
+
+    const rowsToInsert = missing.map((p) => {
+      const plan = roundPlan.get(`${group.student_id}::${p.code}`);
+      return {
+        teacher_id: teacherId,
+        student_id: group.student_id,
+        title: group.title,
+        description: group.description,
+        sentence_id: p.code,
+        unit_id: group.unit_id,
+        task_mode: taskMode,
+        due_at: group.due_at,
+        include_pre: group.include_pre,
+        include_analysis: group.include_analysis,
+        include_translation: group.include_translation,
+        include_wordtest: group.include_wordtest,
+        mem_direction: head.mem_direction ?? null,
+        // 기존 과제에 붙이는 보충: 이미 있던 문장만 회독+1, 신규 문장은 1회독
+        round_no: plan?.next_round_no ?? group.round_no ?? 1,
+      };
+    });
+    const { error } = await supabase.from("assignments").insert(rowsToInsert as never);
+    if (error) throw error;
+    return {
+      added: missing.length,
+      unitTotal: unitPassages.length,
+      assignedBefore: assigned.size,
+    };
+  };
+
+  /** 유닛 미배정 지문만 같은 설정으로 기존 과제에 추가 */
+  const handleTopUpGroup = async (group: AssignmentGroup) => {
+    if (!group.unit_id) {
+      toast({ title: "유닛 정보가 없어 보충할 수 없습니다", variant: "destructive" });
+      return;
+    }
+    if (!group.student_id) {
+      toast({
+        title: "대상 학생이 지정된 과제만 보충할 수 있습니다",
+        variant: "destructive",
+      });
+      return;
+    }
+    setToppingUpKey(group.key);
+    try {
+      const teacherId = await getCurrentUserId();
+      if (!teacherId) throw new Error("로그인이 필요합니다");
+      const unitPassages = await fetchPassagesByUnit(group.unit_id);
+      setPassagesByUnit((m) => ({ ...m, [group.unit_id!]: unitPassages }));
+      const assignedCodes = group.rows
+        .map((r) => r.sentence_id)
+        .filter((c): c is string => !!c);
+      const assigned = new Set(assignedCodes);
+      const missing = unitPassages.filter((p) => !assigned.has(p.code));
+      if (missing.length === 0) {
+        toast({ title: "이미 유닛 전체 지문이 배정되어 있습니다" });
+        return;
+      }
+      const gap = summarizePassageCodeGaps({
+        assignedCodes,
+        unitCodes: unitPassages.map((p) => p.code),
+      });
+      const student = studentName(group.student_id);
+      const ok = window.confirm(
+        `「${group.title}」(${student}) 기존 과제에 누락 지문을 추가합니다.\n\n` +
+          `현재 배정 ${assigned.size} → ${assigned.size + missing.length} / 유닛 ${unitPassages.length}\n` +
+          (gap.label ? `${gap.label}\n` : "") +
+          `추가: ${missing
+            .map((p) => trailingCodeNumber(p.code) ?? p.passage_no)
+            .join(", ")}\n\n` +
+          `이미 학습한 문장 진도는 그대로 둡니다.`,
+      );
+      if (!ok) return;
+
+      const result = await topUpGroupRows(group, teacherId);
+      if (!result || result.added === 0) {
+        toast({ title: "추가할 누락 지문이 없습니다" });
+        return;
+      }
+      toast({
+        title: "✅ 기존 과제에 누락 지문 추가됨",
+        description: `${result.added}개 추가 · 배정 ${result.assignedBefore + result.added}/${result.unitTotal}`,
+      });
+      void load();
+    } catch (e) {
+      toast({ title: "누락 지문 추가 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setToppingUpKey(null);
+    }
+  };
+
+  /** 지금 목록(필터)에 보이는 미배정 과제들을 한꺼번에 기존 과제에 보충 */
+  const handleBulkTopUpFiltered = async () => {
+    const candidates = filteredGroups.filter((g) => !!g.unit_id && !!g.student_id);
+    if (candidates.length === 0) {
+      toast({
+        title: "보충할 과제가 없습니다",
+        description: "학생·유닛이 있는 과제만 기존 과제에 누락을 붙일 수 있습니다.",
+      });
+      return;
+    }
+    const ok = window.confirm(
+      `지금 목록의 과제 ${candidates.length}건을 검사해, 유닛에서 빠진 지문만 기존 과제에 추가합니다.\n` +
+        `이미 학습한 문장 진도는 유지됩니다.\n\n계속할까요?`,
+    );
+    if (!ok) return;
+
+    setBulkToppingUp(true);
+    try {
+      const teacherId = await getCurrentUserId();
+      if (!teacherId) throw new Error("로그인이 필요합니다");
+      let groupOk = 0;
+      let addedSum = 0;
+      let skippedFull = 0;
+      for (const g of candidates) {
+        const result = await topUpGroupRows(g, teacherId);
+        if (!result) continue;
+        if (result.added > 0) {
+          groupOk += 1;
+          addedSum += result.added;
+        } else {
+          skippedFull += 1;
+        }
+      }
+      toast({
+        title: addedSum > 0 ? "✅ 누락 지문 일괄 추가 완료" : "추가할 누락이 없었습니다",
+        description:
+          addedSum > 0
+            ? `과제 ${groupOk}건 · 지문 ${addedSum}개 추가` +
+              (skippedFull > 0 ? ` · 이미 완전한 과제 ${skippedFull}건` : "")
+            : `검사 ${candidates.length}건 모두 유닛 전체가 배정되어 있습니다.`,
+      });
+      void load();
+    } catch (e) {
+      toast({ title: "일괄 추가 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setBulkToppingUp(false);
+    }
+  };
+
+  const openTopUpPrefill = (group: AssignmentGroup) => {
+    if (!group.unit_id || !group.student_id) return;
+    const tbId = unitToTb[group.unit_id];
+    const tb = tbId ? textbooks.find((t) => t.id === tbId) : undefined;
+    const params = new URLSearchParams({
+      mode: "unit",
+      student: group.student_id,
+      unit: group.unit_id,
+      returnStudent: group.student_id,
+    });
+    if (tbId) params.set("tb", tbId);
+    if (tb?.level) params.set("level", tb.level);
+    navigate(`/teacher/assignments?${params.toString()}`);
   };
 
   /**
@@ -1591,11 +1880,28 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     const doneCountForTarget = g.rows.filter((r) =>
       isAssignmentDone(r, progressByAsg[r.id], allTargetIds),
     ).length;
-    // 분모는 "해당 유닛 전체 문장 수" — 유닛 정보가 있으면 사용, 없으면 배정 문장 수
     const unitTotal = g.unit_id ? (passagesByUnit[g.unit_id]?.length ?? 0) : 0;
-    const denom = unitTotal > 0 ? unitTotal : g.totalCount;
-    const assignedSuffix =
-      unitTotal > 0 && g.totalCount !== unitTotal ? ` (배정 ${g.totalCount})` : "";
+    const assignedCount = g.totalCount;
+    const coverageGap = unitTotal > 0 && assignedCount < unitTotal;
+    const unitCodes = g.unit_id
+      ? (passagesByUnit[g.unit_id] ?? []).map((p) => p.code)
+      : [];
+    const gapSummary = coverageGap
+      ? summarizePassageCodeGaps({
+          assignedCodes: g.rows
+            .map((r) => r.sentence_id)
+            .filter((c): c is string => !!c),
+          unitCodes,
+        })
+      : null;
+    const track = classifyAssignmentTrack({
+      title: g.title,
+      groupSize: g.totalCount,
+    });
+    const nextRow = g.rows.find(
+      (r) => !isAssignmentDone(r, progressByAsg[r.id], allTargetIds),
+    );
+    const nextCode = nextRow?.sentence_id ?? null;
     // 진도율은 단계-셀 기반으로 계산 (부분 진행도 반영)
     const includeMem = taskModeIncludesMemorize(g.task_mode);
     const stepsPer =
@@ -1621,28 +1927,87 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     const stats = { pct };
     const roundLabel = g.round_no && g.round_no > 1 ? ` · ${g.round_no}회독` : "";
     const label = g.unit_label
-      ? `${g.unit_label} · ${denom}지문${assignedSuffix}${roundLabel}`
+      ? `${g.unit_label}${roundLabel}`
       : head.sentence_id
         ? `${codeLabelMap.get(head.sentence_id) ?? head.sentence_id}${roundLabel}`
         : "—";
     return (
       <tr key={g.key} className="border-b border-border/60 hover:bg-muted/40">
         <td className="py-2 px-2 align-top">
-          <div className="font-bold text-sm leading-tight">
+          <div className="font-bold text-sm leading-tight flex items-center gap-1.5 flex-wrap">
+            <span
+              className={cn(
+                "inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded",
+                track === "naeshin"
+                  ? "bg-sky-500/15 text-sky-800 dark:text-sky-300"
+                  : "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+              )}
+            >
+              {ASSIGNMENT_TRACK_LABEL[track]}
+            </span>
             {g.title}
             {g.round_no && g.round_no > 1 && (
-              <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 text-[10px] font-extrabold align-middle">
+              <span className="px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 text-[10px] font-extrabold align-middle">
                 {g.round_no}회독
               </span>
             )}
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{label}</div>
+          {nextCode && (
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              다음 문장 <span className="font-mono font-semibold text-foreground/80">{nextCode}</span>
+            </div>
+          )}
+          {coverageGap && (
+            <div className="mt-1.5 space-y-1">
+              <div className="flex items-start gap-1 text-[11px] text-amber-800 dark:text-amber-300 font-semibold">
+                <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
+                <span>
+                  유닛 미배정 지문 있음 · 배정 {assignedCount} / 유닛 전체 {unitTotal}
+                  {gapSummary?.label ? (
+                    <>
+                      <br />
+                      <span className="font-mono font-normal">{gapSummary.label}</span>
+                    </>
+                  ) : null}
+                  <br />
+                  <span className="font-normal">
+                    이어하기는 배정된 문장만 순서대로 갑니다. 빠진 번호는 학습에서 건너뛴 게 아니라 미배정입니다.
+                  </span>
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="h-7 text-[11px] px-2"
+                  disabled={toppingUpKey === g.key || !g.student_id || bulkToppingUp}
+                  onClick={() => void handleTopUpGroup(g)}
+                >
+                  {toppingUpKey === g.key
+                    ? "추가 중…"
+                    : `기존 과제에 누락 ${unitTotal - assignedCount}개 추가`}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-[10px] px-2"
+                  disabled={!g.student_id || !g.unit_id}
+                  onClick={() => openTopUpPrefill(g)}
+                >
+                  출제 화면으로
+                </Button>
+              </div>
+            </div>
+          )}
         </td>
         <td className="py-2 px-2 align-top text-sm whitespace-nowrap">
           {studentName(g.student_id)}
         </td>
         <td className="py-2 px-2 align-top min-w-[8rem]">
-          <div className="flex items-center gap-2 text-[11px] font-bold">
+          <div className="flex items-center gap-2 text-[11px] font-bold flex-wrap">
             <span
               className={cn(
                 stats.pct >= 75
@@ -1655,7 +2020,9 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
               {stats.pct}%
             </span>
             <span className="text-muted-foreground font-normal">
-              문장 {doneCountForTarget}/{denom}{assignedSuffix}
+              배정 {assignedCount}
+              {unitTotal > 0 ? ` / 유닛 ${unitTotal}` : ""}
+              {" · "}완료 {doneCountForTarget}/{assignedCount}
             </span>
             {stepsPer > 0 && totalCells > 0 && (
               <span className="text-muted-foreground font-normal">
@@ -1686,8 +2053,14 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     const rem = remaining(g.due_at);
     const head = g.rows[0];
     const missingSentence = !head.sentence_id;
+    const unitTotal = g.unit_id ? (passagesByUnit[g.unit_id]?.length ?? 0) : 0;
+    const coverageGap = unitTotal > 0 && g.totalCount < unitTotal;
+    const track = classifyAssignmentTrack({
+      title: g.title,
+      groupSize: g.totalCount,
+    });
     const label = g.unit_label
-      ? `${g.unit_label} · 지문 ${g.totalCount}개`
+      ? `${g.unit_label} · 배정 ${g.totalCount}${unitTotal > 0 ? ` / 유닛 ${unitTotal}` : ""}`
       : head.sentence_id
         ? (codeLabelMap.get(head.sentence_id) ?? head.sentence_id)
         : null;
@@ -1698,7 +2071,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         key={g.key}
         className={cn(
           "p-3 rounded-lg border-2 flex items-start justify-between gap-3",
-          missingSentence
+          missingSentence || coverageGap
             ? "border-amber-500/50 bg-amber-50/30 dark:bg-amber-500/5"
             : rem.urgent
               ? "border-destructive/40 bg-destructive/5"
@@ -1707,10 +2080,26 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       >
         <div className="space-y-1.5 min-w-0 flex-1">
           <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
+            <span
+              className={cn(
+                "inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded",
+                track === "naeshin"
+                  ? "bg-sky-500/15 text-sky-800 dark:text-sky-300"
+                  : "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+              )}
+            >
+              {ASSIGNMENT_TRACK_LABEL[track]}
+            </span>
             {g.title}
             <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-extrabold">
-              유닛 · 지문 {g.totalCount}개
+              배정 {g.totalCount}
+              {unitTotal > 0 ? ` / 유닛 ${unitTotal}` : "지문"}
             </span>
+            {coverageGap && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-extrabold">
+                미배정 {unitTotal - g.totalCount}
+              </span>
+            )}
             {missingSentence && (
               <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-extrabold">
                 ⚠ 지문 미연결
@@ -1725,6 +2114,32 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
             </span>
             {label && <span>· {label}</span>}
           </div>
+          {coverageGap && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="default"
+                className="h-7 text-[11px]"
+                disabled={toppingUpKey === g.key || !g.student_id || bulkToppingUp}
+                onClick={() => void handleTopUpGroup(g)}
+              >
+                {toppingUpKey === g.key
+                  ? "추가 중…"
+                  : `기존 과제에 누락 ${unitTotal - g.totalCount}개 추가`}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[11px]"
+                disabled={!g.student_id || !g.unit_id}
+                onClick={() => openTopUpPrefill(g)}
+              >
+                출제 화면으로
+              </Button>
+            </div>
+          )}
           <AssignmentStepBadges
             includePre={g.include_pre}
             includeAnalysis={g.include_analysis}
@@ -1763,8 +2178,8 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {showBox
-                ? "출제한 과제 목록과 학생별 진도를 확인·관리합니다."
-                : "새 과제를 출제합니다. 진행중 과제는 [과제함]에서 확인하세요."}
+                ? "학생별로 배정·진도·유닛 커버리지를 확인하고, 미배정 지문을 보충합니다."
+                : "새 과제를 출제합니다. 유닛 전체 배정이 기본이며, 진행중 과제는 [과제함]에서 확인하세요."}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1962,8 +2377,8 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
             <div className="flex items-center gap-1 rounded-md border p-0.5">
               {(
                 [
-                  ["compact", LayoutList, "목록"],
                   ["byStudent", Users, "학생별"],
+                  ["compact", LayoutList, "목록"],
                   ["cards", Rows3, "카드"],
                 ] as const
               ).map(([mode, Icon, label]) => (
@@ -2027,6 +2442,17 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
               <Button
                 type="button"
                 size="sm"
+                variant="default"
+                className="h-8 text-xs"
+                disabled={bulkToppingUp}
+                onClick={() => void handleBulkTopUpFiltered()}
+              >
+                <Plus className="size-3.5 mr-1" />
+                {bulkToppingUp ? "추가 중…" : "기존 과제에 누락 지문 일괄 추가"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
                 variant="destructive"
                 className="h-8 text-xs"
                 onClick={() => {
@@ -2038,7 +2464,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                 특정 학생만 남기고 삭제…
               </Button>
               <span className="text-[11px] text-muted-foreground">
-                예: 검색창에 「김성연 1과」 입력 → 김서윤·김나연만 선택 → 나머지 일괄 삭제
+                일괄 추가: 지금 목록(검색·필터)에 보이는 과제에, 유닛에서 빠진 지문만 붙입니다. 기존 진도 유지.
               </span>
             </div>
           )}
@@ -2049,7 +2475,35 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
             <p className="text-sm text-muted-foreground py-6 text-center">
               검색·필터 결과가 없습니다. 조건을 바꿔 보세요.
             </p>
-          ) : listView === "compact" ? (
+          ) : (
+            <>
+          {filteredGroups.some((g) => {
+            const unitTotal = g.unit_id ? (passagesByUnit[g.unit_id]?.length ?? 0) : 0;
+            return unitTotal > 0 && g.totalCount < unitTotal;
+          }) && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-200 space-y-2">
+              <div className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="size-3.5" />
+                유닛 미배정 지문이 있는 과제가 있습니다
+              </div>
+              <p className="leading-relaxed">
+                새로 출제하지 마세요. <b>기존 과제에 빠진 지문만 추가</b>하면 됩니다.
+                위쪽 「기존 과제에 누락 지문 일괄 추가」또는 각 행의 「누락 추가」를 누르면
+                같은 제목·마감·단계 설정으로 붙고, 이미 끝낸 문장 진도는 그대로입니다.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={bulkToppingUp}
+                onClick={() => void handleBulkTopUpFiltered()}
+              >
+                <Plus className="size-3.5 mr-1" />
+                {bulkToppingUp ? "추가 중…" : "지금 목록에 누락 지문 일괄 추가"}
+              </Button>
+            </div>
+          )}
+          {listView === "compact" ? (
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-left min-w-[40rem]">
                 <thead className="bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -2066,28 +2520,55 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
             </div>
           ) : listView === "byStudent" ? (
             <div className="space-y-3">
-              {groupsByStudent.map((bucket) => (
+              {groupsByStudent.map((bucket) => {
+                const resultsHref =
+                  bucket.studentId !== "__all__"
+                    ? `/teacher/results?student=${encodeURIComponent(bucket.studentId)}&date=${toIsoDate(new Date())}`
+                    : "/teacher/results";
+                const coverageWarnCount = bucket.groups.filter((g) => {
+                  const unitTotal = g.unit_id
+                    ? (passagesByUnit[g.unit_id]?.length ?? 0)
+                    : 0;
+                  return unitTotal > 0 && g.totalCount < unitTotal;
+                }).length;
+                return (
                 <div key={bucket.studentId} className="rounded-lg border overflow-hidden">
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b">
-                    <div className="font-bold text-sm flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b flex-wrap">
+                    <div className="font-bold text-sm flex items-center gap-2 flex-wrap">
                       <Users className="size-3.5 text-primary" />
                       {bucket.label}
                       <span className="text-[11px] font-normal text-muted-foreground">
                         과제 {bucket.groups.length}건
                       </span>
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs font-extrabold",
-                        bucket.avgPct >= 75
-                          ? "text-emerald-600"
-                          : bucket.avgPct > 0
-                            ? "text-primary"
-                            : "text-muted-foreground",
+                      {coverageWarnCount > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300">
+                          <AlertTriangle className="size-3" />
+                          미배정 유닛 {coverageWarnCount}
+                        </span>
                       )}
-                    >
-                      평균 진도 {bucket.avgPct}%
-                    </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "text-xs font-extrabold",
+                          bucket.avgPct >= 75
+                            ? "text-emerald-600"
+                            : bucket.avgPct > 0
+                              ? "text-primary"
+                              : "text-muted-foreground",
+                        )}
+                      >
+                        평균 진도 {bucket.avgPct}%
+                      </span>
+                      {bucket.studentId !== "__all__" && (
+                        <Button asChild size="sm" variant="outline" className="h-7 text-[11px] gap-1">
+                          <Link to={resultsHref}>
+                            <ExternalLink className="size-3" />
+                            학습결과
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left min-w-[36rem]">
@@ -2097,10 +2578,13 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
                     </table>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="space-y-2">{filteredGroups.map((g) => renderCardRow(g))}</div>
+          )}
+            </>
           )}
         </Card>
 
