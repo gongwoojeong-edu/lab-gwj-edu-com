@@ -124,6 +124,13 @@ interface AssignmentGroup {
   nextStarted: boolean;
   nextPosition: number | null;
   unitId: string | null;
+  /** 카드 내 유닛별 진척 (책 단위 과제에서도 유닛별로 인쇄/워크북 처리) */
+  unitBreakdown: {
+    unitId: string;
+    unit_no: number;
+    totalCount: number;
+    doneCount: number;
+  }[];
   round_no: number | null;
   /** Path A: 내신처럼 보이는 시퀀스 vs 진짜 특별과제 */
   track: "naeshin" | "special";
@@ -382,6 +389,27 @@ const StudentHome = () => {
               : null;
             const nextPF = nextRow ? getPF(nextRow) : undefined;
             const nextStarted = !!nextPF && (nextPF.pre || nextPF.wt || nextPF.an || nextPF.tr || nextPF.mem);
+            // 유닛별 진척 집계 (책 단위 과제라도 유닛별로 인쇄/워크북 진행)
+            const unitAgg = new Map<
+              string,
+              { unit_no: number; totalCount: number; doneCount: number }
+            >();
+            sorted.forEach((r) => {
+              const meta = r.sentence_id ? orderMeta.get(r.sentence_id) : undefined;
+              const uid = meta?.unit_id ?? null;
+              if (!uid) return;
+              const cur = unitAgg.get(uid) ?? {
+                unit_no: meta?.unit_no ?? 9999,
+                totalCount: 0,
+                doneCount: 0,
+              };
+              cur.totalCount += 1;
+              if (isSentenceDone(r)) cur.doneCount += 1;
+              unitAgg.set(uid, cur);
+            });
+            const unitBreakdown = Array.from(unitAgg.entries())
+              .map(([unitId, v]) => ({ unitId, ...v }))
+              .sort((a, b) => a.unit_no - b.unit_no);
             return {
               key,
               title: head.title,
@@ -402,6 +430,7 @@ const StudentHome = () => {
               nextStarted,
               nextPosition,
               unitId: nextUnitId ?? headUnitId,
+              unitBreakdown,
               round_no: sorted.reduce<number | null>((m, r) => {
                 const rn = r.round_no ?? null;
                 if (rn == null) return m;
@@ -428,7 +457,12 @@ const StudentHome = () => {
             fetchMyMaterialViewRequests(user.id),
           ]);
           const unitIds = [
-            ...new Set(groups.map((g) => g.unitId).filter(Boolean) as string[]),
+            ...new Set(
+              groups.flatMap((g) => [
+                ...(g.unitId ? [g.unitId] : []),
+                ...g.unitBreakdown.map((u) => u.unitId),
+              ]),
+            ),
           ];
           const accessEntries = await Promise.all(
             unitIds.map(async (uid) => [uid, await canAccessUnit(user.id, uid)] as const),
@@ -954,84 +988,111 @@ const StudentHome = () => {
                             {g.description}
                           </p>
                         )}
-                        {g.unitId && (() => {
-                          const wf = unitWorkflows[g.unitId!];
-                          const mv = materialViews[g.unitId!];
-                          const allDone = g.doneCount >= g.totalCount;
-                          const status = wf?.status ?? "learning";
-                          return (
-                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                              {allDone && (
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {UNIT_WORKFLOW_LABELS[status]}
-                                </Badge>
-                              )}
-                              {allDone && status === "learning" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 text-[11px]"
-                                  disabled={!!busy[`unit-print:${g.unitId}`]}
-                                  onClick={() => handleUnitPrintRequest(g.unitId!)}
-                                >
-                                  <Printer className="w-3 h-3 mr-1" />
-                                  인쇄 요청
-                                </Button>
-                              )}
-                              {status === "print_pending" && (
-                                <span className="text-[11px] text-amber-700 dark:text-amber-300 inline-flex items-center gap-1">
-                                  <Hourglass className="w-3 h-3 animate-pulse" /> 인쇄 승인 대기
-                                </span>
-                              )}
-                              {status === "printed" && (
-                                <>
+                        {(() => {
+                          // 유닛별 워크북 흐름: 책 단위 과제라도 유닛마다 인쇄 요청 노출
+                          const units = g.unitBreakdown.length > 0
+                            ? g.unitBreakdown
+                            : g.unitId
+                              ? [{
+                                  unitId: g.unitId,
+                                  unit_no: 0,
+                                  totalCount: g.totalCount,
+                                  doneCount: g.doneCount,
+                                }]
+                              : [];
+                          const multi = units.length > 1;
+                          return units.map((u) => {
+                            const wf = unitWorkflows[u.unitId];
+                            const mv = materialViews[u.unitId];
+                            const allDone = u.doneCount >= u.totalCount && u.totalCount > 0;
+                            const status = wf?.status ?? "learning";
+                            // 유닛이 아직 학습중이고 어떤 워크플로우도 없다면 숨김
+                            if (!allDone && status === "learning") return null;
+                            return (
+                              <div
+                                key={u.unitId}
+                                className="flex flex-wrap items-center gap-1.5 pt-1"
+                              >
+                                {multi && (
+                                  <span className="text-[11px] font-bold text-muted-foreground shrink-0">
+                                    유닛 {u.unit_no}
+                                    <span className="ml-1 text-[10px] font-normal">
+                                      ({u.doneCount}/{u.totalCount})
+                                    </span>
+                                  </span>
+                                )}
+                                {allDone && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {UNIT_WORKFLOW_LABELS[status]}
+                                  </Badge>
+                                )}
+                                {allDone && status === "learning" && (
                                   <Button
                                     size="sm"
+                                    variant="outline"
                                     className="h-7 text-[11px]"
-                                    disabled={!!busy[`unit-wb:${g.unitId}`]}
-                                    onClick={() => handleWorkbookComplete(g.unitId!)}
+                                    disabled={!!busy[`unit-print:${u.unitId}`]}
+                                    onClick={() => handleUnitPrintRequest(u.unitId)}
                                   >
-                                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    워크북 완료
+                                    <Printer className="w-3 h-3 mr-1" />
+                                    인쇄 요청
                                   </Button>
-                                  {mv?.status === "approved" ? (
-                                    <Button size="sm" variant="outline" className="h-7 text-[11px]" asChild>
-                                      <Link to="/learn/library">
-                                        <BookOpen className="w-3 h-3 mr-1" /> 라이브러리
-                                      </Link>
-                                    </Button>
-                                  ) : mv?.status === "pending" ? (
+                                )}
+                                {status === "print_pending" && (
+                                  <span className="text-[11px] text-amber-700 dark:text-amber-300 inline-flex items-center gap-1">
+                                    <Hourglass className="w-3 h-3 animate-pulse" /> 인쇄 승인 대기
+                                  </span>
+                                )}
+                                {status === "printed" && (
+                                  <>
                                     <Button
                                       size="sm"
-                                      variant="outline"
                                       className="h-7 text-[11px]"
-                                      onClick={() => handleCancelMaterialView(g.unitId!)}
+                                      disabled={!!busy[`unit-wb:${u.unitId}`]}
+                                      onClick={() => handleWorkbookComplete(u.unitId)}
                                     >
-                                      자료열람 대기중
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                      워크북 완료
                                     </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-[11px]"
-                                      disabled={!!busy[`unit-mv:${g.unitId}`]}
-                                      onClick={() => handleMaterialViewRequest(g.unitId!)}
-                                    >
-                                      <Eye className="w-3 h-3 mr-1" /> 자료열람 요청
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                              {status === "workbook_submitted" && (
-                                <span className="text-[11px] text-sky-700 dark:text-sky-300 inline-flex items-center gap-1">
-                                  <Hourglass className="w-3 h-3 animate-pulse" /> 선생님 승인 대기
-                                </span>
-                              )}
-                              {status === "completed" && wf?.teacher_grade && (
-                                <Badge className="text-[10px]">평가 {wf.teacher_grade}</Badge>
-                              )}
-                            </div>
-                          );
+                                    {mv?.status === "approved" ? (
+                                      <Button size="sm" variant="outline" className="h-7 text-[11px]" asChild>
+                                        <Link to="/learn/library">
+                                          <BookOpen className="w-3 h-3 mr-1" /> 라이브러리
+                                        </Link>
+                                      </Button>
+                                    ) : mv?.status === "pending" ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-[11px]"
+                                        onClick={() => handleCancelMaterialView(u.unitId)}
+                                      >
+                                        자료열람 대기중
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-[11px]"
+                                        disabled={!!busy[`unit-mv:${u.unitId}`]}
+                                        onClick={() => handleMaterialViewRequest(u.unitId)}
+                                      >
+                                        <Eye className="w-3 h-3 mr-1" /> 자료열람 요청
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                                {status === "workbook_submitted" && (
+                                  <span className="text-[11px] text-sky-700 dark:text-sky-300 inline-flex items-center gap-1">
+                                    <Hourglass className="w-3 h-3 animate-pulse" /> 선생님 승인 대기
+                                  </span>
+                                )}
+                                {status === "completed" && wf?.teacher_grade && (
+                                  <Badge className="text-[10px]">평가 {wf.teacher_grade}</Badge>
+                                )}
+                              </div>
+                            );
+                          });
                         })()}
                       </div>
                       {g.nextSentenceId && g.doneCount < g.totalCount && (() => {
