@@ -124,6 +124,13 @@ interface AssignmentGroup {
   nextStarted: boolean;
   nextPosition: number | null;
   unitId: string | null;
+  /** 카드 내 유닛별 진척 (책 단위 과제에서도 유닛별로 인쇄/워크북 처리) */
+  unitBreakdown: {
+    unitId: string;
+    unit_no: number;
+    totalCount: number;
+    doneCount: number;
+  }[];
   round_no: number | null;
   /** Path A: 내신처럼 보이는 시퀀스 vs 진짜 특별과제 */
   track: "naeshin" | "special";
