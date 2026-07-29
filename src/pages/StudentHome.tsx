@@ -389,6 +389,27 @@ const StudentHome = () => {
               : null;
             const nextPF = nextRow ? getPF(nextRow) : undefined;
             const nextStarted = !!nextPF && (nextPF.pre || nextPF.wt || nextPF.an || nextPF.tr || nextPF.mem);
+            // 유닛별 진척 집계 (책 단위 과제라도 유닛별로 인쇄/워크북 진행)
+            const unitAgg = new Map<
+              string,
+              { unit_no: number; totalCount: number; doneCount: number }
+            >();
+            sorted.forEach((r) => {
+              const meta = r.sentence_id ? orderMeta.get(r.sentence_id) : undefined;
+              const uid = meta?.unit_id ?? null;
+              if (!uid) return;
+              const cur = unitAgg.get(uid) ?? {
+                unit_no: meta?.unit_no ?? 9999,
+                totalCount: 0,
+                doneCount: 0,
+              };
+              cur.totalCount += 1;
+              if (isSentenceDone(r)) cur.doneCount += 1;
+              unitAgg.set(uid, cur);
+            });
+            const unitBreakdown = Array.from(unitAgg.entries())
+              .map(([unitId, v]) => ({ unitId, ...v }))
+              .sort((a, b) => a.unit_no - b.unit_no);
             return {
               key,
               title: head.title,
@@ -409,6 +430,7 @@ const StudentHome = () => {
               nextStarted,
               nextPosition,
               unitId: nextUnitId ?? headUnitId,
+              unitBreakdown,
               round_no: sorted.reduce<number | null>((m, r) => {
                 const rn = r.round_no ?? null;
                 if (rn == null) return m;
