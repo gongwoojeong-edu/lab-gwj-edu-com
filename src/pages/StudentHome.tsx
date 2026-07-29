@@ -457,7 +457,12 @@ const StudentHome = () => {
             fetchMyMaterialViewRequests(user.id),
           ]);
           const unitIds = [
-            ...new Set(groups.map((g) => g.unitId).filter(Boolean) as string[]),
+            ...new Set(
+              groups.flatMap((g) => [
+                ...(g.unitId ? [g.unitId] : []),
+                ...g.unitBreakdown.map((u) => u.unitId),
+              ]),
+            ),
           ];
           const accessEntries = await Promise.all(
             unitIds.map(async (uid) => [uid, await canAccessUnit(user.id, uid)] as const),
