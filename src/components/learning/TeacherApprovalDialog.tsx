@@ -10,7 +10,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
+import { emptyMemo, parseMemo, serializeMemo, type StructuredMemo } from "@/lib/approvalMemo";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
@@ -65,14 +66,14 @@ export const TeacherApprovalDialog = ({
   const [pin, setPin] = useState("");
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
-  const [memo, setMemo] = useState("");
+  const [memo, setMemo] = useState<StructuredMemo>(emptyMemo());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setPin("");
     setGrade(null);
-    setMemo(initialMemo ?? "");
+    setMemo(parseMemo(initialMemo));
     if (skipPin) {
       setStoredPin("__skip__");
       return;
@@ -115,7 +116,13 @@ export const TeacherApprovalDialog = ({
 
     setSaving(true);
     try {
-      await approveSentenceRequest({ approvalId, sentenceId, grade, memo, studentUserId });
+      await approveSentenceRequest({
+        approvalId,
+        sentenceId,
+        grade,
+        memo: serializeMemo(memo) ?? "",
+        studentUserId,
+      });
       toast({
         title: grade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[grade]}`,
         description:
@@ -145,7 +152,7 @@ export const TeacherApprovalDialog = ({
         approvalId,
         studentUserId,
         sentenceId,
-        memo,
+        memo: serializeMemo(memo) ?? "",
       });
       toast({
         title: "보류 처리했어요",
@@ -237,18 +244,7 @@ export const TeacherApprovalDialog = ({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-muted-foreground">
-            메모 <span className="font-normal">(선택)</span>
-          </div>
-          <Textarea
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            placeholder="피드백을 짧게 남겨주세요"
-            rows={2}
-            maxLength={300}
-          />
-        </div>
+        <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
 
         <DialogFooter className="flex-wrap gap-2 sm:justify-between">
           <div className="flex gap-2">
