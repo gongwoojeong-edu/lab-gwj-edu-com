@@ -31,6 +31,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { GRADE_LABEL, GRADE_BADGE_CLASS, type ApprovalGrade } from "@/lib/sentenceApprovals";
 import { PostHocGradeDialog } from "@/components/teacher/PostHocGradeDialog";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import {
   Popover,
   PopoverContent,
@@ -657,7 +658,7 @@ const EventDetailDialog = ({
             </span>
             <div className="text-sm flex-1">
               <div className="text-[11px] text-muted-foreground">선생님 평가 · 메모</div>
-              <div className="whitespace-pre-wrap">{gradeInfo.memo || <span className="text-muted-foreground italic">메모 없음</span>}</div>
+              <StructuredMemoView memo={gradeInfo.memo} className="mt-1" />
             </div>
             {canGrade && (
               <Button size="sm" variant="outline" onClick={() => setGradeDialogOpen(true)}>

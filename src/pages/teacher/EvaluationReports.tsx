@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
+import { memoToPlainText } from "@/lib/approvalMemo";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -206,7 +208,7 @@ export default function EvaluationReports() {
         ap ?? "",
         wp ?? "",
         rc,
-        (r.memo ?? "").replace(/"/g, '""'),
+        memoToPlainText(r.memo).replace(/"/g, '""'),
       ]
         .map((v) => `"${v}"`)
         .join(",");
@@ -247,7 +249,11 @@ export default function EvaluationReports() {
             </Badge>
           )}
         </div>
-        {r.memo && <p className="mt-2 whitespace-pre-wrap text-foreground/80">📝 {r.memo}</p>}
+        {r.memo && (
+          <div className="mt-2 text-foreground/80">
+            <StructuredMemoView memo={r.memo} />
+          </div>
+        )}
       </div>
     );
   };

@@ -15,6 +15,7 @@ import {
   type ApprovalStatus,
 } from "@/lib/sentenceApprovals";
 import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDialog";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean } from "@/lib/textbooks";
@@ -238,7 +239,8 @@ const PendingApprovals = () => {
 
               {row.status === "held" && row.held_memo && (
                 <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
-                  <span className="font-semibold">임시 메모: </span>{row.held_memo}
+                  <div className="font-semibold mb-1">임시 메모</div>
+                  <StructuredMemoView memo={row.held_memo} />
                 </div>
               )}
 
