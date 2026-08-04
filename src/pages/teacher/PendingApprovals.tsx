@@ -314,6 +314,7 @@ const PendingApprovals = () => {
             koreanAnswer={target.korean ?? undefined}
             studentTranslation={target.translation}
             initialMemo={target.held_memo ?? undefined}
+            mode={tab === "held" ? "held" : "pending"}
             skipPin
             onApproved={() => {
               setTarget(null);

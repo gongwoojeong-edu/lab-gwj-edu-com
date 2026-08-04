@@ -400,6 +400,13 @@ export const holdApprovalRequest = async (input: {
   }
 };
 
+/** 선생님: 보류 행을 삭제합니다. progress는 건드리지 않습니다. */
+export const deleteApprovalRequest = async (approvalId: string): Promise<void> => {
+  const { error } = await supabase.from("sentence_approvals").delete().eq("id", approvalId);
+  if (error) throw error;
+};
+
+
 /** 선생님 대시보드 실시간 구독: 모든 변동 시 콜백 */
 export const subscribeAllApprovals = (onChange: () => void) => {
   const channel = supabase

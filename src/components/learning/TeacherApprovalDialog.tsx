@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Lock, ShieldCheck } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,13 +17,13 @@ import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
 import {
   approveSentenceRequest,
+  deleteApprovalRequest,
   holdApprovalRequest,
   GRADE_LABEL,
   GRADE_BADGE_CLASS,
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
-import { PauseCircle } from "lucide-react";
 
 interface Props {
   approvalId: string;
@@ -39,6 +39,8 @@ interface Props {
   skipPin?: boolean;
   /** 재오픈 시 초기 메모값 (예: 이전 보류 메모) */
   initialMemo?: string;
+  /** 다이얼로그 모드 — pending: 대기중 승인 / held: 보류함 최종 처리 */
+  mode?: "pending" | "held";
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApproved: (grade: ApprovalGrade) => void;
@@ -59,6 +61,7 @@ export const TeacherApprovalDialog = ({
   studentUserId,
   skipPin = false,
   initialMemo,
+  mode = "pending",
   open,
   onOpenChange,
   onApproved,
@@ -68,6 +71,8 @@ export const TeacherApprovalDialog = ({
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
   const [memo, setMemo] = useState<StructuredMemo>(emptyMemo());
   const [saving, setSaving] = useState(false);
+
+  const isHeldMode = mode === "held";
 
   useEffect(() => {
     if (!open) return;
@@ -167,13 +172,35 @@ export const TeacherApprovalDialog = ({
     }
   };
 
+  const remove = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await deleteApprovalRequest(approvalId);
+      toast({
+        title: "보류 항목을 삭제했어요",
+        description: "학생의 진도 기록은 유지됩니다.",
+      });
+      onOpenChange(false);
+      onApproved("fair"); // trigger list refresh in parent
+    } catch (e: any) {
+      toast({
+        title: "삭제 실패",
+        description: e?.message ?? String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0 sm:top-[5vh] sm:translate-y-0">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
-            선생님 승인 — 평가
+            {isHeldMode ? "보류함 — 최종 처리" : "선생님 승인 — 평가"}
           </DialogTitle>
           <DialogDescription>
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
@@ -251,22 +278,36 @@ export const TeacherApprovalDialog = ({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               취소
             </Button>
-            <Button
-              variant="outline"
-              className="border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
-              onClick={hold}
-              disabled={saving}
-              title="지금 판정하지 않고 나중에 자세히 첨삭"
-            >
-              <PauseCircle className="w-4 h-4 mr-1" /> 보류 (나중에 첨삭)
-            </Button>
+            {isHeldMode ? (
+              <Button
+                variant="outline"
+                className="border-rose-500/60 text-rose-700 hover:bg-rose-500/10 dark:text-rose-300"
+                onClick={remove}
+                disabled={saving}
+                title="보류 항목 삭제"
+              >
+                <Trash2 className="w-4 h-4 mr-1" /> 삭제
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+                onClick={hold}
+                disabled={saving}
+                title="지금 판정하지 않고 나중에 자세히 첨삭"
+              >
+                <PauseCircle className="w-4 h-4 mr-1" /> 보류 (나중에 첨삭)
+              </Button>
+            )}
           </div>
           <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
             {saving
               ? "저장 중..."
               : grade === "redo"
                 ? "추가학습 요청 보내기"
-                : "승인하고 다음 문장으로"}
+                : isHeldMode
+                  ? "완료 (최종승인)"
+                  : "승인하고 다음 문장으로"}
           </Button>
         </DialogFooter>
       </DialogContent>
