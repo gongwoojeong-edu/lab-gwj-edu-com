@@ -38,6 +38,9 @@ import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { toast } from "@/hooks/use-toast";
 import { SkipPreManagerDialog } from "@/components/teacher/SkipPreManagerDialog";
 import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentProfile";
+import StudentScopeDialog, { type ScopeDialogTarget } from "@/components/teacher/StudentScopeDialog";
+import { fetchScopeStatusMap, type ScopeStatus } from "@/lib/progressScope";
+
 import { compareStudents } from "@/lib/studentSort";
 import {
   fetchAllSeries,
