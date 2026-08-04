@@ -15,9 +15,9 @@ export const MEMO_FIELD_KEYS = [
 export type MemoFieldKey = (typeof MEMO_FIELD_KEYS)[number];
 
 export const MEMO_FIELD_LABEL: Record<MemoFieldKey, string> = {
-  no_skipping: "No skipping",
-  no_guessing: "No guessing",
-  grammar_watch: "Grammar Watch",
+  no_skipping: "No skipping — 있는 단어 빼지말고",
+  no_guessing: "No guessing — 없는 단어 넣지 말고",
+  grammar_watch: "Grammar Watch — 어법파괴금지",
   other: "Other",
 };
 
