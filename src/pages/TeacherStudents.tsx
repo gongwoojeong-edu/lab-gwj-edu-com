@@ -1124,6 +1124,30 @@ const TeacherStudents = () => {
         userId={skipDialog?.userId ?? null}
         studentName={skipDialog?.name ?? null}
       />
+
+      <StudentScopeDialog
+        target={scopeDialog}
+        onOpenChange={(o) => !o && setScopeDialog(null)}
+        onSaved={(next) => {
+          setStudents((prev) => {
+            const updated = prev.map((s) =>
+              s.userId === next.userId
+                ? {
+                    ...s,
+                    level: next.level,
+                    startSeriesId: next.seriesId,
+                    startVolumeId: next.volumeId,
+                    startUnitId: next.unitId,
+                    scopeLabel: next.label,
+                  }
+                : s,
+            );
+            persist(updated);
+            return updated;
+          });
+        }}
+      />
+
     </main>
     </TeacherLayout>
   );
