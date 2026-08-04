@@ -153,6 +153,10 @@ const TeacherStudents = () => {
   // 레벨별 등록된 지문 수 (지정 레벨에 지문이 없는 학생 경고용)
   const [passageCountByLevel, setPassageCountByLevel] = useState<Record<string, number>>({});
   const [actualGradeSaving, setActualGradeSaving] = useState<string | null>(null);
+  // 진도(범위) 설정 다이얼로그 + 범위 소진 상태
+  const [scopeDialog, setScopeDialog] = useState<ScopeDialogTarget | null>(null);
+  const [scopeStatus, setScopeStatus] = useState<Record<string, ScopeStatus>>({});
+
 
   const saveActualGrade = async (s: Student, grade: string) => {
     setActualGradeSaving(s.name);
