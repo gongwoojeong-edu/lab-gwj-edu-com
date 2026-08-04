@@ -14,7 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
+import { emptyMemo, parseMemo, serializeMemo, type StructuredMemo } from "@/lib/approvalMemo";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,13 +46,13 @@ export const PostHocGradeDialog = ({
   onSaved,
 }: Props) => {
   const [grade, setGrade] = useState<ApprovalGrade | null>(initialGrade);
-  const [memo, setMemo] = useState(initialMemo ?? "");
+  const [memo, setMemo] = useState<StructuredMemo>(parseMemo(initialMemo));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setGrade(initialGrade);
-      setMemo(initialMemo ?? "");
+      setMemo(parseMemo(initialMemo));
     }
   }, [open, initialGrade, initialMemo]);
 
@@ -62,7 +63,7 @@ export const PostHocGradeDialog = ({
     }
     setSaving(true);
     try {
-      const trimmed = memo.trim() || null;
+      const trimmed = serializeMemo(memo);
       const { error } = await supabase
         .from("sentence_progress")
         .update({
@@ -123,18 +124,7 @@ export const PostHocGradeDialog = ({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-muted-foreground">
-            메모 <span className="font-normal">(선택)</span>
-          </div>
-          <Textarea
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            placeholder="짧은 피드백을 남겨주세요"
-            rows={3}
-            maxLength={300}
-          />
-        </div>
+        <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} rows={2} />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
