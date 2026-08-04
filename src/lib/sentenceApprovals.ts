@@ -4,6 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
+import { memoToPlainText } from "@/lib/approvalMemo";
 
 export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo";
 export type ApprovalStatus = "pending" | "approved" | "held";
@@ -206,7 +207,7 @@ export const approveSentenceRequest = async (input: {
       title: isRedo
         ? "선생님 추가학습 요청 — 한 번 더 제출해주세요"
         : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
-      body: memoTrimmed,
+      body: memoToPlainText(memoTrimmed) || null,
       grade: input.grade,
       sentenceId: input.sentenceId,
       approvalId: input.approvalId,
@@ -389,7 +390,7 @@ export const holdApprovalRequest = async (input: {
         userId: input.studentUserId,
         kind: "evaluation",
         title: "선생님이 자세한 첨삭을 준비 중이에요 — 다음 문장 진행 가능",
-        body: memoTrimmed ?? "임시로 통과 처리했어요. 다음 문장으로 계속 학습하세요.",
+        body: memoToPlainText(memoTrimmed) || "임시로 통과 처리했어요. 다음 문장으로 계속 학습하세요.",
         sentenceId: input.sentenceId,
         approvalId: input.approvalId,
       });
