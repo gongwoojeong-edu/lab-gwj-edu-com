@@ -889,13 +889,63 @@ const TeacherStudents = () => {
                             </span>
                           )}
                         </div>
-                        {s.scopeLabel && (
+                        {s.scopeLabel ? (
                           <span className="text-[11px] text-muted-foreground leading-tight max-w-[220px] truncate" title={s.scopeLabel}>
                             📚 {s.scopeLabel}
                           </span>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground/70 leading-tight">
+                            📚 진도 미지정 (레벨 전체)
+                          </span>
                         )}
+                        {(() => {
+                          const st = s.userId ? scopeStatus[s.userId] : undefined;
+                          if (!st) return null;
+                          if (st.kind === "exhausted") {
+                            return (
+                              <Badge variant="destructive" className="w-fit text-[11px] px-2 py-0.5">
+                                ⛔ 진도 끊김 — 새 책 등록 필요
+                              </Badge>
+                            );
+                          }
+                          if (st.kind === "empty") {
+                            return (
+                              <span className="text-[11px] text-amber-600">
+                                지정 범위에 지문 없음
+                              </span>
+                            );
+                          }
+                          if (st.kind === "active") {
+                            return (
+                              <span className="text-[11px] text-muted-foreground">
+                                남은 {st.remaining} / 전체 {st.total} 문장
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-fit px-2 text-[11px]"
+                          disabled={!s.userId}
+                          onClick={() =>
+                            s.userId &&
+                            setScopeDialog({
+                              userId: s.userId,
+                              name: s.name,
+                              level: s.level,
+                              seriesId: s.startSeriesId ?? null,
+                              volumeId: s.startVolumeId ?? null,
+                              unitId: s.startUnitId ?? null,
+                            })
+                          }
+                        >
+                          <BookOpen className="size-3" /> 진도 설정
+                        </Button>
                       </div>
                     </TableCell>
+
                     <TableCell>
                       <SaveNumberInput
                         value={pct}
