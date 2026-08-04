@@ -160,6 +160,29 @@ const TeacherStudents = () => {
   const [scopeDialog, setScopeDialog] = useState<ScopeDialogTarget | null>(null);
   const [scopeStatus, setScopeStatus] = useState<Record<string, ScopeStatus>>({});
 
+  // 진도 범위 소진(= 진도 끊김) 여부 계산
+  useEffect(() => {
+    const inputs = students
+      .filter((s) => s.userId)
+      .map((s) => ({
+        user_id: s.userId as string,
+        start_series_id: s.startSeriesId ?? null,
+        start_volume_id: s.startVolumeId ?? null,
+        start_unit_id: s.startUnitId ?? null,
+      }));
+    if (inputs.length === 0) {
+      setScopeStatus({});
+      return;
+    }
+    let alive = true;
+    fetchScopeStatusMap(inputs)
+      .then((m) => alive && setScopeStatus(m))
+      .catch(() => alive && setScopeStatus({}));
+    return () => {
+      alive = false;
+    };
+  }, [students]);
+
 
   const saveActualGrade = async (s: Student, grade: string) => {
     setActualGradeSaving(s.name);
