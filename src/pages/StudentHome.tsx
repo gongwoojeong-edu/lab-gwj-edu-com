@@ -803,17 +803,41 @@ const StudentHome = () => {
     ? `${next.id} ${startButtonLabel(nextTaskMode, nextAnalysisPassed)}`
     : "다음 Passage 없음";
 
-  const visibleAssignmentGroups = useMemo(
-    () =>
-      assignmentGroups.filter((g) => {
-        if (g.doneCount < g.totalCount) return true;
-        // 배정 문장을 다 끝낸 뒤에도 유닛 워크플로(인쇄·HO)가 남으면 카드 유지
-        if (!g.unitId) return g.doneCount > 0; // unit 메타 없으면 완료 카드라도 잠시 유지
-        const wf = unitWorkflows[g.unitId];
-        return !wf || wf.status !== "completed";
-      }),
-    [assignmentGroups, unitWorkflows],
-  );
+  // 진행중 / 지난과제 / 완료과제 분리
+  // 규칙: 마감일이 있으면 마감 경과 시 '지난과제', 무기한(마감 없음)이면 출제 후 14일 초과 시 '지난과제'
+  const STALE_DAYS = 14;
+  const { activeAssignmentGroups, pastAssignmentGroups, completedAssignmentGroups } = useMemo(() => {
+    const active: AssignmentGroup[] = [];
+    const past: AssignmentGroup[] = [];
+    const completed: AssignmentGroup[] = [];
+    const now = Date.now();
+    assignmentGroups.forEach((g) => {
+      const isDone = g.totalCount > 0 && g.doneCount >= g.totalCount;
+      if (isDone) {
+        const wf = g.unitId ? unitWorkflows[g.unitId] : null;
+        // 유닛 워크플로(인쇄·워크북)가 남아 있으면 진행중 카드에 유지
+        if (g.unitId && (!wf || wf.status !== "completed")) active.push(g);
+        else completed.push(g);
+        return;
+      }
+      const latestCreated = g.rows.reduce(
+        (m, r) => Math.max(m, new Date(r.created_at).getTime()),
+        0,
+      );
+      const isStale = g.due_at
+        ? new Date(g.due_at).getTime() < now
+        : latestCreated > 0 && now - latestCreated > STALE_DAYS * 86400000;
+      if (isStale) past.push(g);
+      else active.push(g);
+    });
+    return {
+      activeAssignmentGroups: active,
+      pastAssignmentGroups: past,
+      completedAssignmentGroups: completed,
+    };
+  }, [assignmentGroups, unitWorkflows]);
+  const visibleAssignmentGroups = activeAssignmentGroups;
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40">
@@ -1139,6 +1163,88 @@ const StudentHome = () => {
               </ul>
             </Card>
             )}
+
+            {/* 지난 과제 — 마감 경과 또는 무기한 14일 초과 (계속 학습 가능) */}
+            {pastAssignmentGroups.length > 0 && (
+              <Card className="p-4 sm:p-5 border-muted">
+                <details>
+                  <summary className="cursor-pointer list-none flex items-center gap-2 select-none">
+                    <ClipboardList className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-bold text-foreground/70 uppercase tracking-wider">
+                      지난 과제
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-extrabold">
+                      {pastAssignmentGroups.length}
+                    </span>
+                    <span className="ml-auto text-[11px] text-muted-foreground">펼치기/접기</span>
+                  </summary>
+                  <ul className="space-y-2 mt-3">
+                    {pastAssignmentGroups.map((g) => (
+                      <li
+                        key={g.key}
+                        className="flex items-center justify-between gap-2 p-3 rounded-lg border border-border bg-muted/30"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold truncate">{g.title}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            완료 {g.doneCount}/{g.totalCount} ·{" "}
+                            {g.due_at ? "마감 경과" : `무기한 ${STALE_DAYS}일 초과`}
+                          </div>
+                        </div>
+                        {g.nextSentenceId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={() => void goLearn(g.nextSentenceId!, g.nextAssignmentId)}
+                          >
+                            <Play className="w-3 h-3 mr-1" /> 이어하기
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </Card>
+            )}
+
+            {/* 완료 과제 */}
+            {completedAssignmentGroups.length > 0 && (
+              <Card className="p-4 sm:p-5 border-emerald-500/30">
+                <details>
+                  <summary className="cursor-pointer list-none flex items-center gap-2 select-none">
+                    <ClipboardList className="w-4 h-4 text-emerald-600" />
+                    <span className="text-sm font-bold text-foreground/70 uppercase tracking-wider">
+                      완료 과제
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold">
+                      {completedAssignmentGroups.length}
+                    </span>
+                    <span className="ml-auto text-[11px] text-muted-foreground">펼치기/접기</span>
+                  </summary>
+                  <ul className="space-y-2 mt-3">
+                    {completedAssignmentGroups.map((g) => (
+                      <li
+                        key={g.key}
+                        className="flex items-center justify-between gap-2 p-3 rounded-lg border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/5"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold truncate">{g.title}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            완료 {g.doneCount}/{g.totalCount}
+                          </div>
+                        </div>
+                        <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-extrabold">
+                          ✓ 완료
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </Card>
+            )}
+
+
 
             {noContent ? (
               <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 dark:from-amber-950/30 dark:to-orange-950/30">
