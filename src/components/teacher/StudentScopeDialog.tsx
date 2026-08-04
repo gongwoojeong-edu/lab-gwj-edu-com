@@ -56,7 +56,7 @@ interface Props {
 }
 
 export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => {
-  const { displayLevel } = useLevelLabels();
+  const { display: displayLevel } = useLevelLabels();
   const open = target !== null;
   const [level, setLevel] = useState<LevelCode>("L05");
   const [seriesId, setSeriesId] = useState<string | null>(null);
