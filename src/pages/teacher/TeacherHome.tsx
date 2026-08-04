@@ -17,6 +17,7 @@ import { usePendingReviewCount } from "@/hooks/usePendingReviewCount";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
 import ClassKpiCards from "@/components/stats/ClassKpiCards";
 import TodayAttendeesPanel from "@/components/teacher/TodayAttendeesPanel";
+import ScopeExhaustedPanel from "@/components/teacher/ScopeExhaustedPanel";
 
 const TILES = [
   {
@@ -103,6 +104,8 @@ const TeacherHome = () => {
             );
           })}
         </div>
+
+        {!loading && showDeferredWidgets && <ScopeExhaustedPanel students={students} />}
 
         {!loading && showDeferredWidgets && (
           <TodayAttendeesPanel
