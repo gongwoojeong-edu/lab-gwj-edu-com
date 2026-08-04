@@ -74,6 +74,8 @@ import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
+import { memoToPlainText } from "@/lib/approvalMemo";
 import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
 
 type Step = "pre" | "wordtest" | "analysis" | "translation";
@@ -697,7 +699,7 @@ const SentenceLearn = () => {
       setRedoMemo(approval.memo);
       toast({
         title: "선생님 추가학습 요청",
-        description: approval.memo ?? "한 번 더 제출해 주세요.",
+        description: memoToPlainText(approval.memo) || "한 번 더 제출해 주세요.",
       });
       return;
     }
@@ -1014,8 +1016,8 @@ const SentenceLearn = () => {
                     : "선생님이 남긴 코멘트를 확인하고, 한글 해석을 다시 작성해 제출해 주세요."}
                 </div>
                 {redoMemo && (
-                  <div className="mt-2 text-sm rounded-md bg-background/60 border border-violet-500/20 px-3 py-2 text-foreground whitespace-pre-wrap">
-                    💬 {redoMemo}
+                  <div className="mt-2 text-sm rounded-md bg-background/60 border border-violet-500/20 px-3 py-2 text-foreground">
+                    <StructuredMemoView memo={redoMemo} />
                   </div>
                 )}
               </div>
@@ -1053,8 +1055,8 @@ const SentenceLearn = () => {
                   </span>
                 </div>
                 {lastEvaluation.memo ? (
-                  <div className="text-sm rounded-md bg-background/60 border border-emerald-500/20 px-3 py-2 text-foreground whitespace-pre-wrap">
-                    💬 {lastEvaluation.memo}
+                  <div className="text-sm rounded-md bg-background/60 border border-emerald-500/20 px-3 py-2 text-foreground">
+                    <StructuredMemoView memo={lastEvaluation.memo} />
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground">코멘트 없이 승인되었습니다.</div>
