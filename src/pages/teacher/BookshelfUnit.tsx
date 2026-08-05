@@ -80,7 +80,7 @@ import {
   buildUnitWorkbookHtmlFor,
   summarizeUnitProgress,
 } from "@/lib/unitWorkbook";
-import { runExtraction } from "@/lib/wordExtraction";
+import { fetchExtraction, runExtraction, type ExtractedWord } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
