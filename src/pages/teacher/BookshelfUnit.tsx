@@ -126,6 +126,7 @@ const BookshelfUnit = () => {
   const [unit, setUnit] = useState<Unit | null>(null);
   const [passages, setPassages] = useState<Passage[]>([]);
   const [extractedMap, setExtractedMap] = useState<Record<string, number>>({});
+  const [hoverWordsMap, setHoverWordsMap] = useState<Record<string, ExtractedWord[]>>({});
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
