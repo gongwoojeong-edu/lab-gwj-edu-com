@@ -17,6 +17,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
   ChevronLeft,
   Loader2,
   BookOpen,
@@ -75,7 +80,7 @@ import {
   buildUnitWorkbookHtmlFor,
   summarizeUnitProgress,
 } from "@/lib/unitWorkbook";
-import { runExtraction } from "@/lib/wordExtraction";
+import { fetchExtraction, runExtraction, type ExtractedWord } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
@@ -121,6 +126,7 @@ const BookshelfUnit = () => {
   const [unit, setUnit] = useState<Unit | null>(null);
   const [passages, setPassages] = useState<Passage[]>([]);
   const [extractedMap, setExtractedMap] = useState<Record<string, number>>({});
+  const [hoverWordsMap, setHoverWordsMap] = useState<Record<string, ExtractedWord[]>>({});
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -506,6 +512,7 @@ const BookshelfUnit = () => {
       }
       toast({ title: "✨ 단어 추출 완료", description: `${res.count}개 단어` });
       setExtractedMap((prev) => ({ ...prev, [p.code]: res.count }));
+      setHoverWordsMap((prev) => ({ ...prev, [p.code]: res.words }));
     } finally {
       setExtractingCode(null);
     }
@@ -1540,20 +1547,57 @@ const BookshelfUnit = () => {
                         </td>
                         <td className="py-2 px-3">
                           {hasExtracted ? (
-                            <button
-                              type="button"
-                              onClick={() => handleExtract(p)}
-                              disabled={extractingCode === p.code}
-                              title="다시 추출"
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary hover:bg-primary/25 transition disabled:opacity-50"
+                            <HoverCard
+                              openDelay={120}
+                              closeDelay={80}
+                              onOpenChange={(open) => {
+                                if (open && !hoverWordsMap[p.code]) {
+                                  fetchExtraction(p.code).then((row) => {
+                                    setHoverWordsMap((prev) => ({
+                                      ...prev,
+                                      [p.code]: row?.words ?? [],
+                                    }));
+                                  });
+                                }
+                              }}
                             >
-                              {extractingCode === p.code ? (
-                                <Loader2 className="size-3 animate-spin" />
-                              ) : (
-                                <Sparkles className="size-3" />
-                              )}
-                              {wordCount}개
-                            </button>
+                              <HoverCardTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={() => handleExtract(p)}
+                                  disabled={extractingCode === p.code}
+                                  title="다시 추출"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary hover:bg-primary/25 transition disabled:opacity-50"
+                                >
+                                  {extractingCode === p.code ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    <Sparkles className="size-3" />
+                                  )}
+                                  {wordCount}개
+                                </button>
+                              </HoverCardTrigger>
+                              <HoverCardContent
+                                side="top"
+                                align="center"
+                                className="w-64 p-3"
+                              >
+                                <div className="text-xs font-bold border-b border-border pb-1.5 mb-1.5 font-kr">
+                                  추출된 단어 {wordCount}개
+                                </div>
+                                <ul className="max-h-64 overflow-y-auto space-y-1">
+                                  {(hoverWordsMap[p.code] ?? []).map((w, i) => (
+                                    <li key={i} className="text-xs leading-tight">
+                                      <span className="font-semibold">{w.word}</span>
+                                      {w.pos && (
+                                        <span className="text-muted-foreground ml-1">({w.pos})</span>
+                                      )}
+                                      <span className="text-foreground/80 ml-1 font-kr">{w.meaning}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </HoverCardContent>
+                            </HoverCard>
                           ) : (
                             <button
                               type="button"
