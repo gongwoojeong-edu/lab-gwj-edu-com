@@ -512,6 +512,7 @@ const BookshelfUnit = () => {
       }
       toast({ title: "✨ 단어 추출 완료", description: `${res.count}개 단어` });
       setExtractedMap((prev) => ({ ...prev, [p.code]: res.count }));
+      setHoverWordsMap((prev) => ({ ...prev, [p.code]: res.words }));
     } finally {
       setExtractingCode(null);
     }
