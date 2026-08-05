@@ -1566,7 +1566,6 @@ const BookshelfUnit = () => {
                                   type="button"
                                   onClick={() => handleExtract(p)}
                                   disabled={extractingCode === p.code}
-                                  title="다시 추출"
                                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary hover:bg-primary/25 transition disabled:opacity-50"
                                 >
                                   {extractingCode === p.code ? (
