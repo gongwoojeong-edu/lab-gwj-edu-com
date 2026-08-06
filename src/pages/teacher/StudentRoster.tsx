@@ -212,7 +212,7 @@ const StudentRoster = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {sorted.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                       표시할 항목이 없습니다.{" "}
@@ -223,20 +223,20 @@ const StudentRoster = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((m, idx) => {
-                    const prev = idx > 0 ? filtered[idx - 1] : null;
-                    const showLevelDivider =
+                  sorted.map((m, idx) => {
+                    const prev = idx > 0 ? sorted[idx - 1] : null;
+                    const showClassDivider =
                       m.kind === "student" &&
                       (prev?.kind !== "student" ||
-                        (prev?.grade ?? "") !== (m.grade ?? ""));
-                    const gradeText = m.grade ?? "학년 미지정";
+                        (prev?.englishClass ?? "") !== (m.englishClass ?? ""));
+                    const classText = classBadge(m.englishClass);
                     return (
                       <Fragment key={m.key}>
-                        {showLevelDivider && (
+                        {showClassDivider && (
                           <TableRow key={`div-${m.key}`} className="bg-muted/40 hover:bg-muted/40">
                             <TableCell colSpan={8} className="py-1.5">
                               <span className="text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-                                {gradeText}
+                                {classText}
                               </span>
                             </TableCell>
                           </TableRow>
