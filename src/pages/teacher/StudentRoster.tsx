@@ -24,6 +24,7 @@ import { toast } from "@/hooks/use-toast";
 import { useStaff } from "@/lib/staff-context";
 import { rankLabel } from "@/lib/ranks";
 import { LEVEL_LABEL } from "@/lib/levels";
+import { classBadge, compareStudents } from "@/lib/studentSort";
 import {
   fetchMemberRoster,
   filterRosterForTeacherView,
