@@ -80,9 +80,9 @@ const StudentRoster = () => {
     return [...set].sort((a, b) => a.localeCompare(b, "ko"));
   }, [scoped]);
 
-  const filtered = useMemo(() => {
+  const sorted = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return scoped.filter((m) => {
+    const filtered = scoped.filter((m) => {
       if (kindFilter !== "all" && m.kind !== kindFilter) return false;
       if (campusFilter !== "all" && m.campus !== campusFilter) return false;
       if (!q) return true;
@@ -92,6 +92,30 @@ const StudentRoster = () => {
         (m.englishClass ?? "").toLowerCase().includes(q)
       );
     });
+
+    const teachers = filtered.filter((m) => m.kind === "teacher");
+    const students = filtered.filter((m) => m.kind === "student");
+
+    const sortedStudents = [...students].sort((a, b) =>
+      compareStudents(
+        {
+          display_name: a.name,
+          student_no: a.loginId,
+          orbit_class_name: a.englishClass,
+          actual_grade: a.grade,
+          campus: a.campus,
+        },
+        {
+          display_name: b.name,
+          student_no: b.loginId,
+          orbit_class_name: b.englishClass,
+          actual_grade: b.grade,
+          campus: b.campus,
+        },
+      ),
+    );
+
+    return [...teachers, ...sortedStudents];
   }, [scoped, query, kindFilter, campusFilter]);
 
   const counts = useMemo(
