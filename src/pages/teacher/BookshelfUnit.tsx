@@ -281,7 +281,10 @@ const BookshelfUnit = () => {
   // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행 (모달에서 선택한 mode 사용)
   const handleConfirmPrintWorkbook = async (
     mode: import("@/lib/unitWorkbook").WorkbookMode,
-    opts: { answerKey: boolean } = { answerKey: false },
+    opts: { answerKey: boolean; extraUnitIds: string[] } = {
+      answerKey: false,
+      extraUnitIds: [],
+    },
   ) => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
     if (!workbookSummary || workbookSummary.total === 0) {
@@ -290,15 +293,45 @@ const BookshelfUnit = () => {
     }
     setWorkbookPrinting(true);
     try {
-      const unitCode = `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unit.unit_no}`;
-      const { html, completedCount } = await buildUnitWorkbookHtmlFor({
-        unitId: unit.id,
-        unitTitle: unit.title,
-        unitCode,
-        studentId: workbookStudentId,
-        mode,
-        answerKey: opts.answerKey,
-      });
+      const codeOf = (unitNo: number) =>
+        `${level && LEVEL_LABEL[level]} · ${series?.title ?? ""} · ${textbook?.title ?? ""} · U${unitNo}`;
+      const unitCode = codeOf(unit.unit_no);
+      const extras = (opts.extraUnitIds ?? [])
+        .map((id) => allUnits.find((u) => u.id === id))
+        .filter((u): u is NonNullable<typeof u> => !!u)
+        .sort((a, b) => a.unit_no - b.unit_no);
+
+      let html: string;
+      let completedCount: number;
+      if (extras.length > 0) {
+        const { buildMultiUnitWorkbookHtml } = await import("@/lib/unitWorkbook");
+        const res = await buildMultiUnitWorkbookHtml({
+          units: [
+            { unitId: unit.id, unitTitle: unit.title, unitCode },
+            ...extras.map((u) => ({
+              unitId: u.id,
+              unitTitle: u.title,
+              unitCode: codeOf(u.unit_no),
+            })),
+          ],
+          studentId: workbookStudentId,
+          mode,
+          answerKey: opts.answerKey,
+        });
+        html = res.html;
+        completedCount = res.passageCount;
+      } else {
+        const res = await buildUnitWorkbookHtmlFor({
+          unitId: unit.id,
+          unitTitle: unit.title,
+          unitCode,
+          studentId: workbookStudentId,
+          mode,
+          answerKey: opts.answerKey,
+        });
+        html = res.html;
+        completedCount = res.completedCount;
+      }
       await launchPrintHtml(html, {
         jobKey: `unit-workbook:${unit.id}:${workbookStudentId}:${mode}${opts.answerKey ? ":ans" : ""}`,
         loadTimeoutMs: 12000,
@@ -1233,6 +1266,10 @@ const BookshelfUnit = () => {
               studentNo={sel.no}
               unitTitle={unit.title}
               unitCode={unitCode}
+              siblingUnits={allUnits
+                .filter((u) => u.textbook_id === textbook.id && u.id !== unit.id)
+                .sort((a, b) => a.unit_no - b.unit_no)
+                .map((u) => ({ unitId: u.id, unit_no: u.unit_no, title: u.title }))}
               completedCodes={workbookSummary.completedCodes}
               pendingCodes={workbookSummary.pendingCodes}
               printing={workbookPrinting}
