@@ -1012,14 +1012,22 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     </div>
   </div>
   <div class="section">
-    <div class="section-title">④ 주요 어법과 어휘 정리칸 (유의어/반의어)</div>
+    <div class="section-title">④ 주요 어법 정리</div>
     <div class="cb-write cb-write-wide cb-write-large">
       <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
       <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
     </div>
   </div>
   <div class="section">
-    <div class="section-title">⑤ 재영작</div>
+    <div class="section-title">⑤ 주요 어휘 정리 (유의어/반의어)</div>
+    <div class="cb-write cb-write-wide cb-write-large">
+      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">⑥ 재영작</div>
+
     <div class="cb-write cb-write-wide">
       <div class="cb-line"></div><div class="cb-line"></div>
     </div>
