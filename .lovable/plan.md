@@ -1,61 +1,47 @@
+# 유닛 단위 일괄 첨삭 (Batch Grading)
 
 ## 목표
-문장암기 트랙에 **동시통역**(음성 즉시 반대 언어 발화)과 **번역**(타이핑) 단계를 추가한다. 두 단계는 **선생님이 유닛/과제 설정에서 선택**해야만 활성화된다(기본 OFF, 기존 학생에 영향 없음).
+특별과제를 낼 때 "문장별 승인 대기" 대신 **유닛(또는 여러 유닛) 전체를 다 제출한 뒤 한꺼번에 첨삭**하는 옵션을 추가한다.
+예) 모의고사 4지문 숙제 → 학생은 4지문 분석+한글해석을 끊김 없이 연속 제출 → 선생님이 4지문을 한 화면에서 일괄 첨삭 → 수업 때 워크북 활동.
 
-## 새 순서 (기본 → 선택단계 삽입)
-```text
-A 듣기 → B 어순배열 → C 빈칸(cloze) → D 받아쓰기
-        → [G 동시통역]  (선택 옵션, 임계값 60%)
-        → [H 번역]      (선택 옵션, ko→en 100% 일치 / en→ko 유사도 75%)
-        → E 발화(Azure) → [F 녹음]
-```
-- 배열 · 받아쓰기 · 동시통역 · 번역 순서는 사용자 요청대로 D 뒤에 G/H 삽입.
-- 기존 발화·녹음은 마지막 단계로 유지(발음/음질 확인은 최종 컨펌 성격).
+## 현재 동작 (확인됨)
+- 학생이 한글해석을 제출하면 `createApprovalRequest`로 문장 1건당 승인 요청 행이 생기고, `SentenceLearn`에서 `ApprovalWaitingPanel`이 떠서 **선생님 승인 전까지 대기**한다.
+- 선생님 `/teacher/approvals`는 문장 단위 행 목록이며 다이얼로그도 1문장 단위다.
 
-## 채점 규칙
-- **동시통역 (G)**: STT(Azure/브라우저) 결과 vs 반대 언어 정답. 유사도 ≥ **60%** 통과. 방향은 현재 트랙(ko_to_en / en_to_ko)의 **반대**로 발화.
-- **번역 (H)**: 타이핑 입력.
-  - `ko_to_en` 트랙: 영문 100% 일치 (기존 `dictationPassEn` 재사용, 아포스트로피/대소문자 정규화만 허용)
-  - `en_to_ko` 트랙: 한글 유사도 ≥ 75% (`dictationPassKo` 임계값 조정 재사용)
+## 추가할 것
 
-## 분석 트랙 번역과의 관계
-- **완전 별도**. 분석 트랙 `TranslationStep`(선생님 승인형)은 그대로 유지.
-- 이 단계는 자동채점·즉시 통과. 승인 워크플로 없음.
+### 1) 과제 옵션: 첨삭 방식
+과제 출제 화면(`/teacher/assignments`)에 라디오 추가:
+- **문장별 즉시 첨삭** (기존 기본값, 변경 없음)
+- **일괄 첨삭 (유닛/과제 단위)** — 새 옵션
 
-## DB 마이그레이션
-`textbook_units` 컬럼 추가:
-- `mem_include_interpret boolean default false`
-- `mem_include_translate boolean default false`
+일괄 첨삭이면 과제에 포함된 모든 문장을 다 제출해야 첨삭이 시작된다.
 
-`assignments` 컬럼 추가(과제별 override):
-- `mem_include_interpret boolean`
-- `mem_include_translate boolean`
+### 2) 학생 흐름
+- 일괄 첨삭 과제에서는 해석 제출 후 **대기 화면 없이 다음 문장으로 계속 진행**한다.
+- 마지막 문장까지 제출하면 "제출 완료 · 선생님 첨삭 대기중" 카드 1개만 표시(문장별 대기 배너 제거).
+- 첨삭이 끝나면 알림 1건으로 통보되고, 학생 홈/과제 카드에서 문장별 등급·메모를 열람.
 
-`sentence_progress` 컬럼 추가:
-- `mem_interpret_done boolean default false`
-- `mem_translate_done boolean default false`
-- `mem_interpret_score int`
-- `mem_translate_score int`
+### 3) 선생님 일괄 첨삭 화면
+승인함(`/teacher/approvals`)에 **"일괄 첨삭" 탭** 추가:
+- 카드 단위 = (학생 × 과제). 예: `황준서 · 모의고사 4지문 (4/4 제출완료)`
+- 카드를 열면 지문별로 [원문 / 정답 해석 / 학생 해석 / 등급 / 서식 메모 4칸]이 세로로 나열.
+- 하단에 **전체 등급 일괄 적용** 버튼 + **일괄 승인** 버튼. 개별 지문만 다른 등급/메모로 덮어쓸 수 있음.
+- 아직 전원 제출 전인 과제는 "제출 대기 (2/4)"로 회색 표시, 승인 버튼 비활성(원하면 강제 첨삭 가능).
 
-## 새 파일
-- `src/components/learning/memorization/MemInterpretStep.tsx` — 오디오 재생 후 마이크 녹음 → Azure STT → 유사도 판정.
-- `src/components/learning/memorization/MemTranslateStep.tsx` — 타이핑 입력창 → 정답 대조.
+## 기술 상세
 
-## 수정 파일
-- `src/lib/memorizationProgress.ts` — `MemStep`에 `interpret`, `translate` 추가; 플래그·필수단계·리셋 로직 확장.
-- `src/lib/fetchMemSettings.ts` — `includeInterpret`, `includeTranslate` resolve (유닛 → 과제 override).
-- `src/pages/MemorizeLearn.tsx` — 새 순서/조건부 렌더링.
-- `src/components/learning/memorization/MemStepProgressBar.tsx` — 진행바에 옵션 단계 노드 추가.
-- `src/pages/teacher/BookshelfUnit.tsx` — "암기 설정"에 두 개의 체크박스(동시통역 포함 / 번역 포함).
-- `src/pages/teacher/Assignments.tsx` — 과제 발행 시 두 옵션 선택 UI(선택시 유닛 기본값 덮어씀).
+**DB 마이그레이션**
+- `assignments.grading_mode text not null default 'per_sentence'` (`'per_sentence' | 'batch'`)
 
-## 완료 판정
-- `requiredMemSteps()`가 옵션 단계를 포함하도록 확장 → 모든 필수단계 통과 시 `mem_passed_at` 세팅. 회독 리셋도 새 플래그를 함께 초기화.
+**수정 파일**
+- `src/pages/teacher/Assignments.tsx` — 출제 폼에 첨삭 방식 라디오, insert/수정 시 `grading_mode` 반영
+- `src/lib/sentenceApprovals.ts` — `fetchBatchApprovalGroups()`(과제×학생 그룹 + 제출/전체 문장 수), `approveBatch(items[])`(문장별 등급·메모 배열로 일괄 승인, 진도 pass 갱신, 알림 1건)
+- `src/pages/SentenceLearn.tsx` — 과제의 `grading_mode === 'batch'`면 `ApprovalWaitingPanel` 대신 즉시 다음 문장으로 이동
+- `src/pages/teacher/PendingApprovals.tsx` — 탭에 "일괄 첨삭" 추가
+- `src/components/learning/BatchApprovalDialog.tsx` (신규) — 다지문 첨삭 다이얼로그, 기존 `StructuredMemoInput` 재사용
+- `src/lib/studentNotifications.ts` 호출부 — 일괄 첨삭 완료 알림 문구
 
-## 리스크 / 검토
-- STT는 마이크 권한 필요. 실패 시 "타이핑 대체 입력" fallback 제공.
-- 기존 진행중인 학생은 두 옵션 기본 OFF라 영향 없음.
-- 문장이 매우 짧으면(1~2단어) 번역 100% 요구가 가혹할 수 있어, ko→en도 아포스트로피/공백/대소문자 정규화 후 완전일치로 판정(오탈자 여유 없음).
-
----
-승인해 주시면 마이그레이션부터 순차 진행하겠습니다.
+**호환성**
+- `grading_mode` 기본값이 `per_sentence`라 기존 과제·진행 중 학생 흐름은 그대로 유지된다.
+- 일괄 승인도 내부적으로는 기존 `sentence_approvals` 행을 문장별로 approved 처리하므로 리포트/평가 통계는 변경 없이 동작한다.
