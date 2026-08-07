@@ -40,6 +40,12 @@ import {
 
 export type { WorkbookMode };
 
+export interface WorkbookSiblingUnit {
+  unitId: string;
+  unit_no: number;
+  title: string;
+}
+
 export interface UnitWorkbookPreviewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,9 +58,15 @@ export interface UnitWorkbookPreviewProps {
   completedCodes: string[];
   pendingCodes: string[];
   printing: boolean;
-  /** 사용자가 선택한 모드를 받아 인쇄 실행 */
-  onConfirmPrint: (mode: WorkbookMode, opts: { answerKey: boolean }) => void;
+  /** 같은 책의 다른 유닛 — 한꺼번에 워크북 구성용 */
+  siblingUnits?: WorkbookSiblingUnit[];
+  /** 사용자가 선택한 모드를 받아 인쇄 실행 (extraUnitIds = 함께 인쇄할 다른 유닛) */
+  onConfirmPrint: (
+    mode: WorkbookMode,
+    opts: { answerKey: boolean; extraUnitIds: string[] },
+  ) => void;
 }
+
 
 interface ModeCard {
   key: WorkbookMode;
@@ -80,18 +92,27 @@ export const UnitWorkbookPreviewDialog = ({
   completedCodes,
   pendingCodes,
   printing,
+  siblingUnits = [],
   onConfirmPrint,
 }: UnitWorkbookPreviewProps) => {
   const [mode, setMode] = useState<WorkbookMode>(defaultMode);
   const [answerKey, setAnswerKey] = useState(false);
+  const [extraUnitIds, setExtraUnitIds] = useState<string[]>([]);
 
   // 다이얼로그가 열릴 때마다 기본 모드로 리셋
   useEffect(() => {
     if (open) {
       setMode(defaultMode);
       setAnswerKey(false);
+      setExtraUnitIds([]);
     }
   }, [open, defaultMode]);
+
+  const toggleExtraUnit = (id: string) =>
+    setExtraUnitIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
 
   // 예상 페이지 추정
   const estimatedPages = (() => {
@@ -111,7 +132,7 @@ export const UnitWorkbookPreviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="size-5 text-primary" />
@@ -256,6 +277,57 @@ export const UnitWorkbookPreviewDialog = ({
           </div>
         </div>
 
+        {/* 여러 유닛 한꺼번에 구성 */}
+        {siblingUnits.length > 0 && (
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <div className="text-xs font-semibold text-muted-foreground">
+                함께 인쇄할 유닛 (여러 유닛 한 권으로)
+              </div>
+              {extraUnitIds.length > 0 && (
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground underline"
+                  onClick={() => setExtraUnitIds([])}
+                  disabled={printing}
+                >
+                  모두 해제
+                </button>
+              )}
+            </div>
+            <ScrollArea className="h-24 rounded-md border">
+              <div className="p-2 grid grid-cols-2 gap-1">
+                {siblingUnits.map((u) => (
+                  <label
+                    key={u.unitId}
+                    className={cn(
+                      "flex items-center gap-2 text-xs px-2 py-1.5 rounded cursor-pointer",
+                      extraUnitIds.includes(u.unitId)
+                        ? "bg-primary/10"
+                        : "hover:bg-muted/50",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={extraUnitIds.includes(u.unitId)}
+                      onChange={() => toggleExtraUnit(u.unitId)}
+                      disabled={printing}
+                      className="size-3.5 accent-primary"
+                    />
+                    <span className="font-semibold shrink-0">U{u.unit_no}</span>
+                    <span className="truncate text-muted-foreground">{u.title}</span>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="mt-1.5 text-[11px] text-muted-foreground">
+              * 선택한 유닛들이 현재 유닛 뒤에 유닛 순서대로 이어서 인쇄됩니다.
+            </div>
+          </div>
+        )}
+
+
+
         {/* 답지 토글 — 구문 · 유닛 통합에서만 의미 있음 */}
         {mode === "syntax_unit" && (
           <label
@@ -296,6 +368,11 @@ export const UnitWorkbookPreviewDialog = ({
             <span className="font-semibold">{WORKBOOK_MODE_LABEL[mode]}</span>
             <span className="text-muted-foreground"> · </span>
             <span>{printableCount}개 지문</span>
+            {extraUnitIds.length > 0 && (
+              <span className="ml-2 text-primary font-bold">
+                · 유닛 {extraUnitIds.length + 1}개 통합
+              </span>
+            )}
             {mode === "syntax_unit" && answerKey && (
               <span className="ml-2 text-destructive font-bold">· 답지</span>
             )}
@@ -314,7 +391,13 @@ export const UnitWorkbookPreviewDialog = ({
             취소
           </Button>
           <Button
-            onClick={() => onConfirmPrint(mode, { answerKey: mode === "syntax_unit" && answerKey })}
+            onClick={() =>
+              onConfirmPrint(mode, {
+                answerKey: mode === "syntax_unit" && answerKey,
+                extraUnitIds,
+              })
+            }
+
             disabled={printing || printableCount === 0}
           >
             {printing ? (
