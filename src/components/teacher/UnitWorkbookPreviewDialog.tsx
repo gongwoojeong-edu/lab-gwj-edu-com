@@ -277,6 +277,57 @@ export const UnitWorkbookPreviewDialog = ({
           </div>
         </div>
 
+        {/* 여러 유닛 한꺼번에 구성 */}
+        {siblingUnits.length > 0 && (
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <div className="text-xs font-semibold text-muted-foreground">
+                함께 인쇄할 유닛 (여러 유닛 한 권으로)
+              </div>
+              {extraUnitIds.length > 0 && (
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground underline"
+                  onClick={() => setExtraUnitIds([])}
+                  disabled={printing}
+                >
+                  모두 해제
+                </button>
+              )}
+            </div>
+            <ScrollArea className="h-24 rounded-md border">
+              <div className="p-2 grid grid-cols-2 gap-1">
+                {siblingUnits.map((u) => (
+                  <label
+                    key={u.unitId}
+                    className={cn(
+                      "flex items-center gap-2 text-xs px-2 py-1.5 rounded cursor-pointer",
+                      extraUnitIds.includes(u.unitId)
+                        ? "bg-primary/10"
+                        : "hover:bg-muted/50",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={extraUnitIds.includes(u.unitId)}
+                      onChange={() => toggleExtraUnit(u.unitId)}
+                      disabled={printing}
+                      className="size-3.5 accent-primary"
+                    />
+                    <span className="font-semibold shrink-0">U{u.unit_no}</span>
+                    <span className="truncate text-muted-foreground">{u.title}</span>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="mt-1.5 text-[11px] text-muted-foreground">
+              * 선택한 유닛들이 현재 유닛 뒤에 유닛 순서대로 이어서 인쇄됩니다.
+            </div>
+          </div>
+        )}
+
+
+
         {/* 답지 토글 — 구문 · 유닛 통합에서만 의미 있음 */}
         {mode === "syntax_unit" && (
           <label
