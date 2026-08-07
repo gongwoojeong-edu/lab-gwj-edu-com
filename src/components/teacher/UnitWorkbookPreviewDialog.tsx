@@ -386,7 +386,13 @@ export const UnitWorkbookPreviewDialog = ({
             취소
           </Button>
           <Button
-            onClick={() => onConfirmPrint(mode, { answerKey: mode === "syntax_unit" && answerKey })}
+            onClick={() =>
+              onConfirmPrint(mode, {
+                answerKey: mode === "syntax_unit" && answerKey,
+                extraUnitIds,
+              })
+            }
+
             disabled={printing || printableCount === 0}
           >
             {printing ? (
