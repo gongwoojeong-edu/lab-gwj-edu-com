@@ -64,6 +64,7 @@ import {
   type MaterialViewRequest,
 } from "@/lib/materialViewRequests";
 import { fetchTaskModeForSentence } from "@/lib/fetchTaskMode";
+import { summarizeUnitProgress } from "@/lib/unitWorkbook";
 import { fetchSentenceProgress } from "@/integrations/supabase/storage";
 import { resolveContinueSentenceId } from "@/lib/sentenceApprovals";
 import {
@@ -177,6 +178,9 @@ const StudentHome = () => {
   const [unitWorkflows, setUnitWorkflows] = useState<Record<string, UnitWorkflowRow>>({});
   const [materialViews, setMaterialViews] = useState<Record<string, MaterialViewRequest>>({});
   const [unitAccess, setUnitAccess] = useState<Record<string, boolean>>({});
+  const [mainUnits, setMainUnits] = useState<
+    { unitId: string; unit_no: number; title: string; totalCount: number; doneCount: number }[]
+  >([]);
   const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
   const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
 
@@ -472,6 +476,69 @@ const StudentHome = () => {
             setMaterialViews(mvMap);
             setUnitAccess(Object.fromEntries(accessEntries));
           }
+
+          // 메인 커리큘럼(진도) 유닛 — 과제와 무관하게 유닛 완주 시 워크북 신청
+          const assignedUnitIds = new Set(unitIds);
+          const codes = [
+            ...(r.sentence ? [r.sentence.id] : []),
+            ...enriched.slice(0, 60).map((e) => e.sentence.id),
+          ];
+          const uniqueCodes = [...new Set(codes)];
+          const mains: {
+            unitId: string;
+            unit_no: number;
+            title: string;
+            totalCount: number;
+            doneCount: number;
+          }[] = [];
+          if (uniqueCodes.length > 0) {
+            const { data: pgRows2 } = await supabase
+              .from("textbook_passages")
+              .select("unit_id")
+              .in("code", uniqueCodes);
+            const mainUnitIds = [
+              ...new Set(
+                ((pgRows2 ?? []) as { unit_id: string | null }[])
+                  .map((x) => x.unit_id)
+                  .filter((x): x is string => !!x),
+              ),
+            ]
+              .filter((id) => !assignedUnitIds.has(id))
+              .slice(0, 12);
+            if (mainUnitIds.length > 0) {
+              const [{ data: unitRows2 }, summaries] = await Promise.all([
+                supabase
+                  .from("textbook_units")
+                  .select("id, unit_no, title")
+                  .in("id", mainUnitIds),
+                Promise.all(
+                  mainUnitIds.map(
+                    async (id) =>
+                      [id, await summarizeUnitProgress(id, user.id)] as const,
+                  ),
+                ),
+              ]);
+              const metaMap = new Map(
+                ((unitRows2 ?? []) as { id: string; unit_no: number; title: string }[]).map(
+                  (u) => [u.id, u],
+                ),
+              );
+              summaries.forEach(([id, sum]) => {
+                const meta = metaMap.get(id);
+                if (!meta || sum.totalPassages === 0) return;
+                if (sum.completedCodes.length === 0) return;
+                mains.push({
+                  unitId: id,
+                  unit_no: meta.unit_no,
+                  title: meta.title,
+                  totalCount: sum.totalPassages,
+                  doneCount: sum.completedCodes.length,
+                });
+              });
+              mains.sort((a, b) => a.unit_no - b.unit_no);
+            }
+          }
+          if (mounted) setMainUnits(mains);
         }
 
         // 본인의 pending 시험지/분석자료 요청 + 각 sentence별 정답대조 요청 상태 로드
