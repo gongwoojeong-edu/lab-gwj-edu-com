@@ -92,18 +92,27 @@ export const UnitWorkbookPreviewDialog = ({
   completedCodes,
   pendingCodes,
   printing,
+  siblingUnits = [],
   onConfirmPrint,
 }: UnitWorkbookPreviewProps) => {
   const [mode, setMode] = useState<WorkbookMode>(defaultMode);
   const [answerKey, setAnswerKey] = useState(false);
+  const [extraUnitIds, setExtraUnitIds] = useState<string[]>([]);
 
   // 다이얼로그가 열릴 때마다 기본 모드로 리셋
   useEffect(() => {
     if (open) {
       setMode(defaultMode);
       setAnswerKey(false);
+      setExtraUnitIds([]);
     }
   }, [open, defaultMode]);
+
+  const toggleExtraUnit = (id: string) =>
+    setExtraUnitIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
 
   // 예상 페이지 추정
   const estimatedPages = (() => {
