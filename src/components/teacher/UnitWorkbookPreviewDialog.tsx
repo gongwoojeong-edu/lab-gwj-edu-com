@@ -40,6 +40,12 @@ import {
 
 export type { WorkbookMode };
 
+export interface WorkbookSiblingUnit {
+  unitId: string;
+  unit_no: number;
+  title: string;
+}
+
 export interface UnitWorkbookPreviewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,9 +58,15 @@ export interface UnitWorkbookPreviewProps {
   completedCodes: string[];
   pendingCodes: string[];
   printing: boolean;
-  /** 사용자가 선택한 모드를 받아 인쇄 실행 */
-  onConfirmPrint: (mode: WorkbookMode, opts: { answerKey: boolean }) => void;
+  /** 같은 책의 다른 유닛 — 한꺼번에 워크북 구성용 */
+  siblingUnits?: WorkbookSiblingUnit[];
+  /** 사용자가 선택한 모드를 받아 인쇄 실행 (extraUnitIds = 함께 인쇄할 다른 유닛) */
+  onConfirmPrint: (
+    mode: WorkbookMode,
+    opts: { answerKey: boolean; extraUnitIds: string[] },
+  ) => void;
 }
+
 
 interface ModeCard {
   key: WorkbookMode;
