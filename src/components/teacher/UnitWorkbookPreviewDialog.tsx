@@ -132,7 +132,7 @@ export const UnitWorkbookPreviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="size-5 text-primary" />
@@ -368,6 +368,11 @@ export const UnitWorkbookPreviewDialog = ({
             <span className="font-semibold">{WORKBOOK_MODE_LABEL[mode]}</span>
             <span className="text-muted-foreground"> · </span>
             <span>{printableCount}개 지문</span>
+            {extraUnitIds.length > 0 && (
+              <span className="ml-2 text-primary font-bold">
+                · 유닛 {extraUnitIds.length + 1}개 통합
+              </span>
+            )}
             {mode === "syntax_unit" && answerKey && (
               <span className="ml-2 text-destructive font-bold">· 답지</span>
             )}
