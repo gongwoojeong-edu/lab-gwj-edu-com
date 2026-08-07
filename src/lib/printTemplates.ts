@@ -411,7 +411,16 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
       </div>
     </div>
   </div>
+  <div class="section" style="padding: 0 5mm 4mm;">
+    <div class="section-title">④ 주요 어법 정리</div>
+    <div class="uo-end-write">
+      <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+      <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+      <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
+    </div>
+  </div>
 </div>
+
 `;
   return wrapDoc(`Unit HO ${p.unitCode}`, body);
 };
