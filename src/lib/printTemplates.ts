@@ -270,7 +270,16 @@ export const buildHandoutPrintHtml = (p: HandoutPayload): string => {
       </div>
     </div>
   </div>
+  <div class="section">
+    <div class="section-title">⑥ 주요 어법 정리</div>
+    <div class="write-lines">
+      <div class="write-line"></div><div class="write-line"></div>
+      <div class="write-line"></div><div class="write-line"></div>
+      <div class="write-line"></div><div class="write-line"></div>
+    </div>
+  </div>
 </div>
+
 `;
   return wrapDoc(`HO ${p.passageCode}`, body);
 };
