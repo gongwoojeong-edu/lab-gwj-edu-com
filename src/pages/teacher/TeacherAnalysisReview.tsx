@@ -14,6 +14,8 @@ import {
   XCircle,
   AlertCircle,
   ShieldCheck,
+  KeyRound,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SENTENCES, type Sentence } from "@/data/sentences";
@@ -27,6 +29,7 @@ import { fetchIdiomsAll } from "@/integrations/supabase/storage";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AnyProgress {
   pos: string | null;
@@ -103,6 +106,17 @@ const TeacherAnalysisReview = () => {
   const [master, setMaster] = useState<Record<string, AnyProgress>>({});
   const [studentAns, setStudentAns] = useState<Record<string, AnyProgress>>({});
   const [idioms, setIdioms] = useState<{ surface: string; meaning: string }[]>([]);
+  const { roles } = useAuth();
+  const isAdmin = roles.includes("admin");
+
+  const reloadMaster = async () => {
+    if (!req) return;
+    const m = await fetchMasterAnswers(req.sentence_id);
+    setMaster(m);
+    toast({
+      title: Object.keys(m).length > 0 ? "마스터키가 등록되어 있습니다" : "아직 마스터키가 없습니다",
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -266,9 +280,38 @@ const TeacherAnalysisReview = () => {
                   </span>
                 )}
                 {Object.keys(master).length === 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-xs font-bold">
-                    마스터 미등록
-                  </span>
+                  <>
+                    <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground text-xs font-bold">
+                      마스터 미등록
+                    </span>
+                    <Button
+                      size="sm"
+                      className="h-6 px-2 text-xs bg-amber-500 hover:bg-amber-600 text-white"
+                      disabled={!isAdmin}
+                      title={
+                        isAdmin
+                          ? "이 지문의 마스터키(정답)를 등록합니다"
+                          : "마스터 등록은 관리자 계정에서 가능합니다"
+                      }
+                      onClick={() =>
+                        window.open(
+                          `/learn/sentence/${encodeURIComponent(req.sentence_id)}?master=1`,
+                          "_blank",
+                        )
+                      }
+                    >
+                      <KeyRound className="w-3 h-3 mr-1" /> 마스터 등록
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-xs"
+                      title="마스터 등록 여부 다시 확인"
+                      onClick={() => void reloadMaster()}
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                    </Button>
+                  </>
                 )}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
