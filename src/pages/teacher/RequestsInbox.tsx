@@ -26,6 +26,8 @@ import {
   ChevronDown,
   FileText,
   Trash2,
+  KeyRound,
+  RefreshCw,
 } from "lucide-react";
 import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
 import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
@@ -57,6 +59,7 @@ import {
   PrintPreloadError,
 } from "@/lib/printPreload";
 import { fetchMasterAvailability } from "@/lib/masterAvailability";
+import { useAuth } from "@/hooks/useAuth";
 import { errMsg } from "@/lib/errMsg";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -106,6 +109,16 @@ const RequestsInbox = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [tab, setTab] = useState<"pending" | "done">("pending");
+  const { roles } = useAuth();
+  const isAdmin = roles.includes("admin");
+
+  /** 마스터키 등록 여부만 다시 확인 (전체 새로고침 없이) */
+  const refreshMasterAvailability = async () => {
+    const ids = Array.from(new Set(reviewRows.map((r) => r.sentence_id)));
+    if (ids.length === 0) return;
+    const m = await fetchMasterAvailability(ids);
+    setMasterMap(m);
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -200,6 +213,16 @@ const RequestsInbox = () => {
       u4?.();
     };
   }, []);
+
+  // 마스터 등록 탭에서 돌아오면 자동으로 재확인 → 승인 버튼 활성화
+  useEffect(() => {
+    const onFocus = () => {
+      void refreshMasterAvailability();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewRows]);
 
   const pendingItems = useMemo<InboxItem[]>(() => {
     const out: InboxItem[] = [
@@ -895,6 +918,37 @@ const RequestsInbox = () => {
                     >
                       🖼 비교
                     </Button>
+                    {!masterReady && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="h-7 px-2 text-xs bg-amber-500 hover:bg-amber-600 text-white"
+                          disabled={!isAdmin}
+                          title={
+                            isAdmin
+                              ? "이 지문의 마스터키(정답)를 등록합니다"
+                              : "마스터 등록은 관리자 계정에서 가능합니다"
+                          }
+                          onClick={() =>
+                            window.open(
+                              `/learn/sentence/${encodeURIComponent(req.sentence_id)}?master=1`,
+                              "_blank",
+                            )
+                          }
+                        >
+                          <KeyRound className="size-3 mr-1" /> 마스터 등록
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          title="마스터 등록 여부 다시 확인"
+                          onClick={() => void refreshMasterAvailability()}
+                        >
+                          <RefreshCw className="size-3" />
+                        </Button>
+                      </>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"

@@ -1003,7 +1003,19 @@ const SentenceLearn = () => {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+        {/* 마스터키 등록 모드 — 요청함에서 "마스터 등록"으로 진입한 경우 */}
+        {new URLSearchParams(window.location.search).get("master") === "1" && (
+          <Card className="p-4 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-500/10">
+            <div className="text-sm font-extrabold text-amber-700 dark:text-amber-300">
+              🔑 마스터키 등록 모드
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              관리자 계정으로 이 지문을 분석해 저장하면 정답(마스터키)으로 등록됩니다. 저장 후 요청함으로 돌아가면 승인 버튼이 활성화돼요.
+            </div>
+          </Card>
+        )}
         {/* 선생님 추가학습 요청 배너 — 기존 통과 기록은 유지된 채 한 번 더 제출 */}
+
         {redoRequestedAt && (
           <Card className="p-5 space-y-3 border-2 border-violet-500/40 bg-violet-50/40 dark:bg-violet-500/5">
             <div className="flex items-start gap-3">
