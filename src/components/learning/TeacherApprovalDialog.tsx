@@ -197,7 +197,7 @@ export const TeacherApprovalDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0 sm:top-[5vh] sm:translate-y-0">
-        <DialogHeader>
+        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border pb-3">
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
             {isHeldMode ? "보류함 — 최종 처리" : "선생님 승인 — 평가"}
