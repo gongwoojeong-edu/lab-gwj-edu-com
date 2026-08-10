@@ -197,7 +197,7 @@ export const TeacherApprovalDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0 sm:top-[5vh] sm:translate-y-0">
-        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border pb-3">
+        <DialogHeader className="sticky top-0 z-50 bg-background border-b border-border pb-3 pt-1">
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
             {isHeldMode ? "보류함 — 최종 처리" : "선생님 승인 — 평가"}
@@ -206,6 +206,7 @@ export const TeacherApprovalDialog = ({
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
         </DialogHeader>
+
 
         {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
           <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
