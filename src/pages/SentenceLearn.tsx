@@ -338,11 +338,12 @@ const SentenceLearn = () => {
         setPendingApproval(latestApproval);
       } else if (
         mounted &&
-        latestApproval?.status === "approved" &&
-        latestApproval.grade &&
-        latestApproval.grade !== "redo"
+        (latestApproval?.status === "held" ||
+          (latestApproval?.status === "approved" &&
+            latestApproval.grade &&
+            latestApproval.grade !== "redo"))
       ) {
-        // 승인됐으면 progress를 pass로 맞춘 뒤 다음 문장으로 (translation_done 여부와 무관)
+        // 승인/보류면 progress를 pass로 맞춘 뒤 다음 문장으로
         if (progStatus !== "pass") {
           await applyApprovalToMyProgress(latestApproval, assignmentIdParam);
         }
