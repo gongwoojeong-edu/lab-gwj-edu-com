@@ -517,7 +517,7 @@ const SentenceLearn = () => {
           setPendingApproval(row);
           return;
         }
-        if (row.status === "approved") {
+        if (row.status === "approved" || row.status === "held") {
           void advanceAfterApproval(row);
         }
       }, assignmentIdParam);
