@@ -14,6 +14,8 @@ export const SyllablePanel = ({ word, onFinish }: Props) => {
   const [clicked, setClicked] = useState<Set<number>>(new Set());
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const finishedRef = useRef(false);
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   useEffect(() => {
     finishedRef.current = false;
@@ -25,10 +27,16 @@ export const SyllablePanel = ({ word, onFinish }: Props) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setActiveIdx(null);
-    // 짧은 텀 후 통단어 발음 → 끝나면 onFinish
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      onFinishRef.current(100);
+    };
+    window.setTimeout(finish, 4000); // TTS 실패 대비 안전 타이머
     setTimeout(() => {
       speakWord(word, () => {
-        setTimeout(() => onFinish(100), 600);
+        setTimeout(finish, 600);
       });
     }, 350);
   };
@@ -54,18 +62,32 @@ export const SyllablePanel = ({ word, onFinish }: Props) => {
   };
 
   // 단어가 한 음절이거나 분리 결과가 없으면 통단어 1회 재생 후 통과
+  const autoWordRef = useRef<string | null>(null);
   useEffect(() => {
-    if (finishedRef.current) return;
-    if (syllables.length <= 1) {
-      finishedRef.current = true;
-      const t = setTimeout(() => {
-        speakWord(word, () => {
-          setTimeout(() => onFinish(100), 600);
-        });
-      }, 250);
-      return () => clearTimeout(t);
-    }
-  }, [syllables, word, onFinish]);
+    if (syllables.length > 1) return;
+    if (autoWordRef.current === word) return;
+    autoWordRef.current = word;
+    finishedRef.current = true;
+
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      onFinishRef.current(100);
+    };
+    // TTS가 막히거나 onend가 오지 않아도 반드시 진행되도록 안전 타이머
+    const fallback = window.setTimeout(finish, 4000);
+    const t = window.setTimeout(() => {
+      speakWord(word, () => {
+        window.setTimeout(finish, 600);
+      });
+    }, 250);
+
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(fallback);
+    };
+  }, [syllables.length, word]);
 
   return (
     <div className="space-y-5">
