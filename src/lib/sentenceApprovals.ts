@@ -224,7 +224,9 @@ export async function applyApprovalToMyProgress(
 ): Promise<void> {
   const userId = await getCurrentUserId();
   if (!userId || approval.user_id !== userId) return;
-  if (approval.status !== "approved" || !approval.grade) return;
+  // 보류(held)도 "선생님이 확인함"으로 간주해 다음 학습을 막지 않는다.
+  const isHeld = approval.status === "held";
+  if (!isHeld && (approval.status !== "approved" || !approval.grade)) return;
 
   const { upsertSentenceProgress } = await import("@/integrations/supabase/storage");
   const isRedo = approval.grade === "redo";
