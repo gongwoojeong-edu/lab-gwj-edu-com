@@ -27,10 +27,16 @@ export const SyllablePanel = ({ word, onFinish }: Props) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setActiveIdx(null);
-    // 짧은 텀 후 통단어 발음 → 끝나면 onFinish
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      onFinishRef.current(100);
+    };
+    window.setTimeout(finish, 4000); // TTS 실패 대비 안전 타이머
     setTimeout(() => {
       speakWord(word, () => {
-        setTimeout(() => onFinish(100), 600);
+        setTimeout(finish, 600);
       });
     }, 350);
   };
