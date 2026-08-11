@@ -280,9 +280,8 @@ export async function resolveContinueSentenceId(
     latest = await fetchLatestApproval(sentenceId, userId, undefined);
   }
   if (
-    latest?.status === "approved" &&
-    latest.grade &&
-    latest.grade !== "redo"
+    latest?.status === "held" ||
+    (latest?.status === "approved" && latest.grade && latest.grade !== "redo")
   ) {
     await applyApprovalToMyProgress(latest, assignmentId);
   }
