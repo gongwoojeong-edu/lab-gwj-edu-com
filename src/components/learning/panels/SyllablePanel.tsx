@@ -14,6 +14,8 @@ export const SyllablePanel = ({ word, onFinish }: Props) => {
   const [clicked, setClicked] = useState<Set<number>>(new Set());
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const finishedRef = useRef(false);
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   useEffect(() => {
     finishedRef.current = false;
