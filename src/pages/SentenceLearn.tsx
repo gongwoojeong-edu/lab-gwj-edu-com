@@ -338,11 +338,12 @@ const SentenceLearn = () => {
         setPendingApproval(latestApproval);
       } else if (
         mounted &&
-        latestApproval?.status === "approved" &&
-        latestApproval.grade &&
-        latestApproval.grade !== "redo"
+        (latestApproval?.status === "held" ||
+          (latestApproval?.status === "approved" &&
+            latestApproval.grade &&
+            latestApproval.grade !== "redo"))
       ) {
-        // 승인됐으면 progress를 pass로 맞춘 뒤 다음 문장으로 (translation_done 여부와 무관)
+        // 승인/보류면 progress를 pass로 맞춘 뒤 다음 문장으로
         if (progStatus !== "pass") {
           await applyApprovalToMyProgress(latestApproval, assignmentIdParam);
         }
@@ -516,7 +517,7 @@ const SentenceLearn = () => {
           setPendingApproval(row);
           return;
         }
-        if (row.status === "approved") {
+        if (row.status === "approved" || row.status === "held") {
           void advanceAfterApproval(row);
         }
       }, assignmentIdParam);
@@ -694,7 +695,8 @@ const SentenceLearn = () => {
 
   const advanceAfterApproval = async (approval: SentenceApproval) => {
     setPendingApproval(null);
-    if (approval.grade === "redo") {
+    const isHeld = approval.status === "held";
+    if (!isHeld && approval.grade === "redo") {
       setRedoRequestedAt(new Date().toISOString());
       setRedoMemo(approval.memo);
       toast({
@@ -703,12 +705,11 @@ const SentenceLearn = () => {
       });
       return;
     }
-    // 다른 등급(excellent/good/fair/poor): 코멘트 배너 표시 후 자동으로 다음 문장 이동.
-    // (학생이 "다음 문장으로" 버튼을 놓쳐 갇히는 사고 방지 — 김민성 케이스 대응)
+    // 다른 등급(excellent/good/fair/poor) 또는 보류: 배너 표시 후 자동으로 다음 문장 이동.
     try {
       await applyApprovalToMyProgress(approval);
       setPreviousStatus("pass");
-      if (approval.grade) {
+      if (!isHeld && approval.grade) {
         setLastEvaluation({
           grade: approval.grade,
           memo: approval.memo,
@@ -717,7 +718,9 @@ const SentenceLearn = () => {
         });
       }
       toast({
-        title: `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
+        title: isHeld
+          ? "📝 선생님이 첨삭을 나중에 해주실 거예요"
+          : `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
         description: "잠시 후 다음 문장으로 이동합니다.",
       });
       // 2.5초 뒤 자동 이동 — 배너를 잠깐 보여준 뒤 다음 문장으로.

@@ -224,12 +224,14 @@ export async function applyApprovalToMyProgress(
 ): Promise<void> {
   const userId = await getCurrentUserId();
   if (!userId || approval.user_id !== userId) return;
-  if (approval.status !== "approved" || !approval.grade) return;
+  // 보류(held)도 "선생님이 확인함"으로 간주해 다음 학습을 막지 않는다.
+  const isHeld = approval.status === "held";
+  if (!isHeld && (approval.status !== "approved" || !approval.grade)) return;
 
   const { upsertSentenceProgress } = await import("@/integrations/supabase/storage");
-  const isRedo = approval.grade === "redo";
+  const isRedo = !isHeld && approval.grade === "redo";
   const nowIso = new Date().toISOString();
-  const memoTrimmed = approval.memo?.trim() || null;
+  const memoTrimmed = (isHeld ? approval.held_memo : approval.memo)?.trim() || null;
   const assignmentId = approval.assignment_id ?? fallbackAssignmentId ?? null;
 
   if (isRedo) {
@@ -245,10 +247,10 @@ export async function applyApprovalToMyProgress(
   }
 
   await upsertSentenceProgress(approval.sentence_id, {
-    last_grade: approval.grade,
+    last_grade: isHeld ? null : approval.grade,
     last_memo: memoTrimmed,
     status: "pass",
-    passed_at: approval.approved_at ?? nowIso,
+    passed_at: (isHeld ? approval.held_at : approval.approved_at) ?? nowIso,
     pre_done: true,
     translation_done: true,
     analysis_done: true,
@@ -278,9 +280,8 @@ export async function resolveContinueSentenceId(
     latest = await fetchLatestApproval(sentenceId, userId, undefined);
   }
   if (
-    latest?.status === "approved" &&
-    latest.grade &&
-    latest.grade !== "redo"
+    latest?.status === "held" ||
+    (latest?.status === "approved" && latest.grade && latest.grade !== "redo")
   ) {
     await applyApprovalToMyProgress(latest, assignmentId);
   }
