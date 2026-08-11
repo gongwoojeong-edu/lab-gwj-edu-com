@@ -196,8 +196,8 @@ export const TeacherApprovalDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0 sm:top-[5vh] sm:translate-y-0">
-        <DialogHeader className="sticky top-0 z-50 bg-background border-b border-border pb-3 pt-1">
+      <DialogContent className="max-w-md max-h-[90vh] top-[5vh] translate-y-0 sm:top-[5vh] sm:translate-y-0 flex flex-col gap-0">
+        <DialogHeader className="shrink-0 bg-background border-b border-border pb-3 pt-1">
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
             {isHeldMode ? "보류함 — 최종 처리" : "선생님 승인 — 평가"}
@@ -207,74 +207,75 @@ export const TeacherApprovalDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-
-        {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
-          <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
-            {koreanAnswer && (
-              <div>
-                <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
-                <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
-              </div>
-            )}
-            {englishSentence && (
-              <div>
-                <div className="text-[11px] text-muted-foreground">원문</div>
-                <div className="font-medium leading-snug">{englishSentence}</div>
-              </div>
-            )}
-            {studentTranslation && (
-              <div>
-                <div className="text-[11px] text-muted-foreground">학생 한글해석</div>
-                <div className="whitespace-pre-wrap">{studentTranslation}</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {!skipPin && (
-          <div className="space-y-2">
-            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-              <Lock className="w-3 h-3" /> 선생님 PIN
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
+          {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
+            <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
+              {koreanAnswer && (
+                <div>
+                  <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
+                  <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
+                </div>
+              )}
+              {englishSentence && (
+                <div>
+                  <div className="text-[11px] text-muted-foreground">원문</div>
+                  <div className="font-medium leading-snug">{englishSentence}</div>
+                </div>
+              )}
+              {studentTranslation && (
+                <div>
+                  <div className="text-[11px] text-muted-foreground">학생 한글해석</div>
+                  <div className="whitespace-pre-wrap">{studentTranslation}</div>
+                </div>
+              )}
             </div>
-            <Input
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="••••"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              className="text-center text-xl tracking-[0.5em] font-mono"
-              autoFocus
-            />
-          </div>
-        )}
+          )}
 
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
-          <div className="grid grid-cols-5 gap-1.5">
-            {GRADE_ORDER.map((g) => {
-              const selected = grade === g;
-              return (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGrade(g)}
-                  className={cn(
-                    "px-2 py-2 rounded-md border text-xs font-bold transition-all",
-                    selected
-                      ? GRADE_BADGE_CLASS[g] + " scale-105 shadow-md"
-                      : "bg-card hover:bg-muted border-border text-foreground",
-                  )}
-                >
-                  {GRADE_LABEL[g]}
-                </button>
-              );
-            })}
+          {!skipPin && (
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                <Lock className="w-3 h-3" /> 선생님 PIN
+              </div>
+              <Input
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="••••"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="text-center text-xl tracking-[0.5em] font-mono"
+                autoFocus
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {GRADE_ORDER.map((g) => {
+                const selected = grade === g;
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGrade(g)}
+                    className={cn(
+                      "px-2 py-2 rounded-md border text-xs font-bold transition-all",
+                      selected
+                        ? GRADE_BADGE_CLASS[g] + " scale-105 shadow-md"
+                        : "bg-card hover:bg-muted border-border text-foreground",
+                    )}
+                  >
+                    {GRADE_LABEL[g]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
         </div>
 
-        <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
-
-        <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+        <DialogFooter className="shrink-0 bg-background border-t border-border flex-wrap gap-2 sm:justify-between pt-3 pb-1">
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               취소
