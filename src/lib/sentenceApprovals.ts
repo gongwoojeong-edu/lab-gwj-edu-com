@@ -229,9 +229,9 @@ export async function applyApprovalToMyProgress(
   if (!isHeld && (approval.status !== "approved" || !approval.grade)) return;
 
   const { upsertSentenceProgress } = await import("@/integrations/supabase/storage");
-  const isRedo = approval.grade === "redo";
+  const isRedo = !isHeld && approval.grade === "redo";
   const nowIso = new Date().toISOString();
-  const memoTrimmed = approval.memo?.trim() || null;
+  const memoTrimmed = (isHeld ? approval.held_memo : approval.memo)?.trim() || null;
   const assignmentId = approval.assignment_id ?? fallbackAssignmentId ?? null;
 
   if (isRedo) {
@@ -247,10 +247,10 @@ export async function applyApprovalToMyProgress(
   }
 
   await upsertSentenceProgress(approval.sentence_id, {
-    last_grade: approval.grade,
+    last_grade: isHeld ? null : approval.grade,
     last_memo: memoTrimmed,
     status: "pass",
-    passed_at: approval.approved_at ?? nowIso,
+    passed_at: (isHeld ? approval.held_at : approval.approved_at) ?? nowIso,
     pre_done: true,
     translation_done: true,
     analysis_done: true,
