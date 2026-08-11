@@ -207,7 +207,7 @@ export const TeacherApprovalDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 space-y-4">
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
           {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
             <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
               {koreanAnswer && (
