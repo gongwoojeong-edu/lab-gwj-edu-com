@@ -341,10 +341,12 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
   .srow-head .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
   .srow .en { font-size: 11pt; line-height: 1.7; padding: 0.5mm 0; }
   .srow .ko {
-    font-size: 10pt; line-height: 1.6; color: #222; padding: 1mm 0 0;
+    font-size: 10pt; line-height: 1.6; color: #c2c2c2; padding: 1mm 0 0;
     min-height: 6mm; border-left: 1.5pt solid #999; padding-left: 2mm; margin-top: 1mm;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .srow .ko .muted { color: #888; }
+  .srow .ko b { color: #444; }
+  .srow .ko .muted { color: #d8d8d8; }
   .uo-end-page { padding: 4mm 5mm; }
   .uo-end-grid {
     min-height: 90mm;
@@ -373,7 +375,7 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
     </div>
   </div>
   <div class="section">
-    <div class="section-title">유닛 본문 — 영문 + 학생 제출 한글해석</div>
+    <div class="section-title">유닛 본문 — 영문 + 학생 제출 한글해석 <span style="font-weight:400;font-size:8pt;color:#777">(흐린 글씨 · 따라쓰거나 자연스럽게 다시 쓰기)</span></div>
     ${rows || '<div class="srow"><div class="ko">(완료 지문 없음)</div></div>'}
   </div>
 </div>
@@ -1076,8 +1078,12 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     font-size: 6.5pt; color: #888; margin-right: 1.5mm;
     font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -0.02em;
   }
-  .cb-ttext { white-space: pre-wrap; }
-  .cb-ttext .muted { color: #888; }
+  /* 학생 해석은 흐리게(따라쓰기/다시쓰기용) */
+  .cb-ttext {
+    white-space: pre-wrap; color: #c2c2c2;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .cb-ttext .muted { color: #d8d8d8; }
   .cb-empty { padding: 4mm; text-align: center; font-size: 10pt; color: #777; }
 
   /* 뒷면 */
@@ -1121,7 +1127,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     </div>
   </div>
   <div class="section cb-front">
-    <div class="section-title">② 학생 한글해석</div>
+    <div class="section-title">② 학생 한글해석 <span style="font-weight:400;font-size:8pt;color:#777">(흐린 글씨 · 따라쓰거나 자연스럽게 다시 쓰기)</span></div>
     <div class="cb-trans-box">
       ${transBlocks || '<div class="cb-empty">(미제출)</div>'}
     </div>
