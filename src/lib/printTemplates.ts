@@ -375,7 +375,7 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
     </div>
   </div>
   <div class="section">
-    <div class="section-title">유닛 본문 — 영문 + 학생 제출 한글해석</div>
+    <div class="section-title">유닛 본문 — 영문 + 학생 제출 한글해석 <span style="font-weight:400;font-size:8pt;color:#777">(흐린 글씨 · 따라쓰거나 자연스럽게 다시 쓰기)</span></div>
     ${rows || '<div class="srow"><div class="ko">(완료 지문 없음)</div></div>'}
   </div>
 </div>
