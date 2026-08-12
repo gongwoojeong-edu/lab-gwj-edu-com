@@ -1076,8 +1076,12 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     font-size: 6.5pt; color: #888; margin-right: 1.5mm;
     font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -0.02em;
   }
-  .cb-ttext { white-space: pre-wrap; }
-  .cb-ttext .muted { color: #888; }
+  /* 학생 해석은 흐리게(따라쓰기/다시쓰기용) */
+  .cb-ttext {
+    white-space: pre-wrap; color: #c2c2c2;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .cb-ttext .muted { color: #d8d8d8; }
   .cb-empty { padding: 4mm; text-align: center; font-size: 10pt; color: #777; }
 
   /* 뒷면 */
