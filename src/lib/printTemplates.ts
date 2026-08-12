@@ -341,10 +341,12 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
   .srow-head .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
   .srow .en { font-size: 11pt; line-height: 1.7; padding: 0.5mm 0; }
   .srow .ko {
-    font-size: 10pt; line-height: 1.6; color: #222; padding: 1mm 0 0;
+    font-size: 10pt; line-height: 1.6; color: #c2c2c2; padding: 1mm 0 0;
     min-height: 6mm; border-left: 1.5pt solid #999; padding-left: 2mm; margin-top: 1mm;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .srow .ko .muted { color: #888; }
+  .srow .ko b { color: #444; }
+  .srow .ko .muted { color: #d8d8d8; }
   .uo-end-page { padding: 4mm 5mm; }
   .uo-end-grid {
     min-height: 90mm;
