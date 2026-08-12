@@ -196,7 +196,7 @@ export const TeacherApprovalDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] top-[5vh] translate-y-0 sm:top-[5vh] sm:translate-y-0 flex flex-col gap-0">
+      <DialogContent className="max-w-5xl w-[95vw] max-h-[92vh] top-[4vh] translate-y-0 sm:top-[4vh] sm:translate-y-0 flex flex-col gap-0">
         <DialogHeader className="shrink-0 bg-background border-b border-border pb-3 pt-1">
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
