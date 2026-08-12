@@ -18,7 +18,7 @@ export const StructuredMemoInput = ({ value, onChange, disabled, rows = 2 }: Pro
     <div className="text-xs font-semibold text-muted-foreground">
       메모 <span className="font-normal">(선택 · 항목별로 작성)</span>
     </div>
-    <div className="space-y-2">
+    <div className="grid gap-2 sm:grid-cols-2">
       {MEMO_FIELD_KEYS.map((key) => (
         <div key={key} className="space-y-1">
           <label className="text-[11px] font-bold text-foreground/80">
