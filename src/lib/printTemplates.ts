@@ -1127,7 +1127,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
     </div>
   </div>
   <div class="section cb-front">
-    <div class="section-title">② 학생 한글해석</div>
+    <div class="section-title">② 학생 한글해석 <span style="font-weight:400;font-size:8pt;color:#777">(흐린 글씨 · 따라쓰거나 자연스럽게 다시 쓰기)</span></div>
     <div class="cb-trans-box">
       ${transBlocks || '<div class="cb-empty">(미제출)</div>'}
     </div>
