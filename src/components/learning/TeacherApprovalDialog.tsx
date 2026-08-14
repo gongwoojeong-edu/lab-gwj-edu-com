@@ -202,18 +202,24 @@ export const TeacherApprovalDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[95vw] max-h-[92vh] top-[4vh] translate-y-0 sm:top-[4vh] sm:translate-y-0 flex flex-col gap-0">
+      <DialogContent className="max-w-5xl w-[95vw] h-[92vh] max-h-[92vh] top-[4vh] translate-y-0 sm:top-[4vh] sm:translate-y-0 flex flex-col gap-0 overflow-hidden">
         <DialogHeader className="shrink-0 bg-background border-b border-border pb-3 pt-1">
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             <ShieldCheck className="w-5 h-5 text-primary" />
             {isHeldMode ? "보류함 — 최종 처리" : "선생님 승인 — 평가"}
+            {(studentName || studentNo) && (
+              <span className="inline-flex items-center gap-1 text-sm font-semibold px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                {studentNo && <span className="font-mono text-xs">{studentNo}</span>}
+                {studentName}
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1 pt-3">
           {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
             <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
               {koreanAnswer && (
