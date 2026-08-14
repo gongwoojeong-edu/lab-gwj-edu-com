@@ -63,6 +63,8 @@ export const TeacherApprovalDialog = ({
   englishSentence,
   koreanAnswer,
   studentUserId,
+  studentName,
+  studentNo,
   skipPin = false,
   initialMemo,
   mode = "pending",
