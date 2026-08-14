@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2 } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,6 +77,7 @@ export const TeacherApprovalDialog = ({
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
   const [memo, setMemo] = useState<StructuredMemo>(emptyMemo());
   const [saving, setSaving] = useState(false);
+  const [showAnswer, setShowAnswer] = useState(false);
 
   const isHeldMode = mode === "held";
 
@@ -85,6 +86,7 @@ export const TeacherApprovalDialog = ({
     setPin("");
     setGrade(null);
     setMemo(parseMemo(initialMemo));
+    setShowAnswer(false);
     if (skipPin) {
       setStoredPin("__skip__");
       return;
@@ -224,8 +226,22 @@ export const TeacherApprovalDialog = ({
             <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
               {koreanAnswer && (
                 <div>
-                  <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
-                  <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAnswer((v) => !v)}
+                      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                    >
+                      {showAnswer ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {showAnswer ? "가리기" : "보기"}
+                    </button>
+                  </div>
+                  {showAnswer ? (
+                    <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
+                  ) : (
+                    <div className="text-muted-foreground/60 italic leading-snug">••••• (가려짐)</div>
+                  )}
                 </div>
               )}
               {englishSentence && (
