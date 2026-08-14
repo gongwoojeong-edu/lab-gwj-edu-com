@@ -224,26 +224,30 @@ export const TeacherApprovalDialog = ({
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1 pt-3">
           {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
             <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
-              {koreanAnswer && (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
-                    <button
-                      type="button"
-                      onClick={() => setShowAnswer((v) => !v)}
-                      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
-                    >
-                      {showAnswer ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                      {showAnswer ? "가리기" : "보기"}
-                    </button>
-                  </div>
-                  {showAnswer ? (
+              {koreanAnswer &&
+                (showAnswer ? (
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAnswer(false)}
+                        className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                      >
+                        <EyeOff className="w-3 h-3" /> 가리기
+                      </button>
+                    </div>
                     <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
-                  ) : (
-                    <div className="text-muted-foreground/60 italic leading-snug">••••• (가려짐)</div>
-                  )}
-                </div>
-              )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAnswer(true)}
+                    className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                  >
+                    <Eye className="w-3 h-3" /> 정답 보기
+                  </button>
+                ))}
               {englishSentence && (
                 <div>
                   <div className="text-[11px] text-muted-foreground">원문</div>
