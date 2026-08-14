@@ -310,6 +310,8 @@ const PendingApprovals = () => {
             approvalId={target.id}
             sentenceId={target.sentence_id}
             studentUserId={target.user_id}
+            studentName={target.display_name}
+            studentNo={target.student_no}
             englishSentence={target.english ?? undefined}
             koreanAnswer={target.korean ?? undefined}
             studentTranslation={target.translation}
