@@ -35,6 +35,10 @@ interface Props {
   koreanAnswer?: string | null;
   /** 대상 학생 user_id (선생님 화면에서 승인할 때 필수) */
   studentUserId?: string;
+  /** 학생 이름 (헤더 표시용) */
+  studentName?: string | null;
+  /** 학생 번호 (헤더 표시용) */
+  studentNo?: string | null;
   /** true 면 PIN 입력을 생략 (선생님 로그인 상태에서 사용) */
   skipPin?: boolean;
   /** 재오픈 시 초기 메모값 (예: 이전 보류 메모) */
