@@ -29,7 +29,12 @@ interface Row extends SentenceApproval {
   english?: string | null;
   korean?: string | null;
   translation?: string | null;
+  /** 해당 문장에 대해 학생이 해석을 제출한 총 횟수 */
+  submit_count?: number;
+  /** 선생님이 첨삭(메모/보류메모)을 남긴 총 횟수 */
+  feedback_count?: number;
 }
+
 
 const PendingApprovals = () => {
   const [rows, setRows] = useState<Row[]>([]);
