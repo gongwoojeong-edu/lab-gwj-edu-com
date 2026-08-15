@@ -6,7 +6,7 @@ import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Inbox, RefreshCw, PauseCircle } from "lucide-react";
+import { ShieldCheck, Inbox, RefreshCw, PauseCircle, Send, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchApprovalsByStatus,
@@ -29,7 +29,12 @@ interface Row extends SentenceApproval {
   english?: string | null;
   korean?: string | null;
   translation?: string | null;
+  /** 해당 문장에 대해 학생이 해석을 제출한 총 횟수 */
+  submit_count?: number;
+  /** 선생님이 첨삭(메모/보류메모)을 남긴 총 횟수 */
+  feedback_count?: number;
 }
+
 
 const PendingApprovals = () => {
   const [rows, setRows] = useState<Row[]>([]);
@@ -95,7 +100,7 @@ const PendingApprovals = () => {
       const userIds: string[] = Array.from(new Set(list.map((r) => r.user_id)));
       const sentenceIds: string[] = Array.from(new Set(list.map((r) => r.sentence_id)));
 
-      const [{ data: profiles }, { data: passages }, { data: translations }] =
+      const [{ data: profiles }, { data: passages }, { data: translations }, { data: history }] =
         await Promise.all([
           supabase
             .from("student_profiles")
@@ -110,6 +115,12 @@ const PendingApprovals = () => {
             .select("user_id, sentence_id, text")
             .in("user_id", userIds)
             .in("sentence_id", sentenceIds),
+          // 제출/첨삭 횟수 집계용 이력
+          supabase
+            .from("sentence_approvals")
+            .select("user_id, sentence_id, attempt_no, memo, held_memo")
+            .in("user_id", userIds)
+            .in("sentence_id", sentenceIds),
         ]);
 
       const pMap = new Map(
@@ -121,6 +132,15 @@ const PendingApprovals = () => {
       const tMap = new Map(
         (translations ?? []).map((t: any) => [`${t.user_id}::${t.sentence_id}`, t.text as string]),
       );
+      // key -> { submits, feedbacks }
+      const cMap = new Map<string, { submits: number; feedbacks: number }>();
+      (history ?? []).forEach((h: any) => {
+        const key = `${h.user_id}::${h.sentence_id}`;
+        const cur = cMap.get(key) ?? { submits: 0, feedbacks: 0 };
+        cur.submits = Math.max(cur.submits + 1, Number(h.attempt_no) || 1);
+        if ((h.memo ?? "").trim() || (h.held_memo ?? "").trim()) cur.feedbacks += 1;
+        cMap.set(key, cur);
+      });
 
       const merged: Row[] = list.map((r) => ({
         ...r,
@@ -129,8 +149,11 @@ const PendingApprovals = () => {
         english: (sMap.get(r.sentence_id) as any)?.english ?? null,
         korean: (sMap.get(r.sentence_id) as any)?.korean ?? null,
         translation: tMap.get(`${r.user_id}::${r.sentence_id}`) ?? null,
+        submit_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.submits ?? r.attempt_no ?? 1,
+        feedback_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.feedbacks ?? 0,
       }));
       setRows(merged);
+
     } catch (e: any) {
       toast({
         title: "승인 대기 목록 불러오기 실패",
@@ -223,6 +246,21 @@ const PendingApprovals = () => {
                       {row.attempt_no}회차
                     </Badge>
                   )}
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-sky-500/50 text-sky-700 dark:text-sky-300"
+                    title="학생이 이 문장의 해석을 제출한 횟수"
+                  >
+                    <Send className="w-3 h-3 mr-0.5" />제출 {row.submit_count ?? 1}회
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-violet-500/50 text-violet-700 dark:text-violet-300"
+                    title="선생님이 첨삭 메모를 남긴 횟수"
+                  >
+                    <PenLine className="w-3 h-3 mr-0.5" />첨삭 {row.feedback_count ?? 0}회
+                  </Badge>
+
                   {row.status === "held" && (
                     <Badge className="bg-amber-500 text-white border-amber-600 text-[10px]">
                       <PauseCircle className="w-3 h-3 mr-0.5" />보류중
