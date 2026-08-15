@@ -157,11 +157,16 @@ const buildSyntaxUnit = async (
     .select("sentence_id, text, submitted_at")
     .eq("user_id", studentId)
     .in("sentence_id", codes)
-    .order("submitted_at", { ascending: false });
-  const transMap = new Map<string, string>();
+    .order("submitted_at", { ascending: true });
+  // 문장별 "처음 제출" + "마지막 제출" 둘 다 보관 (동일하면 하나만)
+  const transMap = new Map<string, { first: string; last: string }>();
   (trs ?? []).forEach((r) => {
     const sid = r.sentence_id as string;
-    if (!transMap.has(sid)) transMap.set(sid, (r.text as string) ?? "");
+    const text = ((r.text as string) ?? "").trim();
+    if (!text) return;
+    const cur = transMap.get(sid);
+    if (!cur) transMap.set(sid, { first: text, last: text });
+    else cur.last = text;
   });
 
   const sName = ctx.studentName ? escapeHtml(ctx.studentName) : "_______";
@@ -181,16 +186,23 @@ const buildSyntaxUnit = async (
 
   const koRows = passages
     .map((p, i) => {
-      const ko = (transMap.get(p.code) ?? "").trim();
-      const koHtml = ko
-        ? escapeHtml(ko)
-        : '<span class="lg-muted">(미제출)</span>';
+      const pair = transMap.get(p.code);
+      let koHtml: string;
+      if (!pair) {
+        koHtml = '<span class="lg-muted">(미제출)</span>';
+      } else if (pair.first === pair.last) {
+        koHtml = `<div class="lg-ko lg-ko-faint">${escapeHtml(pair.first)}</div>`;
+      } else {
+        koHtml =
+          `<div class="lg-ko lg-ko-faint"><span class="lg-ko-tag">처음</span>${escapeHtml(pair.first)}</div>` +
+          `<div class="lg-ko lg-ko-faint"><span class="lg-ko-tag">최종</span>${escapeHtml(pair.last)}</div>`;
+      }
       return `
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
           <div class="lg-code">${escapeHtml(p.code)}</div>
-          <div class="lg-ko">${koHtml}</div>
+          ${koHtml}
         </div>
       </div>`;
     })
@@ -230,6 +242,13 @@ const buildSyntaxUnit = async (
   }
   .lg-en { font-size: 10pt; line-height: 1.55; }
   .lg-ko { font-size: 10pt; line-height: 1.55; white-space: pre-wrap; }
+  .lg-ko-faint { color: #c2c2c2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .lg-ko-tag {
+    display: inline-block; min-width: 9mm; margin-right: 1.5mm;
+    font-size: 7pt; font-weight: 700; color: #b0b0b0;
+    border: 0.3pt solid #d5d5d5; border-radius: 1mm;
+    padding: 0 1mm; vertical-align: 1.2mm;
+  }
   .lg-muted { color: #888; }
   /* 뒷면 구조도 페이지 */
   .lg-back { page-break-before: always; }
@@ -278,7 +297,7 @@ const buildSyntaxUnit = async (
   </div>
   <div class="lg-section-title">① 본문 (English)</div>
   <div class="lg-box">${enRows || '<div class="lg-muted">(지문 없음)</div>'}</div>
-  <div class="lg-section-title">② ${answerKey ? "모범 한글해석 (정답)" : "학생 한글해석"}</div>
+  <div class="lg-section-title">② ${answerKey ? "모범 한글해석 (정답)" : '학생 한글해석 <span style="font-weight:400;font-size:8pt;color:#777">(처음/최종 제출 · 흐린 글씨 — 따라쓰거나 자연스럽게 다시 쓰기)</span>'}</div>
   <div class="lg-box">${
     answerKey
       ? (passages
