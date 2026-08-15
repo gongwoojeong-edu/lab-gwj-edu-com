@@ -6,7 +6,7 @@ import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Inbox, RefreshCw, PauseCircle } from "lucide-react";
+import { ShieldCheck, Inbox, RefreshCw, PauseCircle, Send, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchApprovalsByStatus,
