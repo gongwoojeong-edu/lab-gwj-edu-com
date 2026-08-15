@@ -242,6 +242,13 @@ const buildSyntaxUnit = async (
   }
   .lg-en { font-size: 10pt; line-height: 1.55; }
   .lg-ko { font-size: 10pt; line-height: 1.55; white-space: pre-wrap; }
+  .lg-ko-faint { color: #c2c2c2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .lg-ko-tag {
+    display: inline-block; min-width: 9mm; margin-right: 1.5mm;
+    font-size: 7pt; font-weight: 700; color: #b0b0b0;
+    border: 0.3pt solid #d5d5d5; border-radius: 1mm;
+    padding: 0 1mm; vertical-align: 1.2mm;
+  }
   .lg-muted { color: #888; }
   /* 뒷면 구조도 페이지 */
   .lg-back { page-break-before: always; }
