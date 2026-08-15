@@ -246,6 +246,21 @@ const PendingApprovals = () => {
                       {row.attempt_no}회차
                     </Badge>
                   )}
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-sky-500/50 text-sky-700 dark:text-sky-300"
+                    title="학생이 이 문장의 해석을 제출한 횟수"
+                  >
+                    <Send className="w-3 h-3 mr-0.5" />제출 {row.submit_count ?? 1}회
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-violet-500/50 text-violet-700 dark:text-violet-300"
+                    title="선생님이 첨삭 메모를 남긴 횟수"
+                  >
+                    <PenLine className="w-3 h-3 mr-0.5" />첨삭 {row.feedback_count ?? 0}회
+                  </Badge>
+
                   {row.status === "held" && (
                     <Badge className="bg-amber-500 text-white border-amber-600 text-[10px]">
                       <PauseCircle className="w-3 h-3 mr-0.5" />보류중
