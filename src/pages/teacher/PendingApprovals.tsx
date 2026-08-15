@@ -100,7 +100,7 @@ const PendingApprovals = () => {
       const userIds: string[] = Array.from(new Set(list.map((r) => r.user_id)));
       const sentenceIds: string[] = Array.from(new Set(list.map((r) => r.sentence_id)));
 
-      const [{ data: profiles }, { data: passages }, { data: translations }] =
+      const [{ data: profiles }, { data: passages }, { data: translations }, { data: history }] =
         await Promise.all([
           supabase
             .from("student_profiles")
@@ -115,6 +115,12 @@ const PendingApprovals = () => {
             .select("user_id, sentence_id, text")
             .in("user_id", userIds)
             .in("sentence_id", sentenceIds),
+          // 제출/첨삭 횟수 집계용 이력
+          supabase
+            .from("sentence_approvals")
+            .select("user_id, sentence_id, attempt_no, memo, held_memo")
+            .in("user_id", userIds)
+            .in("sentence_id", sentenceIds),
         ]);
 
       const pMap = new Map(
@@ -126,6 +132,15 @@ const PendingApprovals = () => {
       const tMap = new Map(
         (translations ?? []).map((t: any) => [`${t.user_id}::${t.sentence_id}`, t.text as string]),
       );
+      // key -> { submits, feedbacks }
+      const cMap = new Map<string, { submits: number; feedbacks: number }>();
+      (history ?? []).forEach((h: any) => {
+        const key = `${h.user_id}::${h.sentence_id}`;
+        const cur = cMap.get(key) ?? { submits: 0, feedbacks: 0 };
+        cur.submits = Math.max(cur.submits + 1, Number(h.attempt_no) || 1);
+        if ((h.memo ?? "").trim() || (h.held_memo ?? "").trim()) cur.feedbacks += 1;
+        cMap.set(key, cur);
+      });
 
       const merged: Row[] = list.map((r) => ({
         ...r,
@@ -134,8 +149,11 @@ const PendingApprovals = () => {
         english: (sMap.get(r.sentence_id) as any)?.english ?? null,
         korean: (sMap.get(r.sentence_id) as any)?.korean ?? null,
         translation: tMap.get(`${r.user_id}::${r.sentence_id}`) ?? null,
+        submit_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.submits ?? r.attempt_no ?? 1,
+        feedback_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.feedbacks ?? 0,
       }));
       setRows(merged);
+
     } catch (e: any) {
       toast({
         title: "승인 대기 목록 불러오기 실패",
