@@ -33,6 +33,7 @@ export default function StudentNotifications() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<StudentNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const reload = async () => {
     setLoading(true);
@@ -49,15 +50,23 @@ export default function StudentNotifications() {
     return subscribeMyNotifications(user.id, reload);
   }, [user?.id]);
 
-  const onRowClick = async (n: StudentNotification) => {
-    if (!n.read_at) {
-      await markNotificationRead(n.id);
-      setRows((prev) =>
-        prev.map((r) => (r.id === n.id ? { ...r, read_at: new Date().toISOString() } : r)),
-      );
-    }
-    if (n.sentence_id) navigate(`/learn/sentence/${n.sentence_id}`);
+  const markRead = async (n: StudentNotification) => {
+    if (n.read_at) return;
+    await markNotificationRead(n.id);
+    setRows((prev) =>
+      prev.map((r) => (r.id === n.id ? { ...r, read_at: new Date().toISOString() } : r)),
+    );
   };
+
+  /** 카드 클릭: 문장 알림이면 펼치기, 아니면 기존처럼 이동 */
+  const onRowClick = async (n: StudentNotification) => {
+    void markRead(n);
+    if (n.sentence_id) {
+      setOpenId((prev) => (prev === n.id ? null : n.id));
+      return;
+    }
+  };
+
 
   const onMarkAll = async () => {
     await markAllNotificationsRead();
