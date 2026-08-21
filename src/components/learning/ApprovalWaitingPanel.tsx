@@ -1,6 +1,7 @@
 import { Hourglass, PenLine } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 
 interface Props {
   englishSentence?: string | null;
@@ -41,8 +42,9 @@ export const ApprovalWaitingPanel = ({ englishSentence, studentTranslation, stat
             : (<>한글해석을 제출했어요. 선생님이 <b>승인 대기 목록</b>에서 확인 후 평가 등급을 입력하면 자동으로 다음 문장으로 진행됩니다.</>)}
         </p>
         {isHeld && heldMemo && (
-          <div className="mt-1 text-xs text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 max-w-md">
-            <span className="font-semibold">선생님 임시 메모: </span>{heldMemo}
+          <div className="mt-1 text-left text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 max-w-md">
+            <div className="text-[11px] font-semibold mb-1">선생님 임시 메모</div>
+            <StructuredMemoView memo={heldMemo} />
           </div>
         )}
       </div>
