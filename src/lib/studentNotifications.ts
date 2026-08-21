@@ -4,7 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 
-export type NotificationKind = "evaluation" | "system" | "retest" | "assignment";
+export type NotificationKind = "evaluation" | "system" | "retest" | "assignment" | "teaching";
 
 export interface StudentNotification {
   id: string;
@@ -53,6 +53,7 @@ export const fetchMyNotifications = async (
     .from("student_notifications")
     .select("*")
     .eq("user_id", uid)
+    .neq("kind", "teaching")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
@@ -66,6 +67,7 @@ export const fetchMyUnreadNotifications = async (): Promise<StudentNotification[
     .from("student_notifications")
     .select("*")
     .eq("user_id", uid)
+    .neq("kind", "teaching")
     .is("read_at", null)
     .order("created_at", { ascending: false });
   return (data ?? []) as StudentNotification[];
