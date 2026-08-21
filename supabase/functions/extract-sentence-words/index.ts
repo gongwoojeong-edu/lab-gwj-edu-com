@@ -156,7 +156,10 @@ Deno.serve(async (req) => {
 
     const { error: upErr } = await admin
       .from("sentence_word_extractions")
-      .upsert({ sentence_id: sentenceId, english, words, model }, { onConflict: "sentence_id" });
+      .upsert(
+        { sentence_id: sentenceId, english, words, model, reviewed_at: null, reviewed_by: null },
+        { onConflict: "sentence_id" },
+      );
     if (upErr) return json({ error: upErr.message }, 500);
 
     return json({ ok: true, count: words.length, words });
