@@ -9,22 +9,26 @@
 `/teacher/approvals` 보류 탭의 각 카드에 **[티칭 시작]** 버튼 추가.
 - 누르면 그 학생 화면에 해당 문장이 즉시 뜹니다(실시간).
 - 별도의 종료 버튼은 없습니다. **승인(또는 재보류 등 판정 처리)을 하면 자동으로 종료**되어 학생 화면이 닫힙니다.
-- 이미 티칭 중인 카드에는 "티칭 중" 표시만 남습니다.
+- 이미 티칭 중인 카드에는 "티칭 중" 표시가 남습니다.
 
 ### 2) 학생 화면 — 티칭 오버레이
 학생이 어떤 화면에 있든(학습 중이어도) 전체 화면 오버레이가 뜹니다.
 - 영어 원문
 - 내가 제출한 한글해석 (처음/최종이 다르면 둘 다)
-- **한글 정답(마스터 해석)과 선생님 메모는 표시하지 않습니다.** 메모는 지금처럼 첨삭·승인 완료 시 알림으로 전달됩니다(선생님이 설명하면서 동시에 타이핑하는 중간 내용이 노출되지 않게).
+- **선생님 메모 실시간 중계**: 승인 팝업의 4칸 메모(빠뜨림/추가/어법/기타)에 선생님이 타이핑하는 내용이 그대로 학생 화면에 실시간으로 나타납니다(약 0.3초 간격 반영, 커서/삭제도 그대로 반영).
+- **한글 정답(마스터 해석)은 표시하지 않습니다.**
 - 학생은 닫을 수 없고(오조작 방지), 선생님이 승인하면 자동으로 닫히고 원래 학습으로 복귀합니다. 진행 중이던 입력 상태는 유지됩니다.
+- 최종 메모는 지금처럼 승인 완료 시 알림으로도 저장·전달됩니다.
 
 ## 속도
 - 학생 화면은 이미 열려 있는 알림 실시간 구독을 그대로 사용 — 새로운 폴링이나 상시 쿼리 없음.
+- 실시간 타이핑 중계는 DB에 쓰지 않고 실시간 채널 메시지로만 전달하므로 DB 부하가 없습니다.
 - 티칭 신호를 받은 순간에만 그 문장 1건을 조회하고 캐시합니다. 평소 학습 속도에는 영향 없음.
 
 ## 기술 메모
-- 신호 저장: `student_notifications` 에 `kind = 'teaching'` 행을 사용(원문·해석은 클라이언트에서 조회, 본문 저장 없음). 승인/판정 시 해당 행 `read_at` 설정으로 종료 → 스키마 변경 없음, RLS 기존 정책 그대로.
-- 선생님: `PendingApprovals.tsx` 보류 카드에 [티칭 시작] 버튼 + `studentNotifications.ts` 에 `startTeaching` / `stopTeaching`(승인 처리에서 내부 호출) 추가.
-- 학생: 앱 전역(`App.tsx` 인증 영역)에 `TeachingOverlay` 컴포넌트 1개 마운트, `subscribeMyNotifications` 로 `teaching` 행 감지.
-- 표시 내용은 기존 `SentenceReviewDetail`(원문/처음·최종 해석) 재사용하되 메모 없이 표시.
+- 티칭 시작/종료 신호: `student_notifications` 에 `kind = 'teaching'` 행 사용(원문·해석은 클라이언트가 조회, 본문 저장 없음). 승인/판정 시 `read_at` 설정으로 종료 → 스키마 변경 없음, 기존 RLS 그대로.
+- 실시간 메모 중계: Supabase Realtime broadcast 채널 `teaching:{studentUserId}` 사용. 선생님 `TeacherApprovalDialog` 의 4칸 메모 state 를 300ms 디바운스로 broadcast, 학생 오버레이가 구독해 렌더(DB 쓰기 없음).
+- 선생님: `PendingApprovals.tsx` 보류 카드에 [티칭 시작] 버튼, `studentNotifications.ts` 에 `startTeaching` / `stopTeaching`(승인 처리에서 내부 호출), `TeacherApprovalDialog.tsx` 에 broadcast 훅 추가.
+- 학생: `App.tsx` 인증 영역에 `TeachingOverlay` 1개 마운트, `subscribeMyNotifications` 로 `teaching` 행 감지 + broadcast 구독.
+- 표시: 기존 `SentenceReviewDetail`(원문/처음·최종 해석) + `StructuredMemoView`(실시간 메모) 재사용.
 - DB 마이그레이션 없음.
