@@ -27,27 +27,33 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY missing" }, 500);
 
-    const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-
-    // Validate user via JWT
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData.user) return json({ error: "Unauthorized" }, 401);
-    const uid = userData.user.id;
-
-    // Service-role client for role check + upsert (bypasses RLS safely after our own check)
+    // 서버 내부 호출(학습기 전송 자동 추출)은 서비스 롤 시크릿으로 인증한다.
+    const internal = req.headers.get("x-internal-secret");
+    const isInternal = !!internal && internal === SUPABASE_SERVICE;
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE);
-    const { data: roleRows, error: roleErr } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", uid);
-    if (roleErr) return json({ error: roleErr.message }, 500);
-    const roles = (roleRows ?? []).map((r) => r.role);
-    const isStaff = roles.includes("teacher") || roles.includes("admin");
-    if (!isStaff) return json({ error: "Forbidden: staff only" }, 403);
+
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+
+      // Validate user via JWT
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData.user) return json({ error: "Unauthorized" }, 401);
+      const uid = userData.user.id;
+
+      const { data: roleRows, error: roleErr } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid);
+      if (roleErr) return json({ error: roleErr.message }, 500);
+      const roles = (roleRows ?? []).map((r) => r.role);
+      const isStaff = roles.includes("teacher") || roles.includes("admin");
+      if (!isStaff) return json({ error: "Forbidden: staff only" }, 403);
+    }
+
 
     const body = await req.json().catch(() => ({}));
     const sentenceId = String(body?.sentenceId ?? "").trim();
