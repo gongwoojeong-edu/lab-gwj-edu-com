@@ -24,8 +24,8 @@ export interface NextSentenceResult {
 /**
  * 학생 프로필의 학습 범위 → passage code 집합.
  * - 시리즈만: 시리즈 전체
- * - 권/교재: 그 권 전체
- * - 시작 유닛: "그 유닛만"이 아니라 같은 권(교재)에서 해당 유닛부터 끝까지
+ * - 시작 권(교재) 지정: 그 권부터 같은 시리즈의 마지막 권까지 (앞 권은 제외)
+ * - 시작 유닛: 그 유닛부터 같은 권 끝까지, 이후 권들은 전체
  * 범위 미지정 → null (= 레벨 전체)
  */
 const fetchScopedPassageCodes = async (
@@ -47,12 +47,27 @@ const fetchScopedPassageCodes = async (
   }
 
   let textbookIds: string[] | null = null;
+  const startVolumeId = profile.start_volume_id ?? startUnitTextbookId;
 
-  if (profile.start_volume_id) {
-    textbookIds = [profile.start_volume_id];
-  } else if (startUnitTextbookId) {
-    // 유닛만 지정된 경우 → 그 권(교재) 끝까지
-    textbookIds = [startUnitTextbookId];
+  if (startVolumeId) {
+    // 시작 권 → 같은 시리즈의 그 권부터 마지막 권까지
+    const { data: startVol } = await supabase
+      .from("textbooks")
+      .select("id, series_id, volume_no")
+      .eq("id", startVolumeId)
+      .maybeSingle();
+    const sv = startVol as { series_id: string; volume_no: number } | null;
+    if (sv) {
+      const { data: vols } = await supabase
+        .from("textbooks")
+        .select("id, volume_no")
+        .eq("series_id", sv.series_id)
+        .gte("volume_no", sv.volume_no);
+      textbookIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
+      if (!textbookIds.includes(startVolumeId)) textbookIds.push(startVolumeId);
+    } else {
+      textbookIds = [startVolumeId];
+    }
   } else if (profile.start_series_id) {
     const { data: vols } = await supabase
       .from("textbooks")
@@ -64,6 +79,7 @@ const fetchScopedPassageCodes = async (
   }
 
   if (!textbookIds.length) return new Set();
+
 
   const { data: units } = await supabase
     .from("textbook_units")
