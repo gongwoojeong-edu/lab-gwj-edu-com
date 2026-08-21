@@ -97,3 +97,19 @@ export const deleteExtraction = async (sentenceId: string): Promise<void> => {
   if (error) throw error;
 };
 
+
+/** Teacher/admin only — 수동 검수 완료 표기 토글 */
+export const setExtractionReviewed = async (
+  sentenceId: string,
+  reviewed: boolean,
+): Promise<void> => {
+  const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const { error } = await supabase
+    .from("sentence_word_extractions")
+    .update({
+      reviewed_at: reviewed ? new Date().toISOString() : null,
+      reviewed_by: reviewed ? uid : null,
+    } as never)
+    .eq("sentence_id", sentenceId);
+  if (error) throw error;
+};
