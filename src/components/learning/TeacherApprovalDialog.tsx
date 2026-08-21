@@ -15,7 +15,7 @@ import { emptyMemo, parseMemo, serializeMemo, type StructuredMemo } from "@/lib/
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
-import { stopTeaching, teachingChannelName } from "@/lib/teachingSession";
+import { startTeaching, stopTeaching, teachingChannelName } from "@/lib/teachingSession";
 import { supabase } from "@/integrations/supabase/client";
 import {
   approveSentenceRequest,
