@@ -80,6 +80,21 @@ export const TeacherApprovalDialog = ({
   const [memo, setMemo] = useState<StructuredMemo>(emptyMemo());
   const [saving, setSaving] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [teaching, setTeaching] = useState(false);
+
+  const beginTeaching = async () => {
+    if (!studentUserId) return;
+    try {
+      await startTeaching(studentUserId, sentenceId);
+      setTeaching(true);
+      toast({
+        title: "학생 화면에 문장을 띄웠어요",
+        description: "메모 타이핑이 실시간으로 중계되고, 완료 시 자동으로 닫힙니다.",
+      });
+    } catch (e: any) {
+      toast({ title: "티칭 시작 실패", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  };
 
   const isHeldMode = mode === "held";
 
