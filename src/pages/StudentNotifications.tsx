@@ -3,7 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Bell, CheckCheck, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Bell,
+  CheckCheck,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   fetchMyNotifications,
@@ -13,6 +20,8 @@ import {
   type StudentNotification,
 } from "@/lib/studentNotifications";
 import { GRADE_BADGE_CLASS, GRADE_LABEL, type ApprovalGrade } from "@/lib/sentenceApprovals";
+import { SentenceReviewDetail } from "@/components/student/SentenceReviewDetail";
+
 
 const fmt = (iso: string) => {
   const d = new Date(iso);
