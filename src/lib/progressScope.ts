@@ -49,6 +49,7 @@ interface BookIndex {
   unitsById: Map<string, { unit_no: number; textbook_id: string }>;
   unitsByTextbook: Map<string, { id: string; unit_no: number }[]>;
   textbooksBySeries: Map<string, string[]>;
+  textbookById: Map<string, { series_id: string; volume_no: number }>;
   codesByUnit: Map<string, string[]>;
 }
 
@@ -58,7 +59,10 @@ export const buildBookIndex = async (): Promise<BookIndex> => {
       "textbook_units",
       "id, unit_no, textbook_id",
     ),
-    fetchAllRows<{ id: string; series_id: string }>("textbooks", "id, series_id"),
+    fetchAllRows<{ id: string; series_id: string; volume_no: number }>(
+      "textbooks",
+      "id, series_id, volume_no",
+    ),
     fetchAllRows<{ code: string; unit_id: string | null }>(
       "textbook_passages",
       "code, unit_id",
@@ -75,10 +79,12 @@ export const buildBookIndex = async (): Promise<BookIndex> => {
   });
 
   const textbooksBySeries = new Map<string, string[]>();
+  const textbookById = new Map<string, { series_id: string; volume_no: number }>();
   books.forEach((b) => {
     const arr = textbooksBySeries.get(b.series_id) ?? [];
     arr.push(b.id);
     textbooksBySeries.set(b.series_id, arr);
+    textbookById.set(b.id, { series_id: b.series_id, volume_no: b.volume_no });
   });
 
   const codesByUnit = new Map<string, string[]>();
@@ -89,7 +95,7 @@ export const buildBookIndex = async (): Promise<BookIndex> => {
     codesByUnit.set(p.unit_id, arr);
   });
 
-  return { unitsById, unitsByTextbook, textbooksBySeries, codesByUnit };
+  return { unitsById, unitsByTextbook, textbooksBySeries, textbookById, codesByUnit };
 };
 
 export const scopedCodesFor = (idx: BookIndex, s: ScopeInput): string[] | null => {
@@ -103,11 +109,23 @@ export const scopedCodesFor = (idx: BookIndex, s: ScopeInput): string[] | null =
     }
   }
 
+  const startVolumeId = s.start_volume_id ?? startUnitTextbookId;
   let textbookIds: string[];
-  if (s.start_volume_id) textbookIds = [s.start_volume_id];
-  else if (startUnitTextbookId) textbookIds = [startUnitTextbookId];
-  else if (s.start_series_id) textbookIds = idx.textbooksBySeries.get(s.start_series_id) ?? [];
-  else return null; // 범위 미지정(레벨 전체)
+  if (startVolumeId) {
+    // 시작 권부터 같은 시리즈의 마지막 권까지
+    const meta = idx.textbookById.get(startVolumeId);
+    if (meta) {
+      textbookIds = (idx.textbooksBySeries.get(meta.series_id) ?? []).filter((id) => {
+        const m = idx.textbookById.get(id);
+        return m ? m.volume_no >= meta.volume_no : false;
+      });
+      if (!textbookIds.includes(startVolumeId)) textbookIds.push(startVolumeId);
+    } else {
+      textbookIds = [startVolumeId];
+    }
+  } else if (s.start_series_id) {
+    textbookIds = idx.textbooksBySeries.get(s.start_series_id) ?? [];
+  } else return null; // 범위 미지정(레벨 전체)
 
   const codes: string[] = [];
   textbookIds.forEach((tb) => {
@@ -118,6 +136,7 @@ export const scopedCodesFor = (idx: BookIndex, s: ScopeInput): string[] | null =
   });
   return codes;
 };
+
 
 /** 학생별 진도 범위 소진 상태 (pass 처리된 지문 기준) */
 export const fetchScopeStatusMap = async (

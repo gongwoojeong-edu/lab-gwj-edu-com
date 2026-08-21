@@ -1325,11 +1325,13 @@ const StudentHome = () => {
             ) : done ? (
               <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
                 <Trophy className="w-16 h-16 mx-auto text-primary" />
-                <h1 className="text-3xl font-extrabold text-primary">학습 완료! 🎓</h1>
+                <h1 className="text-3xl font-extrabold text-primary">진도 범위 학습 완료! 🎓</h1>
                 <p className="text-muted-foreground">
-                  모든 레벨을 통과했어요. 정말 수고 많았습니다.
+                  선생님이 지정하신 범위(시리즈·권)의 마지막 문장까지 모두 끝냈어요.<br />
+                  새 진도가 등록될 때까지 기다려 주세요. (처음으로 다시 돌아가지 않습니다)
                 </p>
               </Card>
+
             ) : (
               <>
                 {user && (
