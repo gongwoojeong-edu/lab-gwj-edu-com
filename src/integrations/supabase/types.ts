@@ -949,6 +949,8 @@ export type Database = {
           created_at: string
           english: string
           model: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           sentence_id: string
           updated_at: string
           words: Json
@@ -957,6 +959,8 @@ export type Database = {
           created_at?: string
           english: string
           model?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           sentence_id: string
           updated_at?: string
           words?: Json
@@ -965,6 +969,8 @@ export type Database = {
           created_at?: string
           english?: string
           model?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           sentence_id?: string
           updated_at?: string
           words?: Json

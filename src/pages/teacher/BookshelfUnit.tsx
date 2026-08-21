@@ -80,7 +80,7 @@ import {
   buildUnitWorkbookHtmlFor,
   summarizeUnitProgress,
 } from "@/lib/unitWorkbook";
-import { fetchExtraction, runExtraction, type ExtractedWord } from "@/lib/wordExtraction";
+import { fetchExtraction, runExtraction, setExtractionReviewed, type ExtractedWord } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
@@ -127,6 +127,8 @@ const BookshelfUnit = () => {
   const [passages, setPassages] = useState<Passage[]>([]);
   const [extractedMap, setExtractedMap] = useState<Record<string, number>>({});
   const [hoverWordsMap, setHoverWordsMap] = useState<Record<string, ExtractedWord[]>>({});
+  const [reviewedMap, setReviewedMap] = useState<Record<string, boolean>>({});
+  const [reviewingCode, setReviewingCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -546,8 +548,24 @@ const BookshelfUnit = () => {
       toast({ title: "✨ 단어 추출 완료", description: `${res.count}개 단어` });
       setExtractedMap((prev) => ({ ...prev, [p.code]: res.count }));
       setHoverWordsMap((prev) => ({ ...prev, [p.code]: res.words }));
+      setReviewedMap((prev) => ({ ...prev, [p.code]: false }));
     } finally {
       setExtractingCode(null);
+    }
+  };
+
+  const handleToggleReviewed = async (code: string) => {
+    if (reviewingCode) return;
+    const next = !reviewedMap[code];
+    setReviewingCode(code);
+    try {
+      await setExtractionReviewed(code, next);
+      setReviewedMap((prev) => ({ ...prev, [code]: next }));
+      toast({ title: next ? "✅ 검수완료로 표기했습니다" : "검수완료를 해제했습니다" });
+    } catch (e) {
+      toast({ title: "검수 표기 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setReviewingCode(null);
     }
   };
 
@@ -879,16 +897,20 @@ const BookshelfUnit = () => {
       if (ids.length > 0) {
         const { data } = await supabase
           .from("sentence_word_extractions")
-          .select("sentence_id, words")
+          .select("sentence_id, words, reviewed_at")
           .in("sentence_id", ids);
         const map: Record<string, number> = {};
+        const rmap: Record<string, boolean> = {};
         (data ?? []).forEach((row) => {
           const arr = Array.isArray(row.words) ? row.words : [];
           map[row.sentence_id as string] = arr.length;
+          rmap[row.sentence_id as string] = !!(row as { reviewed_at?: string | null }).reviewed_at;
         });
         setExtractedMap(map);
+        setReviewedMap(rmap);
       } else {
         setExtractedMap({});
+        setReviewedMap({});
       }
     } finally {
       setLoading(false);
@@ -1496,6 +1518,7 @@ const BookshelfUnit = () => {
                     const ready = p.analysis_status === "ready";
                     const wordCount = extractedMap[p.code] ?? 0;
                     const hasExtracted = wordCount > 0;
+                    const isReviewed = !!reviewedMap[p.code];
                     const checked = selectedIds.has(p.id);
                     return (
                       <tr
@@ -1603,14 +1626,19 @@ const BookshelfUnit = () => {
                                   type="button"
                                   onClick={() => handleExtract(p)}
                                   disabled={extractingCode === p.code}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/15 text-primary hover:bg-primary/25 transition disabled:opacity-50"
+                                  className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition disabled:opacity-50",
+                                    isReviewed
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25"
+                                      : "bg-primary/15 text-primary hover:bg-primary/25",
+                                  )}
                                 >
                                   {extractingCode === p.code ? (
                                     <Loader2 className="size-3 animate-spin" />
                                   ) : (
                                     <Sparkles className="size-3" />
                                   )}
-                                  {wordCount}개
+                                  {wordCount}개{isReviewed ? " ✓" : ""}
                                 </button>
                               </HoverCardTrigger>
                               <HoverCardContent
@@ -1618,8 +1646,23 @@ const BookshelfUnit = () => {
                                 align="center"
                                 className="w-64 p-3"
                               >
-                                <div className="text-xs font-bold border-b border-border pb-1.5 mb-1.5 font-kr">
-                                  추출된 단어 {wordCount}개
+                                <div className="flex items-center justify-between gap-2 border-b border-border pb-1.5 mb-1.5">
+                                  <span className="text-xs font-bold font-kr">
+                                    추출된 단어 {wordCount}개
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleReviewed(p.code)}
+                                    disabled={reviewingCode === p.code}
+                                    className={cn(
+                                      "px-2 py-0.5 rounded-full text-[10px] font-bold font-kr transition disabled:opacity-50",
+                                      isReviewed
+                                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                        : "bg-muted text-muted-foreground hover:bg-emerald-500/15 hover:text-emerald-700",
+                                    )}
+                                  >
+                                    {isReviewed ? "검수완료 ✓" : "검수완료로 표기"}
+                                  </button>
                                 </div>
                                 <ul className="max-h-64 overflow-y-auto space-y-1">
                                   {(hoverWordsMap[p.code] ?? []).map((w, i) => (
