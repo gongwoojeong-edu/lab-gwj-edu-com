@@ -1,6 +1,7 @@
 import { Hourglass, PenLine } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 
 interface Props {
   englishSentence?: string | null;
