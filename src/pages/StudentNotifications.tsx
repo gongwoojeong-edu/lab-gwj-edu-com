@@ -107,17 +107,27 @@ export default function StudentNotifications() {
           <div className="space-y-2">
             {rows.map((n) => {
               const grade = n.grade as ApprovalGrade | null;
+              const expandable = !!n.sentence_id;
+              const open = openId === n.id;
               return (
                 <Card
                   key={n.id}
-                  onClick={() => onRowClick(n)}
-                  className={`p-4 cursor-pointer transition hover:shadow ${
+                  className={`p-4 transition ${
                     n.read_at ? "opacity-70" : "border-l-4 border-l-primary bg-primary/5"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div
+                    onClick={() => onRowClick(n)}
+                    className="flex items-start justify-between gap-2 cursor-pointer"
+                  >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {expandable &&
+                          (open ? (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          ))}
                         {!n.read_at && <Badge className="bg-rose-500 text-white">NEW</Badge>}
                         {grade && GRADE_LABEL[grade] && (
                           <Badge className={GRADE_BADGE_CLASS[grade]}>{GRADE_LABEL[grade]}</Badge>
@@ -127,8 +137,8 @@ export default function StudentNotifications() {
                           <span className="text-xs text-muted-foreground">[{n.sentence_id}]</span>
                         )}
                       </div>
-                      {n.body && (
-                        <p className="mt-2 text-sm whitespace-pre-wrap text-foreground/80">
+                      {n.body && !open && (
+                        <p className="mt-2 text-sm whitespace-pre-wrap text-foreground/80 line-clamp-2">
                           {n.body}
                         </p>
                       )}
@@ -137,9 +147,27 @@ export default function StudentNotifications() {
                       {fmt(n.created_at)}
                     </span>
                   </div>
+
+                  {expandable && open && user?.id && (
+                    <div className="mt-3 pt-3 border-t space-y-3">
+                      <SentenceReviewDetail
+                        sentenceId={n.sentence_id!}
+                        userId={user.id}
+                        memo={n.body ?? null}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/learn/sentence/${n.sentence_id}`)}
+                      >
+                        이 문장 다시 열기
+                      </Button>
+                    </div>
+                  )}
                 </Card>
               );
             })}
+
           </div>
         )}
       </div>
