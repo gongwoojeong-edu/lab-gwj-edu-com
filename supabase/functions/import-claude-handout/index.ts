@@ -629,7 +629,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-internal-secret": SERVICE_ROLE_KEY,
+            "x-internal-secret": SERVICE_ROLE,
           },
           body: JSON.stringify({ sentenceId: row.code, english: sent.english }),
         });
