@@ -362,7 +362,7 @@ const PendingApprovals = () => {
             mode={target.status === "held" || tab === "held" ? "held" : "pending"}
             skipPin
             onApproved={() => {
-              setTeachingId(null);
+              
               setTarget(null);
               load();
             }}
