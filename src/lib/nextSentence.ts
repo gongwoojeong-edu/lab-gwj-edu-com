@@ -92,13 +92,13 @@ const fetchScopedPassageCodes = async (
     unit_no: number;
   }[];
 
-  // 시작 유닛이 있으면 같은 권에서 그 unit_no 이상만 (이전 유닛 제외, 이후는 연결 학습)
+  // 시작 유닛이 있으면 그 권에서만 이전 유닛을 제외 (이후 권들은 전체 포함)
   if (startUnitNo != null && startUnitTextbookId) {
     unitRows = unitRows.filter(
-      (u) =>
-        u.textbook_id === startUnitTextbookId && u.unit_no >= startUnitNo!,
+      (u) => u.textbook_id !== startUnitTextbookId || u.unit_no >= startUnitNo!,
     );
   }
+
 
   const unitIds = unitRows.map((u) => u.id);
   if (unitIds.length === 0) return new Set();
