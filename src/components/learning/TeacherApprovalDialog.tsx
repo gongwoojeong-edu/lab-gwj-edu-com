@@ -363,6 +363,17 @@ export const TeacherApprovalDialog = ({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               취소
             </Button>
+            {studentUserId && (
+              <Button
+                variant={teaching ? "secondary" : "outline"}
+                className={teaching ? "" : "border-sky-500/60 text-sky-700 hover:bg-sky-500/10 dark:text-sky-300"}
+                onClick={beginTeaching}
+                disabled={saving}
+                title="학생 화면에 원문·학생 해석을 띄우고 메모를 실시간 중계합니다"
+              >
+                <GraduationCap className="w-4 h-4 mr-1" /> {teaching ? "티칭 중" : "티칭 시작"}
+              </Button>
+            )}
             {isHeldMode ? (
               <Button
                 variant="outline"
