@@ -617,7 +617,35 @@ Deno.serve(async (req) => {
     );
   }
 
+  // ===== 5.5) 단어 자동 추출 (백그라운드) =====
+  //   학습기 전송 즉시 문장별 AI 단어 추출을 걸어 둔다.
+  //   선생님은 이후 책장 화면에서 수동 검수 → [검수완료] 표기.
+  const autoExtract = async () => {
+    for (const row of insertedRows!) {
+      const sent = rows.find((r) => r.code === (row as { code: string }).code);
+      if (!sent?.english?.trim()) continue;
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-sentence-words`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-secret": SERVICE_ROLE_KEY,
+          },
+          body: JSON.stringify({ sentenceId: row.code, english: sent.english }),
+        });
+        if (!resp.ok) console.error("auto extract failed", row.code, resp.status, await resp.text());
+      } catch (e) {
+        console.error("auto extract error", row.code, e);
+      }
+    }
+  };
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(autoExtract());
+  else void autoExtract();
+
   // ===== 6) Mark token as used =====
+
   await admin
     .from("import_tokens")
     .update({ last_used_at: new Date().toISOString() })
