@@ -47,20 +47,8 @@ const PendingApprovals = () => {
   const [tab, setTab] = useState<ApprovalStatus>("pending");
   const [heldCount, setHeldCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
-  const [teachingId, setTeachingId] = useState<string | null>(null);
 
-  const beginTeaching = async (row: Row) => {
-    try {
-      await startTeaching(row.user_id, row.sentence_id);
-      setTeachingId(row.id);
-      toast({
-        title: "학생 화면에 문장을 띄웠어요",
-        description: "승인(또는 처리)하면 학생 화면이 자동으로 닫힙니다.",
-      });
-    } catch (e: any) {
-      toast({ title: "티칭 시작 실패", description: e?.message ?? String(e), variant: "destructive" });
-    }
-  };
+
 
   const startEdit = (row: Row) => {
     setEditingId(row.sentence_id);
@@ -286,15 +274,6 @@ const PendingApprovals = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant={teachingId === row.id ? "secondary" : "outline"}
-                    onClick={() => beginTeaching(row)}
-                    title="학생 화면에 이 문장의 원문과 학생 해석을 띄웁니다"
-                  >
-                    <GraduationCap className="w-4 h-4 mr-1" />
-                    {teachingId === row.id ? "티칭 중" : "티칭 시작"}
-                  </Button>
                   <Button size="sm" onClick={() => setTarget(row)}>
                     <ShieldCheck className="w-4 h-4 mr-1" /> {row.status === "held" ? "첨삭·최종승인" : "승인하기"}
                   </Button>
