@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +15,7 @@ import { emptyMemo, parseMemo, serializeMemo, type StructuredMemo } from "@/lib/
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
-import { stopTeaching, teachingChannelName } from "@/lib/teachingSession";
+import { startTeaching, stopTeaching, teachingChannelName } from "@/lib/teachingSession";
 import { supabase } from "@/integrations/supabase/client";
 import {
   approveSentenceRequest,
@@ -80,6 +80,21 @@ export const TeacherApprovalDialog = ({
   const [memo, setMemo] = useState<StructuredMemo>(emptyMemo());
   const [saving, setSaving] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [teaching, setTeaching] = useState(false);
+
+  const beginTeaching = async () => {
+    if (!studentUserId) return;
+    try {
+      await startTeaching(studentUserId, sentenceId);
+      setTeaching(true);
+      toast({
+        title: "학생 화면에 문장을 띄웠어요",
+        description: "메모 타이핑이 실시간으로 중계되고, 완료 시 자동으로 닫힙니다.",
+      });
+    } catch (e: any) {
+      toast({ title: "티칭 시작 실패", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  };
 
   const isHeldMode = mode === "held";
 
@@ -89,6 +104,7 @@ export const TeacherApprovalDialog = ({
     setGrade(null);
     setMemo(parseMemo(initialMemo));
     setShowAnswer(false);
+    setTeaching(false);
     if (skipPin) {
       setStoredPin("__skip__");
       return;
@@ -347,6 +363,17 @@ export const TeacherApprovalDialog = ({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               취소
             </Button>
+            {studentUserId && (
+              <Button
+                variant={teaching ? "secondary" : "outline"}
+                className={teaching ? "" : "border-sky-500/60 text-sky-700 hover:bg-sky-500/10 dark:text-sky-300"}
+                onClick={beginTeaching}
+                disabled={saving}
+                title="학생 화면에 원문·학생 해석을 띄우고 메모를 실시간 중계합니다"
+              >
+                <GraduationCap className="w-4 h-4 mr-1" /> {teaching ? "티칭 중" : "티칭 시작"}
+              </Button>
+            )}
             {isHeldMode ? (
               <Button
                 variant="outline"
