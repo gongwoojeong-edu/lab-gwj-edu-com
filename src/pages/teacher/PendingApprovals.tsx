@@ -6,7 +6,7 @@ import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Inbox, RefreshCw, PauseCircle, Send, PenLine, GraduationCap } from "lucide-react";
+import { ShieldCheck, Inbox, RefreshCw, PauseCircle, Send, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchApprovalsByStatus,
@@ -19,7 +19,6 @@ import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean } from "@/lib/textbooks";
-import { startTeaching } from "@/lib/teachingSession";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Save, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
