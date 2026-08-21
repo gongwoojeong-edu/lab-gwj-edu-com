@@ -173,10 +173,9 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
     }
     return { sentence: found, profile: { ...profile, current_level: targetLevel, current_no: found.no }, done: false };
   }
-  if (profile.current_level !== targetLevel) {
-    await updateMyProgress(targetLevel, 1);
-  }
+  // 지정 범위(시리즈/권)를 모두 끝낸 상태 — 처음(1번)으로 되돌리지 않고 완료로 안내한다.
   return { sentence: null, profile: { ...profile, current_level: targetLevel }, done: true };
+
 };
 
 export const advanceAfterPass = async (justPassed: Sentence): Promise<void> => {
