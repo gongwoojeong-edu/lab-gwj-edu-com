@@ -47,6 +47,7 @@ import PrintableAnalysis from "./pages/print/PrintableAnalysis.tsx";
 import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
 import { StaffProvider } from "./lib/staff-context";
+import { TeachingOverlay } from "./components/student/TeachingOverlay";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <TeachingOverlay />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />

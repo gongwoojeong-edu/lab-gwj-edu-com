@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,8 @@ import { emptyMemo, parseMemo, serializeMemo, type StructuredMemo } from "@/lib/
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
+import { stopTeaching, teachingChannelName } from "@/lib/teachingSession";
+import { supabase } from "@/integrations/supabase/client";
 import {
   approveSentenceRequest,
   deleteApprovalRequest,
@@ -100,6 +102,36 @@ export const TeacherApprovalDialog = ({
     };
   }, [open, skipPin, initialMemo]);
 
+  // ── 티칭 모드: 메모 타이핑을 학생 화면으로 실시간 중계 (DB 저장 없음) ──
+  const memoChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  useEffect(() => {
+    if (!open || !studentUserId) return;
+    const ch = supabase.channel(teachingChannelName(studentUserId));
+    ch.subscribe();
+    memoChannelRef.current = ch;
+    return () => {
+      memoChannelRef.current = null;
+      supabase.removeChannel(ch);
+    };
+  }, [open, studentUserId]);
+
+  useEffect(() => {
+    if (!open || !studentUserId) return;
+    const t = setTimeout(() => {
+      memoChannelRef.current?.send({ type: "broadcast", event: "memo", payload: memo });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [memo, open, studentUserId]);
+
+  const endTeaching = async () => {
+    if (!studentUserId) return;
+    try {
+      await stopTeaching(studentUserId);
+    } catch {
+      /* 무시 */
+    }
+  };
+
   const submit = async () => {
     if (saving) return;
     if (!grade) {
@@ -136,6 +168,7 @@ export const TeacherApprovalDialog = ({
         memo: serializeMemo(memo) ?? "",
         studentUserId,
       });
+      await endTeaching();
       toast({
         title: grade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[grade]}`,
         description:
@@ -167,6 +200,7 @@ export const TeacherApprovalDialog = ({
         sentenceId,
         memo: serializeMemo(memo) ?? "",
       });
+      await endTeaching();
       toast({
         title: "보류 처리했어요",
         description: "이 문장은 '보류' 탭에 남습니다. 나중에 자세히 첨삭 후 최종 승인하세요.",
@@ -185,6 +219,7 @@ export const TeacherApprovalDialog = ({
     setSaving(true);
     try {
       await deleteApprovalRequest(approvalId);
+      await endTeaching();
       toast({
         title: "보류 항목을 삭제했어요",
         description: "학생의 진도 기록은 유지됩니다.",
