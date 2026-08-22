@@ -904,6 +904,25 @@ const StudentHome = () => {
     };
   }, [assignmentGroups, unitWorkflows]);
   const visibleAssignmentGroups = activeAssignmentGroups;
+  // 과제 카드에서 이미 유닛 워크북 줄이 보이는 유닛 → 진도 워크북 목록에서 중복 제거
+  const assignmentRenderedUnitIds = useMemo(() => {
+    const s = new Set<string>();
+    visibleAssignmentGroups.forEach((g) => {
+      if (g.unitBreakdown.length > 0) g.unitBreakdown.forEach((u) => s.add(u.unitId));
+      else if (g.unitId) s.add(g.unitId);
+    });
+    return s;
+  }, [visibleAssignmentGroups]);
+  const visibleMainUnits = useMemo(
+    () =>
+      mainUnits.filter((u) => {
+        if (assignmentRenderedUnitIds.has(u.unitId)) return false;
+        const st = unitWorkflows[u.unitId]?.status ?? "learning";
+        return (u.doneCount >= u.totalCount && u.totalCount > 0) || st !== "learning";
+      }),
+    [mainUnits, assignmentRenderedUnitIds, unitWorkflows],
+  );
+
 
 
   return (
