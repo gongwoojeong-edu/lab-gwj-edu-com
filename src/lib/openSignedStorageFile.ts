@@ -13,7 +13,7 @@ export async function openSignedStorageFile(
   const nameLooksHtml = /\.html?$/i.test(opts?.fileName ?? "");
 
   const openHtmlBlob = (buf: ArrayBuffer) => {
-    const text = new TextDecoder("utf-8").decode(buf);
+    const text = repairInteractiveHtml(new TextDecoder("utf-8").decode(buf));
     const blob = new Blob([text], { type: "text/html;charset=utf-8" });
     const blobUrl = URL.createObjectURL(blob);
     const win = window.open(blobUrl, "_blank", "noopener,noreferrer");
