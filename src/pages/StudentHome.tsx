@@ -503,7 +503,7 @@ const StudentHome = () => {
                   .filter((x): x is string => !!x),
               ),
             ]
-              .slice(0, 12);
+              .slice(0, 60);
 
             if (mainUnitIds.length > 0) {
               const [{ data: unitRows2 }, summaries] = await Promise.all([
@@ -913,23 +913,19 @@ const StudentHome = () => {
     };
   }, [assignmentGroups, unitWorkflows]);
   const visibleAssignmentGroups = activeAssignmentGroups;
-  // 과제 카드에서 이미 유닛 워크북 줄이 보이는 유닛 → 진도 워크북 목록에서 중복 제거
-  const assignmentRenderedUnitIds = useMemo(() => {
-    const s = new Set<string>();
-    visibleAssignmentGroups.forEach((g) => {
-      if (g.unitBreakdown.length > 0) g.unitBreakdown.forEach((u) => s.add(u.unitId));
-      else if (g.unitId) s.add(g.unitId);
-    });
-    return s;
-  }, [visibleAssignmentGroups]);
+  // 완료(선생님 승인까지 끝난) 유닛은 아래 '완료 유닛' 탭으로 이동
   const visibleMainUnits = useMemo(
     () =>
       mainUnits.filter((u) => {
-        if (assignmentRenderedUnitIds.has(u.unitId)) return false;
         const st = unitWorkflows[u.unitId]?.status ?? "learning";
+        if (st === "completed") return false;
         return (u.doneCount >= u.totalCount && u.totalCount > 0) || st !== "learning";
       }),
-    [mainUnits, assignmentRenderedUnitIds, unitWorkflows],
+    [mainUnits, unitWorkflows],
+  );
+  const completedMainUnits = useMemo(
+    () => mainUnits.filter((u) => (unitWorkflows[u.unitId]?.status ?? "learning") === "completed"),
+    [mainUnits, unitWorkflows],
   );
 
 
@@ -1339,6 +1335,46 @@ const StudentHome = () => {
               </Card>
             )}
 
+            {/* 완료 유닛 — 선생님 승인까지 끝난 진도 워크북 */}
+            {completedMainUnits.length > 0 && (
+              <Card className="p-4 sm:p-5 border-emerald-500/30">
+                <details>
+                  <summary className="cursor-pointer list-none flex items-center gap-2 select-none">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-sm font-bold text-foreground/70 uppercase tracking-wider">
+                      완료 유닛
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold">
+                      {completedMainUnits.length}
+                    </span>
+                    <span className="ml-auto text-[11px] text-muted-foreground">펼치기/접기</span>
+                  </summary>
+                  <ul className="space-y-2 mt-3">
+                    {completedMainUnits.map((u) => (
+                      <li
+                        key={u.unitId}
+                        className="flex items-center justify-between gap-2 p-3 rounded-lg border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/5"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold truncate">
+                            U{u.unit_no} · {u.title}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            완료 {u.doneCount}/{u.totalCount}
+                            {unitWorkflows[u.unitId]?.teacher_grade
+                              ? ` · 평가 ${unitWorkflows[u.unitId]?.teacher_grade}`
+                              : ""}
+                          </div>
+                        </div>
+                        <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-extrabold">
+                          ✓ 완료
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </Card>
+            )}
 
 
             {noContent ? (
