@@ -181,6 +181,7 @@ const StudentHome = () => {
   const [mainUnits, setMainUnits] = useState<
     { unitId: string; unit_no: number; title: string; totalCount: number; doneCount: number }[]
   >([]);
+  const [showAllMainUnits, setShowAllMainUnits] = useState(false);
   const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
   const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
 
