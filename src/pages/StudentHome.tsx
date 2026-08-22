@@ -503,7 +503,7 @@ const StudentHome = () => {
                   .filter((x): x is string => !!x),
               ),
             ]
-              .slice(0, 12);
+              .slice(0, 60);
 
             if (mainUnitIds.length > 0) {
               const [{ data: unitRows2 }, summaries] = await Promise.all([
