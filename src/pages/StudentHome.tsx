@@ -1415,6 +1415,127 @@ const StudentHome = () => {
               </Card>
             )}
 
+            {/* 진도(메인 커리큘럼) 유닛 워크북 — 유닛 완주 시 인쇄 요청 (지난 학습분 포함) */}
+            {visibleMainUnits.length > 0 && (
+              <Card className="p-5 space-y-3 border-primary/30 bg-primary/5">
+                <div className="flex items-center gap-2">
+                  <Printer className="w-4 h-4 text-primary" />
+                  <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">
+                    진도 워크북
+                  </h2>
+                </div>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  학습을 마친 유닛은 지난 유닛이라도 언제든 워크북 인쇄·자료열람을 신청할 수 있어요.
+                </p>
+                <ul className="space-y-2">
+                  {(showAllMainUnits ? visibleMainUnits : visibleMainUnits.slice(0, 6)).map((u) => {
+                    const wf = unitWorkflows[u.unitId];
+                    const mv = materialViews[u.unitId];
+                    const status = wf?.status ?? "learning";
+                    const allDone = u.doneCount >= u.totalCount && u.totalCount > 0;
+                    if (!allDone && status === "learning") return null;
+                    const canRequestMaterial =
+                      status === "printed" ||
+                      status === "workbook_submitted" ||
+                      status === "completed";
+                    return (
+                      <li
+                        key={u.unitId}
+                        className="flex flex-wrap items-center gap-1.5 p-3 rounded-lg border border-primary/20 bg-card"
+                      >
+                        <span className="text-xs font-bold shrink-0">
+                          U{u.unit_no} · {u.title}
+                          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                            ({u.doneCount}/{u.totalCount})
+                          </span>
+                        </span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {UNIT_WORKFLOW_LABELS[status]}
+                        </Badge>
+                        <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+                          {allDone && status === "learning" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              disabled={!!busy[`unit-print:${u.unitId}`]}
+                              onClick={() => handleUnitPrintRequest(u.unitId)}
+                            >
+                              <Printer className="w-3 h-3 mr-1" />
+                              인쇄 요청
+                            </Button>
+                          )}
+                          {status === "print_pending" && (
+                            <span className="text-[11px] text-amber-700 dark:text-amber-300 inline-flex items-center gap-1">
+                              <Hourglass className="w-3 h-3 animate-pulse" /> 인쇄 승인 대기
+                            </span>
+                          )}
+                          {status === "printed" && (
+                            <Button
+                              size="sm"
+                              className="h-7 text-[11px]"
+                              disabled={!!busy[`unit-wb:${u.unitId}`]}
+                              onClick={() => handleWorkbookComplete(u.unitId)}
+                            >
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              워크북 완료
+                            </Button>
+                          )}
+                          {status === "workbook_submitted" && (
+                            <span className="text-[11px] text-sky-700 dark:text-sky-300 inline-flex items-center gap-1">
+                              <Hourglass className="w-3 h-3 animate-pulse" /> 선생님 승인 대기
+                            </span>
+                          )}
+                          {status === "completed" && wf?.teacher_grade && (
+                            <Badge className="text-[10px]">평가 {wf.teacher_grade}</Badge>
+                          )}
+                          {canRequestMaterial &&
+                            (mv?.status === "approved" ? (
+                              <Button size="sm" variant="outline" className="h-7 text-[11px]" asChild>
+                                <Link to="/learn/library">
+                                  <BookOpen className="w-3 h-3 mr-1" /> 라이브러리
+                                </Link>
+                              </Button>
+                            ) : mv?.status === "pending" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px]"
+                                onClick={() => handleCancelMaterialView(u.unitId)}
+                              >
+                                자료열람 대기중
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-[11px]"
+                                disabled={!!busy[`unit-mv:${u.unitId}`]}
+                                onClick={() => handleMaterialViewRequest(u.unitId)}
+                              >
+                                <Eye className="w-3 h-3 mr-1" /> 자료열람 요청
+                              </Button>
+                            ))}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {visibleMainUnits.length > 6 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-7 text-[11px]"
+                    onClick={() => setShowAllMainUnits((v) => !v)}
+                  >
+                    {showAllMainUnits
+                      ? "접기"
+                      : `지난 유닛 더 보기 (${visibleMainUnits.length - 6})`}
+                  </Button>
+                )}
+              </Card>
+            )}
+
 
             {noContent ? (
               <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 dark:from-amber-950/30 dark:to-orange-950/30">
