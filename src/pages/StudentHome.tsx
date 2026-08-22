@@ -922,14 +922,19 @@ const StudentHome = () => {
     });
     return s;
   }, [visibleAssignmentGroups]);
+  // 완료(선생님 승인까지 끝난) 유닛은 아래 '완료 유닛' 탭으로 이동
   const visibleMainUnits = useMemo(
     () =>
       mainUnits.filter((u) => {
-        if (assignmentRenderedUnitIds.has(u.unitId)) return false;
         const st = unitWorkflows[u.unitId]?.status ?? "learning";
+        if (st === "completed") return false;
         return (u.doneCount >= u.totalCount && u.totalCount > 0) || st !== "learning";
       }),
-    [mainUnits, assignmentRenderedUnitIds, unitWorkflows],
+    [mainUnits, unitWorkflows],
+  );
+  const completedMainUnits = useMemo(
+    () => mainUnits.filter((u) => (unitWorkflows[u.unitId]?.status ?? "learning") === "completed"),
+    [mainUnits, unitWorkflows],
   );
 
 
