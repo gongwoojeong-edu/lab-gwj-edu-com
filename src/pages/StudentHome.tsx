@@ -913,15 +913,6 @@ const StudentHome = () => {
     };
   }, [assignmentGroups, unitWorkflows]);
   const visibleAssignmentGroups = activeAssignmentGroups;
-  // 과제 카드에서 이미 유닛 워크북 줄이 보이는 유닛 → 진도 워크북 목록에서 중복 제거
-  const assignmentRenderedUnitIds = useMemo(() => {
-    const s = new Set<string>();
-    visibleAssignmentGroups.forEach((g) => {
-      if (g.unitBreakdown.length > 0) g.unitBreakdown.forEach((u) => s.add(u.unitId));
-      else if (g.unitId) s.add(g.unitId);
-    });
-    return s;
-  }, [visibleAssignmentGroups]);
   // 완료(선생님 승인까지 끝난) 유닛은 아래 '완료 유닛' 탭으로 이동
   const visibleMainUnits = useMemo(
     () =>
