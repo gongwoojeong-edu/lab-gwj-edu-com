@@ -1377,9 +1377,37 @@ const StudentHome = () => {
                               : ""}
                           </div>
                         </div>
-                        <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-extrabold">
-                          ✓ 완료
-                        </span>
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          {materialViews[u.unitId]?.status === "approved" ? (
+                            <Button size="sm" variant="outline" className="h-7 text-[11px]" asChild>
+                              <Link to="/learn/library">
+                                <BookOpen className="w-3 h-3 mr-1" /> 라이브러리
+                              </Link>
+                            </Button>
+                          ) : materialViews[u.unitId]?.status === "pending" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px]"
+                              onClick={() => handleCancelMaterialView(u.unitId)}
+                            >
+                              자료열람 대기중
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[11px]"
+                              disabled={!!busy[`unit-mv:${u.unitId}`]}
+                              onClick={() => handleMaterialViewRequest(u.unitId)}
+                            >
+                              <Eye className="w-3 h-3 mr-1" /> 자료열람 요청
+                            </Button>
+                          )}
+                          <span className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-extrabold">
+                            ✓ 완료
+                          </span>
+                        </div>
                       </li>
                     ))}
                   </ul>
