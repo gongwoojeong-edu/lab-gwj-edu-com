@@ -881,12 +881,21 @@ const StudentHome = () => {
     assignmentGroups.forEach((g) => {
       const isDone = g.totalCount > 0 && g.doneCount >= g.totalCount;
       if (isDone) {
-        const wf = g.unitId ? unitWorkflows[g.unitId] : null;
-        // 유닛 워크플로(인쇄·워크북)가 남아 있으면 진행중 카드에 유지
-        if (g.unitId && (!wf || wf.status !== "completed")) active.push(g);
+        // 책 단위 과제도 포함해, 유닛 중 하나라도 워크플로(인쇄·워크북)가 남아 있으면 진행중 유지
+        const unitIdsOfGroup =
+          g.unitBreakdown.length > 0
+            ? g.unitBreakdown.map((u) => u.unitId)
+            : g.unitId
+              ? [g.unitId]
+              : [];
+        const hasPendingWorkflow = unitIdsOfGroup.some(
+          (uid) => (unitWorkflows[uid]?.status ?? "learning") !== "completed",
+        );
+        if (hasPendingWorkflow) active.push(g);
         else completed.push(g);
         return;
       }
+
       const latestCreated = g.rows.reduce(
         (m, r) => Math.max(m, new Date(r.created_at).getTime()),
         0,
