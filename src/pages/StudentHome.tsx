@@ -478,7 +478,7 @@ const StudentHome = () => {
           }
 
           // 메인 커리큘럼(진도) 유닛 — 과제와 무관하게 유닛 완주 시 워크북 신청
-          const assignedUnitIds = new Set(unitIds);
+          // (과제로도 배정된 유닛은 렌더 단계에서 중복만 걸러낸다)
           const codes = [
             ...(r.sentence ? [r.sentence.id] : []),
             ...enriched.slice(0, 60).map((e) => e.sentence.id),
@@ -503,8 +503,8 @@ const StudentHome = () => {
                   .filter((x): x is string => !!x),
               ),
             ]
-              .filter((id) => !assignedUnitIds.has(id))
               .slice(0, 12);
+
             if (mainUnitIds.length > 0) {
               const [{ data: unitRows2 }, summaries] = await Promise.all([
                 supabase
