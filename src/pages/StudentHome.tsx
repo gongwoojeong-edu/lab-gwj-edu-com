@@ -478,7 +478,7 @@ const StudentHome = () => {
           }
 
           // 메인 커리큘럼(진도) 유닛 — 과제와 무관하게 유닛 완주 시 워크북 신청
-          const assignedUnitIds = new Set(unitIds);
+          // (과제로도 배정된 유닛은 렌더 단계에서 중복만 걸러낸다)
           const codes = [
             ...(r.sentence ? [r.sentence.id] : []),
             ...enriched.slice(0, 60).map((e) => e.sentence.id),
@@ -503,8 +503,8 @@ const StudentHome = () => {
                   .filter((x): x is string => !!x),
               ),
             ]
-              .filter((id) => !assignedUnitIds.has(id))
               .slice(0, 12);
+
             if (mainUnitIds.length > 0) {
               const [{ data: unitRows2 }, summaries] = await Promise.all([
                 supabase
@@ -881,12 +881,21 @@ const StudentHome = () => {
     assignmentGroups.forEach((g) => {
       const isDone = g.totalCount > 0 && g.doneCount >= g.totalCount;
       if (isDone) {
-        const wf = g.unitId ? unitWorkflows[g.unitId] : null;
-        // 유닛 워크플로(인쇄·워크북)가 남아 있으면 진행중 카드에 유지
-        if (g.unitId && (!wf || wf.status !== "completed")) active.push(g);
+        // 책 단위 과제도 포함해, 유닛 중 하나라도 워크플로(인쇄·워크북)가 남아 있으면 진행중 유지
+        const unitIdsOfGroup =
+          g.unitBreakdown.length > 0
+            ? g.unitBreakdown.map((u) => u.unitId)
+            : g.unitId
+              ? [g.unitId]
+              : [];
+        const hasPendingWorkflow = unitIdsOfGroup.some(
+          (uid) => (unitWorkflows[uid]?.status ?? "learning") !== "completed",
+        );
+        if (hasPendingWorkflow) active.push(g);
         else completed.push(g);
         return;
       }
+
       const latestCreated = g.rows.reduce(
         (m, r) => Math.max(m, new Date(r.created_at).getTime()),
         0,
@@ -904,6 +913,25 @@ const StudentHome = () => {
     };
   }, [assignmentGroups, unitWorkflows]);
   const visibleAssignmentGroups = activeAssignmentGroups;
+  // 과제 카드에서 이미 유닛 워크북 줄이 보이는 유닛 → 진도 워크북 목록에서 중복 제거
+  const assignmentRenderedUnitIds = useMemo(() => {
+    const s = new Set<string>();
+    visibleAssignmentGroups.forEach((g) => {
+      if (g.unitBreakdown.length > 0) g.unitBreakdown.forEach((u) => s.add(u.unitId));
+      else if (g.unitId) s.add(g.unitId);
+    });
+    return s;
+  }, [visibleAssignmentGroups]);
+  const visibleMainUnits = useMemo(
+    () =>
+      mainUnits.filter((u) => {
+        if (assignmentRenderedUnitIds.has(u.unitId)) return false;
+        const st = unitWorkflows[u.unitId]?.status ?? "learning";
+        return (u.doneCount >= u.totalCount && u.totalCount > 0) || st !== "learning";
+      }),
+    [mainUnits, assignmentRenderedUnitIds, unitWorkflows],
+  );
+
 
 
   return (
@@ -1391,10 +1419,7 @@ const StudentHome = () => {
             </Card>
 
             {/* 진도(메인 커리큘럼) 유닛 워크북 — 유닛 완주 시 인쇄 요청 */}
-            {mainUnits.filter((u) => {
-              const st = unitWorkflows[u.unitId]?.status ?? "learning";
-              return (u.doneCount >= u.totalCount && u.totalCount > 0) || st !== "learning";
-            }).length > 0 && (
+            {visibleMainUnits.length > 0 && (
               <Card className="p-5 space-y-3 border-primary/30 bg-primary/5">
                 <div className="flex items-center gap-2">
                   <Printer className="w-4 h-4 text-primary" />
@@ -1406,7 +1431,8 @@ const StudentHome = () => {
                   진도(메인 커리큘럼)에서도 한 유닛 학습을 마치면 워크북을 신청할 수 있어요.
                 </p>
                 <ul className="space-y-2">
-                  {mainUnits.map((u) => {
+                  {visibleMainUnits.map((u) => {
+
                     const wf = unitWorkflows[u.unitId];
                     const mv = materialViews[u.unitId];
                     const status = wf?.status ?? "learning";
