@@ -478,10 +478,10 @@ const StudentHome = () => {
           }
 
           // 메인 커리큘럼(진도) 유닛 — 과제와 무관하게 유닛 완주 시 워크북 신청
-          // (과제로도 배정된 유닛은 렌더 단계에서 중복만 걸러낸다)
+          // 지난 학습분도 요청할 수 있도록, 학습 기록이 있는 모든 유닛을 최근순으로 모은다.
           const codes = [
             ...(r.sentence ? [r.sentence.id] : []),
-            ...enriched.slice(0, 60).map((e) => e.sentence.id),
+            ...rows.map((x) => x.sentence_id),
           ];
           const uniqueCodes = [...new Set(codes)];
           const mains: {
@@ -492,18 +492,25 @@ const StudentHome = () => {
             doneCount: number;
           }[] = [];
           if (uniqueCodes.length > 0) {
-            const { data: pgRows2 } = await supabase
-              .from("textbook_passages")
-              .select("unit_id")
-              .in("code", uniqueCodes);
-            const mainUnitIds = [
-              ...new Set(
-                ((pgRows2 ?? []) as { unit_id: string | null }[])
-                  .map((x) => x.unit_id)
-                  .filter((x): x is string => !!x),
-              ),
-            ]
-              .slice(0, 60);
+            // code → unit_id (in() 과다 방지를 위해 분할 조회)
+            const codeToUnit = new Map<string, string>();
+            for (let i = 0; i < uniqueCodes.length; i += 200) {
+              const chunk = uniqueCodes.slice(i, i + 200);
+              const { data: pgRows2 } = await supabase
+                .from("textbook_passages")
+                .select("code, unit_id")
+                .in("code", chunk);
+              ((pgRows2 ?? []) as { code: string; unit_id: string | null }[]).forEach((x) => {
+                if (x.unit_id) codeToUnit.set(x.code, x.unit_id);
+              });
+            }
+            // uniqueCodes 는 최근 학습순 → 유닛도 최근순으로 정렬된다
+            const orderedUnitIds: string[] = [];
+            uniqueCodes.forEach((c) => {
+              const uid = codeToUnit.get(c);
+              if (uid && !orderedUnitIds.includes(uid)) orderedUnitIds.push(uid);
+            });
+            const mainUnitIds = orderedUnitIds.slice(0, 40);
 
             if (mainUnitIds.length > 0) {
               const [{ data: unitRows2 }, summaries] = await Promise.all([
@@ -535,7 +542,10 @@ const StudentHome = () => {
                   doneCount: sum.completedCodes.length,
                 });
               });
-              mains.sort((a, b) => a.unit_no - b.unit_no);
+              // 최근 학습순 유지
+              mains.sort(
+                (a, b) => mainUnitIds.indexOf(a.unitId) - mainUnitIds.indexOf(b.unitId),
+              );
             }
           }
           if (mounted) setMainUnits(mains);
