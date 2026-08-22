@@ -1410,10 +1410,7 @@ const StudentHome = () => {
             </Card>
 
             {/* 진도(메인 커리큘럼) 유닛 워크북 — 유닛 완주 시 인쇄 요청 */}
-            {mainUnits.filter((u) => {
-              const st = unitWorkflows[u.unitId]?.status ?? "learning";
-              return (u.doneCount >= u.totalCount && u.totalCount > 0) || st !== "learning";
-            }).length > 0 && (
+            {visibleMainUnits.length > 0 && (
               <Card className="p-5 space-y-3 border-primary/30 bg-primary/5">
                 <div className="flex items-center gap-2">
                   <Printer className="w-4 h-4 text-primary" />
@@ -1425,7 +1422,8 @@ const StudentHome = () => {
                   진도(메인 커리큘럼)에서도 한 유닛 학습을 마치면 워크북을 신청할 수 있어요.
                 </p>
                 <ul className="space-y-2">
-                  {mainUnits.map((u) => {
+                  {visibleMainUnits.map((u) => {
+
                     const wf = unitWorkflows[u.unitId];
                     const mv = materialViews[u.unitId];
                     const status = wf?.status ?? "learning";
