@@ -294,10 +294,53 @@ const PendingApprovals = () => {
                 </div>
               )}
 
-              <div className="grid md:grid-cols-2 gap-3 text-sm">
+              <div className="grid md:grid-cols-3 gap-3 text-sm">
                 <div className="border rounded-md p-3 bg-muted/30">
                   <div className="text-[11px] text-muted-foreground mb-1">원문</div>
                   <div className="leading-snug">{row.english ?? "(원문을 불러올 수 없음)"}</div>
+                </div>
+                <div className="border rounded-md p-3 bg-primary/5 border-primary/30">
+                  <div className="text-[11px] text-primary mb-1 font-semibold flex items-center justify-between gap-2">
+                    <span>한글해석 정답</span>
+                    {editingId !== row.sentence_id && row.korean?.trim() && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => startEdit(row)}
+                      >
+                        <Pencil className="w-3 h-3 mr-1" /> 수정
+                      </Button>
+                    )}
+                  </div>
+                  {editingId === row.sentence_id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        rows={4}
+                        placeholder="선생님 정답 (한글해석)을 입력하세요"
+                        className="text-sm"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
+                          <X className="w-3 h-3 mr-1" /> 취소
+                        </Button>
+                        <Button size="sm" onClick={() => saveEdit(row.sentence_id)} disabled={saving}>
+                          <Save className="w-3 h-3 mr-1" /> 저장
+                        </Button>
+                      </div>
+                    </div>
+                  ) : row.korean?.trim() ? (
+                    <div className="whitespace-pre-wrap leading-relaxed">{row.korean}</div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-muted-foreground italic text-xs">(등록된 정답 없음)</div>
+                      <Button size="sm" variant="outline" onClick={() => startEdit(row)} className="w-full">
+                        <Pencil className="w-3 h-3 mr-1" /> 정답입력
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="border rounded-md p-3 bg-card">
                   <div className="text-[11px] text-muted-foreground mb-1">학생 한글해석</div>
@@ -306,27 +349,6 @@ const PendingApprovals = () => {
                   </div>
                 </div>
               </div>
-
-              {editingId === row.sentence_id && (
-                <div className="border rounded-md p-3 bg-muted/30 space-y-2">
-                  <div className="text-[11px] font-semibold text-muted-foreground">한글해석 정답 수정</div>
-                  <Textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    rows={4}
-                    placeholder="선생님 정답 (한글해석)을 입력하세요"
-                    className="text-sm"
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
-                      <X className="w-3 h-3 mr-1" /> 취소
-                    </Button>
-                    <Button size="sm" onClick={() => saveEdit(row.sentence_id)} disabled={saving}>
-                      <Save className="w-3 h-3 mr-1" /> 저장
-                    </Button>
-                  </div>
-                </div>
-              )}
             </Card>
           ))}
         </div>

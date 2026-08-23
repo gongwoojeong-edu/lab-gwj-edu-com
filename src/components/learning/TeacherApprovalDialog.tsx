@@ -275,30 +275,34 @@ export const TeacherApprovalDialog = ({
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1 pt-3">
           {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
             <div className="space-y-2 text-sm border rounded-md p-3 bg-muted/30">
-              {koreanAnswer &&
-                (showAnswer ? (
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-[11px] text-primary font-semibold">한글해석 정답</div>
+              {koreanAnswer && (
+                <div className="flex items-start justify-between gap-2">
+                  {showAnswer ? (
+                    <>
+                      <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
                       <button
                         type="button"
                         onClick={() => setShowAnswer(false)}
-                        className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                        className="shrink-0 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                        title="가리기"
+                        aria-label="가리기"
                       >
-                        <EyeOff className="w-3 h-3" /> 가리기
+                        <EyeOff className="w-3 h-3" />
                       </button>
-                    </div>
-                    <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowAnswer(true)}
-                    className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
-                  >
-                    <Eye className="w-3 h-3" /> 정답 보기
-                  </button>
-                ))}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowAnswer(true)}
+                      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                      title="정답 보기"
+                      aria-label="정답 보기"
+                    >
+                      <Eye className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
               {englishSentence && (
                 <div>
                   <div className="text-[11px] text-muted-foreground">원문</div>
