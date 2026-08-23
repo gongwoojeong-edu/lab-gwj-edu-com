@@ -273,6 +273,14 @@ const PendingApprovals = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => startEdit(row)}
+                    disabled={editingId === row.sentence_id}
+                  >
+                    <Pencil className="w-4 h-4 mr-1" /> {row.korean?.trim() ? "정답 수정" : "정답입력"}
+                  </Button>
                   <Button size="sm" onClick={() => setTarget(row)}>
                     <ShieldCheck className="w-4 h-4 mr-1" /> {row.status === "held" ? "첨삭·최종승인" : "승인하기"}
                   </Button>
