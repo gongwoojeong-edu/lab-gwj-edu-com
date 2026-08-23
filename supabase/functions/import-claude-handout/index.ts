@@ -222,6 +222,21 @@ function assertSentenceFidelity(passage: string, sentences: string[]): string | 
 }
 
 
+interface StructureNode {
+  id: number;
+  label: string;
+  english: string;
+  korean: string;
+  literal: string;
+  point: string;
+  children: number[];
+}
+
+interface StructurePayload {
+  nodes: StructureNode[];
+  svg?: string;
+}
+
 interface Payload {
   // Legacy fields (still supported)
   textbook?: string;
@@ -245,6 +260,7 @@ interface Payload {
   sentence_translations?: string[];
   analysis_html?: string;
   structure_html?: string;
+  structure?: StructurePayload;
   // New hierarchy fields
   level?: string;            // "L01"~"L10"
   series_title?: string;     // e.g. "모의고사"
@@ -254,6 +270,37 @@ interface Payload {
   unit_title?: string;       // e.g. "263모고32" — different per question to create separate units
   unit_no?: number;
   passage_no?: number;
+}
+
+function validateStructure(s: unknown): string | null {
+  if (s == null) return null;
+  if (typeof s !== "object" || Array.isArray(s)) return "structure must be object";
+  const o = s as Record<string, unknown>;
+  if (!Array.isArray(o.nodes)) return "structure.nodes must be array";
+  for (let i = 0; i < o.nodes.length; i++) {
+    const n = o.nodes[i];
+    if (!n || typeof n !== "object" || Array.isArray(n)) {
+      return `structure.nodes[${i}] must be object`;
+    }
+    const node = n as Record<string, unknown>;
+    for (const k of ["id", "label", "english", "korean", "literal", "point", "children"] as const) {
+      if (!(k in node)) return `structure.nodes[${i}] missing key ${k}`;
+    }
+    if (typeof node.label !== "string") return `structure.nodes[${i}].label must be string`;
+    if (typeof node.english !== "string") return `structure.nodes[${i}].english must be string`;
+    if (typeof node.korean !== "string") return `structure.nodes[${i}].korean must be string`;
+    if (typeof node.literal !== "string") return `structure.nodes[${i}].literal must be string`;
+    if (typeof node.point !== "string") return `structure.nodes[${i}].point must be string`;
+    if (!Array.isArray(node.children)) return `structure.nodes[${i}].children must be array`;
+  }
+  if (o.svg != null && typeof o.svg !== "string") return "structure.svg must be string";
+  if (typeof o.svg === "string" && o.svg.length > 500_000) return "structure.svg too large";
+  return null;
+}
+
+function isFullHtmlDocument(html: string): boolean {
+  const head = html.trimStart().replace(/^\uFEFF/, "");
+  return /^<!DOCTYPE\s+html/i.test(head) || /^<html[\s>]/i.test(head);
 }
 
 function validate(p: any): { ok: true; data: Payload } | { ok: false; error: string } {
@@ -284,6 +331,8 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
     return { ok: false, error: "analysis_html too large" };
   if (p.structure_html && p.structure_html.length > 500_000)
     return { ok: false, error: "structure_html too large" };
+  const structureErr = validateStructure(p.structure);
+  if (structureErr) return { ok: false, error: structureErr };
   return { ok: true, data: p as Payload };
 }
 
@@ -574,7 +623,9 @@ Deno.serve(async (req) => {
 
   async function uploadHtml(kind: "analysis" | "structure", html: string) {
     const path = `claude-import/${teacherId}/${unit!.id}/${kind}-${ts}-${itemSlug}.html`;
-    const doc = htmlDocument(`${kind === "analysis" ? "분석교안" : "구조도"} - ${finalCode}`, html);
+    const doc = isFullHtmlDocument(html)
+      ? html
+      : htmlDocument(`${kind === "analysis" ? "분석교안" : "구조도"} - ${finalCode}`, html);
     const { error } = await admin.storage
       .from("analysis-materials")
       .upload(path, new Blob([doc], { type: "text/html; charset=utf-8" }), {
@@ -599,6 +650,9 @@ Deno.serve(async (req) => {
       unitPatch.structure_pdf_url = path;
       unitPatch.structure_pdf_name = `${finalCode}-구조도.html`;
       unitPatch.structure_pdf_uploaded_at = new Date().toISOString();
+    }
+    if (p.structure?.nodes?.length) {
+      unitPatch.structure_data = p.structure;
     }
     if (Object.keys(unitPatch).length > 0) {
       await admin.from("textbook_units").update(unitPatch).eq("id", unit!.id);

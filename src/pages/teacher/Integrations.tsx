@@ -266,6 +266,7 @@ async function sendToLearner(id) {
       passage:        d.passage,
       analysis_html:  renderAnalysis,
       structure_html: renderStructure,
+      structure: { nodes: [/* id, label, english, korean, literal, point, children */], svg: "<svg>...</svg>" },
 
       // ─── 메타 (선택) ──────────────────────────────────
       title_ko:       d.title_ko,
@@ -287,7 +288,8 @@ unit_no       숫자     정렬용 번호 (선택)
 item_code     문자열   지문 고유 코드 (선택, 충돌 시 자동 -2/-3 부여)
 passage       문자열   영문 본문 (필수)
 analysis_html 문자열   분석교안 HTML (선택)
-structure_html 문자열  구조도 HTML (선택)`;
+structure_html 문자열  구조도 HTML (선택, standalone 인터랙티브 권장)
+structure       객체    구조도 JSON { nodes[], svg? } — HTML 스냅샷 이슈 원천 제거 (권장)`;
 
   return (
     <TeacherLayout>
