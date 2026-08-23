@@ -1470,7 +1470,25 @@ const SentenceLearn = () => {
                   // 선생님 승인 요청 행 생성 (이미 pending 이면 재사용)
                   const ap = await createApprovalRequest(sentence.id, asnId);
                   setSubmittedTranslation(submittedText);
-                  setPendingApproval(ap);
+                  if (asnId) {
+                    // 특별과제: 선생님 승인/보류까지 대기
+                    setPendingApproval(ap);
+                  } else {
+                    // 메인덱(진도설정): 승인 없이 바로 다음 문장으로 진행
+                    await writeMyProg(sentence.id, {
+                      status: "pass",
+                      passed_at: new Date().toISOString(),
+                      pre_done: true,
+                      touchActivity: true,
+                    });
+                    const r = await resolveNextAfterPass(sentence.id, null);
+                    if (r.sentence && r.sentence.id !== sentence.id) {
+                      navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
+                    } else {
+                      navigate("/learn");
+                    }
+                  }
+
                 } catch (e: unknown) {
                   const err = e as { message?: string; details?: string; hint?: string; code?: string };
                   const detail = err?.message || err?.details || String(e);
