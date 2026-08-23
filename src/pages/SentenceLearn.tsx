@@ -334,15 +334,19 @@ const SentenceLearn = () => {
         "승인 상태 불러오기",
       );
       const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
-      if (mounted && latestApproval?.status === "pending") {
+      // 메인덱(진도설정) 학습은 승인 없이 계속 진행 — 승인 대기 화면으로 막지 않는다.
+      const gateOnPending = !!assignmentIdParam;
+      if (mounted && latestApproval?.status === "pending" && gateOnPending) {
         setPendingApproval(latestApproval);
       } else if (
         mounted &&
         (latestApproval?.status === "held" ||
+          (latestApproval?.status === "pending" && !gateOnPending) ||
           (latestApproval?.status === "approved" &&
             latestApproval.grade &&
             latestApproval.grade !== "redo"))
       ) {
+
         // 승인/보류면 progress를 pass로 맞춘 뒤 다음 문장으로
         if (progStatus !== "pass") {
           await applyApprovalToMyProgress(latestApproval, assignmentIdParam);
