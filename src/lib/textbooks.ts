@@ -273,7 +273,7 @@ export const fetchUnit = async (
     .eq("unit_no", unitNo)
     .maybeSingle();
   if (error) throw error;
-  return (data ?? null) as Unit | null;
+  return (data ?? null) as unknown as Unit | null;
 };
 
 export const createUnit = async (input: {
