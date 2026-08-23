@@ -1299,7 +1299,6 @@ export type Database = {
           structure_pdf_name: string | null
           structure_pdf_uploaded_at: string | null
           structure_pdf_url: string | null
-          structure_data: Json | null
           textbook_id: string
           title: string
           unit_no: number
@@ -1323,7 +1322,6 @@ export type Database = {
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
           structure_pdf_url?: string | null
-          structure_data?: Json | null
           textbook_id: string
           title: string
           unit_no: number
@@ -1347,7 +1345,6 @@ export type Database = {
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
           structure_pdf_url?: string | null
-          structure_data?: Json | null
           textbook_id?: string
           title?: string
           unit_no?: number

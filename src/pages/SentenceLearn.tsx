@@ -334,15 +334,19 @@ const SentenceLearn = () => {
         "승인 상태 불러오기",
       );
       const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
-      if (mounted && latestApproval?.status === "pending") {
+      // 메인덱(진도설정) 학습은 승인 없이 계속 진행 — 승인 대기 화면으로 막지 않는다.
+      const gateOnPending = !!assignmentIdParam;
+      if (mounted && latestApproval?.status === "pending" && gateOnPending) {
         setPendingApproval(latestApproval);
       } else if (
         mounted &&
         (latestApproval?.status === "held" ||
+          (latestApproval?.status === "pending" && !gateOnPending) ||
           (latestApproval?.status === "approved" &&
             latestApproval.grade &&
             latestApproval.grade !== "redo"))
       ) {
+
         // 승인/보류면 progress를 pass로 맞춘 뒤 다음 문장으로
         if (progStatus !== "pass") {
           await applyApprovalToMyProgress(latestApproval, assignmentIdParam);
@@ -1466,7 +1470,25 @@ const SentenceLearn = () => {
                   // 선생님 승인 요청 행 생성 (이미 pending 이면 재사용)
                   const ap = await createApprovalRequest(sentence.id, asnId);
                   setSubmittedTranslation(submittedText);
-                  setPendingApproval(ap);
+                  if (asnId) {
+                    // 특별과제: 선생님 승인/보류까지 대기
+                    setPendingApproval(ap);
+                  } else {
+                    // 메인덱(진도설정): 승인 없이 바로 다음 문장으로 진행
+                    await writeMyProg(sentence.id, {
+                      status: "pass",
+                      passed_at: new Date().toISOString(),
+                      pre_done: true,
+                      touchActivity: true,
+                    });
+                    const r = await resolveNextAfterPass(sentence.id, null);
+                    if (r.sentence && r.sentence.id !== sentence.id) {
+                      navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
+                    } else {
+                      navigate("/learn");
+                    }
+                  }
+
                 } catch (e: unknown) {
                   const err = e as { message?: string; details?: string; hint?: string; code?: string };
                   const detail = err?.message || err?.details || String(e);
