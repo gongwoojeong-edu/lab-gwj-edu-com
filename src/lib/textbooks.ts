@@ -504,6 +504,76 @@ export const fetchPassageByCode = async (code: string): Promise<Passage | null> 
   return data ? mapPassageRow(data as Record<string, unknown>) : null;
 };
 
+export interface PassageSource {
+  level: LevelCode | null;
+  seriesTitle: string | null;
+  seriesNo: number | null;
+  textbookTitle: string | null;
+  volumeNo: number | null;
+  unitTitle: string | null;
+  unitNo: number | null;
+  passageNo: number | null;
+  code: string;
+}
+
+/** 문장 코드로부터 책장 계층(시리즈·권·유닛·지문) 정보를 조회한다. */
+export const fetchPassageSource = async (code: string): Promise<PassageSource | null> => {
+  const { data: passage, error: pErr } = await supabase
+    .from("textbook_passages")
+    .select("unit_id, passage_no, code")
+    .eq("code", code)
+    .maybeSingle();
+  if (pErr || !passage) return null;
+
+  const { data: unit } = await supabase
+    .from("textbook_units")
+    .select("textbook_id, unit_no, title")
+    .eq("id", passage.unit_id)
+    .maybeSingle();
+  if (!unit) {
+    return {
+      level: null,
+      seriesTitle: null,
+      seriesNo: null,
+      textbookTitle: null,
+      volumeNo: null,
+      unitTitle: null,
+      unitNo: passage.passage_no ?? null,
+      passageNo: passage.passage_no ?? null,
+      code: passage.code as string,
+    };
+  }
+
+  const { data: textbook } = await supabase
+    .from("textbooks")
+    .select("series_id, volume_no, title")
+    .eq("id", unit.textbook_id)
+    .maybeSingle();
+
+  let series: { level: LevelCode; series_no: number; title: string } | null = null;
+  if (textbook?.series_id) {
+    const { data: s } = await supabase
+      .from("textbook_series")
+      .select("level, series_no, title")
+      .eq("id", textbook.series_id)
+      .maybeSingle();
+    series = s as typeof series;
+  }
+
+  return {
+    level: series?.level ?? null,
+    seriesTitle: series?.title ?? null,
+    seriesNo: series?.series_no ?? null,
+    textbookTitle: (textbook?.title as string) ?? null,
+    volumeNo: (textbook?.volume_no as number) ?? null,
+    unitTitle: (unit?.title as string) ?? null,
+    unitNo: (unit?.unit_no as number) ?? null,
+    passageNo: (passage.passage_no as number) ?? null,
+    code: passage.code as string,
+  };
+};
+
+
 /**
  * 텍스트 본문을 분할해 일괄 추가.
  * splitMode: 'blank' (빈 줄 기준), 'line' (한 줄=한 지문), 'sentence' (문장 단위)
