@@ -106,28 +106,39 @@ const PendingApprovals = () => {
       const userIds: string[] = Array.from(new Set(list.map((r) => r.user_id)));
       const sentenceIds: string[] = Array.from(new Set(list.map((r) => r.sentence_id)));
 
-      const [{ data: profiles }, { data: passages }, { data: translations }, { data: history }] =
-        await Promise.all([
-          supabase
-            .from("student_profiles")
-            .select("user_id, student_no, display_name")
-            .in("user_id", userIds),
-          supabase
-            .from("textbook_passages")
-            .select("code, english, korean")
-            .in("code", sentenceIds),
-          supabase
-            .from("sentence_translations")
-            .select("user_id, sentence_id, text")
-            .in("user_id", userIds)
-            .in("sentence_id", sentenceIds),
-          // 제출/첨삭 횟수 집계용 이력
-          supabase
-            .from("sentence_approvals")
-            .select("user_id, sentence_id, attempt_no, memo, held_memo")
-            .in("user_id", userIds)
-            .in("sentence_id", sentenceIds),
-        ]);
+      const [
+        { data: profiles },
+        { data: passages },
+        { data: translations },
+        { data: history },
+        { data: units },
+        { data: textbooks },
+        { data: seriesList },
+      ] = await Promise.all([
+        supabase
+          .from("student_profiles")
+          .select("user_id, student_no, display_name")
+          .in("user_id", userIds),
+        supabase
+          .from("textbook_passages")
+          .select("code, english, korean, unit_id, passage_no")
+          .in("code", sentenceIds),
+        supabase
+          .from("sentence_translations")
+          .select("user_id, sentence_id, text")
+          .in("user_id", userIds)
+          .in("sentence_id", sentenceIds),
+        // 제출/첨삭 횟수 집계용 이력
+        supabase
+          .from("sentence_approvals")
+          .select("user_id, sentence_id, attempt_no, memo, held_memo")
+          .in("user_id", userIds)
+          .in("sentence_id", sentenceIds),
+        supabase.from("textbook_units").select("id, textbook_id, unit_no, title"),
+        supabase.from("textbooks").select("id, series_id, volume_no, title"),
+        supabase.from("textbook_series").select("id, level, series_no, title"),
+      ]);
+
 
       const pMap = new Map(
         (profiles ?? []).map((p: any) => [p.user_id, p]),
