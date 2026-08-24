@@ -272,13 +272,32 @@ const PendingApprovals = () => {
           {rows.map((row) => (
             <Card key={row.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm flex-wrap">
                   <Badge>{row.student_no ?? "-"}</Badge>
                   <span className="font-semibold">{row.display_name ?? "이름 없음"}</span>
                   <span className="text-muted-foreground">·</span>
                   <span className="font-mono text-xs">{row.sentence_id}</span>
+                  {row.source && (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
+                      title="문장 출처"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      {[
+                        row.source.level,
+                        row.source.seriesTitle,
+                        row.source.textbookTitle,
+                        row.source.volumeNo ? `${row.source.volumeNo}권` : null,
+                        row.source.unitTitle,
+                        row.source.unitNo ? `유닛 ${row.source.unitNo}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
                   <span className="text-muted-foreground">·</span>
                   <span className="text-xs text-muted-foreground">
+
                     {new Date(row.requested_at).toLocaleString("ko-KR")}
                   </span>
                   {row.attempt_no > 1 && (
