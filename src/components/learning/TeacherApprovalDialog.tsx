@@ -89,6 +89,8 @@ export const TeacherApprovalDialog = ({
   const [saving, setSaving] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [teaching, setTeaching] = useState(false);
+  const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
+
 
   const beginTeaching = async () => {
     if (!studentUserId) return;
