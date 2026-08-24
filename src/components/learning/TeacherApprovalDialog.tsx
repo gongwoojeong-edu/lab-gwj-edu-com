@@ -50,10 +50,13 @@ interface Props {
   initialMemo?: string;
   /** 다이얼로그 모드 — pending: 대기중 승인 / held: 보류함 최종 처리 */
   mode?: "pending" | "held";
+  /** 문장 출처(시리즈·권·유닛) — 미전달 시 내부에서 조회 */
+  sourceInfo?: PassageSource | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApproved: (grade: ApprovalGrade) => void;
 }
+
 
 /**
  * 한글해석 제출 후 선생님이 승인하는 다이얼로그.
