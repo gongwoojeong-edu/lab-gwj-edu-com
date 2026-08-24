@@ -189,7 +189,9 @@ const PendingApprovals = () => {
         translation: tMap.get(`${r.user_id}::${r.sentence_id}`) ?? null,
         submit_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.submits ?? r.attempt_no ?? 1,
         feedback_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.feedbacks ?? 0,
+        source: sourceByCode.get(r.sentence_id) ?? null,
       }));
+
       setRows(merged);
 
     } catch (e: any) {
