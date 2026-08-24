@@ -292,7 +292,30 @@ export const TeacherApprovalDialog = ({
           <DialogDescription>
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
+          {source !== undefined && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+              <BookOpen className="w-3.5 h-3.5" />
+              {source ? (
+                <span className="truncate">
+                  {[
+                    source.level,
+                    source.seriesTitle,
+                    source.textbookTitle,
+                    source.volumeNo ? `${source.volumeNo}권` : null,
+                    source.unitTitle,
+                    source.unitNo ? `유닛 ${source.unitNo}` : null,
+                    source.passageNo ? `${source.passageNo}번 문장` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              ) : (
+                <span>{sentenceId}</span>
+              )}
+            </div>
+          )}
         </DialogHeader>
+
 
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1 pt-3">
           {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
