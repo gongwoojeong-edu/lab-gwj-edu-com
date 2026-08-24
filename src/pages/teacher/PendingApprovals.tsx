@@ -149,7 +149,28 @@ const PendingApprovals = () => {
       const tMap = new Map(
         (translations ?? []).map((t: any) => [`${t.user_id}::${t.sentence_id}`, t.text as string]),
       );
+      const uMap = new Map((units ?? []).map((u: any) => [u.id, u]));
+      const tbMap = new Map((textbooks ?? []).map((t: any) => [t.id, t]));
+      const srMap = new Map((seriesList ?? []).map((s: any) => [s.id, s]));
+      const sourceByCode = new Map<string, PassageSource | null>();
+      (passages ?? []).forEach((p: any) => {
+        const unit = uMap.get(p.unit_id);
+        const textbook = unit ? tbMap.get(unit.textbook_id) : null;
+        const series = textbook ? srMap.get(textbook.series_id) : null;
+        sourceByCode.set(p.code, {
+          level: series?.level ?? null,
+          seriesTitle: series?.title ?? null,
+          seriesNo: series?.series_no ?? null,
+          textbookTitle: textbook?.title ?? null,
+          volumeNo: textbook?.volume_no ?? null,
+          unitTitle: unit?.title ?? null,
+          unitNo: unit?.unit_no ?? null,
+          passageNo: p.passage_no ?? null,
+          code: p.code,
+        });
+      });
       // key -> { submits, feedbacks }
+
       const cMap = new Map<string, { submits: number; feedbacks: number }>();
       (history ?? []).forEach((h: any) => {
         const key = `${h.user_id}::${h.sentence_id}`;
