@@ -128,6 +128,18 @@ export const TeacherApprovalDialog = ({
     };
   }, [open, skipPin, initialMemo]);
 
+  useEffect(() => {
+    if (!open || initialSource !== undefined) return;
+    let mounted = true;
+    fetchPassageSource(sentenceId)
+      .then((s) => mounted && setSource(s))
+      .catch(() => mounted && setSource(null));
+    return () => {
+      mounted = false;
+    };
+  }, [open, sentenceId, initialSource]);
+
+
   // ── 티칭 모드: 메모 타이핑을 학생 화면으로 실시간 중계 (DB 저장 없음) ──
   const memoChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   useEffect(() => {
