@@ -424,7 +424,9 @@ const PendingApprovals = () => {
             studentTranslation={target.translation}
             initialMemo={target.held_memo ?? undefined}
             mode={target.status === "held" || tab === "held" ? "held" : "pending"}
+            sourceInfo={target.source}
             skipPin
+
             onApproved={() => {
               
               setTarget(null);
