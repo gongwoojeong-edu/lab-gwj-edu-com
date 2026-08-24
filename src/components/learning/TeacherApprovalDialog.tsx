@@ -76,10 +76,12 @@ export const TeacherApprovalDialog = ({
   skipPin = false,
   initialMemo,
   mode = "pending",
+  sourceInfo: initialSource,
   open,
   onOpenChange,
   onApproved,
 }: Props) => {
+
   const [pin, setPin] = useState("");
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
