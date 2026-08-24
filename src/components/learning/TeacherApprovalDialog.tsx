@@ -27,6 +27,8 @@ import {
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
+import { fetchPassageSource, type PassageSource } from "@/lib/textbooks";
+
 
 interface Props {
   approvalId: string;
