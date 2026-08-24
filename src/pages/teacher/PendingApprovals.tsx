@@ -34,7 +34,10 @@ interface Row extends SentenceApproval {
   submit_count?: number;
   /** 선생님이 첨삭(메모/보류메모)을 남긴 총 횟수 */
   feedback_count?: number;
+  /** 문장 출처(시리즈·권·유닛) */
+  source?: PassageSource | null;
 }
+
 
 
 const PendingApprovals = () => {
