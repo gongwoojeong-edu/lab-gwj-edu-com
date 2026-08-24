@@ -18,10 +18,11 @@ import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDial
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
-import { updatePassageKorean } from "@/lib/textbooks";
+import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, BookOpen } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 interface Row extends SentenceApproval {
   student_no?: string | null;
