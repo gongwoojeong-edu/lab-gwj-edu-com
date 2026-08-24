@@ -18,10 +18,11 @@ import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDial
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
-import { updatePassageKorean } from "@/lib/textbooks";
+import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, BookOpen } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 interface Row extends SentenceApproval {
   student_no?: string | null;
@@ -33,7 +34,10 @@ interface Row extends SentenceApproval {
   submit_count?: number;
   /** 선생님이 첨삭(메모/보류메모)을 남긴 총 횟수 */
   feedback_count?: number;
+  /** 문장 출처(시리즈·권·유닛) */
+  source?: PassageSource | null;
 }
+
 
 
 const PendingApprovals = () => {
@@ -102,28 +106,39 @@ const PendingApprovals = () => {
       const userIds: string[] = Array.from(new Set(list.map((r) => r.user_id)));
       const sentenceIds: string[] = Array.from(new Set(list.map((r) => r.sentence_id)));
 
-      const [{ data: profiles }, { data: passages }, { data: translations }, { data: history }] =
-        await Promise.all([
-          supabase
-            .from("student_profiles")
-            .select("user_id, student_no, display_name")
-            .in("user_id", userIds),
-          supabase
-            .from("textbook_passages")
-            .select("code, english, korean")
-            .in("code", sentenceIds),
-          supabase
-            .from("sentence_translations")
-            .select("user_id, sentence_id, text")
-            .in("user_id", userIds)
-            .in("sentence_id", sentenceIds),
-          // 제출/첨삭 횟수 집계용 이력
-          supabase
-            .from("sentence_approvals")
-            .select("user_id, sentence_id, attempt_no, memo, held_memo")
-            .in("user_id", userIds)
-            .in("sentence_id", sentenceIds),
-        ]);
+      const [
+        { data: profiles },
+        { data: passages },
+        { data: translations },
+        { data: history },
+        { data: units },
+        { data: textbooks },
+        { data: seriesList },
+      ] = await Promise.all([
+        supabase
+          .from("student_profiles")
+          .select("user_id, student_no, display_name")
+          .in("user_id", userIds),
+        supabase
+          .from("textbook_passages")
+          .select("code, english, korean, unit_id, passage_no")
+          .in("code", sentenceIds),
+        supabase
+          .from("sentence_translations")
+          .select("user_id, sentence_id, text")
+          .in("user_id", userIds)
+          .in("sentence_id", sentenceIds),
+        // 제출/첨삭 횟수 집계용 이력
+        supabase
+          .from("sentence_approvals")
+          .select("user_id, sentence_id, attempt_no, memo, held_memo")
+          .in("user_id", userIds)
+          .in("sentence_id", sentenceIds),
+        supabase.from("textbook_units").select("id, textbook_id, unit_no, title"),
+        supabase.from("textbooks").select("id, series_id, volume_no, title"),
+        supabase.from("textbook_series").select("id, level, series_no, title"),
+      ]);
+
 
       const pMap = new Map(
         (profiles ?? []).map((p: any) => [p.user_id, p]),
@@ -134,7 +149,28 @@ const PendingApprovals = () => {
       const tMap = new Map(
         (translations ?? []).map((t: any) => [`${t.user_id}::${t.sentence_id}`, t.text as string]),
       );
+      const uMap = new Map((units ?? []).map((u: any) => [u.id, u]));
+      const tbMap = new Map((textbooks ?? []).map((t: any) => [t.id, t]));
+      const srMap = new Map((seriesList ?? []).map((s: any) => [s.id, s]));
+      const sourceByCode = new Map<string, PassageSource | null>();
+      (passages ?? []).forEach((p: any) => {
+        const unit = uMap.get(p.unit_id);
+        const textbook = unit ? tbMap.get(unit.textbook_id) : null;
+        const series = textbook ? srMap.get(textbook.series_id) : null;
+        sourceByCode.set(p.code, {
+          level: series?.level ?? null,
+          seriesTitle: series?.title ?? null,
+          seriesNo: series?.series_no ?? null,
+          textbookTitle: textbook?.title ?? null,
+          volumeNo: textbook?.volume_no ?? null,
+          unitTitle: unit?.title ?? null,
+          unitNo: unit?.unit_no ?? null,
+          passageNo: p.passage_no ?? null,
+          code: p.code,
+        });
+      });
       // key -> { submits, feedbacks }
+
       const cMap = new Map<string, { submits: number; feedbacks: number }>();
       (history ?? []).forEach((h: any) => {
         const key = `${h.user_id}::${h.sentence_id}`;
@@ -153,7 +189,9 @@ const PendingApprovals = () => {
         translation: tMap.get(`${r.user_id}::${r.sentence_id}`) ?? null,
         submit_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.submits ?? r.attempt_no ?? 1,
         feedback_count: cMap.get(`${r.user_id}::${r.sentence_id}`)?.feedbacks ?? 0,
+        source: sourceByCode.get(r.sentence_id) ?? null,
       }));
+
       setRows(merged);
 
     } catch (e: any) {
@@ -234,13 +272,32 @@ const PendingApprovals = () => {
           {rows.map((row) => (
             <Card key={row.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm flex-wrap">
                   <Badge>{row.student_no ?? "-"}</Badge>
                   <span className="font-semibold">{row.display_name ?? "이름 없음"}</span>
                   <span className="text-muted-foreground">·</span>
                   <span className="font-mono text-xs">{row.sentence_id}</span>
+                  {row.source && (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
+                      title="문장 출처"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      {[
+                        row.source.level,
+                        row.source.seriesTitle,
+                        row.source.textbookTitle,
+                        row.source.volumeNo ? `${row.source.volumeNo}권` : null,
+                        row.source.unitTitle,
+                        row.source.unitNo ? `유닛 ${row.source.unitNo}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
                   <span className="text-muted-foreground">·</span>
                   <span className="text-xs text-muted-foreground">
+
                     {new Date(row.requested_at).toLocaleString("ko-KR")}
                   </span>
                   {row.attempt_no > 1 && (
@@ -367,7 +424,9 @@ const PendingApprovals = () => {
             studentTranslation={target.translation}
             initialMemo={target.held_memo ?? undefined}
             mode={target.status === "held" || tab === "held" ? "held" : "pending"}
+            sourceInfo={target.source}
             skipPin
+
             onApproved={() => {
               
               setTarget(null);

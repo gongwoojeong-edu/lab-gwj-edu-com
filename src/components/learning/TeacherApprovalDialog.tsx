@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,8 @@ import {
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
+import { fetchPassageSource, type PassageSource } from "@/lib/textbooks";
+
 
 interface Props {
   approvalId: string;
@@ -47,10 +50,13 @@ interface Props {
   initialMemo?: string;
   /** 다이얼로그 모드 — pending: 대기중 승인 / held: 보류함 최종 처리 */
   mode?: "pending" | "held";
+  /** 문장 출처(시리즈·권·유닛) — 미전달 시 내부에서 조회 */
+  sourceInfo?: PassageSource | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApproved: (grade: ApprovalGrade) => void;
 }
+
 
 /**
  * 한글해석 제출 후 선생님이 승인하는 다이얼로그.
@@ -70,10 +76,12 @@ export const TeacherApprovalDialog = ({
   skipPin = false,
   initialMemo,
   mode = "pending",
+  sourceInfo: initialSource,
   open,
   onOpenChange,
   onApproved,
 }: Props) => {
+
   const [pin, setPin] = useState("");
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
@@ -81,6 +89,8 @@ export const TeacherApprovalDialog = ({
   const [saving, setSaving] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [teaching, setTeaching] = useState(false);
+  const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
+
 
   const beginTeaching = async () => {
     if (!studentUserId) return;
@@ -117,6 +127,18 @@ export const TeacherApprovalDialog = ({
       mounted = false;
     };
   }, [open, skipPin, initialMemo]);
+
+  useEffect(() => {
+    if (!open || initialSource !== undefined) return;
+    let mounted = true;
+    fetchPassageSource(sentenceId)
+      .then((s) => mounted && setSource(s))
+      .catch(() => mounted && setSource(null));
+    return () => {
+      mounted = false;
+    };
+  }, [open, sentenceId, initialSource]);
+
 
   // ── 티칭 모드: 메모 타이핑을 학생 화면으로 실시간 중계 (DB 저장 없음) ──
   const memoChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -270,7 +292,30 @@ export const TeacherApprovalDialog = ({
           <DialogDescription>
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
+          {source !== undefined && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+              <BookOpen className="w-3.5 h-3.5" />
+              {source ? (
+                <span className="truncate">
+                  {[
+                    source.level,
+                    source.seriesTitle,
+                    source.textbookTitle,
+                    source.volumeNo ? `${source.volumeNo}권` : null,
+                    source.unitTitle,
+                    source.unitNo ? `유닛 ${source.unitNo}` : null,
+                    source.passageNo ? `${source.passageNo}번 문장` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              ) : (
+                <span>{sentenceId}</span>
+              )}
+            </div>
+          )}
         </DialogHeader>
+
 
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1 pt-3">
           {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
