@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Check, Eye, EyeOff } from "lucide-react";
-import { fetchTranslation, upsertTranslation } from "@/integrations/supabase/storage";
+import { upsertTranslation } from "@/integrations/supabase/storage";
 import { toast } from "@/hooks/use-toast";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 
@@ -29,40 +29,15 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
   const safeEnglishSentence = stripKoreanFromEnglishSource(englishSentence);
 
   useEffect(() => {
-    let mounted = true;
-    setLoading(true);
+    // 정책: 새 학습 진입 시 이전 제출 내용을 불러오지 않는다.
+    // (예전 attempt 해석이 붙어 있거나 "제출됨"으로 보이는 문제 방지)
     setText("");
     setShowPrevious(false);
     setPreviousText(null);
     setSubmitted(false);
-
-    // 안전망: 5초 안에 응답이 없으면 강제로 입력 가능 상태로 전환
-    // (네트워크 지연/RLS reject 등으로 영원히 로딩 멈추는 현상 방지)
-    const safetyTimer = window.setTimeout(() => {
-      if (mounted) setLoading(false);
-    }, 5000);
-
-    fetchTranslation(sentenceId)
-      .then((t) => {
-        if (!mounted) return;
-        if (t) {
-          setPreviousText(t);
-          setSubmitted(true);
-        }
-      })
-      .catch((e) => {
-        // 조용히 실패: 학생은 새로 작성하면 됨
-        console.warn("[TranslationStep] fetchTranslation failed", e);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-      window.clearTimeout(safetyTimer);
-    };
+    setLoading(false);
   }, [sentenceId]);
+
 
   const handleSubmit = async () => {
     if (!text.trim()) {
