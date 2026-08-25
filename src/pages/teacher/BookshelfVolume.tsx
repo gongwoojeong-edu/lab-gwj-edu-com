@@ -221,7 +221,8 @@ const BookshelfVolume = () => {
   const [printStudentId, setPrintStudentId] = useState<string>("");
   const [printMode, setPrintMode] = useState<
     "syntax_unit" | "syntax_book" | "syntax_passage" | "word_unit" | "word_passage"
-  >("syntax_unit");
+  >("syntax_book");
+
   const [printAnswerKey, setPrintAnswerKey] = useState(false);
   const [printing, setPrinting] = useState(false);
   /** 선택한 유닛을 배정받은 학생만 보기 */
@@ -311,8 +312,11 @@ const BookshelfVolume = () => {
       toast({ title: "유닛을 1개 이상 선택하세요", variant: "destructive" });
       return;
     }
+    // 여러 유닛을 골랐다면 통합(분석·첨삭) 모드를 기본값으로
+    if (selectedIds.size > 1) setPrintMode("syntax_book");
     setPrintOpen(true);
   };
+
 
   const handleConfirmPrint = async () => {
     if (!series || !textbook) return;
@@ -1645,8 +1649,9 @@ const BookshelfVolume = () => {
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">워크북 종류</Label>
               <div className="grid grid-cols-2 gap-2 mt-1">
-                {(["syntax_unit", "syntax_book", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
+                {(["syntax_book", "syntax_unit", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
                   const sel = printMode === m;
+
                   return (
                     <button
                       key={m}
@@ -1660,7 +1665,15 @@ const BookshelfVolume = () => {
                           : "border-border bg-card hover:border-primary/50",
                       )}
                     >
-                      <div>{WORKBOOK_MODE_LABEL[m]}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span>{WORKBOOK_MODE_LABEL[m]}</span>
+                        {m === "syntax_book" && (
+                          <span className="rounded bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5">
+                            권장
+                          </span>
+                        )}
+                      </div>
+
                       <div className="text-[11px] font-normal text-muted-foreground mt-0.5 leading-snug">
                         {WORKBOOK_MODE_DESC[m]}
                       </div>
