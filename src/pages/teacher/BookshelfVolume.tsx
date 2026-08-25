@@ -83,7 +83,12 @@ import { errMsg } from "@/lib/errMsg";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { buildMultiUnitWorkbookHtml, WORKBOOK_MODE_LABEL, type WorkbookMode } from "@/lib/unitWorkbook";
+import {
+  buildMultiUnitWorkbookHtml,
+  WORKBOOK_MODE_LABEL,
+  WORKBOOK_MODE_DESC,
+  type WorkbookMode,
+} from "@/lib/unitWorkbook";
 import { launchPrintHtml } from "@/lib/printLauncher";
 
 // ============================================================
@@ -215,7 +220,7 @@ const BookshelfVolume = () => {
   >([]);
   const [printStudentId, setPrintStudentId] = useState<string>("");
   const [printMode, setPrintMode] = useState<
-    "syntax_unit" | "syntax_passage" | "word_unit" | "word_passage"
+    "syntax_unit" | "syntax_book" | "syntax_passage" | "word_unit" | "word_passage"
   >("syntax_unit");
   const [printAnswerKey, setPrintAnswerKey] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -1568,7 +1573,7 @@ const BookshelfVolume = () => {
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">워크북 종류</Label>
               <div className="grid grid-cols-2 gap-2 mt-1">
-                {(["syntax_unit", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
+                {(["syntax_unit", "syntax_book", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
                   const sel = printMode === m;
                   return (
                     <button
@@ -1583,7 +1588,10 @@ const BookshelfVolume = () => {
                           : "border-border bg-card hover:border-primary/50",
                       )}
                     >
-                      {WORKBOOK_MODE_LABEL[m]}
+                      <div>{WORKBOOK_MODE_LABEL[m]}</div>
+                      <div className="text-[11px] font-normal text-muted-foreground mt-0.5 leading-snug">
+                        {WORKBOOK_MODE_DESC[m]}
+                      </div>
                     </button>
                   );
                 })}
