@@ -116,11 +116,14 @@ export const summarizeUnitProgress = async (
 // ============================================================
 export type WorkbookKind = "syntax" | "word";
 export type WorkbookScope = "unit" | "passage";
-export type WorkbookMode = `${WorkbookKind}_${WorkbookScope}`;
+export type WorkbookMode =
+  | `${WorkbookKind}_${WorkbookScope}`
+  | "syntax_book";
 
 /** UI 라벨 */
 export const WORKBOOK_MODE_LABEL: Record<WorkbookMode, string> = {
   syntax_unit: "구문 · 유닛 통합",
+  syntax_book: "구문 · 선택유닛 통합(분석·첨삭)",
   syntax_passage: "구문 · 문장별",
   word_unit: "단어 · 유닛 통합",
   word_passage: "단어 · 문장별",
@@ -129,10 +132,13 @@ export const WORKBOOK_MODE_LABEL: Record<WorkbookMode, string> = {
 /** 한 줄 설명 */
 export const WORKBOOK_MODE_DESC: Record<WorkbookMode, string> = {
   syntax_unit: "유닛 전체 문장의 영어 + 학생 한글해석을 한 권으로",
+  syntax_book:
+    "①선택유닛 전체 원문(분석·중요어법) ②전체 학생해석 첨삭 ③전체 구조도·지스트·영작",
   syntax_passage: "지문 1장에 영어 + 한글해석 (지문마다 1장)",
   word_unit: "유닛 전체 단어를 하나로 묶은 시험지",
   word_passage: "지문마다 단어 시험지 1장",
 };
+
 
 interface UnitWorkbookContext {
   unitTitle: string;
