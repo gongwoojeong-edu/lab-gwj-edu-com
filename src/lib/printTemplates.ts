@@ -1477,12 +1477,14 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
 </div>
 
 <div class="page bk-page">
-  ${header("Book Workbook", `② 선택유닛 전체 학생해석 (첨삭) · ${p.bookTitle}`, `지문 ${allItems.length}건`)}
-  <div class="bk-legend">
+  ${header("Book Workbook", disableCorrection ? `② 선택유닛 전체 학생해석 · ${p.bookTitle}` : `② 선택유닛 전체 학생해석 (첨삭) · ${p.bookTitle}`, `지문 ${allItems.length}건`)}
+  ${disableCorrection
+    ? '<div class="bk-legend">학생이 제출한 해석 그대로 출력됩니다.</div>'
+    : `<div class="bk-legend">
     <span class="bk-ok">일치</span> ·
     <span class="bk-del">빼야 할 부분</span> ·
     <span class="bk-ins">보충할 부분(모범해석 기준)</span>
-  </div>
+  </div>`}
   ${transSections || '<div class="bk-muted">(제출 없음)</div>'}
 </div>
 
