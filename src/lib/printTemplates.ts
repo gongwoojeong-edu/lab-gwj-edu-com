@@ -213,7 +213,7 @@ export const buildHandoutPrintHtml = (p: HandoutPayload): string => {
   }
   .write-lines { display: flex; flex-direction: column; gap: 6mm; padding-top: 4mm; }
   .write-line { border-bottom: 0.5pt solid #000; height: 0; }
-  .gist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; padding: 0 5mm 4mm; }
+  .gist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; padding: 0 2mm 2mm; }
 </style>
 
 <div class="page">
@@ -331,7 +331,7 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
   // 스타일 — passage 내 자동 페이지 분할 허용 (.srow 단위 break-inside:avoid)
   const body = `
 <style>
-  .uo-passage-page { padding: 4mm 5mm; }
+  .uo-passage-page { padding: 1.5mm 2mm; }
   .srow {
     padding: 2mm 0 2.5mm; border-bottom: 0.3pt dashed #aaa;
     break-inside: avoid; page-break-inside: avoid;
@@ -348,7 +348,7 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
   }
   .srow .ko b { color: #444; }
   .srow .ko .muted { color: #d8d8d8; }
-  .uo-end-page { padding: 4mm 5mm; }
+  .uo-end-page { padding: 1.5mm 2mm; }
   .uo-end-grid {
     min-height: 90mm;
     background-image:
@@ -398,7 +398,7 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
     <div class="section-title">① 구조도</div>
     <div class="uo-end-grid"></div>
   </div>
-  <div class="uo-end-grid-cols" style="padding: 0 5mm 4mm;">
+  <div class="uo-end-grid-cols" style="padding: 0 2mm 2mm;">
     <div>
       <div class="section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
       <div class="uo-end-write">
@@ -414,7 +414,7 @@ export const buildUnitOnlyHandoutHtml = (p: UnitOnlyHandoutPayload): string => {
       </div>
     </div>
   </div>
-  <div class="section" style="padding: 0 5mm 4mm;">
+  <div class="section" style="padding: 0 2mm 2mm;">
     <div class="section-title">④ 주요 어법 정리</div>
     <div class="uo-end-write">
       <div class="uo-end-write-line"></div><div class="uo-end-write-line"></div>
@@ -1040,7 +1040,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   const body = `
 <style>
   ${ANALYSIS_CHIP_STYLE}
-  .cb-passage-page { padding: 4mm 5mm; }
+  .cb-passage-page { padding: 1.5mm 2mm; }
   .cb-front .section-title {
     font-size: 9pt; font-weight: 700; margin: 0.5mm 0 1mm;
     border-left: 2pt solid #000; padding-left: 2mm;
@@ -1089,7 +1089,7 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
 
   /* 뒷면 */
   .cb-back { padding: 0 0 4mm; }
-  .cb-back .section { padding: 2mm 5mm; }
+  .cb-back .section { padding: 1.5mm 2mm; }
   .cb-back .section-title {
     font-size: 9.5pt; font-weight: 700; margin-bottom: 1mm;
     border-left: 2pt solid #000; padding-left: 2mm;
@@ -1382,7 +1382,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   const body = `
 <style>
   ${ANALYSIS_CHIP_STYLE}
-  .bk-page { padding: 4mm 5mm; }
+  .bk-page { padding: 1.5mm 2mm; }
   .bk-unit { margin-bottom: 3mm; }
   .bk-unit-title {
     font-size: 9pt; font-weight: 700; margin: 1.5mm 0 1mm;
