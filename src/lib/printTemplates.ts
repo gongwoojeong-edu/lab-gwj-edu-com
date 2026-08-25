@@ -1139,3 +1139,325 @@ ${structurePage}
   return wrapDoc(`UnitWorkbook ${p.unitCode}`, body);
 };
 
+
+// ============================================================
+// 선택유닛 전체 통합 워크북 (분석표기 · 첨삭 · 구조도 정리)
+//   ① 선택유닛 전체 원문 — 학생 분석 표기 + 중요어법 표기
+//   ② 선택유닛 전체 학생해석 — 틀린 부분 첨삭(모범해석 대조 + 선생님 메모)
+//   ③ 전체 구조도 · 지스트 · 영작 정리
+// ============================================================
+export interface BookCombinedItem {
+  passageCode: string;
+  english: string;
+  /** 분석 채점본 데이터 (없으면 평문 출력) */
+  analysis: AnalysisPayload | null;
+  studentTranslation: string;
+  referenceKorean: string;
+  /** 선생님 첨삭 메모 (라벨 · 내용) */
+  memo: Array<{ label: string; text: string }>;
+  /** 중요 어법 표기 (Grammar Watch 등) */
+  grammarNote: string;
+}
+export interface BookCombinedUnit {
+  unitTitle: string;
+  unitCode: string;
+  items: BookCombinedItem[];
+}
+export interface BookCombinedPayload {
+  bookTitle: string;
+  studentName: string | null;
+  studentNo: string | null;
+  units: BookCombinedUnit[];
+}
+
+/** 한글 해석 첨삭 — 학생 제출본 vs 모범해석 토큰 diff */
+const koTokens = (s: string): string[] =>
+  (s ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+
+const normTok = (t: string): string => t.replace(/[.,!?~"'`·…“”‘’()\[\]]/g, "");
+
+type DiffOp = { type: "same" | "del" | "ins"; text: string };
+
+export const diffKoreanTokens = (student: string, reference: string): DiffOp[] => {
+  const a = koTokens(student);
+  const b = koTokens(reference);
+  if (a.length === 0 || b.length === 0) {
+    return a.map((t) => ({ type: "same" as const, text: t }));
+  }
+  const n = a.length;
+  const m = b.length;
+  // LCS DP (문장 단위라 크기 작음)
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] =
+        normTok(a[i]) === normTok(b[j])
+          ? dp[i + 1][j + 1] + 1
+          : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const ops: DiffOp[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (normTok(a[i]) === normTok(b[j])) {
+      ops.push({ type: "same", text: a[i] });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      ops.push({ type: "del", text: a[i] });
+      i++;
+    } else {
+      ops.push({ type: "ins", text: b[j] });
+      j++;
+    }
+  }
+  while (i < n) ops.push({ type: "del", text: a[i++] });
+  while (j < m) ops.push({ type: "ins", text: b[j++] });
+  return ops;
+};
+
+const renderKoDiff = (student: string, reference: string): string => {
+  const st = (student ?? "").trim();
+  if (!st) return '<span class="bk-muted">(미제출)</span>';
+  const ref = (reference ?? "").trim();
+  if (!ref) return `<span class="bk-ko">${escapeHtml(st)}</span>`;
+  const ops = diffKoreanTokens(st, ref);
+  return ops
+    .map((o) => {
+      const t = escapeHtml(o.text);
+      if (o.type === "same") return `<span class="bk-ok">${t}</span>`;
+      if (o.type === "del") return `<span class="bk-del">${t}</span>`;
+      return `<span class="bk-ins">${t}</span>`;
+    })
+    .join(" ");
+};
+
+export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string => {
+  const stamp = nowStamp();
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
+  const headerMeta = `학생: ${sName} ${sNo}`;
+  const allItems = p.units.flatMap((u) => u.items);
+
+  const header = (eyebrow: string, title: string, right: string) => `
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · ${escapeHtml(eyebrow)}</div>
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="meta">${headerMeta}</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>출력: ${stamp}</div>
+      <div>${escapeHtml(right)}</div>
+    </div>
+  </div>`;
+
+  // ---------- ① 원문 (분석 표기 + 중요어법) ----------
+  let idx = 0;
+  const sourceSections = p.units
+    .map((u) => {
+      const rows = u.items
+        .map((it) => {
+          idx += 1;
+          const passageHtml = it.analysis
+            ? buildAnalysisPassageFragment(it.analysis)
+            : `<div class="body-text">${escapeHtml(it.english)}</div>`;
+          const grammar = it.grammarNote.trim()
+            ? `<div class="bk-gram"><span class="bk-gram-tag">중요어법</span>${escapeHtml(it.grammarNote)}</div>`
+            : "";
+          return `
+        <div class="bk-prow">
+          <div class="bk-num">${idx}.</div>
+          <div class="bk-body">
+            <div class="bk-code">${escapeHtml(it.passageCode)}</div>
+            ${passageHtml}
+            ${grammar}
+          </div>
+        </div>`;
+        })
+        .join("");
+      return `
+      <div class="bk-unit">
+        <div class="bk-unit-title">${escapeHtml(u.unitTitle)} <span class="bk-unit-code">${escapeHtml(u.unitCode)}</span></div>
+        <div class="bk-box">${rows || '<div class="bk-muted">(지문 없음)</div>'}</div>
+      </div>`;
+    })
+    .join("");
+
+  // ---------- ② 학생해석 첨삭 ----------
+  let idx2 = 0;
+  const transSections = p.units
+    .map((u) => {
+      const rows = u.items
+        .map((it) => {
+          idx2 += 1;
+          const memoHtml = it.memo.length
+            ? `<div class="bk-memo">${it.memo
+                .map(
+                  (m) =>
+                    `<div class="bk-memo-row"><span class="bk-memo-tag">${escapeHtml(m.label)}</span>${escapeHtml(m.text)}</div>`,
+                )
+                .join("")}</div>`
+            : "";
+          const refHtml = it.referenceKorean.trim()
+            ? `<div class="bk-ref"><span class="bk-ref-tag">모범</span>${escapeHtml(it.referenceKorean)}</div>`
+            : "";
+          return `
+        <div class="bk-trow">
+          <div class="bk-num">${idx2}.</div>
+          <div class="bk-body">
+            <div class="bk-code">${escapeHtml(it.passageCode)}</div>
+            <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean)}</div>
+            ${refHtml}
+            ${memoHtml}
+            <div class="bk-rewrite"><span class="bk-rewrite-tag">고쳐쓰기</span><span class="bk-line"></span></div>
+          </div>
+        </div>`;
+        })
+        .join("");
+      return `
+      <div class="bk-unit">
+        <div class="bk-unit-title">${escapeHtml(u.unitTitle)} <span class="bk-unit-code">${escapeHtml(u.unitCode)}</span></div>
+        <div class="bk-box">${rows || '<div class="bk-muted">(지문 없음)</div>'}</div>
+      </div>`;
+    })
+    .join("");
+
+  // ---------- ③ 전체 구조도 · 지스트 · 영작 정리 ----------
+  const wrapUpPages = p.units
+    .map(
+      (u) => `
+<div class="page bk-back">
+  ${header("Wrap-up", `구조도 · 지스트 · 영작 정리 · ${u.unitTitle}`, `${u.unitCode} · 지문 ${u.items.length}건`)}
+  <div class="section">
+    <div class="section-title">① 전체 구조도</div>
+    <div class="bk-grid"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">② 지스트 (지문별 주제 한 문장)</div>
+    <div class="bk-gist">
+      ${u.items
+        .map(
+          (it, i) =>
+            `<div class="bk-gist-row"><span class="bk-gist-num">${i + 1}.</span><span class="bk-line"></span></div>`,
+        )
+        .join("") || '<div class="bk-muted">(지문 없음)</div>'}
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">③ 영작 정리</div>
+    <div class="bk-write">
+      <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">④ 주요 어법 · 어휘 정리</div>
+    <div class="bk-write">
+      <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
+    </div>
+  </div>
+</div>`,
+    )
+    .join("");
+
+  const body = `
+<style>
+  ${ANALYSIS_CHIP_STYLE}
+  .bk-page { padding: 4mm 5mm; }
+  .bk-unit { margin-bottom: 3mm; }
+  .bk-unit-title {
+    font-size: 9pt; font-weight: 700; margin: 1.5mm 0 1mm;
+    border-left: 2pt solid #000; padding-left: 2mm;
+  }
+  .bk-unit-code { font-size: 6.5pt; color: #888; font-weight: 400; margin-left: 1.5mm; }
+  .bk-box { border: 0.5pt solid #000; padding: 1.5mm 2.8mm; }
+  .bk-prow, .bk-trow {
+    display: flex; gap: 1.5mm; padding: 0.8mm 0;
+    border-bottom: 0.3pt dashed #bbb;
+  }
+  .bk-prow:last-child, .bk-trow:last-child { border-bottom: none; }
+  .bk-num { font-weight: 700; font-size: 8.5pt; min-width: 5mm; padding-top: 0.4mm; }
+  .bk-body { flex: 1; min-width: 0; }
+  .bk-code {
+    font-size: 6.5pt; color: #888; letter-spacing: -0.02em;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; margin-bottom: 0.3mm;
+  }
+  .bk-body .passage, .bk-body .body-text {
+    padding: 0 !important; margin: 0;
+    line-height: 1.6 !important; font-size: 9pt !important;
+  }
+  .bk-gram {
+    margin-top: 0.8mm; font-size: 8pt; line-height: 1.4;
+    background: #fff8e0; border-left: 1.5pt solid #d9a300; padding: 0.8mm 2mm;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .bk-gram-tag { font-weight: 800; font-size: 7pt; color: #8a6800; margin-right: 1.5mm; }
+  /* 첨삭 */
+  .bk-ko-line { font-size: 9.5pt; line-height: 1.7; white-space: normal; }
+  .bk-ok { color: #333; }
+  .bk-del { color: #c00; text-decoration: line-through; text-decoration-thickness: 0.6pt; }
+  .bk-ins {
+    color: #0a58a8; font-weight: 700; border-bottom: 0.5pt dotted #0a58a8;
+  }
+  .bk-ko { color: #333; }
+  .bk-ref {
+    margin-top: 0.6mm; font-size: 8pt; color: #555;
+  }
+  .bk-ref-tag {
+    font-size: 7pt; font-weight: 700; color: #666;
+    border: 0.3pt solid #bbb; border-radius: 1mm; padding: 0 1mm; margin-right: 1.5mm;
+  }
+  .bk-memo { margin-top: 0.8mm; }
+  .bk-memo-row { font-size: 8pt; line-height: 1.45; color: #222; }
+  .bk-memo-tag {
+    font-size: 7pt; font-weight: 800; color: #7a1fa2;
+    margin-right: 1.5mm;
+  }
+  .bk-rewrite { display: flex; align-items: flex-end; gap: 1.5mm; margin-top: 1.6mm; }
+  .bk-rewrite-tag { font-size: 7pt; color: #888; white-space: nowrap; }
+  .bk-rewrite .bk-line { flex: 1; }
+  .bk-line { border-bottom: 0.5pt solid #000; height: 3.6mm; }
+  .bk-muted { color: #888; font-size: 8.5pt; padding: 2mm; text-align: center; }
+  /* 뒷장 */
+  .bk-back { padding: 0 0 4mm; }
+  .bk-back .section { padding: 2mm 5mm; }
+  .bk-back .section-title {
+    font-size: 9.5pt; font-weight: 700; margin-bottom: 1mm;
+    border-left: 2pt solid #000; padding-left: 2mm;
+  }
+  .bk-grid {
+    min-height: 78mm;
+    background-image:
+      linear-gradient(#bbb 0.3pt, transparent 0.3pt),
+      linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
+    background-size: 4mm 4mm;
+    border: 0.5pt solid #000;
+  }
+  .bk-gist { display: flex; flex-direction: column; gap: 2mm; padding-top: 1.5mm; }
+  .bk-gist-row { display: flex; align-items: flex-end; gap: 1.5mm; }
+  .bk-gist-num { font-size: 8pt; font-weight: 700; min-width: 5mm; }
+  .bk-gist-row .bk-line { flex: 1; }
+  .bk-write { display: flex; flex-direction: column; gap: 6mm; padding-top: 2mm; }
+  .bk-legend { font-size: 7.5pt; color: #666; padding: 1mm 0 0; }
+</style>
+
+<div class="page bk-page">
+  ${header("Book Workbook", `① 선택유닛 전체 원문 (분석 · 중요어법) · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
+  ${sourceSections || '<div class="bk-muted">(지문 없음)</div>'}
+</div>
+
+<div class="page bk-page">
+  ${header("Book Workbook", `② 선택유닛 전체 학생해석 (첨삭) · ${p.bookTitle}`, `지문 ${allItems.length}건`)}
+  <div class="bk-legend">
+    <span class="bk-ok">일치</span> ·
+    <span class="bk-del">빼야 할 부분</span> ·
+    <span class="bk-ins">보충할 부분(모범해석 기준)</span>
+  </div>
+  ${transSections || '<div class="bk-muted">(제출 없음)</div>'}
+</div>
+
+${wrapUpPages}
+`;
+  return wrapDoc(`BookWorkbook ${p.bookTitle}`, body);
+};
