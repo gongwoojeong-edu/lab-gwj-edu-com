@@ -15,14 +15,19 @@
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import {
+  preloadAnalysisPayload,
   preloadHandoutPayload,
   preloadWordPayload,
   PrintPreloadError,
 } from "./printPreload";
+import { MEMO_FIELD_KEYS, MEMO_FIELD_LABEL, parseMemo } from "./approvalMemo";
 import {
+  buildBookCombinedWorkbookHtml,
   buildHandoutPrintHtml,
   buildWordPrintHtml,
   buildWordUnitCompactPrintHtml,
+  type BookCombinedItem,
+  type BookCombinedUnit,
   type WordPayload,
 } from "./printTemplates";
 import { fetchPassagesByUnit, type Passage } from "./textbooks";
@@ -373,6 +378,117 @@ const buildSyntaxUnit = async (
 </body></html>`;
 };
 
+
+// ============================================================
+// 1-B) 구문 · 선택유닛 통합 (분석표기 · 첨삭 · 구조도 정리)
+//   여러 유닛을 세 개의 큰 섹션으로 묶어 한 권으로 출력
+// ============================================================
+const collectBookUnit = async (
+  u: { unitId: string; unitTitle: string; unitCode: string },
+  studentId: string,
+): Promise<BookCombinedUnit> => {
+  const passages = dedupePassagesForPrint(await fetchPassagesByUnit(u.unitId));
+  const codes = passages.map((p) => p.code);
+  if (codes.length === 0) {
+    return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
+  }
+
+  const [{ data: trs }, { data: apps }] = await Promise.all([
+    supabase
+      .from("sentence_translations")
+      .select("sentence_id, text, submitted_at")
+      .eq("user_id", studentId)
+      .in("sentence_id", codes)
+      .order("submitted_at", { ascending: true }),
+    supabase
+      .from("sentence_approvals")
+      .select("sentence_id, memo, held_memo, requested_at")
+      .eq("user_id", studentId)
+      .in("sentence_id", codes)
+      .order("requested_at", { ascending: true }),
+  ]);
+
+  const transMap = new Map<string, string>();
+  (trs ?? []).forEach((r) => {
+    const t = ((r.text as string) ?? "").trim();
+    if (t) transMap.set(r.sentence_id as string, t);
+  });
+
+  const memoMap = new Map<string, ReturnType<typeof parseMemo>>();
+  (apps ?? []).forEach((r) => {
+    const raw =
+      ((r as { memo?: string | null }).memo ?? "") ||
+      ((r as { held_memo?: string | null }).held_memo ?? "");
+    if (!raw) return;
+    const parsed = parseMemo(raw);
+    const hasAny = MEMO_FIELD_KEYS.some((k) => (parsed[k] ?? "").trim());
+    if (hasAny) memoMap.set(r.sentence_id as string, parsed);
+  });
+
+  const items: BookCombinedItem[] = [];
+  for (const p of passages) {
+    const analysis = await preloadAnalysisPayload({
+      sentenceId: p.code,
+      studentId,
+      mode: "marked",
+    }).catch(() => null);
+    const memo = memoMap.get(p.code);
+    items.push({
+      passageCode: p.code,
+      english: p.english ?? "",
+      analysis,
+      studentTranslation: transMap.get(p.code) ?? "",
+      referenceKorean: (p.korean ?? "").trim(),
+      memo: memo
+        ? MEMO_FIELD_KEYS.filter((k) => (memo[k] ?? "").trim()).map((k) => ({
+            label: MEMO_FIELD_LABEL[k].split(" — ")[0],
+            text: memo[k].trim(),
+          }))
+        : [],
+      grammarNote: (memo?.grammar_watch ?? "").trim(),
+    });
+  }
+  return { unitTitle: u.unitTitle, unitCode: u.unitCode, items };
+};
+
+/** 여러 유닛 → 통합 워크북 HTML */
+export const buildBookCombinedWorkbookFor = async (input: {
+  units: Array<{ unitId: string; unitTitle: string; unitCode: string }>;
+  studentId: string;
+  bookTitle?: string;
+}): Promise<{ html: string; unitCount: number; passageCount: number }> => {
+  const { data: sp } = await supabase
+    .from("student_profiles")
+    .select("display_name, student_no")
+    .eq("user_id", input.studentId)
+    .maybeSingle();
+
+  const units: BookCombinedUnit[] = [];
+  for (const u of input.units) {
+    const bu = await collectBookUnit(u, input.studentId);
+    if (bu.items.length > 0) units.push(bu);
+  }
+  if (units.length === 0) {
+    throw new Error("선택한 유닛에 인쇄할 지문이 없습니다.");
+  }
+
+  const html = buildBookCombinedWorkbookHtml({
+    bookTitle:
+      input.bookTitle ??
+      (input.units.length > 1
+        ? `유닛 ${units.length}개 통합`
+        : units[0].unitTitle),
+    studentName: (sp?.display_name as string | null) ?? null,
+    studentNo: (sp?.student_no as string | null) ?? null,
+    units,
+  });
+  return {
+    html,
+    unitCount: units.length,
+    passageCount: units.reduce((s, u) => s + u.items.length, 0),
+  };
+};
+
 // ============================================================
 // HTML 합치기 헬퍼 — 각 빌더가 반환한 doctype/wrap 에서 body 만 추출해 결합
 // ============================================================
@@ -572,7 +688,7 @@ export const buildUnitWorkbookHtmlFor = async (
   // 진행상황 (문장별 구문 워크북에서만 "완료된 지문"으로 필터)
   const summary = await summarizeUnitProgress(input.unitId, input.studentId);
   const isWord = mode === "word_unit" || mode === "word_passage";
-  const isUnitWideMode = mode === "syntax_unit" || isWord;
+  const isUnitWideMode = mode === "syntax_unit" || mode === "syntax_book" || isWord;
   // 유닛 통합 워크북과 단어 시험지는 진행도 무관하게 유닛 전체 지문을 사용
   const allPassagesRaw = isUnitWideMode ? await fetchPassagesByUnit(input.unitId) : [];
   const allPassages = isUnitWideMode ? dedupePassagesForPrint(allPassagesRaw) : [];
@@ -593,6 +709,17 @@ export const buildUnitWorkbookHtmlFor = async (
   switch (mode) {
     case "syntax_unit": {
       html = await buildSyntaxUnit(allPassages, input.studentId, ctx, input.answerKey ?? false);
+      break;
+    }
+    case "syntax_book": {
+      const r = await buildBookCombinedWorkbookFor({
+        units: [
+          { unitId: input.unitId, unitTitle: input.unitTitle, unitCode: input.unitCode },
+        ],
+        studentId: input.studentId,
+        bookTitle: input.unitTitle,
+      });
+      html = r.html;
       break;
     }
     case "syntax_passage":
@@ -629,6 +756,16 @@ export const buildMultiUnitWorkbookHtml = async (
   input: BuildMultiUnitWorkbookInput,
 ): Promise<{ html: string; unitCount: number; passageCount: number; mode: WorkbookMode }> => {
   const mode: WorkbookMode = input.mode ?? "syntax_unit";
+
+  // 선택유닛 통합 모드는 유닛별 문서를 이어붙이지 않고 하나의 통합 문서를 만든다
+  if (mode === "syntax_book") {
+    const r = await buildBookCombinedWorkbookFor({
+      units: input.units,
+      studentId: input.studentId,
+    });
+    return { html: r.html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
+  }
+
   const parts: Array<{ htmlDoc: string; passages: number; title: string }> = [];
 
   for (const u of input.units) {
