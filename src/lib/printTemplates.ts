@@ -1418,6 +1418,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     color: #0a58a8; font-weight: 700; border-bottom: 0.5pt dotted #0a58a8;
   }
   .bk-ko { color: #333; }
+  .bk-ko-faint { color: #c2c2c2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .bk-ref {
     margin-top: 0.6mm; font-size: 8pt; color: #555;
   }
