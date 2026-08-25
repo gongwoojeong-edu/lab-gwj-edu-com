@@ -1168,6 +1168,8 @@ export interface BookCombinedPayload {
   studentName: string | null;
   studentNo: string | null;
   units: BookCombinedUnit[];
+  /** 선택 유닛 전체 단어 정리 (중복 제거) */
+  words?: Array<{ word: string; meaning: string }>;
 }
 
 /** 한글 해석 첨삭 — 학생 제출본 vs 모범해석 토큰 diff */
