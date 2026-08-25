@@ -224,6 +224,9 @@ const BookshelfVolume = () => {
   >("syntax_unit");
   const [printAnswerKey, setPrintAnswerKey] = useState(false);
   const [printing, setPrinting] = useState(false);
+  /** 선택한 유닛을 배정받은 학생만 보기 */
+  const [printOnlyAssigned, setPrintOnlyAssigned] = useState(true);
+  const [assignedStudentIds, setAssignedStudentIds] = useState<Set<string> | null>(null);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
