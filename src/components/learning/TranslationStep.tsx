@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Check, Eye, EyeOff } from "lucide-react";
-import { fetchTranslation, upsertTranslation } from "@/integrations/supabase/storage";
+import { upsertTranslation } from "@/integrations/supabase/storage";
 import { toast } from "@/hooks/use-toast";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 
