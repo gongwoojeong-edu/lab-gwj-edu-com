@@ -395,7 +395,7 @@ const collectBookUnit = async (
     return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
   }
 
-  const [{ data: trs }, { data: apps }] = await Promise.all([
+  const [{ data: trs }, { data: apps }, { data: exts }] = await Promise.all([
     supabase
       .from("sentence_translations")
       .select("sentence_id, text, submitted_at")
@@ -408,7 +408,20 @@ const collectBookUnit = async (
       .eq("user_id", studentId)
       .in("sentence_id", codes)
       .order("requested_at", { ascending: true }),
+    supabase
+      .from("sentence_word_extractions")
+      .select("sentence_id, words")
+      .in("sentence_id", codes),
   ]);
+
+  const words: Array<{ word: string; meaning: string }> = [];
+  (exts ?? []).forEach((r) => {
+    const arr = (r.words ?? []) as Array<{ word?: string; meaning?: string; expected?: string }>;
+    arr.forEach((w) => {
+      if (!w?.word) return;
+      words.push({ word: w.word, meaning: (w.expected ?? w.meaning ?? "").trim() });
+    });
+  });
 
   const transMap = new Map<string, string>();
   (trs ?? []).forEach((r) => {
@@ -429,16 +442,11 @@ const collectBookUnit = async (
 
   const items: BookCombinedItem[] = [];
   for (const p of passages) {
-    const analysis = await preloadAnalysisPayload({
-      sentenceId: p.code,
-      studentId,
-      mode: "marked",
-    }).catch(() => null);
     const memo = memoMap.get(p.code);
     items.push({
       passageCode: p.code,
       english: p.english ?? "",
-      analysis,
+      analysis: null,
       studentTranslation: transMap.get(p.code) ?? "",
       referenceKorean: (p.korean ?? "").trim(),
       memo: memo
@@ -450,7 +458,7 @@ const collectBookUnit = async (
       grammarNote: (memo?.grammar_watch ?? "").trim(),
     });
   }
-  return { unitTitle: u.unitTitle, unitCode: u.unitCode, items };
+  return { unitTitle: u.unitTitle, unitCode: u.unitCode, items, words };
 };
 
 /** 여러 유닛 → 통합 워크북 HTML */
@@ -474,6 +482,17 @@ export const buildBookCombinedWorkbookFor = async (input: {
     throw new Error("선택한 유닛에 인쇄할 지문이 없습니다.");
   }
 
+  const seenWord = new Set<string>();
+  const words: Array<{ word: string; meaning: string }> = [];
+  units.forEach((u) => {
+    (u.words ?? []).forEach((w) => {
+      const key = w.word.trim().toLowerCase();
+      if (!key || seenWord.has(key)) return;
+      seenWord.add(key);
+      words.push(w);
+    });
+  });
+
   const html = buildBookCombinedWorkbookHtml({
     bookTitle:
       input.bookTitle ??
@@ -483,6 +502,7 @@ export const buildBookCombinedWorkbookFor = async (input: {
     studentName: (sp?.display_name as string | null) ?? null,
     studentNo: (sp?.student_no as string | null) ?? null,
     units,
+    words,
   });
   return {
     html,

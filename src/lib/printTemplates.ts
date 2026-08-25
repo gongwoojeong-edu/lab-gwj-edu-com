@@ -1162,12 +1162,15 @@ export interface BookCombinedUnit {
   unitTitle: string;
   unitCode: string;
   items: BookCombinedItem[];
+  words?: Array<{ word: string; meaning: string }>;
 }
 export interface BookCombinedPayload {
   bookTitle: string;
   studentName: string | null;
   studentNo: string | null;
   units: BookCombinedUnit[];
+  /** 선택 유닛 전체 단어 정리 (중복 제거) */
+  words?: Array<{ word: string; meaning: string }>;
 }
 
 /** 한글 해석 첨삭 — 학생 제출본 vs 모범해석 토큰 diff */
@@ -1260,9 +1263,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
       const rows = u.items
         .map((it) => {
           idx += 1;
-          const passageHtml = it.analysis
-            ? buildAnalysisPassageFragment(it.analysis)
-            : `<div class="body-text">${escapeHtml(it.english)}</div>`;
+          const passageHtml = `<div class="body-text">${escapeHtml(it.english)}</div>`;
           const grammar = it.grammarNote.trim()
             ? `<div class="bk-gram"><span class="bk-gram-tag">중요어법</span>${escapeHtml(it.grammarNote)}</div>`
             : "";
@@ -1324,42 +1325,47 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     })
     .join("");
 
-  // ---------- ③ 전체 구조도 · 지스트 · 영작 정리 ----------
-  const wrapUpPages = p.units
-    .map(
-      (u) => `
+  // ---------- ③ 전체 구조도 · 지스트 · 영작 정리 (전체 통합 1페이지) ----------
+  const wrapUpPages = `
 <div class="page bk-back">
-  ${header("Wrap-up", `구조도 · 지스트 · 영작 정리 · ${u.unitTitle}`, `${u.unitCode} · 지문 ${u.items.length}건`)}
+  ${header("Wrap-up", `③ 전체 구조도 · 주제문 · 영작 정리 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
   <div class="section">
-    <div class="section-title">① 전체 구조도</div>
+    <div class="section-title">① 전체 구조도 (한 권의 내용을 하나의 구조도로)</div>
     <div class="bk-grid"></div>
   </div>
   <div class="section">
-    <div class="section-title">② 지스트 (지문별 주제 한 문장)</div>
-    <div class="bk-gist">
-      ${u.items
-        .map(
-          (it, i) =>
-            `<div class="bk-gist-row"><span class="bk-gist-num">${i + 1}.</span><span class="bk-line"></span></div>`,
-        )
-        .join("") || '<div class="bk-muted">(지문 없음)</div>'}
-    </div>
-  </div>
-  <div class="section">
-    <div class="section-title">③ 영작 정리</div>
-    <div class="bk-write">
-      <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
-    </div>
-  </div>
-  <div class="section">
-    <div class="section-title">④ 주요 어법 · 어휘 정리</div>
+    <div class="section-title">② 주제문 정리</div>
     <div class="bk-write">
       <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
     </div>
   </div>
-</div>`,
-    )
-    .join("");
+  <div class="section">
+    <div class="section-title">③ 영작</div>
+    <div class="bk-write">
+      <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
+    </div>
+  </div>
+</div>`;
+
+  // ---------- ④ 전체 단어 정리 ----------
+  const words = p.words ?? [];
+  const wordPage = words.length
+    ? `
+<div class="page bk-page">
+  ${header("Vocabulary", `④ 선택유닛 전체 단어 정리 · ${p.bookTitle}`, `단어 ${words.length}개`)}
+  <div class="bk-wgrid">
+    ${words
+      .map(
+        (w, i) => `<div class="bk-wrow">
+          <span class="bk-wnum">${i + 1}</span>
+          <span class="bk-wword">${escapeHtml(w.word)}</span>
+          <span class="bk-wmean">${escapeHtml(w.meaning ?? "")}</span>
+        </div>`,
+      )
+      .join("")}
+  </div>
+</div>`
+    : "";
 
   const body = `
 <style>
@@ -1440,10 +1446,22 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   .bk-gist-row .bk-line { flex: 1; }
   .bk-write { display: flex; flex-direction: column; gap: 6mm; padding-top: 2mm; }
   .bk-legend { font-size: 7.5pt; color: #666; padding: 1mm 0 0; }
+  /* 단어 정리 */
+  .bk-wgrid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0 4mm;
+    border: 0.5pt solid #000; padding: 1.5mm 2.5mm;
+  }
+  .bk-wrow {
+    display: flex; align-items: baseline; gap: 1.5mm;
+    border-bottom: 0.3pt dashed #bbb; padding: 0.9mm 0; font-size: 8.5pt;
+  }
+  .bk-wnum { color: #888; font-size: 6.5pt; min-width: 5mm; }
+  .bk-wword { font-weight: 700; min-width: 26mm; }
+  .bk-wmean { color: #333; flex: 1; }
 </style>
 
 <div class="page bk-page">
-  ${header("Book Workbook", `① 선택유닛 전체 원문 (분석 · 중요어법) · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
+  ${header("Book Workbook", `① 선택유닛 전체 원문 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
   ${sourceSections || '<div class="bk-muted">(지문 없음)</div>'}
 </div>
 
@@ -1458,6 +1476,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
 </div>
 
 ${wrapUpPages}
+${wordPage}
 `;
   return wrapDoc(`BookWorkbook ${p.bookTitle}`, body);
 };
