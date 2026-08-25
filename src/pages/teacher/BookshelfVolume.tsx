@@ -228,6 +228,8 @@ const BookshelfVolume = () => {
   /** 선택한 유닛을 배정받은 학생만 보기 */
   const [printOnlyAssigned, setPrintOnlyAssigned] = useState(true);
   const [assignedStudentIds, setAssignedStudentIds] = useState<Set<string> | null>(null);
+  /** 통합 워크북에서 학생해석 자동 첨삭 표기 끄기 */
+  const [printDisableCorrection, setPrintDisableCorrection] = useState(false);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
