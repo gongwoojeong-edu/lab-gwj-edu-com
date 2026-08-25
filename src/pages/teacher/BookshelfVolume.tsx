@@ -1608,20 +1608,38 @@ const BookshelfVolume = () => {
 
             {/* 학생 선택 */}
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">학생 선택</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-muted-foreground">학생 선택</Label>
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-primary"
+                    checked={printOnlyAssigned}
+                    onChange={(e) => setPrintOnlyAssigned(e.target.checked)}
+                    disabled={printing}
+                  />
+                  선택 유닛 배정 학생만
+                </label>
+              </div>
               <Select value={printStudentId} onValueChange={setPrintStudentId}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="학생을 선택하세요" />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
-                  {printStudentList.map((s) => (
+                  {visiblePrintStudents.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name} ({s.no})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {printOnlyAssigned && visiblePrintStudents.length === 0 && (
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  선택한 강을 배정/학습한 학생이 없습니다. 체크를 해제하면 전체 학생이 표시됩니다.
+                </div>
+              )}
             </div>
+
 
             {/* 모드 선택 */}
             <div>
