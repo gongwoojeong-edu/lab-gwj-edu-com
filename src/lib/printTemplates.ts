@@ -1324,42 +1324,47 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     })
     .join("");
 
-  // ---------- ③ 전체 구조도 · 지스트 · 영작 정리 ----------
-  const wrapUpPages = p.units
-    .map(
-      (u) => `
+  // ---------- ③ 전체 구조도 · 지스트 · 영작 정리 (전체 통합 1페이지) ----------
+  const wrapUpPages = `
 <div class="page bk-back">
-  ${header("Wrap-up", `구조도 · 지스트 · 영작 정리 · ${u.unitTitle}`, `${u.unitCode} · 지문 ${u.items.length}건`)}
+  ${header("Wrap-up", `③ 전체 구조도 · 주제문 · 영작 정리 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
   <div class="section">
-    <div class="section-title">① 전체 구조도</div>
+    <div class="section-title">① 전체 구조도 (한 권의 내용을 하나의 구조도로)</div>
     <div class="bk-grid"></div>
   </div>
   <div class="section">
-    <div class="section-title">② 지스트 (지문별 주제 한 문장)</div>
-    <div class="bk-gist">
-      ${u.items
-        .map(
-          (it, i) =>
-            `<div class="bk-gist-row"><span class="bk-gist-num">${i + 1}.</span><span class="bk-line"></span></div>`,
-        )
-        .join("") || '<div class="bk-muted">(지문 없음)</div>'}
-    </div>
-  </div>
-  <div class="section">
-    <div class="section-title">③ 영작 정리</div>
-    <div class="bk-write">
-      <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
-    </div>
-  </div>
-  <div class="section">
-    <div class="section-title">④ 주요 어법 · 어휘 정리</div>
+    <div class="section-title">② 주제문 정리</div>
     <div class="bk-write">
       <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
     </div>
   </div>
-</div>`,
-    )
-    .join("");
+  <div class="section">
+    <div class="section-title">③ 영작</div>
+    <div class="bk-write">
+      <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
+    </div>
+  </div>
+</div>`;
+
+  // ---------- ④ 전체 단어 정리 ----------
+  const words = p.words ?? [];
+  const wordPage = words.length
+    ? `
+<div class="page bk-page">
+  ${header("Vocabulary", `④ 선택유닛 전체 단어 정리 · ${p.bookTitle}`, `단어 ${words.length}개`)}
+  <div class="bk-wgrid">
+    ${words
+      .map(
+        (w, i) => `<div class="bk-wrow">
+          <span class="bk-wnum">${i + 1}</span>
+          <span class="bk-wword">${escapeHtml(w.word)}</span>
+          <span class="bk-wmean">${escapeHtml(w.meaning ?? "")}</span>
+        </div>`,
+      )
+      .join("")}
+  </div>
+</div>`
+    : "";
 
   const body = `
 <style>
