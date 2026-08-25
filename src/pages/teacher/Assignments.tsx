@@ -565,13 +565,10 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     };
   }, [rows, students]);
 
-  // 활성 = 미완료 항목만. 마감되었어도 미완료면 활성에 잔존.
-  // (완료된 항목은 [과거 과제함] 으로 이동)
-  const activeRows = useMemo(() => {
-    if (rows.length === 0) return rows;
-    const allIds = students.map((s) => s.user_id);
-    return rows.filter((r) => !isAssignmentDone(r, progressByAsg[r.id], allIds));
-  }, [rows, students, progressByAsg]);
+  // 활성/완료 판정은 그룹(카드) 단위로 activeGroups 에서 수행한다.
+  // (지문 단위로 미리 걸러내면 카드의 지문 개수·진행률이 왜곡됨)
+
+
 
   // unit_id → 라벨 ([Lxx] 교재명 · Uxxx 유닛명)
   const unitLabelMap = useMemo(() => {
