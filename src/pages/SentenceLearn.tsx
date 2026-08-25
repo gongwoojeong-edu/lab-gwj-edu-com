@@ -334,8 +334,8 @@ const SentenceLearn = () => {
         "승인 상태 불러오기",
       );
       const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
-      // 메인덱(진도설정) 학습은 승인 없이 계속 진행 — 승인 대기 화면으로 막지 않는다.
-      const gateOnPending = !!assignmentIdParam;
+      // 메인덱·특별과제 모두 승인 없이 계속 진행 — 승인 대기 화면으로 막지 않는다.
+      const gateOnPending = false;
       if (mounted && latestApproval?.status === "pending" && gateOnPending) {
         setPendingApproval(latestApproval);
       } else if (
