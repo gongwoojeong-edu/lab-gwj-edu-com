@@ -395,7 +395,7 @@ const collectBookUnit = async (
     return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
   }
 
-  const [{ data: trs }, { data: apps }] = await Promise.all([
+  const [{ data: trs }, { data: apps }, { data: exts }] = await Promise.all([
     supabase
       .from("sentence_translations")
       .select("sentence_id, text, submitted_at")
@@ -408,7 +408,20 @@ const collectBookUnit = async (
       .eq("user_id", studentId)
       .in("sentence_id", codes)
       .order("requested_at", { ascending: true }),
+    supabase
+      .from("sentence_word_extractions")
+      .select("sentence_id, words")
+      .in("sentence_id", codes),
   ]);
+
+  const words: Array<{ word: string; meaning: string }> = [];
+  (exts ?? []).forEach((r) => {
+    const arr = (r.words ?? []) as Array<{ word?: string; meaning?: string; expected?: string }>;
+    arr.forEach((w) => {
+      if (!w?.word) return;
+      words.push({ word: w.word, meaning: (w.expected ?? w.meaning ?? "").trim() });
+    });
+  });
 
   const transMap = new Map<string, string>();
   (trs ?? []).forEach((r) => {
