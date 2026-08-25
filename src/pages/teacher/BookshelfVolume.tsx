@@ -1665,7 +1665,15 @@ const BookshelfVolume = () => {
                           : "border-border bg-card hover:border-primary/50",
                       )}
                     >
-                      <div>{WORKBOOK_MODE_LABEL[m]}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span>{WORKBOOK_MODE_LABEL[m]}</span>
+                        {m === "syntax_book" && (
+                          <span className="rounded bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5">
+                            권장
+                          </span>
+                        )}
+                      </div>
+
                       <div className="text-[11px] font-normal text-muted-foreground mt-0.5 leading-snug">
                         {WORKBOOK_MODE_DESC[m]}
                       </div>
