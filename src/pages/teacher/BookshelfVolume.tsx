@@ -221,7 +221,8 @@ const BookshelfVolume = () => {
   const [printStudentId, setPrintStudentId] = useState<string>("");
   const [printMode, setPrintMode] = useState<
     "syntax_unit" | "syntax_book" | "syntax_passage" | "word_unit" | "word_passage"
-  >("syntax_unit");
+  >("syntax_book");
+
   const [printAnswerKey, setPrintAnswerKey] = useState(false);
   const [printing, setPrinting] = useState(false);
   /** 선택한 유닛을 배정받은 학생만 보기 */
