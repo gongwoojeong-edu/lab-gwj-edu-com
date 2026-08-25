@@ -66,12 +66,17 @@ export const TeachingOverlay = () => {
   useEffect(() => {
     if (!uid || !signal) return;
     const channel = supabase
-      .channel(teachingChannelName(uid))
+      .channel(teachingChannelName(uid), { config: { broadcast: { self: false } } })
       .on("broadcast", { event: "memo" }, (payload) => {
         const memo = parseMemo((payload as { payload?: unknown }).payload as unknown);
         setLiveMemo(isMemoEmpty(memo) ? null : memo);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          // 접속 알림 — 선생님 쪽이 현재 메모를 즉시 다시 보내준다
+          channel.send({ type: "broadcast", event: "hello", payload: {} });
+        }
+      });
     return () => {
       supabase.removeChannel(channel);
     };
