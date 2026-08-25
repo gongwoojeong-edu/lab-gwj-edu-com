@@ -844,9 +844,20 @@ const BookshelfVolume = () => {
                 )}
               </>
             )}
+            {units.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIds(new Set(units.map((u) => u.id)))}
+                disabled={selectedIds.size === units.length}
+              >
+                권 전체 유닛 선택
+              </Button>
+            )}
             <Button variant="outline" onClick={openBulkCreate}>
               <ListPlus className="size-4 mr-1" /> 여러 유닛 추가
             </Button>
+
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="size-4 mr-1" /> 새 유닛
             </Button>
