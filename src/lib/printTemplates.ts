@@ -1222,9 +1222,16 @@ export const diffKoreanTokens = (student: string, reference: string): DiffOp[] =
   return ops;
 };
 
-const renderKoDiff = (student: string, reference: string): string => {
+const renderKoDiff = (
+  student: string,
+  reference: string,
+  disableCorrection = false,
+): string => {
   const st = (student ?? "").trim();
   if (!st) return '<span class="bk-muted">(미제출)</span>';
+  if (disableCorrection) {
+    return `<span class="bk-ko-faint">${escapeHtml(st)}</span>`;
+  }
   const ref = (reference ?? "").trim();
   if (!ref) return `<span class="bk-ko">${escapeHtml(st)}</span>`;
   const ops = diffKoreanTokens(st, ref);
