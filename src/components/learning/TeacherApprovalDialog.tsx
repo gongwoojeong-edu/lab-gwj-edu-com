@@ -142,12 +142,36 @@ export const TeacherApprovalDialog = ({
 
   // ── 티칭 모드: 메모 타이핑을 학생 화면으로 실시간 중계 (DB 저장 없음) ──
   const memoChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const readyRef = useRef(false);
+  const memoRef = useRef(memo);
+  memoRef.current = memo;
+
   useEffect(() => {
     if (!open || !studentUserId) return;
-    const ch = supabase.channel(teachingChannelName(studentUserId));
-    ch.subscribe();
+    readyRef.current = false;
+    const ch = supabase.channel(teachingChannelName(studentUserId), {
+      config: { broadcast: { self: false } },
+    });
+    // 학생 오버레이가 접속하면 현재 메모를 즉시 다시 보낸다
+    ch.on("broadcast", { event: "hello" }, () => {
+      ch.send({ type: "broadcast", event: "memo", payload: memoRef.current });
+    });
+    ch.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        readyRef.current = true;
+        ch.send({ type: "broadcast", event: "memo", payload: memoRef.current });
+      }
+    });
     memoChannelRef.current = ch;
+    // 재전송 하트비트 — 구독 타이밍 어긋남으로 인한 유실 방지
+    const hb = setInterval(() => {
+      if (readyRef.current) {
+        ch.send({ type: "broadcast", event: "memo", payload: memoRef.current });
+      }
+    }, 1500);
     return () => {
+      clearInterval(hb);
+      readyRef.current = false;
       memoChannelRef.current = null;
       supabase.removeChannel(ch);
     };
@@ -156,8 +180,10 @@ export const TeacherApprovalDialog = ({
   useEffect(() => {
     if (!open || !studentUserId) return;
     const t = setTimeout(() => {
-      memoChannelRef.current?.send({ type: "broadcast", event: "memo", payload: memo });
-    }, 300);
+      if (readyRef.current) {
+        memoChannelRef.current?.send({ type: "broadcast", event: "memo", payload: memo });
+      }
+    }, 250);
     return () => clearTimeout(t);
   }, [memo, open, studentUserId]);
 
