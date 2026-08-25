@@ -518,7 +518,7 @@ const SentenceLearn = () => {
       if (!uid || cancelled) return;
       const unsub = subscribeMyApproval(sentence.id, uid, (row) => {
         if (row.status === "pending") {
-          setPendingApproval(row);
+          // 승인 대기로 학습을 막지 않는다 (예전 attempt의 pending 행이 되살아나는 문제 방지)
           return;
         }
         if (row.status === "approved" || row.status === "held") {
