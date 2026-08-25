@@ -505,6 +505,7 @@ export const buildBookCombinedWorkbookFor = async (input: {
     studentNo: (sp?.student_no as string | null) ?? null,
     units,
     words,
+    disableCorrection: input.disableCorrection,
   });
   return {
     html,
