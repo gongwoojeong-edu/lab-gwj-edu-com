@@ -1262,9 +1262,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
       const rows = u.items
         .map((it) => {
           idx += 1;
-          const passageHtml = it.analysis
-            ? buildAnalysisPassageFragment(it.analysis)
-            : `<div class="body-text">${escapeHtml(it.english)}</div>`;
+          const passageHtml = `<div class="body-text">${escapeHtml(it.english)}</div>`;
           const grammar = it.grammarNote.trim()
             ? `<div class="bk-gram"><span class="bk-gram-tag">중요어법</span>${escapeHtml(it.grammarNote)}</div>`
             : "";
