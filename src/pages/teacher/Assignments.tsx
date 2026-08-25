@@ -588,10 +588,13 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
 
   // 그룹핑: (title|due_at|student|unit|created_at-분) — 부여할 때마다 별도 카드.
   const activeGroups = useMemo<AssignmentGroup[]>(() => {
-    if (activeRows.length === 0) return [];
+    if (rows.length === 0) return [];
     const allIds = students.map((s) => s.user_id);
     const groupMap = new Map<string, AssignmentRow[]>();
-    activeRows.forEach((r) => {
+    // ⚠ 카드는 "출제한 지문 전체"를 기준으로 묶는다.
+    // (완료 지문을 빼고 묶으면 같은 과제인데도 학생마다 지문 개수가 달라 보이고,
+    //  단계 진행률도 남은 지문 기준이라 실제와 어긋난다)
+    rows.forEach((r) => {
       const unitId = r.sentence_id ? codeToUnit[r.sentence_id] ?? null : null;
       const batchMinute = r.created_at ? r.created_at.slice(0, 16) : r.id;
       const groupKey = `${r.title}|${r.due_at}|${r.student_id ?? "__all__"}|${unitId ?? `noUnit:${r.sentence_id ?? r.id}`}|${batchMinute}`;
@@ -609,6 +612,9 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         const targets = r.student_id ? [r.student_id] : allIds;
         return isAssignmentDone(r, progressByAsg[r.id], targets);
       }).length;
+      // 그룹 내 모든 지문이 완료면 [완료된 과제함]으로 이동 → 활성 목록에서 제외
+      if (doneCount === sorted.length) return;
+
       out.push({
         key,
         title: head.title,
