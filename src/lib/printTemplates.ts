@@ -1162,6 +1162,7 @@ export interface BookCombinedUnit {
   unitTitle: string;
   unitCode: string;
   items: BookCombinedItem[];
+  words?: Array<{ word: string; meaning: string }>;
 }
 export interface BookCombinedPayload {
   bookTitle: string;
