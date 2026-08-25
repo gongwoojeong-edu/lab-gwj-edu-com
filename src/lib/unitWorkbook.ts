@@ -466,6 +466,8 @@ export const buildBookCombinedWorkbookFor = async (input: {
   units: Array<{ unitId: string; unitTitle: string; unitCode: string }>;
   studentId: string;
   bookTitle?: string;
+  /** 학생해석 자동 첨삭(diff) 표기 끄기 */
+  disableCorrection?: boolean;
 }): Promise<{ html: string; unitCount: number; passageCount: number }> => {
   const { data: sp } = await supabase
     .from("student_profiles")
@@ -503,6 +505,7 @@ export const buildBookCombinedWorkbookFor = async (input: {
     studentNo: (sp?.student_no as string | null) ?? null,
     units,
     words,
+    disableCorrection: input.disableCorrection,
   });
   return {
     html,
@@ -687,6 +690,8 @@ export interface BuildUnitWorkbookInput {
   showStudentHeader?: boolean;
   /** 답지 모드 — syntax_unit 뒷면을 정답(영작/재영작)으로 채움 */
   answerKey?: boolean;
+  /** syntax_book 모드에서 학생해석 자동 첨삭(diff) 표기 끄기 */
+  disableCorrection?: boolean;
 }
 
 /**
@@ -740,6 +745,7 @@ export const buildUnitWorkbookHtmlFor = async (
         ],
         studentId: input.studentId,
         bookTitle: input.unitTitle,
+        disableCorrection: input.disableCorrection,
       });
       html = r.html;
       break;
@@ -767,6 +773,8 @@ export interface BuildMultiUnitWorkbookInput {
   mode?: WorkbookMode;
   paperSize?: "A4" | "B5";
   answerKey?: boolean;
+  /** syntax_book 모드에서 학생해석 자동 첨삭(diff) 표기 끄기 */
+  disableCorrection?: boolean;
 }
 
 /**
@@ -784,6 +792,7 @@ export const buildMultiUnitWorkbookHtml = async (
     const r = await buildBookCombinedWorkbookFor({
       units: input.units,
       studentId: input.studentId,
+      disableCorrection: input.disableCorrection,
     });
     return { html: r.html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
   }

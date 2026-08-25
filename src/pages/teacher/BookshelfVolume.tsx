@@ -228,6 +228,8 @@ const BookshelfVolume = () => {
   /** 선택한 유닛을 배정받은 학생만 보기 */
   const [printOnlyAssigned, setPrintOnlyAssigned] = useState(true);
   const [assignedStudentIds, setAssignedStudentIds] = useState<Set<string> | null>(null);
+  /** 통합 워크북에서 학생해석 자동 첨삭 표기 끄기 */
+  const [printDisableCorrection, setPrintDisableCorrection] = useState(false);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -339,6 +341,7 @@ const BookshelfVolume = () => {
         studentId: printStudentId,
         mode: printMode as WorkbookMode,
         answerKey: printMode === "syntax_unit" && printAnswerKey,
+        disableCorrection: printMode === "syntax_book" && printDisableCorrection,
       });
       await launchPrintHtml(html, {
         jobKey: `multi-unit-workbook:${textbook.id}:${printStudentId}:${printMode}:${Array.from(selectedIds).sort().join(",")}`,
@@ -1694,6 +1697,25 @@ const BookshelfVolume = () => {
                   className="size-4 accent-destructive"
                 />
                 <span>답지(정답) 모드로 인쇄</span>
+              </label>
+            )}
+
+            {/* 첨삭 끄기 (syntax_book only) */}
+            {printMode === "syntax_book" && (
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printDisableCorrection}
+                  onChange={(e) => setPrintDisableCorrection(e.target.checked)}
+                  disabled={printing}
+                  className="size-4 accent-primary mt-0.5"
+                />
+                <div className="leading-snug">
+                  <div className="font-medium">학생해석 첨삭 표기 빼고 출력</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    학생이 제출한 해석을 diff 없이 흐린 글씨로만 출력합니다. 모범해석도 함께 숨겨집니다.
+                  </div>
+                </div>
               </label>
             )}
 

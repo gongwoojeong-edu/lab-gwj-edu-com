@@ -1171,6 +1171,8 @@ export interface BookCombinedPayload {
   units: BookCombinedUnit[];
   /** 선택 유닛 전체 단어 정리 (중복 제거) */
   words?: Array<{ word: string; meaning: string }>;
+  /** 학생해석 자동 첨삭(diff) 표기 끄기 */
+  disableCorrection?: boolean;
 }
 
 /** 한글 해석 첨삭 — 학생 제출본 vs 모범해석 토큰 diff */
@@ -1220,9 +1222,16 @@ export const diffKoreanTokens = (student: string, reference: string): DiffOp[] =
   return ops;
 };
 
-const renderKoDiff = (student: string, reference: string): string => {
+const renderKoDiff = (
+  student: string,
+  reference: string,
+  disableCorrection = false,
+): string => {
   const st = (student ?? "").trim();
   if (!st) return '<span class="bk-muted">(미제출)</span>';
+  if (disableCorrection) {
+    return `<span class="bk-ko-faint">${escapeHtml(st)}</span>`;
+  }
   const ref = (reference ?? "").trim();
   if (!ref) return `<span class="bk-ko">${escapeHtml(st)}</span>`;
   const ops = diffKoreanTokens(st, ref);
@@ -1286,7 +1295,8 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     })
     .join("");
 
-  // ---------- ② 학생해석 첨삭 ----------
+  // ---------- ② 학생해석 ----------
+  const disableCorrection = !!p.disableCorrection;
   let idx2 = 0;
   const transSections = p.units
     .map((u) => {
@@ -1301,15 +1311,16 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
                 )
                 .join("")}</div>`
             : "";
-          const refHtml = it.referenceKorean.trim()
-            ? `<div class="bk-ref"><span class="bk-ref-tag">모범</span>${escapeHtml(it.referenceKorean)}</div>`
-            : "";
+          const refHtml =
+            !disableCorrection && it.referenceKorean.trim()
+              ? `<div class="bk-ref"><span class="bk-ref-tag">모범</span>${escapeHtml(it.referenceKorean)}</div>`
+              : "";
           return `
         <div class="bk-trow">
           <div class="bk-num">${idx2}.</div>
           <div class="bk-body">
             <div class="bk-code">${escapeHtml(it.passageCode)}</div>
-            <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean)}</div>
+            <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>
             ${refHtml}
             ${memoHtml}
             <div class="bk-rewrite"><span class="bk-rewrite-tag">고쳐쓰기</span><span class="bk-line"></span></div>
@@ -1407,6 +1418,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     color: #0a58a8; font-weight: 700; border-bottom: 0.5pt dotted #0a58a8;
   }
   .bk-ko { color: #333; }
+  .bk-ko-faint { color: #c2c2c2; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .bk-ref {
     margin-top: 0.6mm; font-size: 8pt; color: #555;
   }
@@ -1466,12 +1478,14 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
 </div>
 
 <div class="page bk-page">
-  ${header("Book Workbook", `② 선택유닛 전체 학생해석 (첨삭) · ${p.bookTitle}`, `지문 ${allItems.length}건`)}
-  <div class="bk-legend">
+  ${header("Book Workbook", disableCorrection ? `② 선택유닛 전체 학생해석 · ${p.bookTitle}` : `② 선택유닛 전체 학생해석 (첨삭) · ${p.bookTitle}`, `지문 ${allItems.length}건`)}
+  ${disableCorrection
+    ? '<div class="bk-legend">학생이 제출한 해석 그대로 출력됩니다.</div>'
+    : `<div class="bk-legend">
     <span class="bk-ok">일치</span> ·
     <span class="bk-del">빼야 할 부분</span> ·
     <span class="bk-ins">보충할 부분(모범해석 기준)</span>
-  </div>
+  </div>`}
   ${transSections || '<div class="bk-muted">(제출 없음)</div>'}
 </div>
 
