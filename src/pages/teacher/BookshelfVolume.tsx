@@ -1700,6 +1700,25 @@ const BookshelfVolume = () => {
               </label>
             )}
 
+            {/* 첨삭 끄기 (syntax_book only) */}
+            {printMode === "syntax_book" && (
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printDisableCorrection}
+                  onChange={(e) => setPrintDisableCorrection(e.target.checked)}
+                  disabled={printing}
+                  className="size-4 accent-primary mt-0.5"
+                />
+                <div className="leading-snug">
+                  <div className="font-medium">학생해석 첨삭 표기 빼고 출력</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    학생이 제출한 해석을 diff 없이 흐린 글씨로만 출력합니다. 모범해석도 함께 숨겨집니다.
+                  </div>
+                </div>
+              </label>
+            )}
+
             <div className="text-[11px] text-muted-foreground">
               * 완료(단어시험·해석·분석 모두 통과) 지문만 포함됩니다. 완료 지문이 0인 강은 자동으로 건너뜁니다.
             </div>
