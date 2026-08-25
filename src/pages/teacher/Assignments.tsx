@@ -565,13 +565,10 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
     };
   }, [rows, students]);
 
-  // 활성 = 미완료 항목만. 마감되었어도 미완료면 활성에 잔존.
-  // (완료된 항목은 [과거 과제함] 으로 이동)
-  const activeRows = useMemo(() => {
-    if (rows.length === 0) return rows;
-    const allIds = students.map((s) => s.user_id);
-    return rows.filter((r) => !isAssignmentDone(r, progressByAsg[r.id], allIds));
-  }, [rows, students, progressByAsg]);
+  // 활성/완료 판정은 그룹(카드) 단위로 activeGroups 에서 수행한다.
+  // (지문 단위로 미리 걸러내면 카드의 지문 개수·진행률이 왜곡됨)
+
+
 
   // unit_id → 라벨 ([Lxx] 교재명 · Uxxx 유닛명)
   const unitLabelMap = useMemo(() => {
@@ -588,10 +585,13 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
 
   // 그룹핑: (title|due_at|student|unit|created_at-분) — 부여할 때마다 별도 카드.
   const activeGroups = useMemo<AssignmentGroup[]>(() => {
-    if (activeRows.length === 0) return [];
+    if (rows.length === 0) return [];
     const allIds = students.map((s) => s.user_id);
     const groupMap = new Map<string, AssignmentRow[]>();
-    activeRows.forEach((r) => {
+    // ⚠ 카드는 "출제한 지문 전체"를 기준으로 묶는다.
+    // (완료 지문을 빼고 묶으면 같은 과제인데도 학생마다 지문 개수가 달라 보이고,
+    //  단계 진행률도 남은 지문 기준이라 실제와 어긋난다)
+    rows.forEach((r) => {
       const unitId = r.sentence_id ? codeToUnit[r.sentence_id] ?? null : null;
       const batchMinute = r.created_at ? r.created_at.slice(0, 16) : r.id;
       const groupKey = `${r.title}|${r.due_at}|${r.student_id ?? "__all__"}|${unitId ?? `noUnit:${r.sentence_id ?? r.id}`}|${batchMinute}`;
@@ -609,6 +609,9 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
         const targets = r.student_id ? [r.student_id] : allIds;
         return isAssignmentDone(r, progressByAsg[r.id], targets);
       }).length;
+      // 그룹 내 모든 지문이 완료면 [완료된 과제함]으로 이동 → 활성 목록에서 제외
+      if (doneCount === sorted.length) return;
+
       out.push({
         key,
         title: head.title,
@@ -637,7 +640,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       const bm = Math.max(...b.rows.map((r) => new Date(r.created_at).getTime()));
       return bm - am;
     });
-  }, [activeRows, students, codeToUnit, unitLabelMap, progressByAsg]);
+  }, [rows, students, codeToUnit, unitLabelMap, progressByAsg]);
 
   const filteredGroups = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
