@@ -312,8 +312,11 @@ const BookshelfVolume = () => {
       toast({ title: "유닛을 1개 이상 선택하세요", variant: "destructive" });
       return;
     }
+    // 여러 유닛을 골랐다면 통합(분석·첨삭) 모드를 기본값으로
+    if (selectedIds.size > 1) setPrintMode("syntax_book");
     setPrintOpen(true);
   };
+
 
   const handleConfirmPrint = async () => {
     if (!series || !textbook) return;
