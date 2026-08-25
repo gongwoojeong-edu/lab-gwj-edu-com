@@ -101,6 +101,7 @@ export const TeachingOverlay = () => {
           sentenceId={signal.sentence_id}
           userId={uid}
           memo={liveMemo ?? undefined}
+          showEmptyMemo
         />
 
         {!liveMemo && (
