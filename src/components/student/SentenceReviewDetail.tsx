@@ -122,10 +122,14 @@ export const SentenceReviewDetail = ({ sentenceId, userId, memo }: Props) => {
         </div>
       )}
 
-      {memo != null && (
+      {(memo != null || showEmptyMemo) && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
           <div className="text-[11px] text-muted-foreground mb-1">선생님 첨삭 메모</div>
-          <StructuredMemoView memo={memo} emptyText="아직 첨삭 메모가 없어요" />
+          <StructuredMemoView
+            memo={memo ?? null}
+            showEmpty={showEmptyMemo}
+            emptyText="아직 첨삭 메모가 없어요"
+          />
         </div>
       )}
     </div>
