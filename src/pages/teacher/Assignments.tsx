@@ -643,7 +643,7 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       const bm = Math.max(...b.rows.map((r) => new Date(r.created_at).getTime()));
       return bm - am;
     });
-  }, [activeRows, students, codeToUnit, unitLabelMap, progressByAsg]);
+  }, [rows, students, codeToUnit, unitLabelMap, progressByAsg]);
 
   const filteredGroups = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
