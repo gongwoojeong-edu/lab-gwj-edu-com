@@ -745,6 +745,7 @@ export const buildUnitWorkbookHtmlFor = async (
         ],
         studentId: input.studentId,
         bookTitle: input.unitTitle,
+        disableCorrection: input.disableCorrection,
       });
       html = r.html;
       break;
