@@ -30,6 +30,7 @@ import {
   Files,
   ListChecks,
   ScrollText,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -76,6 +77,7 @@ interface ModeCard {
 
 const MODE_CARDS: ModeCard[] = [
   { key: "syntax_unit", Icon: ScrollText, category: "구문" },
+  { key: "syntax_book", Icon: BookOpen, category: "구문" },
   { key: "syntax_passage", Icon: FileText, category: "구문" },
   { key: "word_unit", Icon: Files, category: "단어" },
   { key: "word_passage", Icon: ListChecks, category: "단어" },
@@ -120,6 +122,8 @@ export const UnitWorkbookPreviewDialog = ({
     switch (mode) {
       case "syntax_unit":
         return Math.max(1, Math.ceil(n / 2)) + 1; // 통합본 (앞=본문, 뒤=구조)
+      case "syntax_book":
+        return Math.max(1, Math.ceil(n / 4)) * 2 + 1; // ①원문 ②첨삭 ③마무리
       case "syntax_passage":
         return completedCodes.length * 2; // 지문당 2장 (본문+구조)
       case "word_unit":
