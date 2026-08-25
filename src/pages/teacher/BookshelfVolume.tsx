@@ -224,6 +224,9 @@ const BookshelfVolume = () => {
   >("syntax_unit");
   const [printAnswerKey, setPrintAnswerKey] = useState(false);
   const [printing, setPrinting] = useState(false);
+  /** 선택한 유닛을 배정받은 학생만 보기 */
+  const [printOnlyAssigned, setPrintOnlyAssigned] = useState(true);
+  const [assignedStudentIds, setAssignedStudentIds] = useState<Set<string> | null>(null);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -235,22 +238,73 @@ const BookshelfVolume = () => {
   };
   const clearSel = () => setSelectedIds(new Set());
 
-  // 워크북 인쇄 모달 오픈 시 학생 목록 로드 (최초 1회만)
+  // 워크북 인쇄 모달 오픈 시 학생 목록 로드 (최초 1회만, 재원생만)
   useEffect(() => {
     if (!printOpen || printStudentList.length > 0) return;
     void (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("user_id, display_name, student_no")
+        .select("user_id, display_name, student_no, orbit_enrollment_active")
         .order("student_no", { ascending: true });
-      const list = (data ?? []).map((r) => ({
-        id: r.user_id as string,
-        name: (r.display_name as string | null) ?? (r.student_no as string),
-        no: (r.student_no as string) ?? "",
-      }));
+      const list = (data ?? [])
+        .filter((r) => (r as { orbit_enrollment_active?: boolean }).orbit_enrollment_active !== false)
+        .map((r) => ({
+          id: r.user_id as string,
+          name: (r.display_name as string | null) ?? (r.student_no as string),
+          no: (r.student_no as string) ?? "",
+        }));
       setPrintStudentList(list);
     })().catch(() => undefined);
   }, [printOpen, printStudentList.length]);
+
+  // 선택한 유닛을 배정(또는 학습)받은 학생 id 수집
+  useEffect(() => {
+    if (!printOpen) return;
+    const unitIds = Array.from(selectedIds);
+    if (unitIds.length === 0) {
+      setAssignedStudentIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const ids = new Set<string>();
+      const { data: asg } = await supabase
+        .from("assignments")
+        .select("student_id, unit_id")
+        .in("unit_id", unitIds);
+      for (const a of asg ?? []) {
+        const sid = (a as { student_id: string | null }).student_id;
+        if (sid) ids.add(sid);
+      }
+      const { data: passages } = await supabase
+        .from("textbook_passages")
+        .select("code, unit_id")
+        .in("unit_id", unitIds);
+      const codes = (passages ?? []).map((p) => p.code as string).filter(Boolean);
+      if (codes.length > 0) {
+        const { data: prog } = await supabase
+          .from("sentence_progress")
+          .select("user_id, sentence_id")
+          .in("sentence_id", codes);
+        for (const p of prog ?? []) {
+          const uid = (p as { user_id: string | null }).user_id;
+          if (uid) ids.add(uid);
+        }
+      }
+      if (!cancelled) setAssignedStudentIds(ids);
+    })().catch(() => {
+      if (!cancelled) setAssignedStudentIds(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [printOpen, selectedIds]);
+
+  const visiblePrintStudents =
+    printOnlyAssigned && assignedStudentIds
+      ? printStudentList.filter((s) => assignedStudentIds.has(s.id))
+      : printStudentList;
+
 
   const handleOpenPrintDialog = () => {
     if (selectedIds.size === 0) {
@@ -1554,20 +1608,38 @@ const BookshelfVolume = () => {
 
             {/* 학생 선택 */}
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">학생 선택</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-muted-foreground">학생 선택</Label>
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-primary"
+                    checked={printOnlyAssigned}
+                    onChange={(e) => setPrintOnlyAssigned(e.target.checked)}
+                    disabled={printing}
+                  />
+                  선택 유닛 배정 학생만
+                </label>
+              </div>
               <Select value={printStudentId} onValueChange={setPrintStudentId}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="학생을 선택하세요" />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
-                  {printStudentList.map((s) => (
+                  {visiblePrintStudents.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name} ({s.no})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {printOnlyAssigned && visiblePrintStudents.length === 0 && (
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  선택한 강을 배정/학습한 학생이 없습니다. 체크를 해제하면 전체 학생이 표시됩니다.
+                </div>
+              )}
             </div>
+
 
             {/* 모드 선택 */}
             <div>
