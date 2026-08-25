@@ -1445,10 +1445,22 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   .bk-gist-row .bk-line { flex: 1; }
   .bk-write { display: flex; flex-direction: column; gap: 6mm; padding-top: 2mm; }
   .bk-legend { font-size: 7.5pt; color: #666; padding: 1mm 0 0; }
+  /* 단어 정리 */
+  .bk-wgrid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0 4mm;
+    border: 0.5pt solid #000; padding: 1.5mm 2.5mm;
+  }
+  .bk-wrow {
+    display: flex; align-items: baseline; gap: 1.5mm;
+    border-bottom: 0.3pt dashed #bbb; padding: 0.9mm 0; font-size: 8.5pt;
+  }
+  .bk-wnum { color: #888; font-size: 6.5pt; min-width: 5mm; }
+  .bk-wword { font-weight: 700; min-width: 26mm; }
+  .bk-wmean { color: #333; flex: 1; }
 </style>
 
 <div class="page bk-page">
-  ${header("Book Workbook", `① 선택유닛 전체 원문 (분석 · 중요어법) · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
+  ${header("Book Workbook", `① 선택유닛 전체 원문 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
   ${sourceSections || '<div class="bk-muted">(지문 없음)</div>'}
 </div>
 
@@ -1463,6 +1475,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
 </div>
 
 ${wrapUpPages}
+${wordPage}
 `;
   return wrapDoc(`BookWorkbook ${p.bookTitle}`, body);
 };
