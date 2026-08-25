@@ -56,9 +56,11 @@ interface Props {
   sentenceId: string;
   userId: string;
   memo?: unknown;
+  /** true 면 메모 4칸을 비어 있어도 모두 표시 */
+  showEmptyMemo?: boolean;
 }
 
-export const SentenceReviewDetail = ({ sentenceId, userId, memo }: Props) => {
+export const SentenceReviewDetail = ({ sentenceId, userId, memo, showEmptyMemo = false }: Props) => {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -22,7 +22,7 @@ export const StructuredMemoView = ({
   emptyText = "메모 없음",
 }: Props) => {
   const parsed = parseMemo(memo);
-  if (isMemoEmpty(parsed)) {
+  if (isMemoEmpty(parsed) && !showEmpty) {
     return <span className="text-muted-foreground italic text-xs">{emptyText}</span>;
   }
   const keys = MEMO_FIELD_KEYS.filter((k) => showEmpty || parsed[k].trim());
