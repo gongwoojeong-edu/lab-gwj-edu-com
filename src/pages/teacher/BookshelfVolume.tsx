@@ -341,6 +341,7 @@ const BookshelfVolume = () => {
         studentId: printStudentId,
         mode: printMode as WorkbookMode,
         answerKey: printMode === "syntax_unit" && printAnswerKey,
+        disableCorrection: printMode === "syntax_book" && printDisableCorrection,
       });
       await launchPrintHtml(html, {
         jobKey: `multi-unit-workbook:${textbook.id}:${printStudentId}:${printMode}:${Array.from(selectedIds).sort().join(",")}`,
