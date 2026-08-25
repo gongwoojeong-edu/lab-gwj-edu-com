@@ -125,30 +125,31 @@ const COMMON_HEAD = `
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <style>
-  @page { size: B5 portrait; margin: 10mm; }
+  @page { size: A4 portrait; margin: 7mm 8mm; }
   html, body { background: #fff; margin: 0; padding: 0; }
   body {
     font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
     color: #000;
-    font-size: 10.5pt;
+    font-size: 10pt;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
   * { box-sizing: border-box; }
-  .page { width: 162mm; min-height: 237mm; margin: 0 auto; padding: 0; page-break-after: always; }
+  .page { width: 194mm; min-height: 283mm; margin: 0 auto; padding: 0; page-break-after: always; }
   .page:last-child { page-break-after: auto; }
   .header {
     display: flex; justify-content: space-between; align-items: flex-end;
-    padding: 4mm 5mm; border-bottom: 2.5pt solid #000;
+    padding: 2mm 2mm; border-bottom: 2pt solid #000;
   }
-  .eyebrow { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
-  .title { font-size: 13pt; font-weight: 800; }
-  .meta { font-size: 8.5pt; color: #333; line-height: 1.5; }
-  .section { padding: 3mm 5mm; }
+  .eyebrow { font-size: 7pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+  .title { font-size: 12pt; font-weight: 800; }
+  .meta { font-size: 8pt; color: #333; line-height: 1.4; }
+  .section { padding: 2mm 2mm; }
   .section-title {
-    font-size: 9.5pt; font-weight: 700; margin-bottom: 2mm;
+    font-size: 9.5pt; font-weight: 700; margin-bottom: 1.5mm;
     border-left: 2pt solid #000; padding-left: 2mm;
   }
+
   @media print {
     body { background: #fff !important; }
   }
