@@ -466,6 +466,8 @@ export const buildBookCombinedWorkbookFor = async (input: {
   units: Array<{ unitId: string; unitTitle: string; unitCode: string }>;
   studentId: string;
   bookTitle?: string;
+  /** 학생해석 자동 첨삭(diff) 표기 끄기 */
+  disableCorrection?: boolean;
 }): Promise<{ html: string; unitCount: number; passageCount: number }> => {
   const { data: sp } = await supabase
     .from("student_profiles")
