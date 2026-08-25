@@ -690,6 +690,8 @@ export interface BuildUnitWorkbookInput {
   showStudentHeader?: boolean;
   /** 답지 모드 — syntax_unit 뒷면을 정답(영작/재영작)으로 채움 */
   answerKey?: boolean;
+  /** syntax_book 모드에서 학생해석 자동 첨삭(diff) 표기 끄기 */
+  disableCorrection?: boolean;
 }
 
 /**
