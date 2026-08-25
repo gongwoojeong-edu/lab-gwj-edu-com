@@ -773,6 +773,8 @@ export interface BuildMultiUnitWorkbookInput {
   mode?: WorkbookMode;
   paperSize?: "A4" | "B5";
   answerKey?: boolean;
+  /** syntax_book 모드에서 학생해석 자동 첨삭(diff) 표기 끄기 */
+  disableCorrection?: boolean;
 }
 
 /**
@@ -790,6 +792,7 @@ export const buildMultiUnitWorkbookHtml = async (
     const r = await buildBookCombinedWorkbookFor({
       units: input.units,
       studentId: input.studentId,
+      disableCorrection: input.disableCorrection,
     });
     return { html: r.html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
   }
