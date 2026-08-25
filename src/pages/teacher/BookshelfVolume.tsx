@@ -238,22 +238,73 @@ const BookshelfVolume = () => {
   };
   const clearSel = () => setSelectedIds(new Set());
 
-  // 워크북 인쇄 모달 오픈 시 학생 목록 로드 (최초 1회만)
+  // 워크북 인쇄 모달 오픈 시 학생 목록 로드 (최초 1회만, 재원생만)
   useEffect(() => {
     if (!printOpen || printStudentList.length > 0) return;
     void (async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("user_id, display_name, student_no")
+        .select("user_id, display_name, student_no, orbit_enrollment_active")
         .order("student_no", { ascending: true });
-      const list = (data ?? []).map((r) => ({
-        id: r.user_id as string,
-        name: (r.display_name as string | null) ?? (r.student_no as string),
-        no: (r.student_no as string) ?? "",
-      }));
+      const list = (data ?? [])
+        .filter((r) => (r as { orbit_enrollment_active?: boolean }).orbit_enrollment_active !== false)
+        .map((r) => ({
+          id: r.user_id as string,
+          name: (r.display_name as string | null) ?? (r.student_no as string),
+          no: (r.student_no as string) ?? "",
+        }));
       setPrintStudentList(list);
     })().catch(() => undefined);
   }, [printOpen, printStudentList.length]);
+
+  // 선택한 유닛을 배정(또는 학습)받은 학생 id 수집
+  useEffect(() => {
+    if (!printOpen) return;
+    const unitIds = Array.from(selectedIds);
+    if (unitIds.length === 0) {
+      setAssignedStudentIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const ids = new Set<string>();
+      const { data: asg } = await supabase
+        .from("assignments")
+        .select("student_id, unit_id")
+        .in("unit_id", unitIds);
+      for (const a of asg ?? []) {
+        const sid = (a as { student_id: string | null }).student_id;
+        if (sid) ids.add(sid);
+      }
+      const { data: passages } = await supabase
+        .from("textbook_passages")
+        .select("code, unit_id")
+        .in("unit_id", unitIds);
+      const codes = (passages ?? []).map((p) => p.code as string).filter(Boolean);
+      if (codes.length > 0) {
+        const { data: prog } = await supabase
+          .from("sentence_progress")
+          .select("user_id, sentence_id")
+          .in("sentence_id", codes);
+        for (const p of prog ?? []) {
+          const uid = (p as { user_id: string | null }).user_id;
+          if (uid) ids.add(uid);
+        }
+      }
+      if (!cancelled) setAssignedStudentIds(ids);
+    })().catch(() => {
+      if (!cancelled) setAssignedStudentIds(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [printOpen, selectedIds]);
+
+  const visiblePrintStudents =
+    printOnlyAssigned && assignedStudentIds
+      ? printStudentList.filter((s) => assignedStudentIds.has(s.id))
+      : printStudentList;
+
 
   const handleOpenPrintDialog = () => {
     if (selectedIds.size === 0) {
