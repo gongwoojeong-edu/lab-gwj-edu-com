@@ -1295,7 +1295,8 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     })
     .join("");
 
-  // ---------- ② 학생해석 첨삭 ----------
+  // ---------- ② 학생해석 ----------
+  const disableCorrection = !!p.disableCorrection;
   let idx2 = 0;
   const transSections = p.units
     .map((u) => {
@@ -1310,15 +1311,16 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
                 )
                 .join("")}</div>`
             : "";
-          const refHtml = it.referenceKorean.trim()
-            ? `<div class="bk-ref"><span class="bk-ref-tag">모범</span>${escapeHtml(it.referenceKorean)}</div>`
-            : "";
+          const refHtml =
+            !disableCorrection && it.referenceKorean.trim()
+              ? `<div class="bk-ref"><span class="bk-ref-tag">모범</span>${escapeHtml(it.referenceKorean)}</div>`
+              : "";
           return `
         <div class="bk-trow">
           <div class="bk-num">${idx2}.</div>
           <div class="bk-body">
             <div class="bk-code">${escapeHtml(it.passageCode)}</div>
-            <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean)}</div>
+            <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>
             ${refHtml}
             ${memoHtml}
             <div class="bk-rewrite"><span class="bk-rewrite-tag">고쳐쓰기</span><span class="bk-line"></span></div>
