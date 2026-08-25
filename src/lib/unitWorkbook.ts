@@ -442,16 +442,11 @@ const collectBookUnit = async (
 
   const items: BookCombinedItem[] = [];
   for (const p of passages) {
-    const analysis = await preloadAnalysisPayload({
-      sentenceId: p.code,
-      studentId,
-      mode: "marked",
-    }).catch(() => null);
     const memo = memoMap.get(p.code);
     items.push({
       passageCode: p.code,
       english: p.english ?? "",
-      analysis,
+      analysis: null,
       studentTranslation: transMap.get(p.code) ?? "",
       referenceKorean: (p.korean ?? "").trim(),
       memo: memo
@@ -463,7 +458,7 @@ const collectBookUnit = async (
       grammarNote: (memo?.grammar_watch ?? "").trim(),
     });
   }
-  return { unitTitle: u.unitTitle, unitCode: u.unitCode, items };
+  return { unitTitle: u.unitTitle, unitCode: u.unitCode, items, words };
 };
 
 /** 여러 유닛 → 통합 워크북 HTML */
