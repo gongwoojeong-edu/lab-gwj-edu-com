@@ -482,6 +482,17 @@ export const buildBookCombinedWorkbookFor = async (input: {
     throw new Error("선택한 유닛에 인쇄할 지문이 없습니다.");
   }
 
+  const seenWord = new Set<string>();
+  const words: Array<{ word: string; meaning: string }> = [];
+  units.forEach((u) => {
+    (u.words ?? []).forEach((w) => {
+      const key = w.word.trim().toLowerCase();
+      if (!key || seenWord.has(key)) return;
+      seenWord.add(key);
+      words.push(w);
+    });
+  });
+
   const html = buildBookCombinedWorkbookHtml({
     bookTitle:
       input.bookTitle ??
@@ -491,6 +502,7 @@ export const buildBookCombinedWorkbookFor = async (input: {
     studentName: (sp?.display_name as string | null) ?? null,
     studentNo: (sp?.student_no as string | null) ?? null,
     units,
+    words,
   });
   return {
     html,
