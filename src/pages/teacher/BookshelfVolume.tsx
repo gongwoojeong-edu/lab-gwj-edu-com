@@ -1649,8 +1649,9 @@ const BookshelfVolume = () => {
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">워크북 종류</Label>
               <div className="grid grid-cols-2 gap-2 mt-1">
-                {(["syntax_unit", "syntax_book", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
+                {(["syntax_book", "syntax_unit", "syntax_passage", "word_unit", "word_passage"] as const).map((m) => {
                   const sel = printMode === m;
+
                   return (
                     <button
                       key={m}
