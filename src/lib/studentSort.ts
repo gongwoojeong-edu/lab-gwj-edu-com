@@ -68,12 +68,16 @@ export function compareStudents(a: SortableStudent, b: SortableStudent): number 
     const c = ca.localeCompare(cb, "ko");
     if (c !== 0) return c;
   }
-  // 반 (초→중→고 → 라벨)
+  // 반 (초→중→고 → 수업 시작시각 → 라벨)
   const ka = classKey(a.orbit_class_name);
   const kb = classKey(b.orbit_class_name);
   if (ka.school !== kb.school) return ka.school - kb.school;
+  const ta = earliestClassTime(a.orbit_class_schedule) ?? "99:99";
+  const tb = earliestClassTime(b.orbit_class_schedule) ?? "99:99";
+  if (ta !== tb) return ta.localeCompare(tb);
   const lc = ka.label.localeCompare(kb.label, "ko");
   if (lc !== 0) return lc;
+
   // 학년
   const ga = gradeRank(a.actual_grade);
   const gb = gradeRank(b.actual_grade);
