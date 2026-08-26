@@ -73,6 +73,7 @@ interface Student {
   campus?: string | null;
   orbitClassName?: string | null;
   orbitClassSchedule?: Record<string, string> | null;
+  enrollmentActive?: boolean;
 }
 
 /** 실제 학년 선택지. "" = 미지정. 학습 레벨(L01~L09)과는 별개. */
@@ -128,6 +129,7 @@ const TeacherStudents = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState<string>("__all__");
+  const [showWithdrawn, setShowWithdrawn] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
@@ -364,7 +366,7 @@ const TeacherStudents = () => {
       const { data, error } = await supabase
         .from("student_profiles")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id, teacher_id, homeroom_teacher_id, campus, orbit_class_name, orbit_class_schedule") as { data: any[] | null; error: { message: string } | null };
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id, teacher_id, homeroom_teacher_id, campus, orbit_class_name, orbit_class_schedule, orbit_enrollment_active") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
@@ -429,6 +431,7 @@ const TeacherStudents = () => {
           campus: row.campus ?? null,
           orbitClassName: row.orbit_class_name ?? null,
           orbitClassSchedule: (row.orbit_class_schedule as Record<string, string> | null) ?? null,
+          enrollmentActive: row.orbit_enrollment_active !== false,
         });
       });
       setThresholdByName(wtMap);
@@ -460,6 +463,7 @@ const TeacherStudents = () => {
       { name: string; schedule: Record<string, string> | null; count: number }
     >();
     for (const s of students) {
+      if (!showWithdrawn && s.enrollmentActive === false) continue;
       const name = s.orbitClassName?.trim();
       if (!name) continue;
       const existing = map.get(name);
@@ -483,10 +487,16 @@ const TeacherStudents = () => {
       return ka.label.localeCompare(kb.label, "ko");
     });
     return arr;
-  }, [students]);
+  }, [students, showWithdrawn]);
+
+  const withdrawnCount = useMemo(
+    () => students.filter((s) => s.enrollmentActive === false).length,
+    [students],
+  );
 
   const sorted = useMemo(() => {
     let list = [...students];
+    if (!showWithdrawn) list = list.filter((s) => s.enrollmentActive !== false);
     if (isViewingAsOther && effectiveTeacherAuthUserId) {
       list = list.filter((s) => {
         if (!s.userId) return false;
@@ -528,7 +538,7 @@ const TeacherStudents = () => {
         },
       ),
     );
-  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, classFilter, profileNoByName]);
+  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, classFilter, profileNoByName, showWithdrawn]);
 
   const openCreate = () => {
     setEditing(null);
@@ -862,6 +872,17 @@ const TeacherStudents = () => {
           className="max-w-xs"
         />
         <span className="text-xs text-muted-foreground">{sorted.length}명</span>
+        <Button
+          type="button"
+          variant={showWithdrawn ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowWithdrawn((v) => !v)}
+        >
+          {showWithdrawn ? "재원생만 보기" : `퇴원생 포함 (${withdrawnCount})`}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" asChild>
+          <a href="/teacher/integrations">오르빗 동기화</a>
+        </Button>
       </div>
 
       {classTabs.length > 0 && (
