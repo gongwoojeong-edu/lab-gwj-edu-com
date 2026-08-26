@@ -538,7 +538,7 @@ const TeacherStudents = () => {
         },
       ),
     );
-  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, classFilter, profileNoByName]);
+  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, classFilter, profileNoByName, showWithdrawn]);
 
   const openCreate = () => {
     setEditing(null);
