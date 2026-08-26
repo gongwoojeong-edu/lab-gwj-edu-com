@@ -864,6 +864,20 @@ const TeacherStudents = () => {
         <span className="text-xs text-muted-foreground">{sorted.length}명</span>
       </div>
 
+      {classTabs.length > 0 && (
+        <Tabs value={classFilter} onValueChange={setClassFilter} className="mb-4">
+          <TabsList className="flex-wrap h-auto py-1 px-1">
+            <TabsTrigger value="__all__">전체</TabsTrigger>
+            {classTabs.map((c) => (
+              <TabsTrigger key={c.name} value={c.name}>
+                {classBadge(c.name)}
+                <span className="ml-1 text-[11px] text-muted-foreground">{c.count}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
+
       <div className="glass-panel rounded-2xl overflow-hidden border border-border/40">
         <Table className="text-[15px]">
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
