@@ -1200,12 +1200,16 @@ const StudentHome = () => {
                               >
                                 {multi && (
                                   <span className="text-[11px] font-bold text-muted-foreground shrink-0">
+                                    {unitBookLabel[u.unitId]
+                                      ? `${unitBookLabel[u.unitId]} · `
+                                      : ""}
                                     유닛 {u.unit_no}
                                     <span className="ml-1 text-[10px] font-normal">
                                       ({u.doneCount}/{u.totalCount})
                                     </span>
                                   </span>
                                 )}
+
                                 {allDone && (
                                   <Badge variant="secondary" className="text-[10px]">
                                     {UNIT_WORKFLOW_LABELS[status]}
