@@ -129,6 +129,29 @@ const SentenceLearn = () => {
   /** 출처 라벨: "동아이병민 5과 · U1 본문1" */
   const [sourceLabel, setSourceLabel] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!sentence?.id) {
+      setSourceLabel(null);
+      return;
+    }
+    let alive = true;
+    fetchPassageSource(sentence.id)
+      .then((s) => {
+        if (!alive || !s) return;
+        const publisher = s.seriesTitle ?? s.textbookTitle;
+        const book =
+          publisher && s.volumeNo != null ? `${publisher} ${s.volumeNo}과` : publisher;
+        const unit = s.unitTitle ? `U${s.unitNo ?? ""} ${s.unitTitle}`.trim() : null;
+        setSourceLabel([book, unit].filter(Boolean).join(" · ") || null);
+      })
+      .catch(() => setSourceLabel(null));
+    return () => {
+      alive = false;
+    };
+  }, [sentence?.id]);
+
+
+
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
   const [preDone, setPreDone] = useState(false);
