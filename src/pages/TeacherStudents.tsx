@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { SaveNumberInput } from "@/components/teacher/SaveNumberInput";
 import {
@@ -41,7 +42,7 @@ import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentP
 import StudentScopeDialog, { type ScopeDialogTarget } from "@/components/teacher/StudentScopeDialog";
 import { fetchScopeStatusMap, type ScopeStatus } from "@/lib/progressScope";
 
-import { compareStudents, earliestClassTime } from "@/lib/studentSort";
+import { classBadge, classKey, compareStudents, earliestClassTime } from "@/lib/studentSort";
 import {
   fetchAllSeries,
   fetchTextbooksBySeries,
@@ -126,6 +127,7 @@ const TeacherStudents = () => {
   const { isViewingAsOther, effectiveTeacherAuthUserId } = useStaff();
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState<string>("__all__");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
@@ -452,6 +454,37 @@ const TeacherStudents = () => {
     })();
   }, []);
 
+  const classTabs = useMemo(() => {
+    const map = new Map<
+      string,
+      { name: string; schedule: Record<string, string> | null; count: number }
+    >();
+    for (const s of students) {
+      const name = s.orbitClassName?.trim();
+      if (!name) continue;
+      const existing = map.get(name);
+      if (!existing) {
+        map.set(name, { name, schedule: s.orbitClassSchedule ?? null, count: 1 });
+      } else {
+        existing.count += 1;
+        if (s.orbitClassSchedule) {
+          existing.schedule = { ...(existing.schedule ?? {}), ...s.orbitClassSchedule };
+        }
+      }
+    }
+    const arr = [...map.values()];
+    arr.sort((a, b) => {
+      const ka = classKey(a.name);
+      const kb = classKey(b.name);
+      if (ka.school !== kb.school) return ka.school - kb.school;
+      const ta = earliestClassTime(a.schedule) ?? "99:99";
+      const tb = earliestClassTime(b.schedule) ?? "99:99";
+      if (ta !== tb) return ta.localeCompare(tb);
+      return ka.label.localeCompare(kb.label, "ko");
+    });
+    return arr;
+  }, [students]);
+
   const sorted = useMemo(() => {
     let list = [...students];
     if (isViewingAsOther && effectiveTeacherAuthUserId) {
@@ -471,6 +504,9 @@ const TeacherStudents = () => {
           .toLowerCase()
           .includes(q),
       );
+    }
+    if (classFilter !== "__all__") {
+      list = list.filter((s) => s.orbitClassName?.trim() === classFilter);
     }
     return list.sort((a, b) =>
       compareStudents(
@@ -492,7 +528,7 @@ const TeacherStudents = () => {
         },
       ),
     );
-  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, profileNoByName]);
+  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, classFilter, profileNoByName]);
 
   const openCreate = () => {
     setEditing(null);
@@ -827,6 +863,20 @@ const TeacherStudents = () => {
         />
         <span className="text-xs text-muted-foreground">{sorted.length}명</span>
       </div>
+
+      {classTabs.length > 0 && (
+        <Tabs value={classFilter} onValueChange={setClassFilter} className="mb-4">
+          <TabsList className="flex-wrap h-auto py-1 px-1">
+            <TabsTrigger value="__all__">전체</TabsTrigger>
+            {classTabs.map((c) => (
+              <TabsTrigger key={c.name} value={c.name}>
+                {classBadge(c.name)}
+                <span className="ml-1 text-[11px] text-muted-foreground">{c.count}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
 
       <div className="glass-panel rounded-2xl overflow-hidden border border-border/40">
         <Table className="text-[15px]">
