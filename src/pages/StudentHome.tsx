@@ -42,7 +42,7 @@ import {
   type AnalysisReviewRequest,
 } from "@/lib/analysisReview";
 import { gradeAnalysis } from "@/lib/analysisGrading";
-import { getAnalysisPdfSignedUrl } from "@/lib/textbooks";
+import { getAnalysisPdfSignedUrl, fetchUnitBookLabels, fetchPassageSource } from "@/lib/textbooks";
 import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
 import { GWJ_SYNTAX_LOGO_ALT, GWJ_SYNTAX_PRODUCT_NAME } from "@/lib/gwj-brand";
@@ -182,8 +182,56 @@ const StudentHome = () => {
     { unitId: string; unit_no: number; title: string; totalCount: number; doneCount: number }[]
   >([]);
   const [showAllMainUnits, setShowAllMainUnits] = useState(false);
+  /** unitId → "출판사 NN과" */
+  const [unitBookLabel, setUnitBookLabel] = useState<Record<string, string>>({});
+  /** 히어로 카드용 현재 학습 출처 ("출판사 NN과 · U1 본문1") */
+  const [nextSource, setNextSource] = useState<string | null>(null);
   const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
   const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
+
+  // 현재 학습 지문의 출처(출판사 · N과 · 유닛)
+  useEffect(() => {
+    if (!next) {
+      setNextSource(null);
+      return;
+    }
+    let alive = true;
+    fetchPassageSource(next.id)
+      .then((s) => {
+        if (!alive || !s) return;
+        const publisher = s.seriesTitle ?? s.textbookTitle;
+        const book =
+          publisher && s.volumeNo != null ? `${publisher} ${s.volumeNo}과` : publisher;
+        const unit = s.unitTitle ? `U${s.unitNo ?? ""} ${s.unitTitle}`.trim() : null;
+        setNextSource([book, unit].filter(Boolean).join(" · ") || null);
+      })
+      .catch(() => setNextSource(null));
+    return () => {
+      alive = false;
+    };
+  }, [next]);
+
+  // 과제/진도 유닛의 "출판사 N과" 라벨
+  useEffect(() => {
+    const ids = [
+      ...mainUnits.map((u) => u.unitId),
+      ...assignmentGroups.flatMap((g) => [
+        ...(g.unitId ? [g.unitId] : []),
+        ...g.unitBreakdown.map((u) => u.unitId),
+      ]),
+    ];
+    if (ids.length === 0) return;
+    let alive = true;
+    fetchUnitBookLabels(ids)
+      .then((m) => {
+        if (alive) setUnitBookLabel((prev) => ({ ...prev, ...m }));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [mainUnits, assignmentGroups]);
+
 
   useEffect(() => {
     let mounted = true;
@@ -1067,6 +1115,17 @@ const StudentHome = () => {
                             {g.track === "naeshin" ? "내신" : "특별"}
                           </span>
                           <span className="text-sm font-bold truncate">{g.title}</span>
+                          {(() => {
+                            const book =
+                              (g.unitId && unitBookLabel[g.unitId]) ||
+                              unitBookLabel[g.unitBreakdown[0]?.unitId ?? ""];
+                            return book ? (
+                              <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-foreground/10 text-foreground/80">
+                                {book}
+                              </span>
+                            ) : null;
+                          })()}
+
                           {g.round_no != null && g.round_no > 1 && (
                             <span className="inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300">
                               {g.round_no}회독
@@ -1141,12 +1200,16 @@ const StudentHome = () => {
                               >
                                 {multi && (
                                   <span className="text-[11px] font-bold text-muted-foreground shrink-0">
+                                    {unitBookLabel[u.unitId]
+                                      ? `${unitBookLabel[u.unitId]} · `
+                                      : ""}
                                     유닛 {u.unit_no}
                                     <span className="ml-1 text-[10px] font-normal">
                                       ({u.doneCount}/{u.totalCount})
                                     </span>
                                   </span>
                                 )}
+
                                 {allDone && (
                                   <Badge variant="secondary" className="text-[10px]">
                                     {UNIT_WORKFLOW_LABELS[status]}
@@ -1368,7 +1431,9 @@ const StudentHome = () => {
                       >
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold truncate">
+                            {unitBookLabel[u.unitId] ? `${unitBookLabel[u.unitId]} · ` : ""}
                             U{u.unit_no} · {u.title}
+
                           </div>
                           <div className="text-[11px] text-muted-foreground">
                             완료 {u.doneCount}/{u.totalCount}
@@ -1444,7 +1509,9 @@ const StudentHome = () => {
                         className="flex flex-wrap items-center gap-1.5 p-3 rounded-lg border border-primary/20 bg-card"
                       >
                         <span className="text-xs font-bold shrink-0">
+                          {unitBookLabel[u.unitId] ? `${unitBookLabel[u.unitId]} · ` : ""}
                           U{u.unit_no} · {u.title}
+
                           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
                             ({u.doneCount}/{u.totalCount})
                           </span>
@@ -1588,9 +1655,15 @@ const StudentHome = () => {
                   <h1 className="text-3xl sm:text-4xl font-extrabold">
                     {next ? levelDisplay(next.level) : "—"}
                   </h1>
+                  {next && nextSource && (
+                    <div className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-white/20">
+                      {nextSource}
+                    </div>
+                  )}
                   <div className="text-sm opacity-90">
                     {next ? `${next.id} · Passage ${next.no}` : "다음 Passage가 없습니다"}
                   </div>
+
                 </div>
                 {next && (
                   <p className="text-base sm:text-lg leading-relaxed font-medium opacity-95 line-clamp-3">

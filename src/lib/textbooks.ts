@@ -573,6 +573,58 @@ export const fetchPassageSource = async (code: string): Promise<PassageSource | 
   };
 };
 
+/**
+ * 유닛 id 목록 → "출판사(시리즈) NN과" 형태의 출처 라벨 맵.
+ * 예: { "<unitId>": "동아이병민 5과" }
+ */
+export const fetchUnitBookLabels = async (
+  unitIds: string[],
+): Promise<Record<string, string>> => {
+  const ids = [...new Set(unitIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const out: Record<string, string> = {};
+  const unitRows: { id: string; textbook_id: string | null }[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await supabase
+      .from("textbook_units")
+      .select("id, textbook_id")
+      .in("id", ids.slice(i, i + 200));
+    unitRows.push(...((data ?? []) as { id: string; textbook_id: string | null }[]));
+  }
+
+  const tbIds = [...new Set(unitRows.map((u) => u.textbook_id).filter(Boolean) as string[])];
+  if (tbIds.length === 0) return out;
+  const { data: tbRows } = await supabase
+    .from("textbooks")
+    .select("id, series_id, volume_no, title")
+    .in("id", tbIds);
+  const tbMap = new Map(
+    ((tbRows ?? []) as { id: string; series_id: string | null; volume_no: number; title: string }[])
+      .map((t) => [t.id, t]),
+  );
+
+  const seriesIds = [...new Set([...tbMap.values()].map((t) => t.series_id).filter(Boolean) as string[])];
+  const seriesMap = new Map<string, string>();
+  if (seriesIds.length > 0) {
+    const { data: sRows } = await supabase
+      .from("textbook_series")
+      .select("id, title")
+      .in("id", seriesIds);
+    ((sRows ?? []) as { id: string; title: string }[]).forEach((s) => seriesMap.set(s.id, s.title));
+  }
+
+  unitRows.forEach((u) => {
+    if (!u.textbook_id) return;
+    const tb = tbMap.get(u.textbook_id);
+    if (!tb) return;
+    const publisher = (tb.series_id ? seriesMap.get(tb.series_id) : null) ?? tb.title;
+    out[u.id] = `${publisher} ${tb.volume_no}과`.trim();
+  });
+  return out;
+};
+
+
 
 /**
  * 텍스트 본문을 분할해 일괄 추가.

@@ -21,6 +21,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import Index from "@/pages/Index";
+import { fetchPassageSource } from "@/lib/textbooks";
+
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
@@ -124,6 +126,32 @@ const SentenceLearn = () => {
     patch: Parameters<typeof upsertSentenceProgress>[1],
   ) => upsertSentenceProgress(sid, { assignmentId: assignmentIdParam, ...patch });
   const [sentence, setSentence] = useState<Sentence | null>(null);
+  /** 출처 라벨: "동아이병민 5과 · U1 본문1" */
+  const [sourceLabel, setSourceLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sentence?.id) {
+      setSourceLabel(null);
+      return;
+    }
+    let alive = true;
+    fetchPassageSource(sentence.id)
+      .then((s) => {
+        if (!alive || !s) return;
+        const publisher = s.seriesTitle ?? s.textbookTitle;
+        const book =
+          publisher && s.volumeNo != null ? `${publisher} ${s.volumeNo}과` : publisher;
+        const unit = s.unitTitle ? `U${s.unitNo ?? ""} ${s.unitTitle}`.trim() : null;
+        setSourceLabel([book, unit].filter(Boolean).join(" · ") || null);
+      })
+      .catch(() => setSourceLabel(null));
+    return () => {
+      alive = false;
+    };
+  }, [sentence?.id]);
+
+
+
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
   const [preDone, setPreDone] = useState(false);
@@ -966,7 +994,13 @@ const SentenceLearn = () => {
             </Button>
             <div className="min-w-0 flex-1">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {sourceLabel && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold">
+                    {sourceLabel}
+                  </span>
+                )}
                 {levelDisplay(sentence.level)} · {sentence.id}
+
                 {previousStatus === "fail" && (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
                     미통

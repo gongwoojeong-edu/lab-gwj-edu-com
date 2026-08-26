@@ -58,7 +58,9 @@ import {
 import { errMsg } from "@/lib/errMsg";
 import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
 import { ensureLogoDataUri } from "@/lib/printTemplates";
+import { fetchUnitBookLabels } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -612,12 +614,15 @@ const LearningResults = () => {
         );
         setCodeToUnit(c2u);
 
-        // 라벨 (textbook level/title + unit_no/title)
+        // 라벨 (출판사 NN과 · Uxx 유닛명)
         if (unitIds.size > 0) {
-          const { data: uRows } = await supabase
-            .from("textbook_units")
-            .select("id, unit_no, title, textbook_id")
-            .in("id", Array.from(unitIds));
+          const [{ data: uRows }, bookLabels] = await Promise.all([
+            supabase
+              .from("textbook_units")
+              .select("id, unit_no, title, textbook_id")
+              .in("id", Array.from(unitIds)),
+            fetchUnitBookLabels(Array.from(unitIds)),
+          ]);
           const tbMap = new Map<string, { level: string; title: string }>();
           if (tbIds.size > 0) {
             const { data: tbRows } = await supabase
@@ -633,10 +638,12 @@ const LearningResults = () => {
             id: string; unit_no: number; title: string; textbook_id: string;
           }[]).forEach((u) => {
             const tb = tbMap.get(u.textbook_id);
-            const tbPrefix = tb ? `[${tb.level}] ${tb.title}` : "";
-            lblMap[u.id] = `${tbPrefix} · U${u.unit_no} ${u.title}`.trim();
+            const lvl = tb ? `[${tb.level}] ` : "";
+            const book = bookLabels[u.id] ?? tb?.title ?? "";
+            lblMap[u.id] = `${lvl}${book} · U${u.unit_no} ${u.title}`.trim();
           });
           setUnitLabel(lblMap);
+
 
           // 유닛별 전체 지문 수 (진행률 분모)
           const { data: allPassages } = await supabase
@@ -1242,6 +1249,22 @@ const LearningResults = () => {
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
+                    {(() => {
+                      const uids = new Set<string>();
+                      let noUnit = 0;
+                      sentenceIds.forEach((sid) => {
+                        const uid = codeToUnit[sid];
+                        if (uid) uids.add(uid);
+                        else noUnit++;
+                      });
+                      const unitCount = uids.size + noUnit;
+                      return (
+                        <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
+                          총 {unitCount}유닛
+                        </Badge>
+                      );
+                    })()}
+
                     {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
                     <div className="ml-auto flex items-center gap-1.5">
                       <Button
