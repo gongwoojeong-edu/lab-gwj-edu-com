@@ -1249,6 +1249,22 @@ const LearningResults = () => {
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
+                    {(() => {
+                      const uids = new Set<string>();
+                      let noUnit = 0;
+                      sentenceIds.forEach((sid) => {
+                        const uid = codeToUnit[sid];
+                        if (uid) uids.add(uid);
+                        else noUnit++;
+                      });
+                      const unitCount = uids.size + noUnit;
+                      return (
+                        <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
+                          총 {unitCount}유닛
+                        </Badge>
+                      );
+                    })()}
+
                     {/* 학생별 워크북 모드 토글 제거됨 — 인쇄 시 모달에서 직접 선택 */}
                     <div className="ml-auto flex items-center gap-1.5">
                       <Button
