@@ -24,8 +24,8 @@ export interface NextSentenceResult {
 /**
  * 학생 프로필의 학습 범위 → passage code 집합.
  * - 시리즈만: 시리즈 전체
- * - 시작 권(교재) 지정: 그 권부터 같은 시리즈의 마지막 권까지 (앞 권은 제외)
- * - 시작 유닛: 그 유닛부터 같은 권 끝까지, 이후 권들은 전체
+ * - 권(과) 지정: 그 권만 (다음 권으로 자동 진행하지 않음)
+ * - 시작 유닛: 그 권에서 그 유닛부터 권 끝까지
  * 범위 미지정 → null (= 레벨 전체)
  */
 const fetchScopedPassageCodes = async (
@@ -50,24 +50,8 @@ const fetchScopedPassageCodes = async (
   const startVolumeId = profile.start_volume_id ?? startUnitTextbookId;
 
   if (startVolumeId) {
-    // 시작 권 → 같은 시리즈의 그 권부터 마지막 권까지
-    const { data: startVol } = await supabase
-      .from("textbooks")
-      .select("id, series_id, volume_no")
-      .eq("id", startVolumeId)
-      .maybeSingle();
-    const sv = startVol as { series_id: string; volume_no: number } | null;
-    if (sv) {
-      const { data: vols } = await supabase
-        .from("textbooks")
-        .select("id, volume_no")
-        .eq("series_id", sv.series_id)
-        .gte("volume_no", sv.volume_no);
-      textbookIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
-      if (!textbookIds.includes(startVolumeId)) textbookIds.push(startVolumeId);
-    } else {
-      textbookIds = [startVolumeId];
-    }
+    // 권(과)을 지정하면 그 권 하나만 진도 범위 — 다음 권으로 자동 진행하지 않는다.
+    textbookIds = [startVolumeId];
   } else if (profile.start_series_id) {
     const { data: vols } = await supabase
       .from("textbooks")
@@ -150,10 +134,10 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
     }
   }
 
-  let inLevel = SENTENCES.filter((s) => s.level === targetLevel);
-  if (scopedCodes) {
-    inLevel = inLevel.filter((s) => scopedCodes.has(s.id));
-  }
+  // 진도 범위가 지정된 경우 범위가 우선 — 같은 책 안의 다른 레벨 코드 지문도 건너뛰지 않는다.
+  let inLevel = scopedCodes
+    ? SENTENCES.filter((s) => scopedCodes.has(s.id))
+    : SENTENCES.filter((s) => s.level === targetLevel);
 
   // 지정 범위에 등록된 지문이 0개 → 학습 자료 미준비 상태(완료가 아님)
   if (inLevel.length === 0) {
