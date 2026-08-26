@@ -37,6 +37,7 @@ import {
   Eye,
   BookOpen,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
