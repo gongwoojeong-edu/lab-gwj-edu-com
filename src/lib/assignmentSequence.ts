@@ -7,6 +7,7 @@
 export type PassageOrderMeta = {
   unit_id: string | null;
   textbook_id: string | null;
+  volume_no: number;
   unit_no: number;
   passage_no: number;
 };
@@ -27,6 +28,9 @@ export function comparePassageOrder(
 ): number {
   const a = aCode ? meta.get(aCode) : undefined;
   const b = bCode ? meta.get(bCode) : undefined;
+  const aVolume = a?.volume_no ?? Number.MAX_SAFE_INTEGER;
+  const bVolume = b?.volume_no ?? Number.MAX_SAFE_INTEGER;
+  if (aVolume !== bVolume) return aVolume - bVolume;
   const aUnit = a?.unit_no ?? Number.MAX_SAFE_INTEGER;
   const bUnit = b?.unit_no ?? Number.MAX_SAFE_INTEGER;
   if (aUnit !== bUnit) return aUnit - bUnit;
@@ -70,6 +74,24 @@ export async function fetchPassageOrderMeta(
     );
   }
 
+  const textbookIds = Array.from(
+    new Set(
+      [...unitMap.values()]
+        .map((unit) => unit.textbook_id)
+        .filter((id): id is string => !!id),
+    ),
+  );
+  const volumeMap = new Map<string, number>();
+  if (textbookIds.length > 0) {
+    const { data: textbooks } = await supabase
+      .from("textbooks")
+      .select("id, volume_no")
+      .in("id", textbookIds);
+    ((textbooks ?? []) as { id: string; volume_no: number }[]).forEach((textbook) => {
+      volumeMap.set(textbook.id, textbook.volume_no);
+    });
+  }
+
   ((passageRows ?? []) as {
     code: string;
     unit_id: string | null;
@@ -79,6 +101,7 @@ export async function fetchPassageOrderMeta(
     out.set(p.code, {
       unit_id: p.unit_id,
       textbook_id: u?.textbook_id ?? null,
+      volume_no: u?.textbook_id ? (volumeMap.get(u.textbook_id) ?? 9999) : 9999,
       unit_no: u?.unit_no ?? 9999,
       passage_no: p.passage_no ?? 9999,
     });
