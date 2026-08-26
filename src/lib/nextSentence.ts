@@ -94,17 +94,16 @@ const fetchScopedPassageCodes = async (
         codesByBook.set(bookId, codes);
       });
 
-      // 설정 권 이전에서 실제로 시작했지만 끝내지 못한 가장 최근 권을 복구한다.
-      // 전혀 시작하지 않은 오래된 권은 진도 범위에 끌어들이지 않는다.
-      const latestPartialIndex = orderedBooks.reduce((latest, book, index) => {
-        if (book.id === startVolumeId) return latest;
-        const codes = codesByBook.get(book.id) ?? [];
+      // 설정 권 "바로 앞 권"만 미완료 복구 대상. 더 예전 권은 끌어오지 않는다.
+      const configuredIndex = orderedBooks.findIndex((book) => book.id === startVolumeId);
+      const prevIndex = configuredIndex - 1;
+      let startIndex = configuredIndex >= 0 ? configuredIndex : Math.max(orderedBooks.length - 1, 0);
+      if (prevIndex >= 0) {
+        const codes = codesByBook.get(orderedBooks[prevIndex].id) ?? [];
         const done = codes.filter((code) => completedCodes.has(code)).length;
-        return done > 0 && done < codes.length ? index : latest;
-      }, -1);
-      textbookIds = orderedBooks
-        .slice(latestPartialIndex >= 0 ? latestPartialIndex : Math.max(orderedBooks.length - 1, 0))
-        .map((book) => book.id);
+        if (done > 0 && done < codes.length) startIndex = prevIndex;
+      }
+      textbookIds = orderedBooks.slice(startIndex).map((book) => book.id);
     }
   } else if (profile.start_series_id) {
     const { data: vols } = await supabase
