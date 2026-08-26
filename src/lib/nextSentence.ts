@@ -24,12 +24,13 @@ export interface NextSentenceResult {
 /**
  * 학생 프로필의 학습 범위 → passage code 집합.
  * - 시리즈만: 시리즈 전체
- * - 권(과) 지정: 그 권만 (다음 권으로 자동 진행하지 않음)
+ * - 권(과) 지정: 그 권이 상한. 앞 권에 시작한 미완료가 있으면 가장 최근 미완료 권부터
  * - 시작 유닛: 그 권에서 그 유닛부터 권 끝까지
  * 범위 미지정 → null (= 레벨 전체)
  */
 const fetchScopedPassageCodes = async (
   profile: StudentProfile,
+  completedCodes: Set<string>,
 ): Promise<Set<string> | null> => {
   let startUnitNo: number | null = null;
   let startUnitTextbookId: string | null = null;
@@ -50,8 +51,61 @@ const fetchScopedPassageCodes = async (
   const startVolumeId = profile.start_volume_id ?? startUnitTextbookId;
 
   if (startVolumeId) {
-    // 권(과)을 지정하면 그 권 하나만 진도 범위 — 다음 권으로 자동 진행하지 않는다.
-    textbookIds = [startVolumeId];
+    if (startUnitTextbookId) {
+      // 유닛 직접 지정은 명시적인 시작점이므로 해당 권의 지정 유닛부터만 진행한다.
+      textbookIds = [startVolumeId];
+    } else {
+      const { data: configuredBook } = await supabase
+        .from("textbooks")
+        .select("series_id, volume_no")
+        .eq("id", startVolumeId)
+        .maybeSingle();
+      if (!configuredBook) return new Set();
+
+      const { data: books } = await supabase
+        .from("textbooks")
+        .select("id, volume_no")
+        .eq("series_id", configuredBook.series_id)
+        .lte("volume_no", configuredBook.volume_no)
+        .order("volume_no", { ascending: true });
+      const orderedBooks = (books ?? []) as { id: string; volume_no: number }[];
+      const candidateIds = orderedBooks.map((book) => book.id);
+
+      const { data: candidateUnits } = candidateIds.length
+        ? await supabase
+            .from("textbook_units")
+            .select("id, textbook_id")
+            .in("textbook_id", candidateIds)
+        : { data: [] };
+      const candidateUnitRows = (candidateUnits ?? []) as { id: string; textbook_id: string }[];
+      const unitToBook = new Map(candidateUnitRows.map((unit) => [unit.id, unit.textbook_id]));
+      const { data: candidatePassages } = candidateUnitRows.length
+        ? await supabase
+            .from("textbook_passages")
+            .select("code, unit_id")
+            .in("unit_id", candidateUnitRows.map((unit) => unit.id))
+        : { data: [] };
+      const codesByBook = new Map<string, string[]>();
+      ((candidatePassages ?? []) as { code: string; unit_id: string }[]).forEach((passage) => {
+        const bookId = unitToBook.get(passage.unit_id);
+        if (!bookId) return;
+        const codes = codesByBook.get(bookId) ?? [];
+        codes.push(passage.code);
+        codesByBook.set(bookId, codes);
+      });
+
+      // 설정 권 이전에서 실제로 시작했지만 끝내지 못한 가장 최근 권을 복구한다.
+      // 전혀 시작하지 않은 오래된 권은 진도 범위에 끌어들이지 않는다.
+      const latestPartialIndex = orderedBooks.reduce((latest, book, index) => {
+        if (book.id === startVolumeId) return latest;
+        const codes = codesByBook.get(book.id) ?? [];
+        const done = codes.filter((code) => completedCodes.has(code)).length;
+        return done > 0 && done < codes.length ? index : latest;
+      }, -1);
+      textbookIds = orderedBooks
+        .slice(latestPartialIndex >= 0 ? latestPartialIndex : Math.max(orderedBooks.length - 1, 0))
+        .map((book) => book.id);
+    }
   } else if (profile.start_series_id) {
     const { data: vols } = await supabase
       .from("textbooks")
@@ -115,7 +169,7 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
   // 시작 범위(시리즈/권/유닛) 지정이 있으면 그 code 집합으로 한 번 더 좁힌다.
-  const scopedCodes = await fetchScopedPassageCodes(profile);
+  const scopedCodes = await fetchScopedPassageCodes(profile, passed);
 
   // scopedCodes 중 메모리 SENTENCES에 아직 없는 것이 있으면 DB에서 직접 로드해 머지.
   // (sessionStorage 캐시가 stale 한 경우 신규 배정 책의 지문이 누락되는 사고 방지)
@@ -566,7 +620,7 @@ export const resolveNextAfterPass = async (
     if (curUnit) {
       const tbId = (curUnit as { textbook_id: string }).textbook_id;
       const curNo = (curUnit as { unit_no: number }).unit_no;
-      const scoped = profile ? await fetchScopedPassageCodes(profile) : null;
+      const scoped = profile ? await fetchScopedPassageCodes(profile, passed) : null;
       const { data: laterUnits } = await supabase
         .from("textbook_units")
         .select("id, unit_no")
