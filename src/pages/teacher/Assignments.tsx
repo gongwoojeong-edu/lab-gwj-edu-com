@@ -267,6 +267,8 @@ interface FormState {
   includeMemorize: boolean;
   /** 빈 문자열 = 유닛 기본값 따름 */
   memDirection: MemDirectionSetting | "";
+  /** continue = 같은 회독 이어서(기존 학습이력 유지) / new = 새 회독(기록 봉인 후 백지 재학습) */
+  roundMode: "continue" | "new";
 }
 
 const emptyForm = (): FormState => ({
@@ -286,7 +288,9 @@ const emptyForm = (): FormState => ({
   includeWordtest: true,
   includeMemorize: false,
   memDirection: "",
+  roundMode: "continue",
 });
+
 
 interface AssignmentsProps {
   /** "create" = 과제 출제 화면(기본), "box" = 과제함(목록) */
