@@ -182,8 +182,13 @@ const StudentHome = () => {
     { unitId: string; unit_no: number; title: string; totalCount: number; doneCount: number }[]
   >([]);
   const [showAllMainUnits, setShowAllMainUnits] = useState(false);
+  /** unitId → "출판사 NN과" */
+  const [unitBookLabel, setUnitBookLabel] = useState<Record<string, string>>({});
+  /** 히어로 카드용 현재 학습 출처 ("출판사 NN과 · U1 본문1") */
+  const [nextSource, setNextSource] = useState<string | null>(null);
   const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
   const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
+
 
   useEffect(() => {
     let mounted = true;
