@@ -612,12 +612,15 @@ const LearningResults = () => {
         );
         setCodeToUnit(c2u);
 
-        // 라벨 (textbook level/title + unit_no/title)
+        // 라벨 (출판사 NN과 · Uxx 유닛명)
         if (unitIds.size > 0) {
-          const { data: uRows } = await supabase
-            .from("textbook_units")
-            .select("id, unit_no, title, textbook_id")
-            .in("id", Array.from(unitIds));
+          const [{ data: uRows }, bookLabels] = await Promise.all([
+            supabase
+              .from("textbook_units")
+              .select("id, unit_no, title, textbook_id")
+              .in("id", Array.from(unitIds)),
+            fetchUnitBookLabels(Array.from(unitIds)),
+          ]);
           const tbMap = new Map<string, { level: string; title: string }>();
           if (tbIds.size > 0) {
             const { data: tbRows } = await supabase
@@ -633,10 +636,12 @@ const LearningResults = () => {
             id: string; unit_no: number; title: string; textbook_id: string;
           }[]).forEach((u) => {
             const tb = tbMap.get(u.textbook_id);
-            const tbPrefix = tb ? `[${tb.level}] ${tb.title}` : "";
-            lblMap[u.id] = `${tbPrefix} · U${u.unit_no} ${u.title}`.trim();
+            const lvl = tb ? `[${tb.level}] ` : "";
+            const book = bookLabels[u.id] ?? tb?.title ?? "";
+            lblMap[u.id] = `${lvl}${book} · U${u.unit_no} ${u.title}`.trim();
           });
           setUnitLabel(lblMap);
+
 
           // 유닛별 전체 지문 수 (진행률 분모)
           const { data: allPassages } = await supabase
