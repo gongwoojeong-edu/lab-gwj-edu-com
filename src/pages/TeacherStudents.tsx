@@ -872,6 +872,17 @@ const TeacherStudents = () => {
           className="max-w-xs"
         />
         <span className="text-xs text-muted-foreground">{sorted.length}명</span>
+        <Button
+          type="button"
+          variant={showWithdrawn ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowWithdrawn((v) => !v)}
+        >
+          {showWithdrawn ? "재원생만 보기" : `퇴원생 포함 (${withdrawnCount})`}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/teacher/integrations")}>
+          오르빗 동기화
+        </Button>
       </div>
 
       {classTabs.length > 0 && (
