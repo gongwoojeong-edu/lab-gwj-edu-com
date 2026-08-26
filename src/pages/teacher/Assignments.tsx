@@ -2034,6 +2034,42 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
               {renderMemDirectionPicker(form, setForm)}
             </div>
             <div className="sm:col-span-2 space-y-2">
+              <Label>재배부 방식 *</Label>
+              <RadioGroup
+                value={form.roundMode}
+                onValueChange={(v) =>
+                  setForm((p) => ({ ...p, roundMode: v as "continue" | "new" }))
+                }
+                className="grid gap-2 sm:grid-cols-2"
+              >
+                <label
+                  htmlFor="round-continue"
+                  className="flex items-start gap-2 rounded-md border border-border p-3 cursor-pointer hover:bg-accent/40"
+                >
+                  <RadioGroupItem value="continue" id="round-continue" className="mt-0.5" />
+                  <span className="text-sm">
+                    <span className="font-semibold">같은 회독 이어서</span>
+                    <span className="block text-xs text-muted-foreground">
+                      기존 학습이력 그대로 유지 (실수로 다시 배부한 경우)
+                    </span>
+                  </span>
+                </label>
+                <label
+                  htmlFor="round-new"
+                  className="flex items-start gap-2 rounded-md border border-border p-3 cursor-pointer hover:bg-accent/40"
+                >
+                  <RadioGroupItem value="new" id="round-new" className="mt-0.5" />
+                  <span className="text-sm">
+                    <span className="font-semibold">새 회독으로 배부 (2·3회독)</span>
+                    <span className="block text-xs text-muted-foreground">
+                      이전 회독 기록은 보관하고 백지 상태로 새로 학습
+                    </span>
+                  </span>
+                </label>
+              </RadioGroup>
+            </div>
+
+            <div className="sm:col-span-2 space-y-2">
               <Label>출제 모드 *</Label>
               <RadioGroup
                 value={form.mode}
