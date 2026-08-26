@@ -144,6 +144,7 @@ const LearningResults = () => {
   const [unitWorkflowMap, setUnitWorkflowMap] = useState<Record<string, UnitWorkflowRow>>({});
   const [unitGradeDraft, setUnitGradeDraft] = useState<Record<string, TeacherGrade>>({});
   const [unitMemoDraft, setUnitMemoDraft] = useState<Record<string, string>>({});
+  const [studentSearch, setStudentSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
