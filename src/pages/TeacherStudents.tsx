@@ -462,6 +462,7 @@ const TeacherStudents = () => {
       { name: string; schedule: Record<string, string> | null; count: number }
     >();
     for (const s of students) {
+      if (!showWithdrawn && s.enrollmentActive === false) continue;
       const name = s.orbitClassName?.trim();
       if (!name) continue;
       const existing = map.get(name);
@@ -485,10 +486,16 @@ const TeacherStudents = () => {
       return ka.label.localeCompare(kb.label, "ko");
     });
     return arr;
-  }, [students]);
+  }, [students, showWithdrawn]);
+
+  const withdrawnCount = useMemo(
+    () => students.filter((s) => s.enrollmentActive === false).length,
+    [students],
+  );
 
   const sorted = useMemo(() => {
     let list = [...students];
+    if (!showWithdrawn) list = list.filter((s) => s.enrollmentActive !== false);
     if (isViewingAsOther && effectiveTeacherAuthUserId) {
       list = list.filter((s) => {
         if (!s.userId) return false;
