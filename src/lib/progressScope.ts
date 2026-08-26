@@ -128,17 +128,17 @@ export const scopedCodesFor = (
             (idx.textbookById.get(a)?.volume_no ?? 0) -
             (idx.textbookById.get(b)?.volume_no ?? 0),
         );
-      const latestPartialIndex = ordered.reduce((latest, textbookId, index) => {
-        if (textbookId === startVolumeId) return latest;
-        const codes = (idx.unitsByTextbook.get(textbookId) ?? []).flatMap(
+      const configuredIndex = ordered.findIndex((id) => id === startVolumeId);
+      const prevIndex = configuredIndex - 1;
+      let startIndex = configuredIndex >= 0 ? configuredIndex : Math.max(ordered.length - 1, 0);
+      if (prevIndex >= 0) {
+        const codes = (idx.unitsByTextbook.get(ordered[prevIndex]) ?? []).flatMap(
           (unit) => idx.codesByUnit.get(unit.id) ?? [],
         );
         const done = codes.filter((code) => completed.has(code)).length;
-        return done > 0 && done < codes.length ? index : latest;
-      }, -1);
-      textbookIds = ordered.slice(
-        latestPartialIndex >= 0 ? latestPartialIndex : Math.max(ordered.length - 1, 0),
-      );
+        if (done > 0 && done < codes.length) startIndex = prevIndex;
+      }
+      textbookIds = ordered.slice(startIndex);
     }
   } else if (s.start_series_id) {
     textbookIds = idx.textbooksBySeries.get(s.start_series_id) ?? [];
