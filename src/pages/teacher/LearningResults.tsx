@@ -1162,7 +1162,7 @@ const LearningResults = () => {
               . HO는 워크북 제출(채점 대기) 이후 활성화됩니다.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <label
               className={`text-xs flex items-center gap-1.5 px-2.5 h-9 rounded-md border cursor-pointer transition-colors ${
                 answerKeyMode
@@ -1196,6 +1196,16 @@ const LearningResults = () => {
               onChange={(e) => setDate(e.target.value)}
               className="h-9 w-44"
             />
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="학생 이름 검색"
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                className="h-9 w-44 pl-9"
+              />
+            </div>
             <Button size="sm" variant="outline" onClick={refresh}>
               <RefreshCcw className="size-4 mr-1" />
               새로고침
