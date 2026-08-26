@@ -1115,6 +1115,17 @@ const StudentHome = () => {
                             {g.track === "naeshin" ? "내신" : "특별"}
                           </span>
                           <span className="text-sm font-bold truncate">{g.title}</span>
+                          {(() => {
+                            const book =
+                              (g.unitId && unitBookLabel[g.unitId]) ||
+                              unitBookLabel[g.unitBreakdown[0]?.unitId ?? ""];
+                            return book ? (
+                              <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-foreground/10 text-foreground/80">
+                                {book}
+                              </span>
+                            ) : null;
+                          })()}
+
                           {g.round_no != null && g.round_no > 1 && (
                             <span className="inline-flex items-center text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-700 dark:text-violet-300">
                               {g.round_no}회독
