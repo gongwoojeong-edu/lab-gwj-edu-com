@@ -454,6 +454,37 @@ const TeacherStudents = () => {
     })();
   }, []);
 
+  const classTabs = useMemo(() => {
+    const map = new Map<
+      string,
+      { name: string; schedule: Record<string, string> | null; count: number }
+    >();
+    for (const s of students) {
+      const name = s.orbitClassName?.trim();
+      if (!name) continue;
+      const existing = map.get(name);
+      if (!existing) {
+        map.set(name, { name, schedule: s.orbitClassSchedule ?? null, count: 1 });
+      } else {
+        existing.count += 1;
+        if (s.orbitClassSchedule) {
+          existing.schedule = { ...(existing.schedule ?? {}), ...s.orbitClassSchedule };
+        }
+      }
+    }
+    const arr = [...map.values()];
+    arr.sort((a, b) => {
+      const ka = classKey(a.name);
+      const kb = classKey(b.name);
+      if (ka.school !== kb.school) return ka.school - kb.school;
+      const ta = earliestClassTime(a.schedule) ?? "99:99";
+      const tb = earliestClassTime(b.schedule) ?? "99:99";
+      if (ta !== tb) return ta.localeCompare(tb);
+      return ka.label.localeCompare(kb.label, "ko");
+    });
+    return arr;
+  }, [students]);
+
   const sorted = useMemo(() => {
     let list = [...students];
     if (isViewingAsOther && effectiveTeacherAuthUserId) {
