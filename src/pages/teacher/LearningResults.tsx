@@ -1219,7 +1219,9 @@ const LearningResults = () => {
           </Card>
         ) : groupedEntries.length === 0 ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">
-            해당 날짜에 학습 활동이 없습니다.
+            {studentSearch.trim()
+              ? "검색 조건에 맞는 학생이 없습니다."
+              : "해당 날짜에 학습 활동이 없습니다."}
           </Card>
         ) : (
           <div className="space-y-3">
