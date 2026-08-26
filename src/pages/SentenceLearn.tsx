@@ -124,6 +124,9 @@ const SentenceLearn = () => {
     patch: Parameters<typeof upsertSentenceProgress>[1],
   ) => upsertSentenceProgress(sid, { assignmentId: assignmentIdParam, ...patch });
   const [sentence, setSentence] = useState<Sentence | null>(null);
+  /** 출처 라벨: "동아이병민 5과 · U1 본문1" */
+  const [sourceLabel, setSourceLabel] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
   const [preDone, setPreDone] = useState(false);
