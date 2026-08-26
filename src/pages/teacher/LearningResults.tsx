@@ -37,6 +37,7 @@ import {
   Eye,
   BookOpen,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -143,6 +144,7 @@ const LearningResults = () => {
   const [unitWorkflowMap, setUnitWorkflowMap] = useState<Record<string, UnitWorkflowRow>>({});
   const [unitGradeDraft, setUnitGradeDraft] = useState<Record<string, TeacherGrade>>({});
   const [unitMemoDraft, setUnitMemoDraft] = useState<Record<string, string>>({});
+  const [studentSearch, setStudentSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -661,10 +663,20 @@ const LearningResults = () => {
   }, [date]);
 
   const groupedEntries = useMemo(
-    () =>
-      Object.entries(studentSentences)
+    () => {
+      const query = studentSearch.trim().toLowerCase();
+      return Object.entries(studentSentences)
         // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
         .filter(([uid]) => students[uid])
+        .filter(([uid]) => {
+          if (!query) return true;
+          const s = students[uid];
+          if (!s) return false;
+          return (
+            (s.display_name ?? "").toLowerCase().includes(query) ||
+            (s.student_no ?? "").toLowerCase().includes(query)
+          );
+        })
         .sort(([a, sa], [b, sb]) => {
           // 최신순: 학생별 최근 제출일시 desc
           const latest = (uid: string, sids: string[]) => {
@@ -681,8 +693,9 @@ const LearningResults = () => {
           const na = students[a]?.display_name ?? "";
           const nb = students[b]?.display_name ?? "";
           return na.localeCompare(nb, "ko", { sensitivity: "base" });
-        }),
-    [studentSentences, students, pairSubmitAt],
+        });
+    },
+    [studentSentences, students, pairSubmitAt, studentSearch],
   );
 
 
@@ -1149,7 +1162,7 @@ const LearningResults = () => {
               . HO는 워크북 제출(채점 대기) 이후 활성화됩니다.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <label
               className={`text-xs flex items-center gap-1.5 px-2.5 h-9 rounded-md border cursor-pointer transition-colors ${
                 answerKeyMode
@@ -1183,6 +1196,16 @@ const LearningResults = () => {
               onChange={(e) => setDate(e.target.value)}
               className="h-9 w-44"
             />
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="학생 이름 검색"
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                className="h-9 w-44 pl-9"
+              />
+            </div>
             <Button size="sm" variant="outline" onClick={refresh}>
               <RefreshCcw className="size-4 mr-1" />
               새로고침
@@ -1196,7 +1219,9 @@ const LearningResults = () => {
           </Card>
         ) : groupedEntries.length === 0 ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">
-            해당 날짜에 학습 활동이 없습니다.
+            {studentSearch.trim()
+              ? "검색 조건에 맞는 학생이 없습니다."
+              : "해당 날짜에 학습 활동이 없습니다."}
           </Card>
         ) : (
           <div className="space-y-3">
