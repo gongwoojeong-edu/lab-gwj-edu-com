@@ -21,6 +21,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import Index from "@/pages/Index";
+import { fetchPassageSource } from "@/lib/textbooks";
+
 import { SENTENCES, type Sentence } from "@/data/sentences";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { LEVEL_LABEL, type LevelCode } from "@/lib/levels";
