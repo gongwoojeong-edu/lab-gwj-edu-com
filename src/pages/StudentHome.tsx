@@ -1655,9 +1655,15 @@ const StudentHome = () => {
                   <h1 className="text-3xl sm:text-4xl font-extrabold">
                     {next ? levelDisplay(next.level) : "—"}
                   </h1>
+                  {next && nextSource && (
+                    <div className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-white/20">
+                      {nextSource}
+                    </div>
+                  )}
                   <div className="text-sm opacity-90">
                     {next ? `${next.id} · Passage ${next.no}` : "다음 Passage가 없습니다"}
                   </div>
+
                 </div>
                 {next && (
                   <p className="text-base sm:text-lg leading-relaxed font-medium opacity-95 line-clamp-3">
