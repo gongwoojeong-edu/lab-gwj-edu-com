@@ -26,9 +26,13 @@ export interface ReissuePlanEntry {
  * - 기존 과제가 없으면 round_no=1
  * - 있으면 round_no = max + 1, 그리고 직전 assignment id를 봉인 타겟으로 반환
  */
+export type RoundMode = "new" | "continue";
+
 export const planRoundsForNewAssignments = async (
   pairs: Array<{ student_id: string; sentence_id: string }>,
+  mode: RoundMode = "new",
 ): Promise<Map<string, ReissuePlanEntry>> => {
+
   const key = (s: string, c: string) => `${s}::${c}`;
   const out = new Map<string, ReissuePlanEntry>();
   if (pairs.length === 0) return out;
