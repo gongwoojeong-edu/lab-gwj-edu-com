@@ -1031,6 +1031,13 @@ function coalesceStatus(status: string | null): boolean {
 }
 
 function coalesceStatusRaw(status: string | null): "active" | "inactive" {
-  if (status === "휴원" || status === "퇴원") return "inactive";
+  const normalized = String(status ?? "").trim().replace(/\s+/g, "");
+  if (
+    normalized.includes("휴원") ||
+    normalized.includes("퇴원") ||
+    normalized.includes("탈퇴") ||
+    normalized.includes("중단") ||
+    /^(inactive|withdrawn|withdraw|suspended|leave)$/i.test(normalized)
+  ) return "inactive";
   return "active";
 }
