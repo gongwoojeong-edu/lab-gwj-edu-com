@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Bell,
+  Check,
   CheckCheck,
   ChevronDown,
   ChevronRight,
@@ -22,7 +23,6 @@ import {
 import { GRADE_BADGE_CLASS, GRADE_LABEL, type ApprovalGrade } from "@/lib/sentenceApprovals";
 import { SentenceReviewDetail } from "@/components/student/SentenceReviewDetail";
 
-
 const fmt = (iso: string) => {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -34,6 +34,7 @@ export default function StudentNotifications() {
   const [rows, setRows] = useState<StudentNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"current" | "past">("current");
 
   const reload = async () => {
     setLoading(true);
@@ -50,30 +51,29 @@ export default function StudentNotifications() {
     return subscribeMyNotifications(user.id, reload);
   }, [user?.id]);
 
-  const markRead = async (n: StudentNotification) => {
+  /** [확인] → 읽음 처리 후 지난 알림으로 이동 */
+  const onConfirm = async (n: StudentNotification) => {
     if (n.read_at) return;
-    await markNotificationRead(n.id);
     setRows((prev) =>
       prev.map((r) => (r.id === n.id ? { ...r, read_at: new Date().toISOString() } : r)),
     );
+    setOpenId((prev) => (prev === n.id ? null : prev));
+    await markNotificationRead(n.id);
   };
 
-  /** 카드 클릭: 문장 알림이면 펼치기, 아니면 기존처럼 이동 */
-  const onRowClick = async (n: StudentNotification) => {
-    void markRead(n);
-    if (n.sentence_id) {
-      setOpenId((prev) => (prev === n.id ? null : n.id));
-      return;
-    }
+  const onRowClick = (n: StudentNotification) => {
+    if (n.sentence_id) setOpenId((prev) => (prev === n.id ? null : n.id));
   };
-
 
   const onMarkAll = async () => {
-    await markAllNotificationsRead();
     setRows((prev) => prev.map((r) => ({ ...r, read_at: r.read_at ?? new Date().toISOString() })));
+    await markAllNotificationsRead();
   };
 
-  const unreadCount = rows.filter((r) => !r.read_at).length;
+  const currentRows = rows.filter((r) => !r.read_at);
+  const pastRows = rows.filter((r) => r.read_at);
+  const visible = tab === "current" ? currentRows : pastRows;
+  const unreadCount = currentRows.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,20 +92,39 @@ export default function StudentNotifications() {
           </div>
           {unreadCount > 0 && (
             <Button size="sm" variant="outline" onClick={onMarkAll}>
-              <CheckCheck className="w-4 h-4 mr-1" /> 모두 읽음
+              <CheckCheck className="w-4 h-4 mr-1" /> 모두 확인
             </Button>
           )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant={tab === "current" ? "default" : "outline"}
+            onClick={() => setTab("current")}
+          >
+            현재 알림 {currentRows.length > 0 && `(${currentRows.length})`}
+          </Button>
+          <Button
+            size="sm"
+            variant={tab === "past" ? "default" : "outline"}
+            onClick={() => setTab("past")}
+          >
+            지난 알림 {pastRows.length > 0 && `(${pastRows.length})`}
+          </Button>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : rows.length === 0 ? (
-          <Card className="p-10 text-center text-muted-foreground">받은 알림이 없습니다.</Card>
+        ) : visible.length === 0 ? (
+          <Card className="p-10 text-center text-muted-foreground">
+            {tab === "current" ? "새 알림이 없습니다." : "지난 알림이 없습니다."}
+          </Card>
         ) : (
           <div className="space-y-2">
-            {rows.map((n) => {
+            {visible.map((n) => {
               const grade = n.grade as ApprovalGrade | null;
               const expandable = !!n.sentence_id;
               const open = openId === n.id;
@@ -143,9 +162,21 @@ export default function StudentNotifications() {
                         </p>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {fmt(n.created_at)}
-                    </span>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">{fmt(n.created_at)}</span>
+                      {!n.read_at && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onConfirm(n);
+                          }}
+                        >
+                          <Check className="w-4 h-4 mr-1" /> 확인
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {expandable && open && user?.id && (
@@ -167,7 +198,6 @@ export default function StudentNotifications() {
                 </Card>
               );
             })}
-
           </div>
         )}
       </div>
