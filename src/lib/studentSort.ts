@@ -11,9 +11,28 @@ export type SortableStudent = {
   display_name?: string | null;
   student_no?: string | null;
   orbit_class_name?: string | null;
+  /** { MON: "16:00", ... } — 반 시간표 (시간대 정렬용) */
+  orbit_class_schedule?: Record<string, string> | null;
   actual_grade?: string | null;
   campus?: string | null;
 };
+
+/** 반 시간표에서 가장 이른 수업 시작 시각 ("HH:MM"). 없으면 null */
+export function earliestClassTime(
+  schedule: Record<string, string> | null | undefined,
+): string | null {
+  if (!schedule) return null;
+  const times = Object.values(schedule)
+    .map((v) => String(v ?? "").trim())
+    .filter((v) => /^\d{1,2}:\d{2}/.test(v))
+    .map((v) => {
+      const [h, m] = v.split(":");
+      return `${h.padStart(2, "0")}:${m.slice(0, 2)}`;
+    });
+  if (times.length === 0) return null;
+  return times.sort()[0];
+}
+
 
 const SCHOOL_ORDER: Record<string, number> = { 초등: 1, 중등: 2, 고등: 3 };
 
