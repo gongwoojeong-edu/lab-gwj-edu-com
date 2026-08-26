@@ -474,6 +474,9 @@ const TeacherStudents = () => {
           .includes(q),
       );
     }
+    if (classFilter !== "__all__") {
+      list = list.filter((s) => s.orbitClassName?.trim() === classFilter);
+    }
     return list.sort((a, b) =>
       compareStudents(
         {
@@ -494,7 +497,7 @@ const TeacherStudents = () => {
         },
       ),
     );
-  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, profileNoByName]);
+  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, classFilter, profileNoByName]);
 
   const openCreate = () => {
     setEditing(null);
