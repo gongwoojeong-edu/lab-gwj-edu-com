@@ -1431,7 +1431,9 @@ const StudentHome = () => {
                       >
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold truncate">
+                            {unitBookLabel[u.unitId] ? `${unitBookLabel[u.unitId]} · ` : ""}
                             U{u.unit_no} · {u.title}
+
                           </div>
                           <div className="text-[11px] text-muted-foreground">
                             완료 {u.doneCount}/{u.totalCount}
