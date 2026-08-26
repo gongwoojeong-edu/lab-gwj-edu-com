@@ -1509,7 +1509,9 @@ const StudentHome = () => {
                         className="flex flex-wrap items-center gap-1.5 p-3 rounded-lg border border-primary/20 bg-card"
                       >
                         <span className="text-xs font-bold shrink-0">
+                          {unitBookLabel[u.unitId] ? `${unitBookLabel[u.unitId]} · ` : ""}
                           U{u.unit_no} · {u.title}
+
                           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
                             ({u.doneCount}/{u.totalCount})
                           </span>
