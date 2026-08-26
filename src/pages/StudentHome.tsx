@@ -189,6 +189,49 @@ const StudentHome = () => {
   const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
   const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
 
+  // 현재 학습 지문의 출처(출판사 · N과 · 유닛)
+  useEffect(() => {
+    if (!next) {
+      setNextSource(null);
+      return;
+    }
+    let alive = true;
+    fetchPassageSource(next.id)
+      .then((s) => {
+        if (!alive || !s) return;
+        const publisher = s.seriesTitle ?? s.textbookTitle;
+        const book =
+          publisher && s.volumeNo != null ? `${publisher} ${s.volumeNo}과` : publisher;
+        const unit = s.unitTitle ? `U${s.unitNo ?? ""} ${s.unitTitle}`.trim() : null;
+        setNextSource([book, unit].filter(Boolean).join(" · ") || null);
+      })
+      .catch(() => setNextSource(null));
+    return () => {
+      alive = false;
+    };
+  }, [next]);
+
+  // 과제/진도 유닛의 "출판사 N과" 라벨
+  useEffect(() => {
+    const ids = [
+      ...mainUnits.map((u) => u.unitId),
+      ...assignmentGroups.flatMap((g) => [
+        ...(g.unitId ? [g.unitId] : []),
+        ...g.unitBreakdown.map((u) => u.unitId),
+      ]),
+    ];
+    if (ids.length === 0) return;
+    let alive = true;
+    fetchUnitBookLabels(ids)
+      .then((m) => {
+        if (alive) setUnitBookLabel((prev) => ({ ...prev, ...m }));
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [mainUnits, assignmentGroups]);
+
 
   useEffect(() => {
     let mounted = true;
