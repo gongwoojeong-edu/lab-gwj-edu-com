@@ -50,7 +50,7 @@ const gradeRank = (g: string | null | undefined): number => {
   return 9998;
 };
 
-const classKey = (name: string | null | undefined) => {
+export const classKey = (name: string | null | undefined) => {
   if (!name) return { school: 9, label: "\uffff" };
   const s = name.trim();
   const m = s.match(/^(초등|중등|고등)/);
