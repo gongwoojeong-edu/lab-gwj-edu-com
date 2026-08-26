@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { SaveNumberInput } from "@/components/teacher/SaveNumberInput";
 import {
@@ -41,7 +42,7 @@ import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentP
 import StudentScopeDialog, { type ScopeDialogTarget } from "@/components/teacher/StudentScopeDialog";
 import { fetchScopeStatusMap, type ScopeStatus } from "@/lib/progressScope";
 
-import { compareStudents, earliestClassTime } from "@/lib/studentSort";
+import { classBadge, classKey, compareStudents, earliestClassTime } from "@/lib/studentSort";
 import {
   fetchAllSeries,
   fetchTextbooksBySeries,
