@@ -663,10 +663,20 @@ const LearningResults = () => {
   }, [date]);
 
   const groupedEntries = useMemo(
-    () =>
-      Object.entries(studentSentences)
+    () => {
+      const query = studentSearch.trim().toLowerCase();
+      return Object.entries(studentSentences)
         // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
         .filter(([uid]) => students[uid])
+        .filter(([uid]) => {
+          if (!query) return true;
+          const s = students[uid];
+          if (!s) return false;
+          return (
+            (s.display_name ?? "").toLowerCase().includes(query) ||
+            (s.student_no ?? "").toLowerCase().includes(query)
+          );
+        })
         .sort(([a, sa], [b, sb]) => {
           // 최신순: 학생별 최근 제출일시 desc
           const latest = (uid: string, sids: string[]) => {
@@ -683,8 +693,9 @@ const LearningResults = () => {
           const na = students[a]?.display_name ?? "";
           const nb = students[b]?.display_name ?? "";
           return na.localeCompare(nb, "ko", { sensitivity: "base" });
-        }),
-    [studentSentences, students, pairSubmitAt],
+        });
+    },
+    [studentSentences, students, pairSubmitAt, studentSearch],
   );
 
 
