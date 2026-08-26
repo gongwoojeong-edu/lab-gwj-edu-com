@@ -41,7 +41,7 @@ import { updateStudentStartLevel, updateStudentStartScope } from "@/lib/studentP
 import StudentScopeDialog, { type ScopeDialogTarget } from "@/components/teacher/StudentScopeDialog";
 import { fetchScopeStatusMap, type ScopeStatus } from "@/lib/progressScope";
 
-import { compareStudents } from "@/lib/studentSort";
+import { compareStudents, earliestClassTime } from "@/lib/studentSort";
 import {
   fetchAllSeries,
   fetchTextbooksBySeries,
@@ -71,6 +71,7 @@ interface Student {
   homeroomTeacherId?: string | null;
   campus?: string | null;
   orbitClassName?: string | null;
+  orbitClassSchedule?: Record<string, string> | null;
 }
 
 /** 실제 학년 선택지. "" = 미지정. 학습 레벨(L01~L09)과는 별개. */
@@ -124,6 +125,7 @@ const TeacherStudents = () => {
   const { display: displayLevel } = useLevelLabels();
   const { isViewingAsOther, effectiveTeacherAuthUserId } = useStaff();
   const [students, setStudents] = useState<Student[]>([]);
+  const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
@@ -360,7 +362,7 @@ const TeacherStudents = () => {
       const { data, error } = await supabase
         .from("student_profiles")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id, teacher_id, homeroom_teacher_id, campus, orbit_class_name") as { data: any[] | null; error: { message: string } | null };
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id, teacher_id, homeroom_teacher_id, campus, orbit_class_name, orbit_class_schedule") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
@@ -424,6 +426,7 @@ const TeacherStudents = () => {
           homeroomTeacherId: row.homeroom_teacher_id ?? null,
           campus: row.campus ?? null,
           orbitClassName: row.orbit_class_name ?? null,
+          orbitClassSchedule: (row.orbit_class_schedule as Record<string, string> | null) ?? null,
         });
       });
       setThresholdByName(wtMap);
@@ -460,12 +463,22 @@ const TeacherStudents = () => {
         );
       });
     }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((s) =>
+        [s.name, profileNoByName[s.name] ?? "", s.orbitClassName ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      );
+    }
     return list.sort((a, b) =>
       compareStudents(
         {
           display_name: a.name,
           student_no: a.name,
           orbit_class_name: a.orbitClassName ?? null,
+          orbit_class_schedule: a.orbitClassSchedule ?? null,
           actual_grade: actualGradeByName[a.name] ?? null,
           campus: a.campus ?? null,
         },
@@ -473,12 +486,13 @@ const TeacherStudents = () => {
           display_name: b.name,
           student_no: b.name,
           orbit_class_name: b.orbitClassName ?? null,
+          orbit_class_schedule: b.orbitClassSchedule ?? null,
           actual_grade: actualGradeByName[b.name] ?? null,
           campus: b.campus ?? null,
         },
       ),
     );
-  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName]);
+  }, [students, isViewingAsOther, effectiveTeacherAuthUserId, actualGradeByName, search, profileNoByName]);
 
   const openCreate = () => {
     setEditing(null);
@@ -804,6 +818,16 @@ const TeacherStudents = () => {
         </Dialog>
       </div>
 
+      <div className="mb-3 flex items-center gap-2">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="학생 이름·학번·반 검색"
+          className="max-w-xs"
+        />
+        <span className="text-xs text-muted-foreground">{sorted.length}명</span>
+      </div>
+
       <div className="glass-panel rounded-2xl overflow-hidden border border-border/40">
         <Table className="text-[15px]">
           <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -856,6 +880,11 @@ const TeacherStudents = () => {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate" title={s.orbitClassName ?? undefined}>
                       {s.orbitClassName ?? "—"}
+                      {earliestClassTime(s.orbitClassSchedule) && (
+                        <span className="ml-1 text-[11px] text-muted-foreground/80">
+                          {earliestClassTime(s.orbitClassSchedule)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Select
