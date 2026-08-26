@@ -1252,6 +1252,8 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       includeWordtest: row.include_wordtest,
       includeMemorize: taskModeIncludesMemorize(row.task_mode),
       memDirection: row.mem_direction ?? "",
+      roundMode: "continue",
+
     });
   };
 
