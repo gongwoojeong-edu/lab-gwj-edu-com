@@ -3,7 +3,7 @@
 //   · 선생님이 지정한 시리즈(책)·권 범위의 지문을 모두 끝내면
 //     "진도 끊김" 상태로 표시해 새 책/시리즈 등록을 유도한다.
 //   · nextSentence.fetchScopedPassageCodes 와 동일한 규칙:
-//       권 지정 → 그 권만 / 유닛 지정 → 그 유닛부터 같은 권 끝까지
+//       권 지정 → 앞 권의 최근 미완료부터 지정 권까지 / 유닛 지정 → 그 유닛부터 같은 권 끝까지
 //       시리즈만 지정 → 시리즈 전체
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
@@ -98,7 +98,11 @@ export const buildBookIndex = async (): Promise<BookIndex> => {
   return { unitsById, unitsByTextbook, textbooksBySeries, textbookById, codesByUnit };
 };
 
-export const scopedCodesFor = (idx: BookIndex, s: ScopeInput): string[] | null => {
+export const scopedCodesFor = (
+  idx: BookIndex,
+  s: ScopeInput,
+  completed: Set<string> = new Set(),
+): string[] | null => {
   let startUnitNo: number | null = null;
   let startUnitTextbookId: string | null = null;
   if (s.start_unit_id) {
@@ -112,8 +116,30 @@ export const scopedCodesFor = (idx: BookIndex, s: ScopeInput): string[] | null =
   const startVolumeId = s.start_volume_id ?? startUnitTextbookId;
   let textbookIds: string[];
   if (startVolumeId) {
-    // 권(과) 지정 → 그 권만 (다음 권으로 자동 진행 없음)
-    textbookIds = [startVolumeId];
+    if (startUnitTextbookId) {
+      textbookIds = [startVolumeId];
+    } else {
+      const configured = idx.textbookById.get(startVolumeId);
+      if (!configured) return [];
+      const ordered = (idx.textbooksBySeries.get(configured.series_id) ?? [])
+        .filter((id) => (idx.textbookById.get(id)?.volume_no ?? Infinity) <= configured.volume_no)
+        .sort(
+          (a, b) =>
+            (idx.textbookById.get(a)?.volume_no ?? 0) -
+            (idx.textbookById.get(b)?.volume_no ?? 0),
+        );
+      const latestPartialIndex = ordered.reduce((latest, textbookId, index) => {
+        if (textbookId === startVolumeId) return latest;
+        const codes = (idx.unitsByTextbook.get(textbookId) ?? []).flatMap(
+          (unit) => idx.codesByUnit.get(unit.id) ?? [],
+        );
+        const done = codes.filter((code) => completed.has(code)).length;
+        return done > 0 && done < codes.length ? index : latest;
+      }, -1);
+      textbookIds = ordered.slice(
+        latestPartialIndex >= 0 ? latestPartialIndex : Math.max(ordered.length - 1, 0),
+      );
+    }
   } else if (s.start_series_id) {
     textbookIds = idx.textbooksBySeries.get(s.start_series_id) ?? [];
   } else return null; // 범위 미지정(레벨 전체)
@@ -138,11 +164,11 @@ export const fetchScopeStatusMap = async (
 
   const [idx, passRows] = await Promise.all([
     buildBookIndex(),
-    fetchAllRows<{ user_id: string | null; sentence_id: string }>(
+    fetchAllRows<{ user_id: string | null; sentence_id: string; assignment_id: string | null }>(
       "sentence_progress",
-      "user_id, sentence_id",
+      "user_id, sentence_id, assignment_id",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q) => (q as any).eq("status", "pass"),
+      (q) => (q as any).in("status", ["pass", "fail"]).is("assignment_id", null),
     ),
   ]);
 
@@ -155,7 +181,8 @@ export const fetchScopeStatusMap = async (
   });
 
   students.forEach((s) => {
-    const codes = scopedCodesFor(idx, s);
+    const passed = passedByUser.get(s.user_id) ?? new Set<string>();
+    const codes = scopedCodesFor(idx, s, passed);
     if (codes == null) {
       out[s.user_id] = { kind: "unset", total: 0, doneCount: 0, remaining: 0 };
       return;
@@ -165,7 +192,6 @@ export const fetchScopeStatusMap = async (
       out[s.user_id] = { kind: "empty", total: 0, doneCount: 0, remaining: 0 };
       return;
     }
-    const passed = passedByUser.get(s.user_id) ?? new Set<string>();
     const doneCount = codes.filter((c) => passed.has(c)).length;
     const remaining = total - doneCount;
     out[s.user_id] = {
