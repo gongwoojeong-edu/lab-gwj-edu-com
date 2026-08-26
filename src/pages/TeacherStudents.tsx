@@ -880,8 +880,8 @@ const TeacherStudents = () => {
         >
           {showWithdrawn ? "재원생만 보기" : `퇴원생 포함 (${withdrawnCount})`}
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/teacher/integrations")}>
-          오르빗 동기화
+        <Button type="button" variant="ghost" size="sm" asChild>
+          <a href="/teacher/integrations">오르빗 동기화</a>
         </Button>
       </div>
 
