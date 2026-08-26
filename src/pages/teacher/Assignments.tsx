@@ -859,9 +859,10 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       const pairs = targets
         .filter((sid): sid is string => !!sid)
         .flatMap((sid) => passageCodes.map((code) => ({ student_id: sid, sentence_id: code })));
-      const roundPlan = await planRoundsForNewAssignments(pairs);
-      // 이전 회독 진도/승인/로그 봉인 먼저
+      const roundPlan = await planRoundsForNewAssignments(pairs, form.roundMode);
+      // 이전 회독 진도/승인/로그 봉인 먼저 (새 회독 모드에서만 동작)
       await sealPreviousRounds(Array.from(roundPlan.values()));
+
 
       const rowsToInsert = targets.flatMap((sid) =>
         codePairs.map(({ code, unit_id }) => {
