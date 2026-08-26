@@ -267,6 +267,8 @@ interface FormState {
   includeMemorize: boolean;
   /** 빈 문자열 = 유닛 기본값 따름 */
   memDirection: MemDirectionSetting | "";
+  /** continue = 같은 회독 이어서(기존 학습이력 유지) / new = 새 회독(기록 봉인 후 백지 재학습) */
+  roundMode: "continue" | "new";
 }
 
 const emptyForm = (): FormState => ({
@@ -286,7 +288,9 @@ const emptyForm = (): FormState => ({
   includeWordtest: true,
   includeMemorize: false,
   memDirection: "",
+  roundMode: "continue",
 });
+
 
 interface AssignmentsProps {
   /** "create" = 과제 출제 화면(기본), "box" = 과제함(목록) */
@@ -855,9 +859,10 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       const pairs = targets
         .filter((sid): sid is string => !!sid)
         .flatMap((sid) => passageCodes.map((code) => ({ student_id: sid, sentence_id: code })));
-      const roundPlan = await planRoundsForNewAssignments(pairs);
-      // 이전 회독 진도/승인/로그 봉인 먼저
+      const roundPlan = await planRoundsForNewAssignments(pairs, form.roundMode);
+      // 이전 회독 진도/승인/로그 봉인 먼저 (새 회독 모드에서만 동작)
       await sealPreviousRounds(Array.from(roundPlan.values()));
+
 
       const rowsToInsert = targets.flatMap((sid) =>
         codePairs.map(({ code, unit_id }) => {
@@ -1248,6 +1253,8 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
       includeWordtest: row.include_wordtest,
       includeMemorize: taskModeIncludesMemorize(row.task_mode),
       memDirection: row.mem_direction ?? "",
+      roundMode: "continue",
+
     });
   };
 
@@ -2026,6 +2033,42 @@ const Assignments = ({ viewMode = "create" }: AssignmentsProps) => {
               {renderStepCheckboxes(form, setForm)}
               {renderMemDirectionPicker(form, setForm)}
             </div>
+            <div className="sm:col-span-2 space-y-2">
+              <Label>재배부 방식 *</Label>
+              <RadioGroup
+                value={form.roundMode}
+                onValueChange={(v) =>
+                  setForm((p) => ({ ...p, roundMode: v as "continue" | "new" }))
+                }
+                className="grid gap-2 sm:grid-cols-2"
+              >
+                <label
+                  htmlFor="round-continue"
+                  className="flex items-start gap-2 rounded-md border border-border p-3 cursor-pointer hover:bg-accent/40"
+                >
+                  <RadioGroupItem value="continue" id="round-continue" className="mt-0.5" />
+                  <span className="text-sm">
+                    <span className="font-semibold">같은 회독 이어서</span>
+                    <span className="block text-xs text-muted-foreground">
+                      기존 학습이력 그대로 유지 (실수로 다시 배부한 경우)
+                    </span>
+                  </span>
+                </label>
+                <label
+                  htmlFor="round-new"
+                  className="flex items-start gap-2 rounded-md border border-border p-3 cursor-pointer hover:bg-accent/40"
+                >
+                  <RadioGroupItem value="new" id="round-new" className="mt-0.5" />
+                  <span className="text-sm">
+                    <span className="font-semibold">새 회독으로 배부 (2·3회독)</span>
+                    <span className="block text-xs text-muted-foreground">
+                      이전 회독 기록은 보관하고 백지 상태로 새로 학습
+                    </span>
+                  </span>
+                </label>
+              </RadioGroup>
+            </div>
+
             <div className="sm:col-span-2 space-y-2">
               <Label>출제 모드 *</Label>
               <RadioGroup

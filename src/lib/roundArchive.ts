@@ -26,9 +26,13 @@ export interface ReissuePlanEntry {
  * - 기존 과제가 없으면 round_no=1
  * - 있으면 round_no = max + 1, 그리고 직전 assignment id를 봉인 타겟으로 반환
  */
+export type RoundMode = "new" | "continue";
+
 export const planRoundsForNewAssignments = async (
   pairs: Array<{ student_id: string; sentence_id: string }>,
+  mode: RoundMode = "new",
 ): Promise<Map<string, ReissuePlanEntry>> => {
+
   const key = (s: string, c: string) => `${s}::${c}`;
   const out = new Map<string, ReissuePlanEntry>();
   if (pairs.length === 0) return out;
@@ -72,6 +76,16 @@ export const planRoundsForNewAssignments = async (
     const sorted = list.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
     const latest = sorted[0];
     const maxRound = list.reduce((m, r) => Math.max(m, r.round_no ?? 1), 1);
+    if (mode === "continue") {
+      // 같은 회독 이어서 배부: 기존 기록 유지(봉인 없음), 회독 번호도 그대로
+      out.set(k, {
+        student_id: p.student_id,
+        sentence_id: p.sentence_id,
+        seal_to_assignment_id: null,
+        next_round_no: maxRound,
+      });
+      return;
+    }
     out.set(k, {
       student_id: p.student_id,
       sentence_id: p.sentence_id,
@@ -79,6 +93,7 @@ export const planRoundsForNewAssignments = async (
       next_round_no: maxRound + 1,
     });
   });
+
 
   return out;
 };
