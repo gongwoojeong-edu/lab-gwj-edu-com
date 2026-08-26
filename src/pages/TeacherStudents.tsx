@@ -127,6 +127,7 @@ const TeacherStudents = () => {
   const { isViewingAsOther, effectiveTeacherAuthUserId } = useStaff();
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState<string>("__all__");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
