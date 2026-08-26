@@ -11,9 +11,28 @@ export type SortableStudent = {
   display_name?: string | null;
   student_no?: string | null;
   orbit_class_name?: string | null;
+  /** { MON: "16:00", ... } — 반 시간표 (시간대 정렬용) */
+  orbit_class_schedule?: Record<string, string> | null;
   actual_grade?: string | null;
   campus?: string | null;
 };
+
+/** 반 시간표에서 가장 이른 수업 시작 시각 ("HH:MM"). 없으면 null */
+export function earliestClassTime(
+  schedule: Record<string, string> | null | undefined,
+): string | null {
+  if (!schedule) return null;
+  const times = Object.values(schedule)
+    .map((v) => String(v ?? "").trim())
+    .filter((v) => /^\d{1,2}:\d{2}/.test(v))
+    .map((v) => {
+      const [h, m] = v.split(":");
+      return `${h.padStart(2, "0")}:${m.slice(0, 2)}`;
+    });
+  if (times.length === 0) return null;
+  return times.sort()[0];
+}
+
 
 const SCHOOL_ORDER: Record<string, number> = { 초등: 1, 중등: 2, 고등: 3 };
 
@@ -49,12 +68,16 @@ export function compareStudents(a: SortableStudent, b: SortableStudent): number 
     const c = ca.localeCompare(cb, "ko");
     if (c !== 0) return c;
   }
-  // 반 (초→중→고 → 라벨)
+  // 반 (초→중→고 → 수업 시작시각 → 라벨)
   const ka = classKey(a.orbit_class_name);
   const kb = classKey(b.orbit_class_name);
   if (ka.school !== kb.school) return ka.school - kb.school;
+  const ta = earliestClassTime(a.orbit_class_schedule) ?? "99:99";
+  const tb = earliestClassTime(b.orbit_class_schedule) ?? "99:99";
+  if (ta !== tb) return ta.localeCompare(tb);
   const lc = ka.label.localeCompare(kb.label, "ko");
   if (lc !== 0) return lc;
+
   // 학년
   const ga = gradeRank(a.actual_grade);
   const gb = gradeRank(b.actual_grade);
