@@ -73,6 +73,7 @@ interface Student {
   campus?: string | null;
   orbitClassName?: string | null;
   orbitClassSchedule?: Record<string, string> | null;
+  enrollmentActive?: boolean;
 }
 
 /** 실제 학년 선택지. "" = 미지정. 학습 레벨(L01~L09)과는 별개. */
@@ -364,7 +365,7 @@ const TeacherStudents = () => {
       const { data, error } = await supabase
         .from("student_profiles")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id, teacher_id, homeroom_teacher_id, campus, orbit_class_name, orbit_class_schedule") as { data: any[] | null; error: { message: string } | null };
+        .select("user_id, student_no, display_name, start_level, current_level, actual_grade, created_at, word_test_pass_threshold, analysis_pass_threshold, word_test_time_limit_sec, start_series_id, start_volume_id, start_unit_id, teacher_id, homeroom_teacher_id, campus, orbit_class_name, orbit_class_schedule, orbit_enrollment_active") as { data: any[] | null; error: { message: string } | null };
       if (error) {
         toast({ title: "학생 목록 불러오기 실패", description: error.message, variant: "destructive" });
       }
@@ -429,6 +430,7 @@ const TeacherStudents = () => {
           campus: row.campus ?? null,
           orbitClassName: row.orbit_class_name ?? null,
           orbitClassSchedule: (row.orbit_class_schedule as Record<string, string> | null) ?? null,
+          enrollmentActive: row.orbit_enrollment_active !== false,
         });
       });
       setThresholdByName(wtMap);
