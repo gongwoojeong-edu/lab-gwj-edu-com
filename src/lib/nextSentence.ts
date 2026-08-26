@@ -50,24 +50,8 @@ const fetchScopedPassageCodes = async (
   const startVolumeId = profile.start_volume_id ?? startUnitTextbookId;
 
   if (startVolumeId) {
-    // 시작 권 → 같은 시리즈의 그 권부터 마지막 권까지
-    const { data: startVol } = await supabase
-      .from("textbooks")
-      .select("id, series_id, volume_no")
-      .eq("id", startVolumeId)
-      .maybeSingle();
-    const sv = startVol as { series_id: string; volume_no: number } | null;
-    if (sv) {
-      const { data: vols } = await supabase
-        .from("textbooks")
-        .select("id, volume_no")
-        .eq("series_id", sv.series_id)
-        .gte("volume_no", sv.volume_no);
-      textbookIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
-      if (!textbookIds.includes(startVolumeId)) textbookIds.push(startVolumeId);
-    } else {
-      textbookIds = [startVolumeId];
-    }
+    // 권(과)을 지정하면 그 권 하나만 진도 범위 — 다음 권으로 자동 진행하지 않는다.
+    textbookIds = [startVolumeId];
   } else if (profile.start_series_id) {
     const { data: vols } = await supabase
       .from("textbooks")

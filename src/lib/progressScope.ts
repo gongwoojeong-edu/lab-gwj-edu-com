@@ -3,7 +3,7 @@
 //   · 선생님이 지정한 시리즈(책)·권 범위의 지문을 모두 끝내면
 //     "진도 끊김" 상태로 표시해 새 책/시리즈 등록을 유도한다.
 //   · nextSentence.fetchScopedPassageCodes 와 동일한 규칙:
-//       권 지정 → 그 권 전체 / 유닛 지정 → 그 유닛부터 같은 권 끝까지
+//       권 지정 → 그 권만 / 유닛 지정 → 그 유닛부터 같은 권 끝까지
 //       시리즈만 지정 → 시리즈 전체
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
@@ -112,17 +112,8 @@ export const scopedCodesFor = (idx: BookIndex, s: ScopeInput): string[] | null =
   const startVolumeId = s.start_volume_id ?? startUnitTextbookId;
   let textbookIds: string[];
   if (startVolumeId) {
-    // 시작 권부터 같은 시리즈의 마지막 권까지
-    const meta = idx.textbookById.get(startVolumeId);
-    if (meta) {
-      textbookIds = (idx.textbooksBySeries.get(meta.series_id) ?? []).filter((id) => {
-        const m = idx.textbookById.get(id);
-        return m ? m.volume_no >= meta.volume_no : false;
-      });
-      if (!textbookIds.includes(startVolumeId)) textbookIds.push(startVolumeId);
-    } else {
-      textbookIds = [startVolumeId];
-    }
+    // 권(과) 지정 → 그 권만 (다음 권으로 자동 진행 없음)
+    textbookIds = [startVolumeId];
   } else if (s.start_series_id) {
     textbookIds = idx.textbooksBySeries.get(s.start_series_id) ?? [];
   } else return null; // 범위 미지정(레벨 전체)
