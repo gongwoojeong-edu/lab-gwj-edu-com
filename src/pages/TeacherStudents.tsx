@@ -129,6 +129,7 @@ const TeacherStudents = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState<string>("__all__");
+  const [showWithdrawn, setShowWithdrawn] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [name, setName] = useState("");
