@@ -24,7 +24,7 @@ export interface NextSentenceResult {
 /**
  * 학생 프로필의 학습 범위 → passage code 집합.
  * - 시리즈만: 시리즈 전체
- * - 권(과) 지정: 그 권이 상한. 앞 권에 시작한 미완료가 있으면 가장 최근 미완료 권부터
+ * - 권(과) 지정: 지정한 권부터만 진행
  * - 시작 유닛: 그 권에서 그 유닛부터 권 끝까지
  * 범위 미지정 → null (= 레벨 전체)
  */
@@ -62,48 +62,9 @@ const fetchScopedPassageCodes = async (
         .maybeSingle();
       if (!configuredBook) return new Set();
 
-      const { data: books } = await supabase
-        .from("textbooks")
-        .select("id, volume_no")
-        .eq("series_id", configuredBook.series_id)
-        .lte("volume_no", configuredBook.volume_no)
-        .order("volume_no", { ascending: true });
-      const orderedBooks = (books ?? []) as { id: string; volume_no: number }[];
-      const candidateIds = orderedBooks.map((book) => book.id);
-
-      const { data: candidateUnits } = candidateIds.length
-        ? await supabase
-            .from("textbook_units")
-            .select("id, textbook_id")
-            .in("textbook_id", candidateIds)
-        : { data: [] };
-      const candidateUnitRows = (candidateUnits ?? []) as { id: string; textbook_id: string }[];
-      const unitToBook = new Map(candidateUnitRows.map((unit) => [unit.id, unit.textbook_id]));
-      const { data: candidatePassages } = candidateUnitRows.length
-        ? await supabase
-            .from("textbook_passages")
-            .select("code, unit_id")
-            .in("unit_id", candidateUnitRows.map((unit) => unit.id))
-        : { data: [] };
-      const codesByBook = new Map<string, string[]>();
-      ((candidatePassages ?? []) as { code: string; unit_id: string }[]).forEach((passage) => {
-        const bookId = unitToBook.get(passage.unit_id);
-        if (!bookId) return;
-        const codes = codesByBook.get(bookId) ?? [];
-        codes.push(passage.code);
-        codesByBook.set(bookId, codes);
-      });
-
-      // 설정 권 "바로 앞 권"만 미완료 복구 대상. 더 예전 권은 끌어오지 않는다.
-      const configuredIndex = orderedBooks.findIndex((book) => book.id === startVolumeId);
-      const prevIndex = configuredIndex - 1;
-      let startIndex = configuredIndex >= 0 ? configuredIndex : Math.max(orderedBooks.length - 1, 0);
-      if (prevIndex >= 0) {
-        const codes = codesByBook.get(orderedBooks[prevIndex].id) ?? [];
-        const done = codes.filter((code) => completedCodes.has(code)).length;
-        if (done > 0 && done < codes.length) startIndex = prevIndex;
-      }
-      textbookIds = orderedBooks.slice(startIndex).map((book) => book.id);
+      // 권을 직접 지정한 것은 명시적인 시작점이다. 이전 권의 미완료 기록은
+      // 보존하되 메인덱 진입 범위에는 섞지 않는다.
+      textbookIds = [startVolumeId];
     }
   } else if (profile.start_series_id) {
     const { data: vols } = await supabase
