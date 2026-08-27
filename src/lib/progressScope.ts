@@ -3,7 +3,7 @@
 //   · 선생님이 지정한 시리즈(책)·권 범위의 지문을 모두 끝내면
 //     "진도 끊김" 상태로 표시해 새 책/시리즈 등록을 유도한다.
 //   · nextSentence.fetchScopedPassageCodes 와 동일한 규칙:
-//       권 지정 → 앞 권의 최근 미완료부터 지정 권까지 / 유닛 지정 → 그 유닛부터 같은 권 끝까지
+//       권 지정 → 지정 권만 / 유닛 지정 → 그 유닛부터 같은 권 끝까지
 //       시리즈만 지정 → 시리즈 전체
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
@@ -119,26 +119,9 @@ export const scopedCodesFor = (
     if (startUnitTextbookId) {
       textbookIds = [startVolumeId];
     } else {
-      const configured = idx.textbookById.get(startVolumeId);
-      if (!configured) return [];
-      const ordered = (idx.textbooksBySeries.get(configured.series_id) ?? [])
-        .filter((id) => (idx.textbookById.get(id)?.volume_no ?? Infinity) <= configured.volume_no)
-        .sort(
-          (a, b) =>
-            (idx.textbookById.get(a)?.volume_no ?? 0) -
-            (idx.textbookById.get(b)?.volume_no ?? 0),
-        );
-      const configuredIndex = ordered.findIndex((id) => id === startVolumeId);
-      const prevIndex = configuredIndex - 1;
-      let startIndex = configuredIndex >= 0 ? configuredIndex : Math.max(ordered.length - 1, 0);
-      if (prevIndex >= 0) {
-        const codes = (idx.unitsByTextbook.get(ordered[prevIndex]) ?? []).flatMap(
-          (unit) => idx.codesByUnit.get(unit.id) ?? [],
-        );
-        const done = codes.filter((code) => completed.has(code)).length;
-        if (done > 0 && done < codes.length) startIndex = prevIndex;
-      }
-      textbookIds = ordered.slice(startIndex);
+      if (!idx.textbookById.has(startVolumeId)) return [];
+      // 권 직접 지정은 명시적인 시작점이므로 이전 권의 미완료 기록을 포함하지 않는다.
+      textbookIds = [startVolumeId];
     }
   } else if (s.start_series_id) {
     textbookIds = idx.textbooksBySeries.get(s.start_series_id) ?? [];
