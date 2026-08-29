@@ -1055,7 +1055,15 @@ const SentenceLearn = () => {
             </div>
           </Card>
         )}
+        {/* 선생님 첨삭 피드백 — 알림함에 들어가지 않아도 학습화면에서 바로 확인 */}
+        <TeacherFeedbackPanel
+          sentenceId={sentence?.id}
+          refreshKey={`${redoRequestedAt ?? ""}|${lastEvaluation?.grade ?? ""}`}
+        />
+
         {/* 선생님 추가학습 요청 배너 — 기존 통과 기록은 유지된 채 한 번 더 제출 */}
+
+
 
         {redoRequestedAt && (
           <Card className="p-5 space-y-3 border-2 border-violet-500/40 bg-violet-50/40 dark:bg-violet-500/5">
