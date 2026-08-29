@@ -92,6 +92,32 @@ export const TeacherApprovalDialog = ({
   const [showAnswer, setShowAnswer] = useState(false);
   const [teaching, setTeaching] = useState(false);
   const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
+  const [history, setHistory] = useState<PastFeedback[]>([]);
+  const [resolved, setResolved] = useState<Record<string, boolean>>({});
+
+  const redoCount = useMemo(() => history.filter((h) => h.grade === "redo").length, [history]);
+  const roundNo = history.length + 1;
+  const unresolved = useMemo(
+    () => history.filter((h) => !resolved[h.id]),
+    [history, resolved],
+  );
+
+  const pullUnresolved = () => {
+    const next = { ...memo };
+    unresolved.forEach((h) => {
+      const parsed = parseMemo(h.memo);
+      MEMO_FIELD_KEYS.forEach((k) => {
+        const v = parsed[k].trim();
+        if (!v) return;
+        if (next[k].includes(v)) return;
+        next[k] = next[k].trim() ? `${next[k].trim()}\n${v}` : v;
+      });
+    });
+    setMemo(next);
+    toast({ title: "미해결 첨삭을 메모로 가져왔어요" });
+  };
+
+
 
 
   const beginTeaching = async () => {
