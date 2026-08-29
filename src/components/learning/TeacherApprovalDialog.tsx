@@ -520,8 +520,6 @@ export const TeacherApprovalDialog = ({
             </div>
           </div>
 
-          <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
-
           {history.length > 0 && (
             <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -592,6 +590,8 @@ export const TeacherApprovalDialog = ({
               </div>
             </div>
           )}
+
+          <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
         </div>
 
         <DialogFooter className="shrink-0 bg-background border-t border-border flex-wrap gap-2 sm:justify-between pt-3 pb-1">
