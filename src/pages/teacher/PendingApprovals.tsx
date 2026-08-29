@@ -125,9 +125,11 @@ const PendingApprovals = () => {
           .in("code", sentenceIds),
         supabase
           .from("sentence_translations")
-          .select("user_id, sentence_id, text")
+          .select("user_id, sentence_id, text, submitted_at")
           .in("user_id", userIds)
-          .in("sentence_id", sentenceIds),
+          .in("sentence_id", sentenceIds)
+          // 최신 제출이 먼저 오도록 — 아래 tMap에서 첫 항목(=마지막 제출)만 채택
+          .order("submitted_at", { ascending: false }),
         // 제출/첨삭 횟수 집계용 이력
         supabase
           .from("sentence_approvals")
@@ -146,9 +148,12 @@ const PendingApprovals = () => {
       const sMap = new Map(
         (passages ?? []).map((p: any) => [p.code, p]),
       );
-      const tMap = new Map(
-        (translations ?? []).map((t: any) => [`${t.user_id}::${t.sentence_id}`, t.text as string]),
-      );
+      // 최신 제출(desc 정렬) 기준 첫 항목만 채택 — 마지막 해석이 보이도록
+      const tMap = new Map<string, string>();
+      (translations ?? []).forEach((t: any) => {
+        const key = `${t.user_id}::${t.sentence_id}`;
+        if (!tMap.has(key)) tMap.set(key, t.text as string);
+      });
       const uMap = new Map((units ?? []).map((u: any) => [u.id, u]));
       const tbMap = new Map((textbooks ?? []).map((t: any) => [t.id, t]));
       const srMap = new Map((seriesList ?? []).map((s: any) => [s.id, s]));
