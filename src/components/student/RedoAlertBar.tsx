@@ -19,6 +19,7 @@ const isRedo = (n: StudentNotification) =>
 export function RedoAlertBar() {
   const { unread, reload } = useStudentNotifications();
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -54,16 +55,31 @@ export function RedoAlertBar() {
 
   return (
     <div className="fixed inset-x-0 top-0 z-[60] px-2 pt-2 pointer-events-none">
-      <div className="pointer-events-auto mx-auto flex max-w-3xl items-center gap-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 shadow-lg dark:border-rose-700 dark:bg-rose-950/80">
+      <div className="pointer-events-auto mx-auto flex max-w-3xl items-start gap-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 shadow-lg dark:border-rose-700 dark:bg-rose-950/80">
         <RefreshCw className="h-5 w-5 shrink-0 text-rose-600" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-rose-900 dark:text-rose-100">
             {current.title}
           </div>
           {current.body && (
-            <div className="truncate text-xs text-rose-800/80 dark:text-rose-200/80">
+            <div
+              className={
+                expanded
+                  ? "mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-rose-900 dark:text-rose-100"
+                  : "truncate text-xs text-rose-800/80 dark:text-rose-200/80"
+              }
+            >
               {current.body}
             </div>
+          )}
+          {current.body && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-0.5 text-[11px] font-bold text-rose-700 underline underline-offset-2 dark:text-rose-200"
+            >
+              {expanded ? "접기" : "첨삭 내용 보기"}
+            </button>
           )}
         </div>
         {redos.length > 1 && (
