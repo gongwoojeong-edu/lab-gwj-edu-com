@@ -204,10 +204,14 @@ export const TeacherApprovalDialog = ({
           status: r.status,
           memo: (r.memo ?? "").trim() ? r.memo : r.held_memo,
           at: r.approved_at ?? r.held_at ?? r.requested_at,
+          resolved: !!r.feedback_resolved,
         }))
         .filter((r) => !isMemoEmpty(parseMemo(r.memo)) || r.grade === "redo");
       setHistory(rows);
-      setResolved({});
+      // DB에 저장된 해결 여부를 초기값으로 — 재학습 때 체크가 풀리지 않는다.
+      const init: Record<string, boolean> = {};
+      rows.forEach((r) => { if (r.resolved) init[r.id] = true; });
+      setResolved(init);
     })();
     return () => {
       mounted = false;
