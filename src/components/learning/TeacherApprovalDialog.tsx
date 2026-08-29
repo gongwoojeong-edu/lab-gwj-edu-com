@@ -73,6 +73,7 @@ interface PastFeedback {
   status: string;
   memo: string | null;
   at: string;
+  resolved?: boolean;
 }
 
 
@@ -189,7 +190,7 @@ export const TeacherApprovalDialog = ({
       if (!uid) return;
       const { data } = await supabase
         .from("sentence_approvals")
-        .select("id, attempt_no, grade, status, memo, held_memo, approved_at, held_at, requested_at")
+        .select("id, attempt_no, grade, status, memo, held_memo, approved_at, held_at, requested_at, feedback_resolved")
         .eq("user_id", uid)
         .eq("sentence_id", sentenceId)
         .order("attempt_no", { ascending: true });
@@ -203,10 +204,14 @@ export const TeacherApprovalDialog = ({
           status: r.status,
           memo: (r.memo ?? "").trim() ? r.memo : r.held_memo,
           at: r.approved_at ?? r.held_at ?? r.requested_at,
+          resolved: !!r.feedback_resolved,
         }))
         .filter((r) => !isMemoEmpty(parseMemo(r.memo)) || r.grade === "redo");
       setHistory(rows);
-      setResolved({});
+      // DB에 저장된 해결 여부를 초기값으로 — 재학습 때 체크가 풀리지 않는다.
+      const init: Record<string, boolean> = {};
+      rows.forEach((r) => { if (r.resolved) init[r.id] = true; });
+      setResolved(init);
     })();
     return () => {
       mounted = false;
@@ -572,9 +577,21 @@ export const TeacherApprovalDialog = ({
                           <input
                             type="checkbox"
                             checked={done}
-                            onChange={(e) =>
-                              setResolved((prev) => ({ ...prev, [h.id]: e.target.checked }))
-                            }
+                            onChange={(e) => {
+                              const v = e.target.checked;
+                              setResolved((prev) => ({ ...prev, [h.id]: v }));
+                              // 해결 여부를 DB에 저장 — 다음 회차 재학습 때도 유지된다.
+                              supabase
+                                .from("sentence_approvals")
+                                .update({ feedback_resolved: v } as never)
+                                .eq("id", h.id)
+                                .then(({ error }) => {
+                                  if (error) {
+                                    console.warn("[TeacherApprovalDialog] feedback_resolved save failed", error);
+                                    toast({ title: "해결 체크 저장에 실패했어요", variant: "destructive" });
+                                  }
+                                });
+                            }}
                             className="accent-emerald-600"
                           />
                           <CheckCircle2
