@@ -73,6 +73,7 @@ interface PastFeedback {
   status: string;
   memo: string | null;
   at: string;
+  resolved?: boolean;
 }
 
 
@@ -189,7 +190,7 @@ export const TeacherApprovalDialog = ({
       if (!uid) return;
       const { data } = await supabase
         .from("sentence_approvals")
-        .select("id, attempt_no, grade, status, memo, held_memo, approved_at, held_at, requested_at")
+        .select("id, attempt_no, grade, status, memo, held_memo, approved_at, held_at, requested_at, feedback_resolved")
         .eq("user_id", uid)
         .eq("sentence_id", sentenceId)
         .order("attempt_no", { ascending: true });
