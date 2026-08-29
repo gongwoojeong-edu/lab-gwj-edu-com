@@ -66,21 +66,15 @@ interface Props {
  * - 학생 PIN 흐름: skipPin=false, studentUserId 미전달 (현재 세션 = 학생 본인)
  * - 선생님 승인 페이지: skipPin=true, studentUserId 전달
  */
-export const TeacherApprovalDialog = ({
-  approvalId,
-  sentenceId,
-  studentTranslation,
-  englishSentence,
-  koreanAnswer,
-  studentUserId,
-  studentName,
-  studentNo,
-  skipPin = false,
-  initialMemo,
-  mode = "pending",
-  sourceInfo: initialSource,
-  open,
-  onOpenChange,
+interface PastFeedback {
+  id: string;
+  attempt_no: number;
+  grade: string | null;
+  status: string;
+  memo: string | null;
+  at: string;
+}
+
 interface PastFeedback {
   id: string;
   attempt_no: number;
