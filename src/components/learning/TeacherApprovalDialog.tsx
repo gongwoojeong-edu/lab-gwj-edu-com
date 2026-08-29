@@ -179,6 +179,42 @@ export const TeacherApprovalDialog = ({
     };
   }, [open, sentenceId, initialSource]);
 
+  // ── 이전 선생님 첨삭 이력 (같은 문장 · 같은 학생) ──
+  useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    (async () => {
+      const uid =
+        studentUserId ?? (await supabase.auth.getUser()).data.user?.id ?? null;
+      if (!uid) return;
+      const { data } = await supabase
+        .from("sentence_approvals")
+        .select("id, attempt_no, grade, status, memo, held_memo, approved_at, held_at, requested_at")
+        .eq("user_id", uid)
+        .eq("sentence_id", sentenceId)
+        .order("attempt_no", { ascending: true });
+      if (!mounted) return;
+      const rows: PastFeedback[] = (data ?? [])
+        .filter((r: any) => r.id !== approvalId)
+        .map((r: any) => ({
+          id: r.id,
+          attempt_no: Number(r.attempt_no) || 1,
+          grade: r.grade ?? null,
+          status: r.status,
+          memo: (r.memo ?? "").trim() ? r.memo : r.held_memo,
+          at: r.approved_at ?? r.held_at ?? r.requested_at,
+        }))
+        .filter((r) => !isMemoEmpty(parseMemo(r.memo)) || r.grade === "redo");
+      setHistory(rows);
+      setResolved({});
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [open, sentenceId, studentUserId, approvalId]);
+
+
+
 
   // ── 티칭 모드: 메모 타이핑을 학생 화면으로 실시간 중계 (DB 저장 없음) ──
   const memoChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
