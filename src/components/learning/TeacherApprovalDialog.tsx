@@ -75,14 +75,7 @@ interface PastFeedback {
   at: string;
 }
 
-interface PastFeedback {
-  id: string;
-  attempt_no: number;
-  grade: string | null;
-  status: string;
-  memo: string | null;
-  at: string;
-}
+
 
 export const TeacherApprovalDialog = ({
   approvalId,
