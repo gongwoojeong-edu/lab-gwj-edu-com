@@ -125,9 +125,11 @@ const PendingApprovals = () => {
           .in("code", sentenceIds),
         supabase
           .from("sentence_translations")
-          .select("user_id, sentence_id, text")
+          .select("user_id, sentence_id, text, submitted_at")
           .in("user_id", userIds)
-          .in("sentence_id", sentenceIds),
+          .in("sentence_id", sentenceIds)
+          // 최신 제출이 먼저 오도록 — 아래 tMap에서 첫 항목(=마지막 제출)만 채택
+          .order("submitted_at", { ascending: false }),
         // 제출/첨삭 횟수 집계용 이력
         supabase
           .from("sentence_approvals")

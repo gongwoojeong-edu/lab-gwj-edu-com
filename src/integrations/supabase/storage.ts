@@ -294,7 +294,12 @@ export const deleteOwnerProgress = async (sentenceId: string, ownerId: string): 
 // ---------- sentence_translations ----------
 export const fetchTranslation = async (sentenceId: string): Promise<string | null> => {
   const userId = await getUserId();
-  let q = supabase.from("sentence_translations").select("text").eq("sentence_id", sentenceId);
+  let q = supabase
+    .from("sentence_translations")
+    .select("text")
+    .eq("sentence_id", sentenceId)
+    .order("submitted_at", { ascending: false })
+    .limit(1);
   q = userId ? q.eq("user_id", userId) : q.is("user_id", null);
   const { data } = await q.maybeSingle();
   return (data?.text as string) ?? null;
