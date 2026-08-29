@@ -496,6 +496,32 @@ export const TeacherApprovalDialog = ({
             </div>
           )}
 
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {GRADE_ORDER.map((g) => {
+                const selected = grade === g;
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGrade(g)}
+                    className={cn(
+                      "px-2 py-2 rounded-md border text-xs font-bold transition-all",
+                      selected
+                        ? GRADE_BADGE_CLASS[g] + " scale-105 shadow-md"
+                        : "bg-card hover:bg-muted border-border text-foreground",
+                    )}
+                  >
+                    {GRADE_LABEL[g]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
+
           {history.length > 0 && (
             <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -566,34 +592,6 @@ export const TeacherApprovalDialog = ({
               </div>
             </div>
           )}
-
-
-
-          <div className="space-y-2">
-            <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
-            <div className="grid grid-cols-5 gap-1.5">
-              {GRADE_ORDER.map((g) => {
-                const selected = grade === g;
-                return (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setGrade(g)}
-                    className={cn(
-                      "px-2 py-2 rounded-md border text-xs font-bold transition-all",
-                      selected
-                        ? GRADE_BADGE_CLASS[g] + " scale-105 shadow-md"
-                        : "bg-card hover:bg-muted border-border text-foreground",
-                    )}
-                  >
-                    {GRADE_LABEL[g]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
         </div>
 
         <DialogFooter className="shrink-0 bg-background border-t border-border flex-wrap gap-2 sm:justify-between pt-3 pb-1">
