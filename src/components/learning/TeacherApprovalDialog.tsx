@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 import {
