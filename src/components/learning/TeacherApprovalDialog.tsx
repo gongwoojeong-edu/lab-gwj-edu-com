@@ -81,8 +81,33 @@ export const TeacherApprovalDialog = ({
   sourceInfo: initialSource,
   open,
   onOpenChange,
+interface PastFeedback {
+  id: string;
+  attempt_no: number;
+  grade: string | null;
+  status: string;
+  memo: string | null;
+  at: string;
+}
+
+export const TeacherApprovalDialog = ({
+  approvalId,
+  sentenceId,
+  studentTranslation,
+  englishSentence,
+  koreanAnswer,
+  studentUserId,
+  studentName,
+  studentNo,
+  skipPin = false,
+  initialMemo,
+  mode = "pending",
+  sourceInfo: initialSource,
+  open,
+  onOpenChange,
   onApproved,
 }: Props) => {
+
 
   const [pin, setPin] = useState("");
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
