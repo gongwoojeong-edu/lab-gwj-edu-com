@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
-import { emptyMemo, parseMemo, serializeMemo, type StructuredMemo } from "@/lib/approvalMemo";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
+import { emptyMemo, isMemoEmpty, parseMemo, serializeMemo, MEMO_FIELD_KEYS, type StructuredMemo } from "@/lib/approvalMemo";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
