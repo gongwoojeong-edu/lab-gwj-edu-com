@@ -1,0 +1,1 @@
+ALTER TABLE public.sentence_approvals ADD COLUMN IF NOT EXISTS feedback_resolved boolean NOT NULL DEFAULT false;

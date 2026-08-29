@@ -681,6 +681,7 @@ export type Database = {
           assignment_id: string | null
           attempt_no: number
           created_at: string
+          feedback_resolved: boolean
           grade: string | null
           held_at: string | null
           held_by: string | null
@@ -699,6 +700,7 @@ export type Database = {
           assignment_id?: string | null
           attempt_no?: number
           created_at?: string
+          feedback_resolved?: boolean
           grade?: string | null
           held_at?: string | null
           held_by?: string | null
@@ -717,6 +719,7 @@ export type Database = {
           assignment_id?: string | null
           attempt_no?: number
           created_at?: string
+          feedback_resolved?: boolean
           grade?: string | null
           held_at?: string | null
           held_by?: string | null
