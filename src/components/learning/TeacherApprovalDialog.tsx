@@ -390,7 +390,21 @@ export const TeacherApprovalDialog = ({
                 {studentName}
               </span>
             )}
+            {redoCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/40"
+                title="이 문장의 재학습 지정 횟수"
+              >
+                <RefreshCw className="w-3 h-3" /> 재학습 {redoCount}회 · {roundNo}회차
+              </span>
+            )}
+            {redoCount === 0 && roundNo > 1 && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                {roundNo}회차
+              </span>
+            )}
           </DialogTitle>
+
           <DialogDescription>
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
