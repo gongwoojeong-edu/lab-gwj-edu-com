@@ -577,9 +577,21 @@ export const TeacherApprovalDialog = ({
                           <input
                             type="checkbox"
                             checked={done}
-                            onChange={(e) =>
-                              setResolved((prev) => ({ ...prev, [h.id]: e.target.checked }))
-                            }
+                            onChange={(e) => {
+                              const v = e.target.checked;
+                              setResolved((prev) => ({ ...prev, [h.id]: v }));
+                              // 해결 여부를 DB에 저장 — 다음 회차 재학습 때도 유지된다.
+                              supabase
+                                .from("sentence_approvals")
+                                .update({ feedback_resolved: v } as never)
+                                .eq("id", h.id)
+                                .then(({ error }) => {
+                                  if (error) {
+                                    console.warn("[TeacherApprovalDialog] feedback_resolved save failed", error);
+                                    toast({ title: "해결 체크 저장에 실패했어요", variant: "destructive" });
+                                  }
+                                });
+                            }}
                             className="accent-emerald-600"
                           />
                           <CheckCircle2
