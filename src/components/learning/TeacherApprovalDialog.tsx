@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 import {
@@ -12,7 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
-import { emptyMemo, parseMemo, serializeMemo, type StructuredMemo } from "@/lib/approvalMemo";
+import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
+import { emptyMemo, isMemoEmpty, parseMemo, serializeMemo, MEMO_FIELD_KEYS, type StructuredMemo } from "@/lib/approvalMemo";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchTeacherPin } from "@/lib/teacherPin";
@@ -64,6 +66,17 @@ interface Props {
  * - 학생 PIN 흐름: skipPin=false, studentUserId 미전달 (현재 세션 = 학생 본인)
  * - 선생님 승인 페이지: skipPin=true, studentUserId 전달
  */
+interface PastFeedback {
+  id: string;
+  attempt_no: number;
+  grade: string | null;
+  status: string;
+  memo: string | null;
+  at: string;
+}
+
+
+
 export const TeacherApprovalDialog = ({
   approvalId,
   sentenceId,
@@ -82,6 +95,7 @@ export const TeacherApprovalDialog = ({
   onApproved,
 }: Props) => {
 
+
   const [pin, setPin] = useState("");
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
@@ -90,6 +104,32 @@ export const TeacherApprovalDialog = ({
   const [showAnswer, setShowAnswer] = useState(false);
   const [teaching, setTeaching] = useState(false);
   const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
+  const [history, setHistory] = useState<PastFeedback[]>([]);
+  const [resolved, setResolved] = useState<Record<string, boolean>>({});
+
+  const redoCount = useMemo(() => history.filter((h) => h.grade === "redo").length, [history]);
+  const roundNo = history.length + 1;
+  const unresolved = useMemo(
+    () => history.filter((h) => !resolved[h.id]),
+    [history, resolved],
+  );
+
+  const pullUnresolved = () => {
+    const next = { ...memo };
+    unresolved.forEach((h) => {
+      const parsed = parseMemo(h.memo);
+      MEMO_FIELD_KEYS.forEach((k) => {
+        const v = parsed[k].trim();
+        if (!v) return;
+        if (next[k].includes(v)) return;
+        next[k] = next[k].trim() ? `${next[k].trim()}\n${v}` : v;
+      });
+    });
+    setMemo(next);
+    toast({ title: "미해결 첨삭을 메모로 가져왔어요" });
+  };
+
+
 
 
   const beginTeaching = async () => {
@@ -138,6 +178,42 @@ export const TeacherApprovalDialog = ({
       mounted = false;
     };
   }, [open, sentenceId, initialSource]);
+
+  // ── 이전 선생님 첨삭 이력 (같은 문장 · 같은 학생) ──
+  useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    (async () => {
+      const uid =
+        studentUserId ?? (await supabase.auth.getUser()).data.user?.id ?? null;
+      if (!uid) return;
+      const { data } = await supabase
+        .from("sentence_approvals")
+        .select("id, attempt_no, grade, status, memo, held_memo, approved_at, held_at, requested_at")
+        .eq("user_id", uid)
+        .eq("sentence_id", sentenceId)
+        .order("attempt_no", { ascending: true });
+      if (!mounted) return;
+      const rows: PastFeedback[] = (data ?? [])
+        .filter((r: any) => r.id !== approvalId)
+        .map((r: any) => ({
+          id: r.id,
+          attempt_no: Number(r.attempt_no) || 1,
+          grade: r.grade ?? null,
+          status: r.status,
+          memo: (r.memo ?? "").trim() ? r.memo : r.held_memo,
+          at: r.approved_at ?? r.held_at ?? r.requested_at,
+        }))
+        .filter((r) => !isMemoEmpty(parseMemo(r.memo)) || r.grade === "redo");
+      setHistory(rows);
+      setResolved({});
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [open, sentenceId, studentUserId, approvalId]);
+
+
 
 
   // ── 티칭 모드: 메모 타이핑을 학생 화면으로 실시간 중계 (DB 저장 없음) ──
@@ -314,7 +390,21 @@ export const TeacherApprovalDialog = ({
                 {studentName}
               </span>
             )}
+            {redoCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/40"
+                title="이 문장의 재학습 지정 횟수"
+              >
+                <RefreshCw className="w-3 h-3" /> 재학습 {redoCount}회 · {roundNo}회차
+              </span>
+            )}
+            {redoCount === 0 && roundNo > 1 && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                {roundNo}회차
+              </span>
+            )}
           </DialogTitle>
+
           <DialogDescription>
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
@@ -405,6 +495,79 @@ export const TeacherApprovalDialog = ({
               />
             </div>
           )}
+
+          {history.length > 0 && (
+            <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                  <History className="w-3.5 h-3.5" /> 이전 선생님 첨삭 {history.length}건
+                  {unresolved.length > 0 && (
+                    <span className="ml-1 text-[11px] font-semibold text-rose-600 dark:text-rose-300">
+                      · 미해결 {unresolved.length}건
+                    </span>
+                  )}
+                </div>
+                {unresolved.length > 0 && (
+                  <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={pullUnresolved}>
+                    미해결 항목 메모로 가져오기
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {history.map((h) => {
+                  const done = !!resolved[h.id];
+                  return (
+                    <div
+                      key={h.id}
+                      className={cn(
+                        "rounded-md border bg-card p-2 space-y-1",
+                        done ? "border-emerald-500/50 opacity-70" : "border-border",
+                      )}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                        <span className="px-1.5 py-0.5 rounded bg-muted font-bold">{h.attempt_no}회차</span>
+                        {h.grade && (
+                          <span
+                            className={cn(
+                              "px-1.5 py-0.5 rounded font-bold",
+                              GRADE_BADGE_CLASS[h.grade as ApprovalGrade] ?? "bg-muted",
+                            )}
+                          >
+                            {GRADE_LABEL[h.grade as ApprovalGrade] ?? h.grade}
+                          </span>
+                        )}
+                        {h.status === "held" && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold">
+                            보류
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">
+                          {h.at ? new Date(h.at).toLocaleString("ko-KR") : ""}
+                        </span>
+                        <label className="ml-auto inline-flex items-center gap-1 cursor-pointer select-none font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={done}
+                            onChange={(e) =>
+                              setResolved((prev) => ({ ...prev, [h.id]: e.target.checked }))
+                            }
+                            className="accent-emerald-600"
+                          />
+                          <CheckCircle2
+                            className={cn("w-3.5 h-3.5", done ? "text-emerald-600" : "text-muted-foreground")}
+                          />
+                          해결됨
+                        </label>
+                      </div>
+                      <StructuredMemoView memo={h.memo} emptyText="메모 없이 재학습 지정" />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+
 
           <div className="space-y-2">
             <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
