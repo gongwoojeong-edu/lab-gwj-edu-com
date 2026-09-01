@@ -168,6 +168,15 @@ const LearningResults = () => {
   const [unitGradeDraft, setUnitGradeDraft] = useState<Record<string, TeacherGrade>>({});
   const [unitMemoDraft, setUnitMemoDraft] = useState<Record<string, string>>({});
   const [studentSearch, setStudentSearch] = useState("");
+  // "" = 전체, "__noclass__" = 미배정, 그 외 = orbit_class_name
+  const [selectedClass, setSelectedClass] = useState<string>("");
+
+  const tabCls = (active: boolean) =>
+    `h-8 px-3 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+      active
+        ? "border-primary bg-primary text-primary-foreground"
+        : "border-border bg-background text-muted-foreground hover:bg-muted/60"
+    }`;
 
   useEffect(() => {
     let cancelled = false;
