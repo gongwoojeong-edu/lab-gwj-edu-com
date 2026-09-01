@@ -740,32 +740,75 @@ const LearningResults = () => {
     refresh();
   }, [date]);
 
-  const groupedEntries = useMemo(
-    () => {
-      const query = studentSearch.trim().toLowerCase();
-      return Object.entries(studentSentences)
+  // 검색/반 선택 전 전체(재원) 학생 목록 — 반 탭 카운트·집계 기준
+  const baseEntries = useMemo(
+    () =>
+      Object.entries(studentSentences)
         // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
         .filter(([uid]) => students[uid])
-        .filter(([uid]) => {
-          if (!query) return true;
-          const s = students[uid];
-          if (!s) return false;
-          return (
-            (s.display_name ?? "").toLowerCase().includes(query) ||
-            (s.student_no ?? "").toLowerCase().includes(query)
-          );
-        })
         .sort(([a], [b]) => {
           // 반별(시간대 고려) → 학년 → 가나다순
           const sa2 = students[a];
           const sb2 = students[b];
           if (!sa2 || !sb2) return 0;
           return compareStudents(sa2, sb2);
-        });
-    },
-    [studentSentences, students, studentSearch],
-
+        }),
+    [studentSentences, students],
   );
+
+  // 반 탭 — 초등→중등→고등 → 수업 시작시각 → 라벨순
+  const classTabs = useMemo(() => {
+    const countByClass = new Map<string, number>();
+    const scheduleByClass = new Map<string, Record<string, string> | null>();
+    let noClassCount = 0;
+    baseEntries.forEach(([uid]) => {
+      const s = students[uid];
+      if (!s) return;
+      const name = (s.orbit_class_name ?? "").trim();
+      if (!name) {
+        noClassCount++;
+        return;
+      }
+      countByClass.set(name, (countByClass.get(name) ?? 0) + 1);
+      if (!scheduleByClass.has(name)) {
+        scheduleByClass.set(name, s.orbit_class_schedule ?? null);
+      }
+    });
+    const tabs = Array.from(countByClass.entries())
+      .map(([name, count]) => {
+        const k = classKey(name);
+        const t =
+          earliestClassTime(scheduleByClass.get(name) ?? null) ?? "99:99";
+        return { id: name, label: classBadge(name), count, school: k.school, time: t };
+      })
+      .sort((a, b) =>
+        a.school !== b.school
+          ? a.school - b.school
+          : a.time.localeCompare(b.time) || a.label.localeCompare(b.label, "ko"),
+      );
+    return { tabs, noClassCount };
+  }, [baseEntries, students]);
+
+  // 검색 + 반 탭 필터를 적용한 표시 목록
+  const groupedEntries = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase();
+    return baseEntries.filter(([uid]) => {
+      const s = students[uid];
+      if (!s) return false;
+      if (query) {
+        const hit =
+          (s.display_name ?? "").toLowerCase().includes(query) ||
+          (s.student_no ?? "").toLowerCase().includes(query);
+        if (!hit) return false;
+      }
+      if (selectedClass === "__noclass__") {
+        if ((s.orbit_class_name ?? "").trim() !== "") return false;
+      } else if (selectedClass) {
+        if ((s.orbit_class_name ?? "").trim() !== selectedClass) return false;
+      }
+      return true;
+    });
+  }, [baseEntries, students, studentSearch, selectedClass]);
 
 
 
