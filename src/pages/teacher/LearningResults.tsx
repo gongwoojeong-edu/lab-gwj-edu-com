@@ -61,7 +61,12 @@ import { ensureLogoDataUri } from "@/lib/printTemplates";
 import { fetchUnitBookLabels } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import { isDashboardAttendingToday } from "@/lib/attendanceDays";
-import { compareStudents } from "@/lib/studentSort";
+import {
+  compareStudents,
+  classKey,
+  earliestClassTime,
+  classBadge,
+} from "@/lib/studentSort";
 
 
 import { Textarea } from "@/components/ui/textarea";
@@ -75,6 +80,14 @@ import {
 
 const compareLearningCode = (a: string, b: string): number =>
   a.localeCompare(b, "ko", { numeric: true, sensitivity: "base" });
+
+// 교재 구조(code→unit, unit 라벨/지문 수)는 거의 변하지 않으므로
+// 날짜를 바꿔도 재조회하지 않도록 모듈 단위로 보존한다.
+const structCache = {
+  codeToUnit: {} as Record<string, string>,
+  unitLabel: {} as Record<string, string>,
+  unitTotalMap: {} as Record<string, number>,
+};
 
 interface StudentInfo {
   user_id: string;
