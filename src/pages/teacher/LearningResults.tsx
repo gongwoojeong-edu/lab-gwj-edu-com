@@ -371,8 +371,10 @@ const LearningResults = () => {
         mem_listen_done: boolean | null;
       }>;
 
-      // 오늘 활동한 교재 안의 과거 완료/진행분도 함께 표시한다.
-      // 날짜 필터 때문에 1과-2처럼 이미 끝낸 유닛이 사라지면, 이어하기/검수 기준이 끊겨 보인다.
+      // 오늘 활동한 "유닛" 안의 과거 완료/진행분도 함께 표시한다.
+      // 날짜 필터 때문에 이미 끝낸 유닛이 사라지면 이어하기/검수 기준이 끊겨 보인다.
+      // (전체 교재 단위로 끌어오면 지문 수가 수천 건이 되어 로딩이 매우 느려지므로
+      //  유닛 단위로 좁혀 동일한 효과를 유지하면서 행 수를 줄인다.)
       const activeUserIdsForContext = Array.from(pairs.keys());
       const activeSentenceIdsForContext = Array.from(
         new Set(Array.from(pairs.values()).flatMap((set) => Array.from(set))),
@@ -380,31 +382,31 @@ const LearningResults = () => {
       if (activeUserIdsForContext.length > 0 && activeSentenceIdsForContext.length > 0) {
         const { data: activePassages } = await supabase
           .from("textbook_passages")
-          .select("code, textbook_id")
+          .select("code, unit_id")
           .in("code", activeSentenceIdsForContext);
-        const activeTextbookIds = Array.from(
+        const activeUnitIds = Array.from(
           new Set(
-            ((activePassages ?? []) as { textbook_id: string | null }[])
-              .map((p) => p.textbook_id)
+            ((activePassages ?? []) as { unit_id: string | null }[])
+              .map((p) => p.unit_id)
               .filter((id): id is string => !!id),
           ),
         );
-        if (activeTextbookIds.length > 0) {
-          const { data: textbookPassages } = await supabase
+        if (activeUnitIds.length > 0) {
+          const { data: unitPassages } = await supabase
             .from("textbook_passages")
             .select("code")
-            .in("textbook_id", activeTextbookIds);
-          const textbookCodes = Array.from(
-            new Set(((textbookPassages ?? []) as { code: string }[]).map((p) => p.code)),
+            .in("unit_id", activeUnitIds);
+          const unitCodes = Array.from(
+            new Set(((unitPassages ?? []) as { code: string }[]).map((p) => p.code)),
           );
-          if (textbookCodes.length > 0) {
+          if (unitCodes.length > 0) {
             const { data: contextProgress } = await supabase
               .from("sentence_progress")
               .select(
                 "user_id, sentence_id, status, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at, mem_passed_at, mem_listen_done",
               )
               .in("user_id", activeUserIdsForContext)
-              .in("sentence_id", textbookCodes)
+              .in("sentence_id", unitCodes)
               .in("status", ["pass", "fail", "hold", "pending"]);
             const seenProgress = new Set(
               progressRows.map((r) => `${r.user_id}::${r.sentence_id}`),
