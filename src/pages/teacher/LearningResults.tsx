@@ -1385,19 +1385,6 @@ const LearningResults = () => {
             ) : (
               <div className="space-y-3">
 
-
-        {loading ? (
-          <Card className="p-10 flex items-center justify-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </Card>
-        ) : groupedEntries.length === 0 ? (
-          <Card className="p-10 text-center text-sm text-muted-foreground">
-            {studentSearch.trim()
-              ? "검색 조건에 맞는 학생이 없습니다."
-              : "해당 날짜에 학습 활동이 없습니다."}
-          </Card>
-        ) : (
-          <div className="space-y-3">
             {groupedEntries.map(([userId, sentenceIds]) => {
               const s = students[userId];
               return (
