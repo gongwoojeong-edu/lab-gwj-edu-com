@@ -664,35 +664,46 @@ const LearningResults = () => {
       setMemMap(memStatusMap);
 
       // 4) sentence_id → unit_id, unit_id → 라벨 로드
+      //    교재 구조는 거의 변하지 않으므로 모듈 캐시(structCache)를 사용해
+      //    날짜를 바꿀 때마다 같은 유닛/코드를 재조회하지 않도록 한다.
       const allSids = Array.from(new Set(Object.values(ssMap).flat()));
       if (allSids.length > 0) {
-        const { data: pgRows } = await supabase
-          .from("textbook_passages")
-          .select("code, unit_id, textbook_id")
-          .in("code", allSids);
-        const c2u: Record<string, string> = {};
-        const unitIds = new Set<string>();
-        const tbIds = new Set<string>();
-        ((pgRows ?? []) as { code: string; unit_id: string; textbook_id: string }[]).forEach(
-          (p) => {
-            if (p.unit_id) {
-              c2u[p.code] = p.unit_id;
-              unitIds.add(p.unit_id);
-              if (p.textbook_id) tbIds.add(p.textbook_id);
-            }
-          },
-        );
-        setCodeToUnit(c2u);
+        const missingCodes = allSids.filter((c) => !(c in structCache.codeToUnit));
+        if (missingCodes.length > 0) {
+          const { data: pgRows } = await supabase
+            .from("textbook_passages")
+            .select("code, unit_id")
+            .in("code", missingCodes);
+          ((pgRows ?? []) as { code: string; unit_id: string | null }[]).forEach((p) => {
+            if (p.unit_id) structCache.codeToUnit[p.code] = p.unit_id;
+          });
+          // 매핑 결과가 없는 코드도 빈값으로 마킹 → 재조회 방지
+          missingCodes.forEach((c) => {
+            if (!(c in structCache.codeToUnit)) structCache.codeToUnit[c] = "";
+          });
+        }
+        setCodeToUnit({ ...structCache.codeToUnit });
 
-        // 라벨 (출판사 NN과 · Uxx 유닛명)
-        if (unitIds.size > 0) {
+        // 현재 캐시에 들어온 unit_id 중 라벨이 없는 것만 보충 조회
+        const knownUnitIds = new Set<string>();
+        Object.values(structCache.codeToUnit).forEach((u) => {
+          if (u) knownUnitIds.add(u);
+        });
+        const newUnitIds = Array.from(knownUnitIds).filter(
+          (id) => !(id in structCache.unitLabel),
+        );
+        if (newUnitIds.length > 0) {
           const [{ data: uRows }, bookLabels] = await Promise.all([
             supabase
               .from("textbook_units")
               .select("id, unit_no, title, textbook_id")
-              .in("id", Array.from(unitIds)),
-            fetchUnitBookLabels(Array.from(unitIds)),
+              .in("id", newUnitIds),
+            fetchUnitBookLabels(newUnitIds),
           ]);
+          const tbIds = new Set<string>();
+          ((uRows ?? []) as { textbook_id: string }[]).forEach((u) => {
+            if (u.textbook_id) tbIds.add(u.textbook_id);
+          });
           const tbMap = new Map<string, { level: string; title: string }>();
           if (tbIds.size > 0) {
             const { data: tbRows } = await supabase
@@ -703,29 +714,29 @@ const LearningResults = () => {
               (t) => tbMap.set(t.id, { level: t.level, title: t.title }),
             );
           }
-          const lblMap: Record<string, string> = {};
           ((uRows ?? []) as {
             id: string; unit_no: number; title: string; textbook_id: string;
           }[]).forEach((u) => {
             const tb = tbMap.get(u.textbook_id);
             const lvl = tb ? `[${tb.level}] ` : "";
             const book = bookLabels[u.id] ?? tb?.title ?? "";
-            lblMap[u.id] = `${lvl}${book} · U${u.unit_no} ${u.title}`.trim();
+            structCache.unitLabel[u.id] = `${lvl}${book} · U${u.unit_no} ${u.title}`.trim();
           });
-          setUnitLabel(lblMap);
-
 
           // 유닛별 전체 지문 수 (진행률 분모)
           const { data: allPassages } = await supabase
             .from("textbook_passages")
             .select("unit_id")
-            .in("unit_id", Array.from(unitIds));
-          const totals: Record<string, number> = {};
+            .in("unit_id", newUnitIds);
           ((allPassages ?? []) as { unit_id: string }[]).forEach((r) => {
-            if (r.unit_id) totals[r.unit_id] = (totals[r.unit_id] ?? 0) + 1;
+            if (r.unit_id) {
+              structCache.unitTotalMap[r.unit_id] =
+                (structCache.unitTotalMap[r.unit_id] ?? 0) + 1;
+            }
           });
-          setUnitTotalMap(totals);
         }
+        setUnitLabel({ ...structCache.unitLabel });
+        setUnitTotalMap({ ...structCache.unitTotalMap });
       }
 
       // === pre-warm: 풀 iframe 만 살려둠 (HTML 직주입 방식이라 별도 prefetch 불필요) ===
