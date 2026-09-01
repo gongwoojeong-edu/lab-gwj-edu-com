@@ -736,6 +736,7 @@ const LearningResults = () => {
   };
 
   useEffect(() => {
+    setSelectedClass("");
     refresh();
   }, [date]);
 
