@@ -1340,6 +1340,56 @@ const LearningResults = () => {
           <Card className="p-10 flex items-center justify-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </Card>
+        ) : (
+          <>
+            {/* 반 탭 — 선택한 반별로 학생 카드만 노출 */}
+            {(classTabs.tabs.length > 0 || classTabs.noClassCount > 0) && (
+              <div className="flex items-center gap-1.5 flex-wrap sticky top-0 z-10 bg-background/95 backdrop-blur py-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClass("")}
+                  className={tabCls(selectedClass === "")}
+                >
+                  전체 {baseEntries.length}
+                </button>
+                {classTabs.tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedClass(t.id)}
+                    className={tabCls(selectedClass === t.id)}
+                  >
+                    {t.label} {t.count}
+                  </button>
+                ))}
+                {classTabs.noClassCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClass("__noclass__")}
+                    className={tabCls(selectedClass === "__noclass__")}
+                  >
+                    미배정 {classTabs.noClassCount}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {groupedEntries.length === 0 ? (
+              <Card className="p-10 text-center text-sm text-muted-foreground">
+                {studentSearch.trim()
+                  ? "검색 조건에 맞는 학생이 없습니다."
+                  : selectedClass
+                    ? "선택한 반에 해당 날짜 학습 활동이 없습니다."
+                    : "해당 날짜에 학습 활동이 없습니다."}
+              </Card>
+            ) : (
+              <div className="space-y-3">
+
+
+        {loading ? (
+          <Card className="p-10 flex items-center justify-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </Card>
         ) : groupedEntries.length === 0 ? (
           <Card className="p-10 text-center text-sm text-muted-foreground">
             {studentSearch.trim()
