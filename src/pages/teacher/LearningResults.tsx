@@ -60,6 +60,9 @@ import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
 import { ensureLogoDataUri } from "@/lib/printTemplates";
 import { fetchUnitBookLabels } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
+import { isDashboardAttendingToday } from "@/lib/attendanceDays";
+import { compareStudents } from "@/lib/studentSort";
+
 
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -78,7 +81,12 @@ interface StudentInfo {
   display_name: string | null;
   student_no: string;
   current_level: string | null;
+  campus?: string | null;
+  orbit_class_name?: string | null;
+  orbit_class_schedule?: Record<string, string> | null;
+  actual_grade?: string | null;
 }
+
 interface AttemptStat {
   best_word_score: number | null;
   best_analysis_rate: number | null;
@@ -425,22 +433,43 @@ const LearningResults = () => {
         hMap[key] = r;
       });
 
+      const PROFILE_COLS =
+        "user_id, display_name, student_no, current_level, orbit_enrollment_active, campus, orbit_class_name, orbit_class_days, orbit_class_schedule, actual_grade";
+      type ProfileRow = {
+        user_id: string;
+        display_name: string | null;
+        student_no: string;
+        current_level: string | null;
+        orbit_enrollment_active: boolean | null;
+        campus: string | null;
+        orbit_class_name: string | null;
+        orbit_class_days: string[] | null;
+        orbit_class_schedule: Record<string, string> | null;
+        actual_grade: string | null;
+      };
+      const toInfo = (row: ProfileRow): StudentInfo => ({
+        user_id: row.user_id,
+        display_name: row.display_name,
+        student_no: row.student_no,
+        current_level: row.current_level,
+        campus: row.campus,
+        orbit_class_name: row.orbit_class_name,
+        orbit_class_schedule: row.orbit_class_schedule,
+        actual_grade: row.actual_grade,
+      });
+
       if (allUserIds.length > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("user_id, display_name, student_no, current_level, orbit_enrollment_active")
+          .select(PROFILE_COLS)
           .in("user_id", allUserIds);
         (sp ?? []).forEach((s) => {
-          const row = s as { user_id: string; display_name: string | null; student_no: string; current_level: string | null; orbit_enrollment_active: boolean | null };
+          const row = s as unknown as ProfileRow;
           // 퇴원/휴원(orbit_enrollment_active=false) 학생은 학습결과에서 숨김
           if (row.orbit_enrollment_active === false) return;
-          sMap[row.user_id] = {
-            user_id: row.user_id,
-            display_name: row.display_name,
-            student_no: row.student_no,
-            current_level: row.current_level,
-          };
+          sMap[row.user_id] = toInfo(row);
         });
+
 
 
         const { data: uwRows } = await (supabase as unknown as {
@@ -462,7 +491,26 @@ const LearningResults = () => {
         setUnitWorkflowMap({});
       }
 
+      // 오늘 날짜를 보고 있으면, 학습 시작 전이어도 오늘 등원 예정자를 모두 노출
+      if (date === toIsoDate(new Date())) {
+        const { data: allActive } = await supabase
+          .from("student_profiles")
+          .select(PROFILE_COLS)
+          .eq("orbit_enrollment_active", true);
+        ((allActive ?? []) as unknown as ProfileRow[]).forEach((row) => {
+          const attending = isDashboardAttendingToday({
+            classDays: row.orbit_class_days,
+            className: row.orbit_class_name,
+            enrollmentActive: row.orbit_enrollment_active,
+          });
+          if (!attending) return;
+          if (!sMap[row.user_id]) sMap[row.user_id] = toInfo(row);
+          if (!pairs.has(row.user_id)) pairs.set(row.user_id, new Set());
+        });
+      }
+
       setStudents(sMap);
+
       setHandoutMap(hMap);
 
       // 2) attempt 통계 (best score)
@@ -684,25 +732,16 @@ const LearningResults = () => {
             (s.student_no ?? "").toLowerCase().includes(query)
           );
         })
-        .sort(([a, sa], [b, sb]) => {
-          // 최신순: 학생별 최근 제출일시 desc
-          const latest = (uid: string, sids: string[]) => {
-            let mx = "";
-            for (const sid of sids) {
-              const t = pairSubmitAt[`${uid}::${sid}`] ?? "";
-              if (t > mx) mx = t;
-            }
-            return mx;
-          };
-          const ta = latest(a, sa);
-          const tb = latest(b, sb);
-          if (ta !== tb) return tb.localeCompare(ta);
-          const na = students[a]?.display_name ?? "";
-          const nb = students[b]?.display_name ?? "";
-          return na.localeCompare(nb, "ko", { sensitivity: "base" });
+        .sort(([a], [b]) => {
+          // 반별(시간대 고려) → 학년 → 가나다순
+          const sa2 = students[a];
+          const sb2 = students[b];
+          if (!sa2 || !sb2) return 0;
+          return compareStudents(sa2, sb2);
         });
     },
-    [studentSentences, students, pairSubmitAt, studentSearch],
+    [studentSentences, students, studentSearch],
+
   );
 
 
@@ -1246,9 +1285,20 @@ const LearningResults = () => {
                     <span className="text-xs font-mono text-muted-foreground">
                       ({s?.student_no ?? "—"})
                     </span>
+                    {s?.orbit_class_name && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {s.orbit_class_name}
+                      </Badge>
+                    )}
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
+                    {sentenceIds.length === 0 && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        오늘 등원 · 미학습
+                      </Badge>
+                    )}
+
                     {(() => {
                       const uids = new Set<string>();
                       let noUnit = 0;
