@@ -200,14 +200,43 @@ export const approveSentenceRequest = async (input: {
 
 
   // 3) 학생 알림함에 평가 전송 (실패해도 승인 흐름은 진행)
+  //    보류/재학습 이력이 있던 문장을 최종 승인하면 "첨삭 해결 축하" 메시지를 함께 보낸다.
+  let priorRounds = 0;
+  if (!isRedo) {
+    try {
+      const { data: history } = await supabase
+        .from("sentence_approvals")
+        .select("id,status,grade,held_at")
+        .eq("user_id", targetUserId)
+        .eq("sentence_id", input.sentenceId)
+        .neq("id", input.approvalId);
+      priorRounds = (history ?? []).filter(
+        (r) =>
+          (r as { status: string | null }).status === "held" ||
+          (r as { grade: string | null }).grade === "redo" ||
+          !!(r as { held_at: string | null }).held_at,
+      ).length;
+    } catch (e) {
+      console.warn("[sentenceApprovals] history lookup failed", e);
+    }
+  }
+
+  const memoText = memoToPlainText(memoTrimmed) || null;
+  const congrats =
+    !isRedo && priorRounds > 0
+      ? `🎉 첨삭 지적 사항을 모두 해결했어요! (재학습 ${priorRounds}회 끝에 통과)`
+      : null;
+
   try {
     await createNotification({
       userId: targetUserId,
       kind: "evaluation",
       title: isRedo
         ? "선생님 추가학습 요청 — 한 번 더 제출해주세요"
-        : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
-      body: memoToPlainText(memoTrimmed) || null,
+        : congrats
+          ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
+          : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
+      body: [congrats, memoText].filter(Boolean).join("\n\n") || null,
       grade: input.grade,
       sentenceId: input.sentenceId,
       approvalId: input.approvalId,
@@ -215,6 +244,7 @@ export const approveSentenceRequest = async (input: {
   } catch (e) {
     console.warn("[sentenceApprovals] notification insert failed", e);
   }
+
 };
 
 /** 학생 본인 세션: 승인 행을 sentence_progress에 반영 (선생님 UPDATE 실패 시 보완) */
