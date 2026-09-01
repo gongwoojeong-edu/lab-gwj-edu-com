@@ -1961,9 +1961,12 @@ const LearningResults = () => {
                 </div>
               );
             })}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
 
       {/* 보기 다이얼로그 (한글해석 / 단어시험) */}
       <Dialog open={!!viewDialog} onOpenChange={(o) => !o && setViewDialog(null)}>
