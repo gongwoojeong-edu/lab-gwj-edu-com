@@ -61,7 +61,12 @@ import { ensureLogoDataUri } from "@/lib/printTemplates";
 import { fetchUnitBookLabels } from "@/lib/textbooks";
 import { toast } from "@/hooks/use-toast";
 import { isDashboardAttendingToday } from "@/lib/attendanceDays";
-import { compareStudents } from "@/lib/studentSort";
+import {
+  compareStudents,
+  classKey,
+  earliestClassTime,
+  classBadge,
+} from "@/lib/studentSort";
 
 
 import { Textarea } from "@/components/ui/textarea";
@@ -75,6 +80,14 @@ import {
 
 const compareLearningCode = (a: string, b: string): number =>
   a.localeCompare(b, "ko", { numeric: true, sensitivity: "base" });
+
+// 교재 구조(code→unit, unit 라벨/지문 수)는 거의 변하지 않으므로
+// 날짜를 바꿔도 재조회하지 않도록 모듈 단위로 보존한다.
+const structCache = {
+  codeToUnit: {} as Record<string, string>,
+  unitLabel: {} as Record<string, string>,
+  unitTotalMap: {} as Record<string, number>,
+};
 
 interface StudentInfo {
   user_id: string;
@@ -155,6 +168,15 @@ const LearningResults = () => {
   const [unitGradeDraft, setUnitGradeDraft] = useState<Record<string, TeacherGrade>>({});
   const [unitMemoDraft, setUnitMemoDraft] = useState<Record<string, string>>({});
   const [studentSearch, setStudentSearch] = useState("");
+  // "" = 전체, "__noclass__" = 미배정, 그 외 = orbit_class_name
+  const [selectedClass, setSelectedClass] = useState<string>("");
+
+  const tabCls = (active: boolean) =>
+    `h-8 px-3 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+      active
+        ? "border-primary bg-primary text-primary-foreground"
+        : "border-border bg-background text-muted-foreground hover:bg-muted/60"
+    }`;
 
   useEffect(() => {
     let cancelled = false;
@@ -349,8 +371,10 @@ const LearningResults = () => {
         mem_listen_done: boolean | null;
       }>;
 
-      // 오늘 활동한 교재 안의 과거 완료/진행분도 함께 표시한다.
-      // 날짜 필터 때문에 1과-2처럼 이미 끝낸 유닛이 사라지면, 이어하기/검수 기준이 끊겨 보인다.
+      // 오늘 활동한 "유닛" 안의 과거 완료/진행분도 함께 표시한다.
+      // 날짜 필터 때문에 이미 끝낸 유닛이 사라지면 이어하기/검수 기준이 끊겨 보인다.
+      // (전체 교재 단위로 끌어오면 지문 수가 수천 건이 되어 로딩이 매우 느려지므로
+      //  유닛 단위로 좁혀 동일한 효과를 유지하면서 행 수를 줄인다.)
       const activeUserIdsForContext = Array.from(pairs.keys());
       const activeSentenceIdsForContext = Array.from(
         new Set(Array.from(pairs.values()).flatMap((set) => Array.from(set))),
@@ -358,31 +382,31 @@ const LearningResults = () => {
       if (activeUserIdsForContext.length > 0 && activeSentenceIdsForContext.length > 0) {
         const { data: activePassages } = await supabase
           .from("textbook_passages")
-          .select("code, textbook_id")
+          .select("code, unit_id")
           .in("code", activeSentenceIdsForContext);
-        const activeTextbookIds = Array.from(
+        const activeUnitIds = Array.from(
           new Set(
-            ((activePassages ?? []) as { textbook_id: string | null }[])
-              .map((p) => p.textbook_id)
+            ((activePassages ?? []) as { unit_id: string | null }[])
+              .map((p) => p.unit_id)
               .filter((id): id is string => !!id),
           ),
         );
-        if (activeTextbookIds.length > 0) {
-          const { data: textbookPassages } = await supabase
+        if (activeUnitIds.length > 0) {
+          const { data: unitPassages } = await supabase
             .from("textbook_passages")
             .select("code")
-            .in("textbook_id", activeTextbookIds);
-          const textbookCodes = Array.from(
-            new Set(((textbookPassages ?? []) as { code: string }[]).map((p) => p.code)),
+            .in("unit_id", activeUnitIds);
+          const unitCodes = Array.from(
+            new Set(((unitPassages ?? []) as { code: string }[]).map((p) => p.code)),
           );
-          if (textbookCodes.length > 0) {
+          if (unitCodes.length > 0) {
             const { data: contextProgress } = await supabase
               .from("sentence_progress")
               .select(
                 "user_id, sentence_id, status, analysis_done, analysis_match_rate, translation_done, word_test_done, last_activity_at, updated_at, mem_passed_at, mem_listen_done",
               )
               .in("user_id", activeUserIdsForContext)
-              .in("sentence_id", textbookCodes)
+              .in("sentence_id", unitCodes)
               .in("status", ["pass", "fail", "hold", "pending"]);
             const seenProgress = new Set(
               progressRows.map((r) => `${r.user_id}::${r.sentence_id}`),
@@ -642,35 +666,46 @@ const LearningResults = () => {
       setMemMap(memStatusMap);
 
       // 4) sentence_id → unit_id, unit_id → 라벨 로드
+      //    교재 구조는 거의 변하지 않으므로 모듈 캐시(structCache)를 사용해
+      //    날짜를 바꿀 때마다 같은 유닛/코드를 재조회하지 않도록 한다.
       const allSids = Array.from(new Set(Object.values(ssMap).flat()));
       if (allSids.length > 0) {
-        const { data: pgRows } = await supabase
-          .from("textbook_passages")
-          .select("code, unit_id, textbook_id")
-          .in("code", allSids);
-        const c2u: Record<string, string> = {};
-        const unitIds = new Set<string>();
-        const tbIds = new Set<string>();
-        ((pgRows ?? []) as { code: string; unit_id: string; textbook_id: string }[]).forEach(
-          (p) => {
-            if (p.unit_id) {
-              c2u[p.code] = p.unit_id;
-              unitIds.add(p.unit_id);
-              if (p.textbook_id) tbIds.add(p.textbook_id);
-            }
-          },
-        );
-        setCodeToUnit(c2u);
+        const missingCodes = allSids.filter((c) => !(c in structCache.codeToUnit));
+        if (missingCodes.length > 0) {
+          const { data: pgRows } = await supabase
+            .from("textbook_passages")
+            .select("code, unit_id")
+            .in("code", missingCodes);
+          ((pgRows ?? []) as { code: string; unit_id: string | null }[]).forEach((p) => {
+            if (p.unit_id) structCache.codeToUnit[p.code] = p.unit_id;
+          });
+          // 매핑 결과가 없는 코드도 빈값으로 마킹 → 재조회 방지
+          missingCodes.forEach((c) => {
+            if (!(c in structCache.codeToUnit)) structCache.codeToUnit[c] = "";
+          });
+        }
+        setCodeToUnit({ ...structCache.codeToUnit });
 
-        // 라벨 (출판사 NN과 · Uxx 유닛명)
-        if (unitIds.size > 0) {
+        // 현재 캐시에 들어온 unit_id 중 라벨이 없는 것만 보충 조회
+        const knownUnitIds = new Set<string>();
+        Object.values(structCache.codeToUnit).forEach((u) => {
+          if (u) knownUnitIds.add(u);
+        });
+        const newUnitIds = Array.from(knownUnitIds).filter(
+          (id) => !(id in structCache.unitLabel),
+        );
+        if (newUnitIds.length > 0) {
           const [{ data: uRows }, bookLabels] = await Promise.all([
             supabase
               .from("textbook_units")
               .select("id, unit_no, title, textbook_id")
-              .in("id", Array.from(unitIds)),
-            fetchUnitBookLabels(Array.from(unitIds)),
+              .in("id", newUnitIds),
+            fetchUnitBookLabels(newUnitIds),
           ]);
+          const tbIds = new Set<string>();
+          ((uRows ?? []) as { textbook_id: string }[]).forEach((u) => {
+            if (u.textbook_id) tbIds.add(u.textbook_id);
+          });
           const tbMap = new Map<string, { level: string; title: string }>();
           if (tbIds.size > 0) {
             const { data: tbRows } = await supabase
@@ -681,29 +716,29 @@ const LearningResults = () => {
               (t) => tbMap.set(t.id, { level: t.level, title: t.title }),
             );
           }
-          const lblMap: Record<string, string> = {};
           ((uRows ?? []) as {
             id: string; unit_no: number; title: string; textbook_id: string;
           }[]).forEach((u) => {
             const tb = tbMap.get(u.textbook_id);
             const lvl = tb ? `[${tb.level}] ` : "";
             const book = bookLabels[u.id] ?? tb?.title ?? "";
-            lblMap[u.id] = `${lvl}${book} · U${u.unit_no} ${u.title}`.trim();
+            structCache.unitLabel[u.id] = `${lvl}${book} · U${u.unit_no} ${u.title}`.trim();
           });
-          setUnitLabel(lblMap);
-
 
           // 유닛별 전체 지문 수 (진행률 분모)
           const { data: allPassages } = await supabase
             .from("textbook_passages")
             .select("unit_id")
-            .in("unit_id", Array.from(unitIds));
-          const totals: Record<string, number> = {};
+            .in("unit_id", newUnitIds);
           ((allPassages ?? []) as { unit_id: string }[]).forEach((r) => {
-            if (r.unit_id) totals[r.unit_id] = (totals[r.unit_id] ?? 0) + 1;
+            if (r.unit_id) {
+              structCache.unitTotalMap[r.unit_id] =
+                (structCache.unitTotalMap[r.unit_id] ?? 0) + 1;
+            }
           });
-          setUnitTotalMap(totals);
         }
+        setUnitLabel({ ...structCache.unitLabel });
+        setUnitTotalMap({ ...structCache.unitTotalMap });
       }
 
       // === pre-warm: 풀 iframe 만 살려둠 (HTML 직주입 방식이라 별도 prefetch 불필요) ===
@@ -714,35 +749,79 @@ const LearningResults = () => {
   };
 
   useEffect(() => {
+    setSelectedClass("");
     refresh();
   }, [date]);
 
-  const groupedEntries = useMemo(
-    () => {
-      const query = studentSearch.trim().toLowerCase();
-      return Object.entries(studentSentences)
+  // 검색/반 선택 전 전체(재원) 학생 목록 — 반 탭 카운트·집계 기준
+  const baseEntries = useMemo(
+    () =>
+      Object.entries(studentSentences)
         // 퇴원/휴원 학생 숨김 (students 맵에 없는 user_id는 제외)
         .filter(([uid]) => students[uid])
-        .filter(([uid]) => {
-          if (!query) return true;
-          const s = students[uid];
-          if (!s) return false;
-          return (
-            (s.display_name ?? "").toLowerCase().includes(query) ||
-            (s.student_no ?? "").toLowerCase().includes(query)
-          );
-        })
         .sort(([a], [b]) => {
           // 반별(시간대 고려) → 학년 → 가나다순
           const sa2 = students[a];
           const sb2 = students[b];
           if (!sa2 || !sb2) return 0;
           return compareStudents(sa2, sb2);
-        });
-    },
-    [studentSentences, students, studentSearch],
-
+        }),
+    [studentSentences, students],
   );
+
+  // 반 탭 — 초등→중등→고등 → 수업 시작시각 → 라벨순
+  const classTabs = useMemo(() => {
+    const countByClass = new Map<string, number>();
+    const scheduleByClass = new Map<string, Record<string, string> | null>();
+    let noClassCount = 0;
+    baseEntries.forEach(([uid]) => {
+      const s = students[uid];
+      if (!s) return;
+      const name = (s.orbit_class_name ?? "").trim();
+      if (!name) {
+        noClassCount++;
+        return;
+      }
+      countByClass.set(name, (countByClass.get(name) ?? 0) + 1);
+      if (!scheduleByClass.has(name)) {
+        scheduleByClass.set(name, s.orbit_class_schedule ?? null);
+      }
+    });
+    const tabs = Array.from(countByClass.entries())
+      .map(([name, count]) => {
+        const k = classKey(name);
+        const t =
+          earliestClassTime(scheduleByClass.get(name) ?? null) ?? "99:99";
+        return { id: name, label: classBadge(name), count, school: k.school, time: t };
+      })
+      .sort((a, b) =>
+        a.school !== b.school
+          ? a.school - b.school
+          : a.time.localeCompare(b.time) || a.label.localeCompare(b.label, "ko"),
+      );
+    return { tabs, noClassCount };
+  }, [baseEntries, students]);
+
+  // 검색 + 반 탭 필터를 적용한 표시 목록
+  const groupedEntries = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase();
+    return baseEntries.filter(([uid]) => {
+      const s = students[uid];
+      if (!s) return false;
+      if (query) {
+        const hit =
+          (s.display_name ?? "").toLowerCase().includes(query) ||
+          (s.student_no ?? "").toLowerCase().includes(query);
+        if (!hit) return false;
+      }
+      if (selectedClass === "__noclass__") {
+        if ((s.orbit_class_name ?? "").trim() !== "") return false;
+      } else if (selectedClass) {
+        if ((s.orbit_class_name ?? "").trim() !== selectedClass) return false;
+      }
+      return true;
+    });
+  }, [baseEntries, students, studentSearch, selectedClass]);
 
 
 
@@ -1263,14 +1342,51 @@ const LearningResults = () => {
           <Card className="p-10 flex items-center justify-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </Card>
-        ) : groupedEntries.length === 0 ? (
-          <Card className="p-10 text-center text-sm text-muted-foreground">
-            {studentSearch.trim()
-              ? "검색 조건에 맞는 학생이 없습니다."
-              : "해당 날짜에 학습 활동이 없습니다."}
-          </Card>
         ) : (
-          <div className="space-y-3">
+          <>
+            {/* 반 탭 — 선택한 반별로 학생 카드만 노출 */}
+            {(classTabs.tabs.length > 0 || classTabs.noClassCount > 0) && (
+              <div className="flex items-center gap-1.5 flex-wrap sticky top-0 z-10 bg-background/95 backdrop-blur py-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClass("")}
+                  className={tabCls(selectedClass === "")}
+                >
+                  전체 {baseEntries.length}
+                </button>
+                {classTabs.tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedClass(t.id)}
+                    className={tabCls(selectedClass === t.id)}
+                  >
+                    {t.label} {t.count}
+                  </button>
+                ))}
+                {classTabs.noClassCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClass("__noclass__")}
+                    className={tabCls(selectedClass === "__noclass__")}
+                  >
+                    미배정 {classTabs.noClassCount}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {groupedEntries.length === 0 ? (
+              <Card className="p-10 text-center text-sm text-muted-foreground">
+                {studentSearch.trim()
+                  ? "검색 조건에 맞는 학생이 없습니다."
+                  : selectedClass
+                    ? "선택한 반에 해당 날짜 학습 활동이 없습니다."
+                    : "해당 날짜에 학습 활동이 없습니다."}
+              </Card>
+            ) : (
+              <div className="space-y-3">
+
             {groupedEntries.map(([userId, sentenceIds]) => {
               const s = students[userId];
               return (
@@ -1847,9 +1963,12 @@ const LearningResults = () => {
                 </div>
               );
             })}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
 
       {/* 보기 다이얼로그 (한글해석 / 단어시험) */}
       <Dialog open={!!viewDialog} onOpenChange={(o) => !o && setViewDialog(null)}>
