@@ -9,6 +9,10 @@ export interface ExtractedWord {
   word: string;
   meaning: string;
   pos: string;
+  /** 사전 원형(lemma) — 예: taken → take (선택) */
+  base?: string;
+  /** 문법 형태 표기 — 예: 과거분사, 현재분사, 복수형, 비교급 (선택) */
+  form?: string;
 }
 
 export interface ExtractionRow {
@@ -47,6 +51,7 @@ export const extractedToEntries = (words: ExtractedWord[]): WordTestEntry[] =>
       word: w.word.trim(),
       expected: w.meaning.trim(),
       pos: w.pos?.trim() || undefined,
+      form: w.form?.trim() || undefined,
     }));
 
 /** Teacher/admin only — invokes the edge function and refreshes the cache. */
@@ -72,7 +77,13 @@ export const saveExtractionWords = async (
   words: ExtractedWord[],
 ): Promise<void> => {
   const cleaned = words
-    .map((w) => ({ word: w.word.trim(), meaning: w.meaning.trim(), pos: (w.pos ?? "").trim() }))
+    .map((w) => ({
+      word: w.word.trim(),
+      meaning: w.meaning.trim(),
+      pos: (w.pos ?? "").trim(),
+      ...(w.base?.trim() ? { base: w.base.trim() } : {}),
+      ...(w.form?.trim() ? { form: w.form.trim() } : {}),
+    }))
     .filter((w) => w.word && w.meaning);
   const { error } = await supabase
     .from("sentence_word_extractions")

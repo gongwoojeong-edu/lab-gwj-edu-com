@@ -6,6 +6,8 @@ import { getCurrentUserId } from "@/lib/authState";
 
 interface AnyProgress {
   pos: string | null;
+  /** 마스터키(정답 입력 모드)에서 선생님이 지정한 "필수 분석 지점" 플래그 */
+  required?: boolean;
   noun?: { form: string | null; element: string | null; role: string | null; subrole?: string | null };
   adj?: { form: string | null; element: string | null; role: string | null };
   adv?: { form: string | null; subtype?: string | null; role: string | null };
@@ -35,6 +37,10 @@ export interface AnalysisGradeResult {
   requiredOwnersFilled: boolean;
   /** 미충족된 필수 owner ID 목록 (학생에게 안내용) */
   missingRequiredOwnerIds: string[];
+  /** 선생님이 마스터 입력 시 "필수 분석"을 명시 지정한 owner가 1개 이상 있는지 */
+  hasExplicitRequired: boolean;
+  /** 명시 지정된 필수 owner 수 (0이면 휴리스틱 모드) */
+  explicitRequiredCount: number;
 }
 
 const norm = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
@@ -232,8 +238,15 @@ export const gradeAnalysis = async (
       hasMaster: false,
       requiredOwnersFilled: true,
       missingRequiredOwnerIds: [],
+      hasExplicitRequired: false,
+      explicitRequiredCount: 0,
     };
   }
+
+  // 선생님이 마스터 입력 시 "필수 분석"을 명시 지정한 owner가 1개라도 있으면
+  // 그 목록만 필수로 본다(휴리스틱 S/V 추정은 사용하지 않음).
+  const explicitRequiredIds = masterIds.filter((id) => master[id]?.required === true);
+  const hasExplicitRequired = explicitRequiredIds.length > 0;
 
   // diff/필수 owner 체크는 마스터키 기준으로 수행 (학생 화면 안내·교사 비교용).
   // 단, rate 자체는 단어 기준 fallbackRate로 통일한다.
@@ -242,7 +255,9 @@ export const gradeAnalysis = async (
   for (const ownerId of masterIds) {
     const m = master[ownerId];
     const s = student[ownerId];
-    const required = isRequiredMaster(m);
+    const required = hasExplicitRequired
+      ? explicitRequiredIds.includes(ownerId)
+      : isRequiredMaster(m);
     const spanCoveredByStudentTokens = ownerToTokenIds(ownerId).some((tokenId) =>
       filledStudentTokenIds.has(tokenId),
     );
@@ -266,9 +281,13 @@ export const gradeAnalysis = async (
     diffs,
     masterCount: masterIds.length,
     hasMaster: true,
-    // 통과/요청 조건도 단어 기준 분석률을 우선한다.
-    // 마스터가 span owner인데 학생이 단어 단위로 분석한 경우 필수 owner ID가 직접 매칭되지 않아도 막지 않는다.
-    requiredOwnersFilled: safeRate >= 0.3 || missingRequiredOwnerIds.length === 0,
+    // 명시 필수 지점이 있으면 "모두 채워짐"만으로 판정한다(비율 우회 없음).
+    // 명시 지점이 없는 기존 자료는 종전 정책(단어 기준 분석률 우선)을 유지한다.
+    requiredOwnersFilled: hasExplicitRequired
+      ? missingRequiredOwnerIds.length === 0
+      : safeRate >= 0.3 || missingRequiredOwnerIds.length === 0,
     missingRequiredOwnerIds,
+    hasExplicitRequired,
+    explicitRequiredCount: explicitRequiredIds.length,
   };
 };

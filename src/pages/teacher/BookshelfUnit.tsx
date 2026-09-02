@@ -1692,8 +1692,11 @@ const BookshelfUnit = () => {
                                     <li key={i} className="group flex items-start gap-1 text-xs leading-tight">
                                       <span className="flex-1 min-w-0">
                                         <span className="font-semibold">{w.word}</span>
+                                        {w.base && w.base !== w.word && (
+                                          <span className="text-muted-foreground ml-1">→ {w.base}</span>
+                                        )}
                                         {w.pos && (
-                                          <span className="text-muted-foreground ml-1">({w.pos})</span>
+                                          <span className="text-muted-foreground ml-1">({w.pos}{w.form ? ` · ${w.form}` : ""})</span>
                                         )}
                                         <span className="text-foreground/80 ml-1 font-kr">{w.meaning}</span>
                                       </span>

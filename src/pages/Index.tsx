@@ -40,7 +40,7 @@ import {
   GWJ_SYNTAX_PRODUCT_NAME,
 } from "@/lib/gwj-brand";
 import { cn } from "@/lib/utils";
-import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save } from "lucide-react";
+import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save, Star } from "lucide-react";
 import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
 import { ExtractedWordsPanel } from "@/components/analyzer/ExtractedWordsPanel";
 import { Separator } from "@/components/ui/separator";
@@ -451,7 +451,15 @@ interface IndexProps {
   /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용. meta.hasMaster 로 라벨 결정 */
   onAnalysisProgress?: (
     rate: number,
-    meta: { hasMaster: boolean; filled: number; total: number },
+    meta: {
+      hasMaster: boolean;
+      filled: number;
+      total: number;
+      /** 마스터키에 명시 지정된 "필수 분석" owner 수 (0이면 비율 게이트 사용) */
+      requiredTotal: number;
+      /** 그중 학생이 분석을 채운 수 */
+      requiredDone: number;
+    },
   ) => void;
   /**
    * Hydrate 대상 user_id를 명시. 미지정 시 현재 로그인 사용자(기존 동작).
@@ -682,6 +690,8 @@ const Index = ({
   const showTeacherAnnotations = true;
   // 마스터키 owner_id 집합 — hasMaster 판정 + 학생 화면 위치 힌트(옅은 음영)용 (품사/배지는 노출 안 함)
   const [masterOwnerIds, setMasterOwnerIds] = useState<Set<string>>(new Set());
+  // 마스터키에서 선생님이 "필수 분석"으로 명시 지정한 owner_id 집합
+  const [masterRequiredIds, setMasterRequiredIds] = useState<Set<string>>(new Set());
 
   // ===== 학습 흐름 (Cloud) =====
   const [learningStep, setLearningStep] = useState<LearningStep>("pre");
@@ -1239,6 +1249,13 @@ const Index = ({
       fetchMasterAnswers(sentence.id).then((m) => {
         if (cancelled) return;
         setMasterOwnerIds(new Set(Object.keys(m)));
+        setMasterRequiredIds(
+          new Set(
+            Object.entries(m)
+              .filter(([, v]) => (v as { required?: boolean } | null)?.required === true)
+              .map(([ownerId]) => ownerId),
+          ),
+        );
       }),
     );
     return () => {
@@ -1250,12 +1267,30 @@ const Index = ({
   useEffect(() => {
     if (!onAnalysisProgress) return;
     const total = analyzableIds.length;
+    // 명시 "필수 분석" 지점 커버리지: 해당 owner를 직접 분석했거나,
+    // span 지점이면 그 안의 단어 중 하나라도 학생이 분석했으면 채운 것으로 본다.
+    let requiredDone = 0;
+    if (masterRequiredIds.size > 0) {
+      const filledTokenIds = new Set<string>();
+      Object.entries(progressMap).forEach(([ownerId, wp]) => {
+        if (!wp || !wp.pos) return;
+        getOwnerTokenIds(ownerId).forEach((tid) => filledTokenIds.add(tid));
+      });
+      masterRequiredIds.forEach((ownerId) => {
+        const direct = !!progressMap[ownerId]?.pos;
+        const covered =
+          direct || getOwnerTokenIds(ownerId).some((tid) => filledTokenIds.has(tid));
+        if (covered) requiredDone += 1;
+      });
+    }
     onAnalysisProgress(total > 0 ? wordFilledCount / total : 0, {
       hasMaster: masterOwnerIds.size > 0,
       filled: wordFilledCount,
       total,
+      requiredTotal: masterRequiredIds.size,
+      requiredDone,
     });
-  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds]);
+  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, masterRequiredIds, progressMap]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
@@ -2539,6 +2574,40 @@ const Index = ({
                     <Pencil className="size-3" />
                     정답 저장 (전체 {Object.keys(pendingPatchMap).length})
                   </button>
+                  {selectedId && (() => {
+                    const isRequired =
+                      (customAnswers[selectedId] as { required?: boolean } | undefined)?.required === true;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveCustom(selectedId, { required: !isRequired });
+                          setMasterRequiredIds((prev) => {
+                            const next = new Set(prev);
+                            if (!isRequired) next.add(selectedId);
+                            else next.delete(selectedId);
+                            return next;
+                          });
+                          toast({
+                            title: !isRequired ? "⭐ 필수 분석 지점으로 지정" : "필수 지정 해제",
+                            description: !isRequired
+                              ? "학생이 이 단어/구를 반드시 분석해야 다음 단계로 넘어갈 수 있습니다."
+                              : "이 지점은 더 이상 필수가 아닙니다.",
+                          });
+                        }}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors shrink-0 border",
+                          isRequired
+                            ? "bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                            : "bg-card border-border text-muted-foreground hover:bg-muted",
+                        )}
+                        title="이 단어/구를 학생이 반드시 분석해야 하는 필수 지점으로 지정/해제합니다"
+                      >
+                        <Star className={cn("size-3", isRequired && "fill-amber-500 text-amber-500")} />
+                        {isRequired ? "필수 지정됨" : "필수 분석 지정"}
+                      </button>
+                    );
+                  })()}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
@@ -3170,8 +3239,11 @@ const Index = ({
                                   onDoubleClick={(e) => ownerId && handleBadgeDoubleClick(e, ownerId)}
                                   title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
-                                  <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
-                                  <span className="truncate max-w-[120px]">{koreanLabel}</span>
+                                   <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
+                                   {answerInputMode && (customAnswers[ownerId] as { required?: boolean } | undefined)?.required === true && (
+                                     <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
+                                   )}
+                                   <span className="truncate max-w-[120px]">{koreanLabel}</span>
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-xs font-kr">
@@ -3204,8 +3276,11 @@ const Index = ({
                                   onDoubleClick={(e) => outerOwnerId && handleBadgeDoubleClick(e, outerOwnerId)}
                                   title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
-                                  <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
-                                  <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
+                                   <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
+                                   {answerInputMode && outerOwnerId && (customAnswers[outerOwnerId] as { required?: boolean } | undefined)?.required === true && (
+                                     <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
+                                   )}
+                                   <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-xs font-kr">

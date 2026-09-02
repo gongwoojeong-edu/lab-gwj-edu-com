@@ -347,6 +347,21 @@ const buildSyntaxUnit = async (
   ${answerKey
     ? '<div class="lg-ans-grid-note">구조도 정답은 DB에 저장되지 않습니다 — 화면 분석으로 대조하세요.</div>'
     : '<div class="lg-grid"></div>'}
+  <div class="lg-section-title" style="margin-top:1.5mm;">핵심 키워드 정리</div>
+  <div style="border:0.5pt solid #000;padding:1mm 2mm;">
+    ${passages
+      .map(
+        (p) => `
+      <div style="display:flex;align-items:flex-end;gap:2mm;padding:0.8mm 0;border-bottom:0.3pt dashed #bbb;">
+        <span style="font-size:6.5pt;color:#888;font-family:monospace;min-width:17mm;">${escapeHtml(p.code)}</span>
+        <span style="font-size:7.5pt;color:#555;">키워드</span>
+        <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
+        <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
+        <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
+      </div>`,
+      )
+      .join("") || '<div class="lg-muted">(지문 없음)</div>'}
+  </div>
   <div class="lg-section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
   ${answerKey
     ? '<div class="lg-ans-grid-note" style="min-height:18mm">지스트 정답은 DB에 저장되지 않습니다.</div>'

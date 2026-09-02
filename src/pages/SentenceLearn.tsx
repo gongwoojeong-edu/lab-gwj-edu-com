@@ -185,6 +185,9 @@ const SentenceLearn = () => {
   const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
   const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
+  // 마스터키에 선생님이 "필수 분석"을 명시 지정한 지점 커버리지 (0이면 비율 게이트 사용)
+  const [requiredTotal, setRequiredTotal] = useState(0);
+  const [requiredDone, setRequiredDone] = useState(0);
   const [skipFlags, setSkipFlags] = useState<{ pre: boolean; analysis: boolean; translation: boolean; wordtest: boolean }>({
     pre: true,
     analysis: true,
@@ -194,8 +197,14 @@ const SentenceLearn = () => {
   const ANALYSIS_GATE = 0.6;
   // 학생 프로필 임계값 우선 — 없으면 기본 60%
   const analysisGate = profile?.analysis_pass_threshold ?? ANALYSIS_GATE;
+  // 명시 필수 지점이 있으면 비율 게이트를 대체한다: 필수 지점 전체 분석 완료 필수.
+  const requiredGateActive = requiredTotal > 0;
   const canAdvanceToTranslation =
-    analysisMasterLoaded && (analysisDone || analysisRate >= analysisGate);
+    analysisMasterLoaded &&
+    (analysisDone ||
+      (requiredGateActive
+        ? requiredDone >= requiredTotal
+        : analysisRate >= analysisGate));
   const testWordResultForFinalSubmit = () => ({
     passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
     score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
@@ -1371,6 +1380,8 @@ const SentenceLearn = () => {
                     setAnalysisRate(rate);
                     setAnalysisHasMaster(meta.hasMaster);
                     setAnalysisCounts({ filled: meta.filled, total: meta.total });
+                    setRequiredTotal(meta.requiredTotal ?? 0);
+                    setRequiredDone(meta.requiredDone ?? 0);
                     // 마스터 정보 안정 판정: hasMaster=true가 한 번이라도 관측되거나, 콜백이 2회 이상 도착하면 잠금 해제.
                     // (Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.)
                     masterCallbackCountRef.current += 1;
@@ -1390,10 +1401,14 @@ const SentenceLearn = () => {
                 {!analysisMasterLoaded
                   ? "정답 정보를 불러오는 중…"
                   : canAdvanceToTranslation
-                    ? analysisHasMaster
-                      ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                      : "분석을 30% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
-                    : `분석을 30% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
+                    ? requiredGateActive
+                      ? "⭐ 필수 분석 지점을 모두 분석했어요. 한글 해석으로 넘어가세요."
+                      : analysisHasMaster
+                        ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
+                        : "분석을 30% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
+                    : requiredGateActive
+                      ? `⭐ 선생님이 지정한 필수 분석 지점을 모두 분석해야 넘어갈 수 있어요. (필수 ${requiredDone}/${requiredTotal})`
+                      : `분석을 30% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride

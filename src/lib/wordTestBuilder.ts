@@ -6,6 +6,7 @@ export interface WordTestEntry {
   word: string;       // English surface
   expected: string;   // Korean meaning (정답)
   pos?: string;       // 품사 (명사/동사/형용사/부사) — optional, used for display
+  form?: string;      // 문법 형태 (과거분사/현재분사/복수형 등) — optional, used for display
 }
 
 interface MinimalProgress {

@@ -80,15 +80,22 @@ Deno.serve(async (req) => {
               "auxiliaries (do, have when not lexical), basic prepositions/conjunctions. " +
               "Keep the surface form as it appears (or base form if clearly inflected). " +
               "POS REQUIRED — strictly from {명사, 동사, 형용사, 부사}. " +
+              "BASE + FORM REQUIRED (품사/시제/분사 표기 명확화): " +
+              "- 'base': 사전 원형(lemma). 예: taken→take, went→go, mice→mouse, better→good. 이미 원형이면 그대로. " +
+              "- 'form': 문법 형태를 한글로 정확히 표기. " +
+              "  명사: '단수' | '복수형'. " +
+              "  동사: '기본형' | '3인칭 단수' | '과거형' | '과거분사' | '현재분사' | '동명사' | 'to부정사'. " +
+              "  형용사/부사: '원급' | '비교급' | '최상급'. " +
               "MEANING RULES (very important for accuracy): " +
               "1) Provide the CONTEXT-FIT meaning FIRST (what the word actually means in THIS sentence). " +
               "2) If the word is polysemous (다의어) and another common meaning differs, append it after a comma. " +
               "3) Format: '문맥뜻, 추가뜻' — keep each meaning to 1-3 Korean words, no full sentences. " +
               "4) Always include POS naturally — example for verb '동력, 추진력 제공하다' is wrong; instead 'meaning' stays Korean meaning only and 'pos' carries the POS tag. " +
               "Examples: " +
-              "- 'driving force' (명사) → meaning: '추진력, 원동력' " +
-              "- 'solidify' (동사) → meaning: '굳히다, 공고히 하다' " +
-              "- 'medium' (명사 in this context) → meaning: '매체, 수단' (NOT '중간의')",
+              "- 'driving force' (명사) → meaning: '추진력, 원동력', base: 'driving force', form: '단수' " +
+              "- 'solidify' (동사) → meaning: '굳히다, 공고히 하다', base: 'solidify', form: '기본형' " +
+              "- 'taken' (동사) → meaning: '차지하다', base: 'take', form: '과거분사' " +
+              "- 'medium' (명사 in this context) → meaning: '매체, 수단' (NOT '중간의'), base: 'medium', form: '단수'",
           },
           { role: "user", content: `Sentence: ${english}` },
         ],
@@ -115,8 +122,17 @@ Deno.serve(async (req) => {
                             "Context-fit Korean meaning first, optional comma-separated alternate meaning. 1-3 words each.",
                         },
                         pos: { type: "string", enum: ["명사", "동사", "형용사", "부사"] },
+                        base: {
+                          type: "string",
+                          description: "사전 원형(lemma). 예: taken→take, mice→mouse. 이미 원형이면 그대로.",
+                        },
+                        form: {
+                          type: "string",
+                          description:
+                            "문법 형태 한글 표기 — 명사: 단수/복수형, 동사: 기본형/3인칭 단수/과거형/과거분사/현재분사/동명사/to부정사, 형용사·부사: 원급/비교급/최상급.",
+                        },
                       },
-                      required: ["word", "meaning", "pos"],
+                      required: ["word", "meaning", "pos", "base", "form"],
                       additionalProperties: false,
                     },
                   },
@@ -143,7 +159,7 @@ Deno.serve(async (req) => {
     const toolCall = aiJson?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
     if (!argsStr) return json({ error: "No structured output" }, 500);
-    let parsed: { words?: Array<{ word: string; meaning: string; pos: string }> };
+    let parsed: { words?: Array<{ word: string; meaning: string; pos: string; base?: string; form?: string }> };
     try {
       parsed = JSON.parse(argsStr);
     } catch {
@@ -151,7 +167,13 @@ Deno.serve(async (req) => {
     }
     const words = (parsed.words ?? [])
       .filter((w) => w?.word && w?.meaning && w?.pos)
-      .map((w) => ({ word: w.word.trim(), meaning: w.meaning.trim(), pos: w.pos }));
+      .map((w) => ({
+        word: w.word.trim(),
+        meaning: w.meaning.trim(),
+        pos: w.pos,
+        base: (w.base ?? "").trim() || undefined,
+        form: (w.form ?? "").trim() || undefined,
+      }));
     if (words.length === 0) return json({ error: "No words extracted" }, 422);
 
     const { error: upErr } = await admin

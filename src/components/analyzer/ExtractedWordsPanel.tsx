@@ -170,36 +170,49 @@ export const ExtractedWordsPanel = ({ sentenceId, english }: Props) => {
             </div>
           ) : (
             words.map((w, idx) => (
-              <div
-                key={idx}
-                className="grid grid-cols-[1fr_1.2fr_70px_auto] gap-1.5 items-center"
-              >
-                <Input
-                  value={w.word}
-                  onChange={(e) => updateWord(idx, { word: e.target.value })}
-                  placeholder="word"
-                  className="h-8 text-xs"
-                />
-                <Input
-                  value={w.meaning}
-                  onChange={(e) => updateWord(idx, { meaning: e.target.value })}
-                  placeholder="뜻"
-                  className="h-8 text-xs font-kr"
-                />
-                <Input
-                  value={w.pos}
-                  onChange={(e) => updateWord(idx, { pos: e.target.value })}
-                  placeholder="품사"
-                  className="h-8 text-xs font-kr"
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => removeRow(idx)}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </Button>
+              <div key={idx} className="space-y-1 rounded-md border border-border/60 p-1.5">
+                <div className="grid grid-cols-[1fr_1.2fr_auto] gap-1.5 items-center">
+                  <Input
+                    value={w.word}
+                    onChange={(e) => updateWord(idx, { word: e.target.value })}
+                    placeholder="word"
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    value={w.meaning}
+                    onChange={(e) => updateWord(idx, { meaning: e.target.value })}
+                    placeholder="뜻"
+                    className="h-8 text-xs font-kr"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => removeRow(idx)}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-[64px_1fr_1fr] gap-1.5 items-center">
+                  <Input
+                    value={w.pos}
+                    onChange={(e) => updateWord(idx, { pos: e.target.value })}
+                    placeholder="품사"
+                    className="h-7 text-[11px] font-kr"
+                  />
+                  <Input
+                    value={w.base ?? ""}
+                    onChange={(e) => updateWord(idx, { base: e.target.value })}
+                    placeholder="원형(예: take)"
+                    className="h-7 text-[11px]"
+                  />
+                  <Input
+                    value={w.form ?? ""}
+                    onChange={(e) => updateWord(idx, { form: e.target.value })}
+                    placeholder="형태(예: 과거분사)"
+                    className="h-7 text-[11px] font-kr"
+                  />
+                </div>
               </div>
             ))
           )}
