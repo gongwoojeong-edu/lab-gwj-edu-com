@@ -60,6 +60,59 @@ Deno.serve(async (req) => {
     const english = String(body?.english ?? "").trim();
     if (!sentenceId || !english) return json({ error: "sentenceId and english required" }, 400);
 
+    // ===== 대상 학년(레벨) 판정 =====
+    // 요청에 level이 없으면 문장 코드 → 교재(textbooks.level)에서 역추적한다.
+    let level = String(body?.level ?? "").trim().toUpperCase();
+    if (!/^L\d{2}$/.test(level)) {
+      level = "";
+      const { data: passageRow } = await admin
+        .from("textbook_passages")
+        .select("textbook_id")
+        .eq("code", sentenceId)
+        .maybeSingle();
+      if (passageRow?.textbook_id) {
+        const { data: bookRow } = await admin
+          .from("textbooks")
+          .select("level")
+          .eq("id", passageRow.textbook_id)
+          .maybeSingle();
+        const lv = String(bookRow?.level ?? "").toUpperCase();
+        if (/^L\d{2}$/.test(lv)) level = lv;
+      }
+    }
+    const levelNo = level ? Number(level.slice(1)) : 0;
+
+    // 레벨대별 난이도 기준 — 쉬운 단어를 상위 레벨에서 걸러 낸다.
+    const levelGuide = (() => {
+      if (levelNo >= 8) {
+        return (
+          "TARGET LEARNERS: 고등 상위 (수능/모의고사 수준, 레벨 " + level + "). " +
+          "중학 기초 어휘(school, water, help, study, happy, important, people 등)와 초·중등 필수 800단어 수준은 절대 포함하지 마라. " +
+          "학술적/추상적 어휘, 다의어, 파생어, 관용 표현 위주로 3-8개만 고른다. " +
+          "고를 만한 어려운 단어가 3개 미만이면 있는 만큼만 반환하고 억지로 채우지 마라."
+        );
+      }
+      if (levelNo >= 5) {
+        return (
+          "TARGET LEARNERS: 중3~고1 (레벨 " + level + "). " +
+          "초등·중1 수준의 아주 쉬운 단어는 제외하고, 중상급 어휘와 문맥 의미가 달라지는 다의어 위주로 4-8개를 고른다."
+        );
+      }
+      if (levelNo >= 3) {
+        return (
+          "TARGET LEARNERS: 중1~중2 (레벨 " + level + "). " +
+          "교과서 필수 어휘 중심으로 5-9개를 고른다. 초등 저학년 수준 기초어(go, cat, big 등)는 제외한다."
+        );
+      }
+      if (levelNo >= 1) {
+        return (
+          "TARGET LEARNERS: 초등 고학년~중1 입문 (레벨 " + level + "). " +
+          "기초 어휘도 학습 대상이므로 5-10개를 폭넓게 고른다."
+        );
+      }
+      return "TARGET LEARNERS: 중·고등 일반. 5-10개의 핵심 어휘를 고른다.";
+    })();
+
     const model = "google/gemini-3-flash-preview";
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -75,7 +128,8 @@ Deno.serve(async (req) => {
             role: "system",
             content:
               "You extract core English vocabulary for Korean middle/high school PRE-learning. " +
-              "Pick 5-10 KEY content words from the sentence. " +
+              levelGuide + " " +
+              "Pick KEY content words from the sentence at the target difficulty. " +
               "EXCLUDE: articles (a, an, the), pronouns (he, she, it, they...), be-verbs (is, are, was...), " +
               "auxiliaries (do, have when not lexical), basic prepositions/conjunctions. " +
               "Keep the surface form as it appears (or base form if clearly inflected). " +
@@ -110,7 +164,7 @@ Deno.serve(async (req) => {
                 properties: {
                   words: {
                     type: "array",
-                    minItems: 3,
+                    minItems: 0,
                     maxItems: 12,
                     items: {
                       type: "object",
@@ -174,7 +228,8 @@ Deno.serve(async (req) => {
         base: (w.base ?? "").trim() || undefined,
         form: (w.form ?? "").trim() || undefined,
       }));
-    if (words.length === 0) return json({ error: "No words extracted" }, 422);
+    // 상위 레벨에서 "학습할 만큼 어려운 단어가 없음"은 정상 결과 → 빈 목록으로 저장한다.
+    if (words.length === 0 && levelNo < 8) return json({ error: "No words extracted" }, 422);
 
     const { error: upErr } = await admin
       .from("sentence_word_extractions")
@@ -184,7 +239,7 @@ Deno.serve(async (req) => {
       );
     if (upErr) return json({ error: upErr.message }, 500);
 
-    return json({ ok: true, count: words.length, words });
+    return json({ ok: true, count: words.length, words, level: level || null });
   } catch (e) {
     console.error("extract-sentence-words error", e);
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
