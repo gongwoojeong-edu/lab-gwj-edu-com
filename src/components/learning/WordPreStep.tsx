@@ -302,7 +302,7 @@ export const WordPreStep = ({ sentenceId, entries, onCompleted }: Props) => {
           {current.pos && (
             <span className="inline-block text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
               {current.pos}
-              {(current as { form?: string }).form ? ` · ${(current as { form?: string }).form}` : ""}
+              {current.form ? ` · ${current.form}` : ""}
             </span>
           )}
           <div className="text-xs text-muted-foreground">뜻</div>
