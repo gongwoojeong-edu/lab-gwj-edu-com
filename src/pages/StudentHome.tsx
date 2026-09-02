@@ -977,6 +977,19 @@ const StudentHome = () => {
     ? `${next.id} ${startButtonLabel(nextTaskMode, nextAnalysisPassed)}`
     : "다음 Passage 없음";
 
+  const subEnabled = !!profile?.track_b_enabled;
+
+  const handleSubStart = () => {
+    if (!subNext) return;
+    navigate(learnPathForSentence(subNext.id, subTaskMode, subAnalysisPassed));
+  };
+
+  const subStartLabel = subNext
+    ? `${subNext.id} ${startButtonLabel(subTaskMode, subAnalysisPassed)}`
+    : "다음 Passage 없음";
+
+
+
   // 진행중 / 지난과제 / 완료과제 분리
   // 규칙: 마감일이 있으면 마감 경과 시 '지난과제', 무기한(마감 없음)이면 출제 후 14일 초과 시 '지난과제'
   const STALE_DAYS = 14;
