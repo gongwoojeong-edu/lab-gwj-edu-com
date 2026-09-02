@@ -259,8 +259,11 @@ interface Payload {
   translations?: string[];
   sentence_translations?: string[];
   analysis_html?: string;
+  analysisHtml?: string;
   structure_html?: string;
+  structureHtml?: string;
   structure?: StructurePayload;
+  structure_data?: StructurePayload;
   // New hierarchy fields
   level?: string;            // "L01"~"L10"
   series_title?: string;     // e.g. "모의고사"
@@ -315,10 +318,9 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
     if (p[k] != null && typeof p[k] !== "string") return { ok: false, error: `${k} must be string` };
     if (typeof p[k] === "string" && p[k].length > 500) return { ok: false, error: `${k} too long` };
   }
-  if (p.analysis_html != null && typeof p.analysis_html !== "string")
-    return { ok: false, error: "analysis_html must be string" };
-  if (p.structure_html != null && typeof p.structure_html !== "string")
-    return { ok: false, error: "structure_html must be string" };
+  for (const k of ["analysis_html", "analysisHtml", "structure_html", "structureHtml"]) {
+    if (p[k] != null && typeof p[k] !== "string") return { ok: false, error: `${k} must be string` };
+  }
   if (p.sentences != null && !Array.isArray(p.sentences))
     return { ok: false, error: "sentences must be array" };
   for (const k of ["korean_sentences", "translations", "sentence_translations"]) {
@@ -327,11 +329,13 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
       return { ok: false, error: `${k} must contain strings` };
     }
   }
-  if (p.analysis_html && p.analysis_html.length > 500_000)
+  const analysisHtml = p.analysis_html ?? p.analysisHtml;
+  const structureHtml = p.structure_html ?? p.structureHtml;
+  if (analysisHtml && analysisHtml.length > 500_000)
     return { ok: false, error: "analysis_html too large" };
-  if (p.structure_html && p.structure_html.length > 500_000)
+  if (structureHtml && structureHtml.length > 500_000)
     return { ok: false, error: "structure_html too large" };
-  const structureErr = validateStructure(p.structure);
+  const structureErr = validateStructure(p.structure ?? p.structure_data);
   if (structureErr) return { ok: false, error: structureErr };
   return { ok: true, data: p as Payload };
 }
@@ -558,7 +562,8 @@ Deno.serve(async (req) => {
   const fidelityErr = assertSentenceFidelity(p.passage, sentences);
   if (fidelityErr) return json({ ok: false, error: fidelityErr }, 400);
 
-  // Determine starting passage_no for this unit
+  // Determine starting passage_no for this unit. An explicit passage_no means
+  // "replace this imported passage"; an omitted value keeps append behavior.
   const { data: existing } = await admin
     .from("textbook_passages")
     .select("passage_no")
@@ -606,14 +611,67 @@ Deno.serve(async (req) => {
     analysis_status: "draft", // 🆕 v4: 분석기 전송본은 draft 상태 — 선생님이 마스터키 입력 후 학생 공개 버튼으로 ready 전환
   }));
 
-  const { data: insertedRows, error: passErr } = await admin
-    .from("textbook_passages")
-    .insert(rows)
-    .select("id, code");
-  if (passErr) return json({ ok: false, error: `Passage 생성 실패: ${passErr.message}` }, 500);
+  let insertedRows: Array<{ id: string; code: string }> = [];
+  if (Number.isFinite(Number(p.passage_no))) {
+    const endNo = startNo + rows.length - 1;
+    const { data: replaceTargets, error: targetErr } = await admin
+      .from("textbook_passages")
+      .select("id, code, passage_no, created_at")
+      .eq("unit_id", unit!.id)
+      .gte("passage_no", startNo)
+      .lte("passage_no", endNo)
+      .order("created_at", { ascending: true });
+    if (targetErr) return json({ ok: false, error: `기존 Passage 조회 실패: ${targetErr.message}` }, 500);
+
+    const targetsByNo = new Map<number, Array<{ id: string; code: string }>>();
+    for (const target of replaceTargets ?? []) {
+      const list = targetsByNo.get(target.passage_no) ?? [];
+      list.push({ id: target.id, code: target.code });
+      targetsByNo.set(target.passage_no, list);
+    }
+
+    const newRows: typeof rows = [];
+    for (const row of rows) {
+      const targets = targetsByNo.get(row.passage_no) ?? [];
+      const keeper = targets[0];
+      if (!keeper) {
+        newRows.push(row);
+        continue;
+      }
+      const { data: updated, error: updateErr } = await admin
+        .from("textbook_passages")
+        .update({ english: row.english, korean: row.korean, analysis_status: row.analysis_status })
+        .eq("id", keeper.id)
+        .select("id, code")
+        .single();
+      if (updateErr) return json({ ok: false, error: `Passage 덮어쓰기 실패: ${updateErr.message}` }, 500);
+      insertedRows.push(updated as { id: string; code: string });
+
+      const duplicateIds = targets.slice(1).map((target) => target.id);
+      if (duplicateIds.length) {
+        const { error: deleteErr } = await admin.from("textbook_passages").delete().in("id", duplicateIds);
+        if (deleteErr) return json({ ok: false, error: `중복 Passage 정리 실패: ${deleteErr.message}` }, 500);
+      }
+    }
+    if (newRows.length) {
+      const { data: created, error: createErr } = await admin
+        .from("textbook_passages")
+        .insert(newRows)
+        .select("id, code");
+      if (createErr) return json({ ok: false, error: `Passage 생성 실패: ${createErr.message}` }, 500);
+      insertedRows = [...insertedRows, ...((created ?? []) as Array<{ id: string; code: string }>)];
+    }
+  } else {
+    const { data: created, error: passErr } = await admin
+      .from("textbook_passages")
+      .insert(rows)
+      .select("id, code");
+    if (passErr) return json({ ok: false, error: `Passage 생성 실패: ${passErr.message}` }, 500);
+    insertedRows = (created ?? []) as Array<{ id: string; code: string }>;
+  }
 
   // First row is treated as "the passage" for legacy response/upload paths
-  const passage = insertedRows![0] as { id: string; code: string };
+  const passage = insertedRows[0] as { id: string; code: string };
   const finalCode = passage.code;
 
 
@@ -639,20 +697,23 @@ Deno.serve(async (req) => {
 
   try {
     const unitPatch: Record<string, unknown> = {};
-    if (p.analysis_html && p.analysis_html.trim()) {
-      const path = await uploadHtml("analysis", p.analysis_html);
+    const analysisHtml = p.analysis_html ?? p.analysisHtml;
+    const structureHtml = p.structure_html ?? p.structureHtml;
+    const structureData = p.structure ?? p.structure_data;
+    if (analysisHtml?.trim()) {
+      const path = await uploadHtml("analysis", analysisHtml);
       unitPatch.analysis_pdf_url = path;
       unitPatch.analysis_pdf_name = `${finalCode}-분석교안.html`;
       unitPatch.analysis_pdf_uploaded_at = new Date().toISOString();
     }
-    if (p.structure_html && p.structure_html.trim()) {
-      const path = await uploadHtml("structure", p.structure_html);
+    if (structureHtml?.trim()) {
+      const path = await uploadHtml("structure", structureHtml);
       unitPatch.structure_pdf_url = path;
       unitPatch.structure_pdf_name = `${finalCode}-구조도.html`;
       unitPatch.structure_pdf_uploaded_at = new Date().toISOString();
     }
-    if (p.structure?.nodes?.length) {
-      unitPatch.structure_data = p.structure;
+    if (structureData?.nodes?.length) {
+      unitPatch.structure_data = structureData;
     }
     if (Object.keys(unitPatch).length > 0) {
       await admin.from("textbook_units").update(unitPatch).eq("id", unit!.id);
@@ -675,7 +736,7 @@ Deno.serve(async (req) => {
   //   학습기 전송 즉시 문장별 AI 단어 추출을 걸어 둔다.
   //   선생님은 이후 책장 화면에서 수동 검수 → [검수완료] 표기.
   const autoExtract = async () => {
-    for (const row of insertedRows!) {
+    for (const row of insertedRows) {
       const sent = rows.find((r) => r.code === (row as { code: string }).code);
       if (!sent?.english?.trim()) continue;
       try {
@@ -713,8 +774,8 @@ Deno.serve(async (req) => {
     series_id: series!.id,
     textbook_id: textbook!.id,
     level,
-    sentences_inserted: insertedRows!.length,
-    sentence_codes: insertedRows!.map((r) => r.code),
+    sentences_inserted: insertedRows.length,
+    sentence_codes: insertedRows.map((r) => r.code),
     learn_url: `/learn/sentence/${passage.code}`,
     uploads,
   });
