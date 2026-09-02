@@ -868,7 +868,7 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
             "x-internal-secret": SERVICE_ROLE,
           },
-          body: JSON.stringify({ sentenceId: row.code, english: sent.english }),
+          body: JSON.stringify({ sentenceId: row.code, english: sent.english, level }),
         });
         if (!resp.ok) console.error("auto extract failed", row.code, resp.status, await resp.text());
       } catch (e) {
