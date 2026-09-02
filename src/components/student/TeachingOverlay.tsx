@@ -103,6 +103,7 @@ export const TeachingOverlay = () => {
           userId={uid}
           memo={liveMemo ?? undefined}
           showEmptyMemo
+          hideQna
         />
 
         <TeachingQnaPanel
