@@ -15,6 +15,7 @@ import {
   type TeachingSignal,
 } from "@/lib/teachingSession";
 import { SentenceReviewDetail } from "@/components/student/SentenceReviewDetail";
+import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 import { isMemoEmpty, parseMemo, type StructuredMemo } from "@/lib/approvalMemo";
 
 export const TeachingOverlay = () => {
@@ -102,6 +103,12 @@ export const TeachingOverlay = () => {
           userId={uid}
           memo={liveMemo ?? undefined}
           showEmptyMemo
+        />
+
+        <TeachingQnaPanel
+          studentUserId={uid}
+          sentenceId={signal.sentence_id}
+          role="student"
         />
 
         {!liveMemo && (

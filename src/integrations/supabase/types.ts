@@ -1172,6 +1172,51 @@ export type Database = {
         }
         Relationships: []
       }
+      teaching_questions: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          choices: Json | null
+          created_at: string
+          id: string
+          judged_at: string | null
+          question: string
+          sentence_id: string
+          teacher_id: string | null
+          updated_at: string
+          user_id: string
+          verdict: string | null
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          choices?: Json | null
+          created_at?: string
+          id?: string
+          judged_at?: string | null
+          question: string
+          sentence_id: string
+          teacher_id?: string | null
+          updated_at?: string
+          user_id: string
+          verdict?: string | null
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          choices?: Json | null
+          created_at?: string
+          id?: string
+          judged_at?: string | null
+          question?: string
+          sentence_id?: string
+          teacher_id?: string | null
+          updated_at?: string
+          user_id?: string
+          verdict?: string | null
+        }
+        Relationships: []
+      }
       textbook_passages: {
         Row: {
           analysis_status: string

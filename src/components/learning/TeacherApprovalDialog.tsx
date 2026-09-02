@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
+import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 import { emptyMemo, isMemoEmpty, parseMemo, serializeMemo, MEMO_FIELD_KEYS, type StructuredMemo } from "@/lib/approvalMemo";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -609,6 +610,14 @@ export const TeacherApprovalDialog = ({
           )}
 
           <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
+
+          {studentUserId && (
+            <TeachingQnaPanel
+              studentUserId={studentUserId}
+              sentenceId={sentenceId}
+              role="teacher"
+            />
+          )}
         </div>
 
         <DialogFooter className="shrink-0 bg-background border-t border-border flex-wrap gap-2 sm:justify-between pt-3 pb-1">

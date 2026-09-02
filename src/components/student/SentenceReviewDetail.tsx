@@ -134,6 +134,10 @@ export const SentenceReviewDetail = ({ sentenceId, userId, memo, showEmptyMemo =
           />
         </div>
       )}
+
+      {!hideQna && (
+        <TeachingQnaPanel studentUserId={userId} sentenceId={sentenceId} role="readonly" />
+      )}
     </div>
   );
 };
