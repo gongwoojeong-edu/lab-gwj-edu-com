@@ -1380,6 +1380,8 @@ const SentenceLearn = () => {
                     setAnalysisRate(rate);
                     setAnalysisHasMaster(meta.hasMaster);
                     setAnalysisCounts({ filled: meta.filled, total: meta.total });
+                    setRequiredTotal(meta.requiredTotal ?? 0);
+                    setRequiredDone(meta.requiredDone ?? 0);
                     // 마스터 정보 안정 판정: hasMaster=true가 한 번이라도 관측되거나, 콜백이 2회 이상 도착하면 잠금 해제.
                     // (Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.)
                     masterCallbackCountRef.current += 1;
@@ -1399,10 +1401,14 @@ const SentenceLearn = () => {
                 {!analysisMasterLoaded
                   ? "정답 정보를 불러오는 중…"
                   : canAdvanceToTranslation
-                    ? analysisHasMaster
-                      ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
-                      : "분석을 30% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
-                    : `분석을 30% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
+                    ? requiredGateActive
+                      ? "⭐ 필수 분석 지점을 모두 분석했어요. 한글 해석으로 넘어가세요."
+                      : analysisHasMaster
+                        ? "분석을 충분히 진행했어요. 한글 해석으로 넘어가세요."
+                        : "분석을 30% 이상 완료했어요. 선생님 정답 등록 후 자동 채점됩니다."
+                    : requiredGateActive
+                      ? `⭐ 선생님이 지정한 필수 분석 지점을 모두 분석해야 넘어갈 수 있어요. (필수 ${requiredDone}/${requiredTotal})`
+                      : `분석을 30% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
                 <TeacherAnalysisOverride
