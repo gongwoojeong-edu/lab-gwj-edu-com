@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
+import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 import { emptyMemo, isMemoEmpty, parseMemo, serializeMemo, MEMO_FIELD_KEYS, type StructuredMemo } from "@/lib/approvalMemo";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
