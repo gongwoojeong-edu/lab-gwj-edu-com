@@ -1249,6 +1249,13 @@ const Index = ({
       fetchMasterAnswers(sentence.id).then((m) => {
         if (cancelled) return;
         setMasterOwnerIds(new Set(Object.keys(m)));
+        setMasterRequiredIds(
+          new Set(
+            Object.entries(m)
+              .filter(([, v]) => (v as { required?: boolean } | null)?.required === true)
+              .map(([ownerId]) => ownerId),
+          ),
+        );
       }),
     );
     return () => {
@@ -1260,12 +1267,30 @@ const Index = ({
   useEffect(() => {
     if (!onAnalysisProgress) return;
     const total = analyzableIds.length;
+    // 명시 "필수 분석" 지점 커버리지: 해당 owner를 직접 분석했거나,
+    // span 지점이면 그 안의 단어 중 하나라도 학생이 분석했으면 채운 것으로 본다.
+    let requiredDone = 0;
+    if (masterRequiredIds.size > 0) {
+      const filledTokenIds = new Set<string>();
+      Object.entries(progressMap).forEach(([ownerId, wp]) => {
+        if (!wp || !wp.pos) return;
+        getOwnerTokenIds(ownerId).forEach((tid) => filledTokenIds.add(tid));
+      });
+      masterRequiredIds.forEach((ownerId) => {
+        const direct = !!progressMap[ownerId]?.pos;
+        const covered =
+          direct || getOwnerTokenIds(ownerId).some((tid) => filledTokenIds.has(tid));
+        if (covered) requiredDone += 1;
+      });
+    }
     onAnalysisProgress(total > 0 ? wordFilledCount / total : 0, {
       hasMaster: masterOwnerIds.size > 0,
       filled: wordFilledCount,
       total,
+      requiredTotal: masterRequiredIds.size,
+      requiredDone,
     });
-  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds]);
+  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, masterRequiredIds, progressMap]);
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
