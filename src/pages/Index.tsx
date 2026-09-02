@@ -1253,24 +1253,37 @@ const Index = ({
   useEffect(() => {
     let cancelled = false;
     setMasterHydrated(false);
-    void import("@/lib/analysisGrading").then(({ fetchMasterAnswers }) =>
-      fetchMasterAnswers(sentence.id).then((m) => {
-        if (cancelled) return;
-        setMasterOwnerIds(new Set(Object.keys(m)));
-        setMasterRequiredIds(
-          new Set(
-            Object.entries(m)
-              .filter(([, v]) => (v as { required?: boolean } | null)?.required === true)
-              .map(([ownerId]) => ownerId),
-          ),
-        );
+    void import("@/lib/analysisGrading").then(async ({ fetchMasterAnswers, fetchMasterSpots }) => {
+      // 1) 위치/필수 플래그는 RPC로 (학생도 조회 가능 — 정답 내용 미포함)
+      const spots = await fetchMasterSpots(sentence.id).catch(() => ({
+        ownerIds: [] as string[],
+        requiredIds: [] as string[],
+      }));
+      if (cancelled) return;
+      if (spots.ownerIds.length > 0) {
+        setMasterOwnerIds(new Set(spots.ownerIds));
+        setMasterRequiredIds(new Set(spots.requiredIds));
         setMasterHydrated(true);
-      }),
-    );
+        return;
+      }
+      // 2) 폴백: 직접 읽기(교사·원장 화면)
+      const m = await fetchMasterAnswers(sentence.id).catch(() => ({}));
+      if (cancelled) return;
+      setMasterOwnerIds(new Set(Object.keys(m)));
+      setMasterRequiredIds(
+        new Set(
+          Object.entries(m)
+            .filter(([, v]) => (v as { required?: boolean } | null)?.required === true)
+            .map(([ownerId]) => ownerId),
+        ),
+      );
+      setMasterHydrated(true);
+    });
     return () => {
       cancelled = true;
     };
   }, [sentence.id]);
+
 
 
   // 분석 진행률(0~1) 외부 통지 — 단어(token) 기준으로 통일

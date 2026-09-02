@@ -1677,6 +1677,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      master_analysis_spots: {
+        Args: { p_sentence_id: string }
+        Returns: {
+          owner_id: string
+          required: boolean
+        }[]
+      }
       next_session_no: {
         Args: { p_test_date: string; p_user_id: string }
         Returns: number

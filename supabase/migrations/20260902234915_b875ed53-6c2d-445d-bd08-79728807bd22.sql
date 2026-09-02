@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.master_analysis_spots(text) FROM PUBLIC, anon;
