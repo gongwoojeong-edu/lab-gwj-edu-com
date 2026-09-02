@@ -58,9 +58,17 @@ interface Props {
   memo?: unknown;
   /** true 면 메모 4칸을 비어 있어도 모두 표시 */
   showEmptyMemo?: boolean;
+  /** true 면 첨삭 문답 기록을 표시하지 않음 (티칭 오버레이처럼 별도 패널을 쓰는 경우) */
+  hideQna?: boolean;
 }
 
-export const SentenceReviewDetail = ({ sentenceId, userId, memo, showEmptyMemo = false }: Props) => {
+export const SentenceReviewDetail = ({
+  sentenceId,
+  userId,
+  memo,
+  showEmptyMemo = false,
+  hideQna = false,
+}: Props) => {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
