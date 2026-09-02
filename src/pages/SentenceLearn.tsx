@@ -1290,13 +1290,23 @@ const SentenceLearn = () => {
             <Card className="p-6 space-y-3 border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
               <div className="flex items-center gap-2 text-primary">
                 <Sparkles className="w-4 h-4" />
-                <div className="text-sm font-bold">아직 단어가 준비되지 않았어요</div>
+                <div className="text-sm font-bold">이번 지문은 학습할 단어가 없어요</div>
               </div>
               <p className="text-sm text-foreground/80">
-                선생님이 이 Passage의 단어 추출을 아직 하지 않았어요. 잠시 후 다시 시도해 주세요.
+                이 지문은 단어 학습 없이 진행하는 Passage예요. 혹시 모르는 단어가 나오면 사전 검색을 활용해 주세요.
               </p>
-              <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
-                새로고침
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  setPreDone(true);
+                  try {
+                    await writeMyProg(sentence.id, { pre_done: true });
+                  } catch { /* 진행 저장 실패해도 건너뛰기는 허용 */ }
+                  advanceFrom("pre");
+                }}
+              >
+                단어 없이 계속하기
               </Button>
             </Card>
           ) : (
