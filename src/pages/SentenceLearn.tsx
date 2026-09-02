@@ -330,7 +330,9 @@ const SentenceLearn = () => {
         window.history.replaceState({}, "", url.toString());
       }
 
+      setLoadingStage("진행 상태를 확인하는 중…");
       const currentUserId = await getCurrentUserId();
+
       const [prog, extraction, owners, prof, logs, attemptCnt, assignRes, overrideRes] = await withLearnLoadTimeout(
         Promise.all([
           readMyProg(found.id),
