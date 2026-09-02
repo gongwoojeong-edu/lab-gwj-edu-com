@@ -17,7 +17,7 @@ import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clo
 import { Link } from "react-router-dom";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
-import { resolveNextSentence } from "@/lib/nextSentence";
+import { resolveNextSentence, trackLabelOf } from "@/lib/nextSentence";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { SENTENCES, type Sentence } from "@/data/sentences";
