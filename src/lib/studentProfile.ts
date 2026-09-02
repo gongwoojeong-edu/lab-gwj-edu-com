@@ -16,6 +16,15 @@ export interface StudentProfile {
   /** 시작 유닛 id. null이면 권 전체 */
   start_unit_id: string | null;
   current_level: LevelCode;
+  /** 메인덱 표시 이름 (null = "메인덱") */
+  track_a_label?: string | null;
+  /** 서브덱(두 번째 진도 트랙) 사용 여부 */
+  track_b_enabled?: boolean | null;
+  /** 서브덱 표시 이름 (null = "서브덱") */
+  track_b_label?: string | null;
+  track_b_series_id?: string | null;
+  track_b_volume_id?: string | null;
+  track_b_unit_id?: string | null;
   current_no: number;
   teacher_id: string | null;
   homeroom_teacher_id: string | null;
