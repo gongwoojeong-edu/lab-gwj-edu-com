@@ -1340,11 +1340,21 @@ const Index = ({
     });
   };
 
+  /**
+   * 저장 대상 판정 — pos 뿐 아니라 "완료 확정"된 owner(구/절 범위 지정 등 pos 없이 확정되는 케이스)도 포함.
+   * 과거에는 pos가 있는 항목만 필터해서, 학생이 분석을 했는데도 "저장할 분석이 없습니다"가 뜨거나
+   * 일부 항목이 조용히 누락되는 문제가 있었다.
+   */
+  const hasSavableProgress = (wp: WordProgress | undefined): boolean =>
+    !!wp && (!!wp.pos || wp.completed === true);
+
   const saveStudentProgressEntries = useCallback(async (entries: [string, WordProgress][]): Promise<FlushAnalysisResult> => {
     if (entries.length === 0) return { total: 0, saved: 0, failed: 0 };
     const results = await Promise.allSettled(
       entries.map(([ownerId, wp]) => {
         const cloudPatch = progressToCloudPatch(wp);
+        // pos가 없는 완료 항목은 기존 저장값의 pos를 null로 덮어쓰지 않는다.
+        if (!wp.pos) delete cloudPatch.pos;
         const customPatch = (customAnswers[ownerId] ?? {}) as Record<string, unknown>;
         const merged = { ...customPatch, ...cloudPatch };
         return upsertOwnerProgress({
@@ -1356,29 +1366,42 @@ const Index = ({
         });
       }),
     );
-    const failed = results.filter((r) => r.status === "rejected").length;
-    return { total: entries.length, saved: entries.length - failed, failed };
-  }, [customAnswers, progressMap, sentence.id]);
+    const rejected = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+    if (rejected.length > 0) {
+      console.warn("[studentAnalysisSave] 일부 저장 실패", rejected.map((r) => r.reason));
+    }
+    return { total: entries.length, saved: entries.length - rejected.length, failed: rejected.length };
+  }, [customAnswers, sentence.id]);
 
   useEffect(() => {
     if (!studentMode || !onFlushStudentProgress) return;
     onFlushStudentProgress(async () => {
-      const entries = Object.entries(progressMap).filter(([, wp]) => wp?.pos);
+      const entries = Object.entries(progressMap).filter(([, wp]) => hasSavableProgress(wp));
       return saveStudentProgressEntries(entries);
     });
     return () => onFlushStudentProgress(null);
   }, [onFlushStudentProgress, progressMap, saveStudentProgressEntries, studentMode]);
 
   const flushStudentProgressToCloud = async () => {
-    const entries = Object.entries(progressMap).filter(([, wp]) => wp?.pos);
+    const entries = Object.entries(progressMap).filter(([, wp]) => hasSavableProgress(wp));
     if (entries.length === 0) {
-      toast({ title: "저장할 분석이 없습니다" });
+      toast({
+        title: "아직 저장할 분석이 없어요",
+        description: "단어나 구를 클릭해 품사·역할을 선택한 뒤 저장을 눌러주세요.",
+      });
       return;
     }
     setStudentSaveBusy(true);
     try {
       const result = await saveStudentProgressEntries(entries);
-      if (result.failed > 0) throw new Error(`${result.failed}/${result.total}개 저장 실패`);
+      if (result.failed > 0) {
+        toast({
+          variant: "destructive",
+          title: `저장 실패 ${result.failed}/${result.total}개`,
+          description: "네트워크 상태를 확인한 뒤 저장을 다시 눌러주세요. 작성한 분석은 화면에 그대로 남아있습니다.",
+        });
+        return;
+      }
       toast({ title: "💾 저장됨", description: `분석 ${entries.length}개가 클라우드에 저장되었습니다.` });
     } catch (err) {
       reportStudentProgressSaveFailure(err);
