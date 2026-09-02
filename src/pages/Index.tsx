@@ -40,7 +40,7 @@ import {
   GWJ_SYNTAX_PRODUCT_NAME,
 } from "@/lib/gwj-brand";
 import { cn } from "@/lib/utils";
-import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save } from "lucide-react";
+import { Pencil, RotateCcw, MoreHorizontal, PanelRightOpen, Eraser, X, Save, Star } from "lucide-react";
 import { AiExtractButton } from "@/components/analyzer/AiExtractButton";
 import { ExtractedWordsPanel } from "@/components/analyzer/ExtractedWordsPanel";
 import { Separator } from "@/components/ui/separator";
