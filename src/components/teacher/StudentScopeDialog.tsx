@@ -258,7 +258,7 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
 
 
 
-          <div className="flex flex-col gap-1.5">
+          <div className={track === "B" ? "hidden" : "flex flex-col gap-1.5"}>
             <Label>레벨</Label>
             <Select
               value={level}
