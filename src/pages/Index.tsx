@@ -692,6 +692,7 @@ const Index = ({
   const [masterOwnerIds, setMasterOwnerIds] = useState<Set<string>>(new Set());
   // 마스터키에서 선생님이 "필수 분석"으로 명시 지정한 owner_id 집합
   const [masterRequiredIds, setMasterRequiredIds] = useState<Set<string>>(new Set());
+  const [masterHydrated, setMasterHydrated] = useState(false);
 
   // ===== 학습 흐름 (Cloud) =====
   const [learningStep, setLearningStep] = useState<LearningStep>("pre");
@@ -944,11 +945,17 @@ const Index = ({
   // 현재 sentence 범위의 owner들만 hydrate하며, 학생 모드도 본인 데이터만 복원한다.
   useEffect(() => {
     if (!customAnswers || Object.keys(customAnswers).length === 0) return;
+    // 선생님/원장 학습 시 마스터 목록이 도착하기 전에 복원하면 정답이 잠깐 노출된다.
+    if (studentMode && !compareMode && ctxIsAdmin && !masterHydrated) return;
 
     const hydratedProgress: Record<string, WordProgress> = {};
     const hydratedSel: Record<string, number[]> = {};
 
     Object.entries(customAnswers).forEach(([ownerId, patch]) => {
+      // 선생님/원장 계정이 직접 학습할 때는 본인 owner_progress = 마스터키(정답)이므로
+      // 학습 모드에서 복원하면 정답이 그대로 노출된다 → 마스터 owner는 건너뛴다.
+      // (일반 학생은 ctxIsAdmin=false 이므로 본인 분석이 그대로 복원된다.)
+      if (studentMode && !compareMode && ctxIsAdmin && masterOwnerIds.has(ownerId)) return;
       if (ownerId.startsWith(`${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}`)) {
         const parts = ownerId.split(OWNER_KEY_SEPARATOR);
         if (parts[1] !== sentence.id) return;
@@ -1033,7 +1040,7 @@ const Index = ({
       Object.keys(hydratedProgress).forEach((id) => finalizedOwnersRef.current.add(id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customAnswers, sentence.id, wordUnits]);
+  }, [customAnswers, sentence.id, wordUnits, studentMode, compareMode, ctxIsAdmin, masterHydrated, masterOwnerIds]);
 
   // === SVG overlay 좌표 측정용 refs ===
   const sentenceContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1243,7 +1250,6 @@ const Index = ({
   }, [analysisDone, sentence.id, embedMode, onAnalysisDone, studentMode]);
 
   // 마스터키 owner_id 집합 hydrate — sentence 변경 시 한 번
-  const [masterHydrated, setMasterHydrated] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setMasterHydrated(false);
