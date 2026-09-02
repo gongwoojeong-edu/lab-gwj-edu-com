@@ -1264,33 +1264,44 @@ const Index = ({
   }, [sentence.id]);
 
   // 분석 진행률(0~1) 외부 통지 — 단어(token) 기준으로 통일
-  useEffect(() => {
-    if (!onAnalysisProgress) return;
-    const total = analyzableIds.length;
-    // 명시 "필수 분석" 지점 커버리지: 해당 owner를 직접 분석했거나,
-    // span 지점이면 그 안의 단어 중 하나라도 학생이 분석했으면 채운 것으로 본다.
-    let requiredDone = 0;
-    if (masterRequiredIds.size > 0) {
-      const filledTokenIds = new Set<string>();
-      Object.entries(progressMap).forEach(([ownerId, wp]) => {
-        if (!wp || !wp.pos) return;
-        getOwnerTokenIds(ownerId).forEach((tid) => filledTokenIds.add(tid));
-      });
-      masterRequiredIds.forEach((ownerId) => {
-        const direct = !!progressMap[ownerId]?.pos;
-        const covered =
-          direct || getOwnerTokenIds(ownerId).some((tid) => filledTokenIds.has(tid));
-        if (covered) requiredDone += 1;
-      });
-    }
-    onAnalysisProgress(total > 0 ? wordFilledCount / total : 0, {
-      hasMaster: masterOwnerIds.size > 0,
-      filled: wordFilledCount,
-      total,
-      requiredTotal: masterRequiredIds.size,
-      requiredDone,
+  // 콜백은 부모에서 인라인 화살표로 넘어오므로 ref로 고정한다(렌더마다 effect 재실행 → 무한 업데이트 방지).
+  const onAnalysisProgressRef = useRef(onAnalysisProgress);
+  onAnalysisProgressRef.current = onAnalysisProgress;
+
+  const requiredDoneCount = useMemo(() => {
+    if (masterRequiredIds.size === 0) return 0;
+    const filledTokenIds = new Set<string>();
+    Object.entries(progressMap).forEach(([ownerId, wp]) => {
+      if (!wp || !wp.pos) return;
+      getOwnerTokenIds(ownerId).forEach((tid) => filledTokenIds.add(tid));
     });
-  }, [completedCount, wordFilledCount, analyzableIds.length, onAnalysisProgress, masterOwnerIds, masterRequiredIds, progressMap]);
+    let n = 0;
+    masterRequiredIds.forEach((ownerId) => {
+      const direct = !!progressMap[ownerId]?.pos;
+      const covered = direct || getOwnerTokenIds(ownerId).some((tid) => filledTokenIds.has(tid));
+      if (covered) n += 1;
+    });
+    return n;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [masterRequiredIds, progressMap]);
+
+  const hasMasterFlag = masterOwnerIds.size > 0;
+  const requiredTotalCount = masterRequiredIds.size;
+  const totalAnalyzable = analyzableIds.length;
+
+  useEffect(() => {
+    onAnalysisProgressRef.current?.(
+      totalAnalyzable > 0 ? wordFilledCount / totalAnalyzable : 0,
+      {
+        hasMaster: hasMasterFlag,
+        filled: wordFilledCount,
+        total: totalAnalyzable,
+        requiredTotal: requiredTotalCount,
+        requiredDone: requiredDoneCount,
+      },
+    );
+  }, [wordFilledCount, totalAnalyzable, hasMasterFlag, requiredTotalCount, requiredDoneCount, completedCount]);
+
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
   const selectedTokenRaw = getTokenById(selectedTokenId);
