@@ -96,11 +96,11 @@ const fetchScopedPassageCodes = async (
       // 보존하되 메인덱 진입 범위에는 섞지 않는다.
       textbookIds = [startVolumeId];
     }
-  } else if (profile.start_series_id) {
+  } else if (scope.series_id) {
     const { data: vols } = await supabase
       .from("textbooks")
       .select("id")
-      .eq("series_id", profile.start_series_id);
+      .eq("series_id", scope.series_id);
     textbookIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
   } else {
     return null;
