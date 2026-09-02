@@ -1689,12 +1689,27 @@ const BookshelfUnit = () => {
                                 </div>
                                 <ul className="max-h-64 overflow-y-auto space-y-1">
                                   {(hoverWordsMap[p.code] ?? []).map((w, i) => (
-                                    <li key={i} className="text-xs leading-tight">
-                                      <span className="font-semibold">{w.word}</span>
-                                      {w.pos && (
-                                        <span className="text-muted-foreground ml-1">({w.pos})</span>
-                                      )}
-                                      <span className="text-foreground/80 ml-1 font-kr">{w.meaning}</span>
+                                    <li key={i} className="group flex items-start gap-1 text-xs leading-tight">
+                                      <span className="flex-1 min-w-0">
+                                        <span className="font-semibold">{w.word}</span>
+                                        {w.pos && (
+                                          <span className="text-muted-foreground ml-1">({w.pos})</span>
+                                        )}
+                                        <span className="text-foreground/80 ml-1 font-kr">{w.meaning}</span>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        title="이 단어 삭제"
+                                        disabled={deletingWordKey !== null}
+                                        onClick={() => void handleDeleteHoverWord(p, i)}
+                                        className="shrink-0 mt-px rounded p-0.5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition disabled:opacity-30"
+                                      >
+                                        {deletingWordKey === `${p.code}:${i}` ? (
+                                          <Loader2 className="size-3 animate-spin" />
+                                        ) : (
+                                          <X className="size-3" />
+                                        )}
+                                      </button>
                                     </li>
                                   ))}
                                 </ul>
