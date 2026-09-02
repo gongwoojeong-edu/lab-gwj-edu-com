@@ -2438,6 +2438,15 @@ const Index = ({
     return m;
   }, [masterOwnerIds, wordUnits]);
 
+  // 필수 분석 지점 → 본문 인덱스 집합 (선생님·학생 화면 모두 ★ 표기)
+  const requiredIdxSet = useMemo(() => {
+    const s = new Set<number>();
+    masterRequiredIds.forEach((ownerId) => {
+      ownerIdToSelectionIndices(ownerId, wordUnits).forEach((i) => s.add(i));
+    });
+    return s;
+  }, [masterRequiredIds, wordUnits]);
+
   const showMasterGuide = studentMode && !compareMode && masterOwnerIds.size > 0;
 
   // 병렬(parallel) owner 판별 — `기타 > 접속 > 병렬`
