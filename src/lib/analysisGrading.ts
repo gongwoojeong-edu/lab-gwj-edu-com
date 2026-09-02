@@ -153,6 +153,26 @@ export const fetchMasterAnswers = async (
   return map;
 };
 
+/**
+ * 마스터(원장) 분석 "위치"만 조회 — 정답 내용은 포함하지 않는다.
+ * 학생은 RLS 때문에 원장 owner_progress 행을 직접 읽을 수 없으므로
+ * security definer RPC(master_analysis_spots)로 owner_id + required 플래그만 받는다.
+ */
+export const fetchMasterSpots = async (
+  sentenceId: string,
+): Promise<{ ownerIds: string[]; requiredIds: string[] }> => {
+  const { data, error } = await supabase.rpc("master_analysis_spots", {
+    p_sentence_id: sentenceId,
+  });
+  if (error || !data) return { ownerIds: [], requiredIds: [] };
+  const rows = data as { owner_id: string; required: boolean }[];
+  return {
+    ownerIds: rows.map((r) => r.owner_id),
+    requiredIds: rows.filter((r) => r.required).map((r) => r.owner_id),
+  };
+};
+
+
 /** 학생 본인의 owner_progress 조회 */
 export const fetchStudentAnswers = async (
   sentenceId: string,
