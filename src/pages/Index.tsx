@@ -949,6 +949,9 @@ const Index = ({
     const hydratedSel: Record<string, number[]> = {};
 
     Object.entries(customAnswers).forEach(([ownerId, patch]) => {
+      // 학습(학생) 모드에서는 마스터키(정답) owner를 복원하지 않는다.
+      // 선생님/원장 계정이 직접 학습할 때 자기 정답이 그대로 노출되는 문제 방지.
+      if (studentMode && !compareMode && masterOwnerIds.has(ownerId)) return;
       if (ownerId.startsWith(`${SPAN_PREFIX}${OWNER_KEY_SEPARATOR}`)) {
         const parts = ownerId.split(OWNER_KEY_SEPARATOR);
         if (parts[1] !== sentence.id) return;
