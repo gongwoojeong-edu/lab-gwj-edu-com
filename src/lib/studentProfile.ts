@@ -167,6 +167,40 @@ export interface StudentStats {
 }
 
 /** 학생별 Pass 수 + 마지막 활동 시각(가장 최근 sentence_progress.updated_at)을 묶어서 조회 */
+/** 서브덱(트랙 B) 진도 범위 저장. enabled=false 면 서브덱을 끔 */
+export const updateStudentTrackB = async (
+  userId: string,
+  track: {
+    enabled: boolean;
+    label: string | null;
+    series_id: string | null;
+    volume_id: string | null;
+    unit_id: string | null;
+  },
+): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
+    .update({
+      track_b_enabled: track.enabled,
+      track_b_label: track.label,
+      track_b_series_id: track.series_id,
+      track_b_volume_id: track.volume_id,
+      track_b_unit_id: track.unit_id,
+    })
+    .eq("user_id", userId);
+};
+
+/** 메인덱 표시 이름 변경 */
+export const updateStudentTrackALabel = async (
+  userId: string,
+  label: string | null,
+): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
+    .update({ track_a_label: label })
+    .eq("user_id", userId);
+};
+
 export const fetchStudentStatsMap = async (): Promise<Record<string, StudentStats>> => {
   const { data } = await supabase
     .from("sentence_progress")
