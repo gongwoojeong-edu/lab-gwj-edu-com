@@ -215,10 +215,48 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
           <DialogTitle>진도 설정 — {target?.name}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
+          {/* 트랙 선택 */}
+          <div className="flex gap-2">
+            {(["A", "B"] as const).map((t) => (
+              <Button
+                key={t}
+                type="button"
+                size="sm"
+                variant={track === t ? "default" : "outline"}
+                onClick={() => void switchTrack(t)}
+              >
+                {t === "A" ? "메인덱" : `서브덱${bEnabled ? "" : " (꺼짐)"}`}
+              </Button>
+            ))}
+          </div>
+
+          {track === "B" && (
+            <div className="rounded-md border p-3 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-[13px]">서브덱 사용</Label>
+                <Switch checked={bEnabled} onCheckedChange={setBEnabled} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[13px]">서브덱 이름</Label>
+                <Input
+                  value={bLabel}
+                  onChange={(e) => setBLabel(e.target.value)}
+                  placeholder="예: 독해 진도 / 구문 진도"
+                />
+              </div>
+              <p className="text-[12px] text-muted-foreground">
+                메인덱과 별개로 병행 진행되는 두 번째 진도입니다. 학생 홈에 카드가 하나 더
+                표시됩니다. (레벨은 메인덱 설정을 따릅니다)
+              </p>
+            </div>
+          )}
+
           <p className="text-[12px] text-muted-foreground">
             시리즈(책) 또는 권 단위로 진도를 등록할 수 있습니다. 등록한 범위의 지문을 모두
             끝내면 학생 목록에 <b>진도 끊김</b>으로 표시되며, 새 시리즈·책을 다시 등록해 주세요.
           </p>
+
+
 
           <div className="flex flex-col gap-1.5">
             <Label>레벨</Label>
