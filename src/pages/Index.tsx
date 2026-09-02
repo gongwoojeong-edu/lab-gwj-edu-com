@@ -1304,7 +1304,7 @@ const Index = ({
         requiredDone: requiredDoneCount,
       },
     );
-  }, [wordFilledCount, totalAnalyzable, hasMasterFlag, requiredTotalCount, requiredDoneCount, completedCount]);
+  }, [wordFilledCount, totalAnalyzable, hasMasterFlag, requiredTotalCount, requiredDoneCount, completedCount, masterHydrated]);
 
 
   const selectedTokenId = selectedId ? getOwnerTokenId(selectedId) : null;
