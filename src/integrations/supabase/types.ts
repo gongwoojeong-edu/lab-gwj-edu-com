@@ -1362,6 +1362,7 @@ export type Database = {
           mem_include_interpret: boolean
           mem_include_translate: boolean
           mem_require_record: boolean
+          structure_data: Json | null
           structure_pdf_name: string | null
           structure_pdf_uploaded_at: string | null
           structure_pdf_url: string | null
@@ -1385,6 +1386,7 @@ export type Database = {
           mem_include_interpret?: boolean
           mem_include_translate?: boolean
           mem_require_record?: boolean
+          structure_data?: Json | null
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
           structure_pdf_url?: string | null
@@ -1408,6 +1410,7 @@ export type Database = {
           mem_include_interpret?: boolean
           mem_include_translate?: boolean
           mem_require_record?: boolean
+          structure_data?: Json | null
           structure_pdf_name?: string | null
           structure_pdf_uploaded_at?: string | null
           structure_pdf_url?: string | null
