@@ -138,18 +138,20 @@ const fetchScopedPassageCodes = async (
   return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
 };
 
-export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
+export const resolveNextSentence = async (
+  track: DeckTrack = "A",
+): Promise<NextSentenceResult> => {
   // DB 지문이 SENTENCES에 머지될 때까지 대기 (실패해도 정적 폴백)
   await hydrateSentencesFromDb();
   const profile = await fetchMyProfile();
-  if (!profile) return { sentence: null, profile: null, done: false };
+  if (!profile) return { sentence: null, profile: null, done: false, track };
 
   // 선생님이 학생목록에서 지정한 학년(start_level)을 항상 기준으로 삼는다.
   const targetLevel = profile.start_level;
 
   // pull all passed sentence ids for this user
   const userId = await getCurrentUserId();
-  if (!userId) return { sentence: null, profile, done: false };
+  if (!userId) return { sentence: null, profile, done: false, track };
   const { data: passedRows } = await supabase
     .from("sentence_progress")
     .select("sentence_id, status")
@@ -159,7 +161,7 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
   // 시작 범위(시리즈/권/유닛) 지정이 있으면 그 code 집합으로 한 번 더 좁힌다.
-  const scopedCodes = await fetchScopedPassageCodes(profile, passed);
+  const scopedCodes = await fetchScopedPassageCodes(trackScopeOf(profile, track));
 
   // scopedCodes 중 메모리 SENTENCES에 아직 없는 것이 있으면 DB에서 직접 로드해 머지.
   // (sessionStorage 캐시가 stale 한 경우 신규 배정 책의 지문이 누락되는 사고 방지)
