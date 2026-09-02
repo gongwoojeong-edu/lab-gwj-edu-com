@@ -2574,6 +2574,34 @@ const Index = ({
                     <Pencil className="size-3" />
                     정답 저장 (전체 {Object.keys(pendingPatchMap).length})
                   </button>
+                  {selectedId && (() => {
+                    const isRequired =
+                      (customAnswers[selectedId] as { required?: boolean } | undefined)?.required === true;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveCustom(selectedId, { required: !isRequired });
+                          toast({
+                            title: !isRequired ? "⭐ 필수 분석 지점으로 지정" : "필수 지정 해제",
+                            description: !isRequired
+                              ? "학생이 이 단어/구를 반드시 분석해야 다음 단계로 넘어갈 수 있습니다."
+                              : "이 지점은 더 이상 필수가 아닙니다.",
+                          });
+                        }}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold font-kr transition-colors shrink-0 border",
+                          isRequired
+                            ? "bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                            : "bg-card border-border text-muted-foreground hover:bg-muted",
+                        )}
+                        title="이 단어/구를 학생이 반드시 분석해야 하는 필수 지점으로 지정/해제합니다"
+                      >
+                        <Star className={cn("size-3", isRequired && "fill-amber-500 text-amber-500")} />
+                        {isRequired ? "필수 지정됨" : "필수 분석 지정"}
+                      </button>
+                    );
+                  })()}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
