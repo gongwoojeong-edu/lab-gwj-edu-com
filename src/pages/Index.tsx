@@ -1413,8 +1413,9 @@ const Index = ({
   const updateProgress = (id: string, updater: (prev: WordProgress) => WordProgress) => {
     setProgressMap((prev) => {
       const nextProgress = updater(prev[id] ?? emptyProgress());
-      if (studentMode && nextProgress.pos) {
+      if (studentMode && hasSavableProgress(nextProgress)) {
         const patch = progressToCloudPatch(nextProgress);
+        if (!nextProgress.pos) delete patch.pos;
         void upsertOwnerProgress({
           sentence_id: sentence.id,
           owner_id: id,
