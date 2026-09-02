@@ -978,11 +978,21 @@ const SentenceLearn = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="space-y-1">
+          <div className="text-base font-semibold text-foreground">학습 내용을 불러오는 중이에요</div>
+          <div className="text-sm text-muted-foreground">
+            {loadingStage ?? "잠시만 기다려 주세요…"}
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => navigate("/learn")}>
+          학습 홈으로
+        </Button>
       </div>
     );
   }
+
   if (!sentence) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center bg-background">
