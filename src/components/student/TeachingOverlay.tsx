@@ -15,6 +15,7 @@ import {
   type TeachingSignal,
 } from "@/lib/teachingSession";
 import { SentenceReviewDetail } from "@/components/student/SentenceReviewDetail";
+import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 import { isMemoEmpty, parseMemo, type StructuredMemo } from "@/lib/approvalMemo";
 
 export const TeachingOverlay = () => {
