@@ -1368,6 +1368,19 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     <div class="bk-grid"></div>
   </div>
   <div class="section">
+    <div class="section-title">핵심 키워드 정리 (유닛별)</div>
+    ${p.units
+      .map(
+        (u) => `<div style="display:flex;align-items:flex-end;gap:2.5mm;padding:0.7mm 0;border-bottom:0.3pt dashed #bbb;">
+      <span style="font-size:7pt;color:#777;min-width:34mm;">${escapeHtml(u.unitTitle)} <span style="font-family:monospace;color:#999;">${escapeHtml(u.unitCode)}</span></span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4mm;"></span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4mm;"></span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4mm;"></span>
+    </div>`,
+      )
+      .join("")}
+  </div>
+  <div class="section">
     <div class="section-title">② 주제문 정리</div>
     <div class="bk-write">
       <div class="bk-line"></div><div class="bk-line"></div><div class="bk-line"></div>
