@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
+import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 
 interface Detail {
   english: string | null;
