@@ -80,7 +80,7 @@ import {
   buildUnitWorkbookHtmlFor,
   summarizeUnitProgress,
 } from "@/lib/unitWorkbook";
-import { fetchExtraction, runExtraction, setExtractionReviewed, type ExtractedWord } from "@/lib/wordExtraction";
+import { fetchExtraction, runExtraction, saveExtractionWords, setExtractionReviewed, type ExtractedWord } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
@@ -129,6 +129,7 @@ const BookshelfUnit = () => {
   const [hoverWordsMap, setHoverWordsMap] = useState<Record<string, ExtractedWord[]>>({});
   const [reviewedMap, setReviewedMap] = useState<Record<string, boolean>>({});
   const [reviewingCode, setReviewingCode] = useState<string | null>(null);
+  const [deletingWordKey, setDeletingWordKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
