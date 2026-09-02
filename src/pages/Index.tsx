@@ -1243,8 +1243,10 @@ const Index = ({
   }, [analysisDone, sentence.id, embedMode, onAnalysisDone, studentMode]);
 
   // 마스터키 owner_id 집합 hydrate — sentence 변경 시 한 번
+  const [masterHydrated, setMasterHydrated] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    setMasterHydrated(false);
     void import("@/lib/analysisGrading").then(({ fetchMasterAnswers }) =>
       fetchMasterAnswers(sentence.id).then((m) => {
         if (cancelled) return;
@@ -1256,12 +1258,14 @@ const Index = ({
               .map(([ownerId]) => ownerId),
           ),
         );
+        setMasterHydrated(true);
       }),
     );
     return () => {
       cancelled = true;
     };
   }, [sentence.id]);
+
 
   // 분석 진행률(0~1) 외부 통지 — 단어(token) 기준으로 통일
   // 콜백은 부모에서 인라인 화살표로 넘어오므로 ref로 고정한다(렌더마다 effect 재실행 → 무한 업데이트 방지).
