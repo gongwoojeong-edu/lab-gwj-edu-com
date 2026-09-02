@@ -23,7 +23,10 @@ import {
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { toast } from "@/hooks/use-toast";
-import { updateStudentStartScope } from "@/lib/studentProfile";
+import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { updateStudentStartScope, updateStudentTrackB } from "@/lib/studentProfile";
 import {
   fetchAllSeries,
   fetchTextbooksBySeries,
