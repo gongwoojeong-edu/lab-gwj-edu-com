@@ -185,6 +185,9 @@ const SentenceLearn = () => {
   const [analysisAnalyzableTotal, setAnalysisAnalyzableTotal] = useState(0);
   const [analysisAnalyzedFilled, setAnalysisAnalyzedFilled] = useState(0);
   const [analysisRequiredFilled, setAnalysisRequiredFilled] = useState(false);
+  // 마스터키에 선생님이 "필수 분석"을 명시 지정한 지점 커버리지 (0이면 비율 게이트 사용)
+  const [requiredTotal, setRequiredTotal] = useState(0);
+  const [requiredDone, setRequiredDone] = useState(0);
   const [skipFlags, setSkipFlags] = useState<{ pre: boolean; analysis: boolean; translation: boolean; wordtest: boolean }>({
     pre: true,
     analysis: true,
@@ -194,8 +197,14 @@ const SentenceLearn = () => {
   const ANALYSIS_GATE = 0.6;
   // 학생 프로필 임계값 우선 — 없으면 기본 60%
   const analysisGate = profile?.analysis_pass_threshold ?? ANALYSIS_GATE;
+  // 명시 필수 지점이 있으면 비율 게이트를 대체한다: 필수 지점 전체 분석 완료 필수.
+  const requiredGateActive = requiredTotal > 0;
   const canAdvanceToTranslation =
-    analysisMasterLoaded && (analysisDone || analysisRate >= analysisGate);
+    analysisMasterLoaded &&
+    (analysisDone ||
+      (requiredGateActive
+        ? requiredDone >= requiredTotal
+        : analysisRate >= analysisGate));
   const testWordResultForFinalSubmit = () => ({
     passed: !skipFlags.wordtest || wordtestDone || wordTestResult?.passed === true,
     score: !skipFlags.wordtest || wordtestDone ? 1 : (wordTestResult?.score ?? 0),
