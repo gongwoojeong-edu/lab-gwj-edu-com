@@ -365,7 +365,9 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
-          <Button onClick={save} disabled={saving}>진도 저장</Button>
+          <Button onClick={save} disabled={saving}>
+            {track === "B" ? "서브덱 저장" : "진도 저장"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
