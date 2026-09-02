@@ -251,9 +251,24 @@ const SentenceLearn = () => {
     (async () => {
       try {
         setLoading(true);
+        setLoadingStage("문장을 불러오는 중…");
         setHydrationError(null);
-        // 1) 학생 본인 level만 hydrate (tokens 제외, 가벼운 메타만)
-        const prof0 = await fetchMyProfile().catch(() => null);
+        // 현재 문장 1건(토큰 포함)과 사용자 정보를 병렬로 요청 — 직렬 대기 제거
+        const onePromise = sentenceId
+          ? withLearnLoadTimeout(loadSentenceByCode(sentenceId).catch(() => null), "현재 문장 불러오기")
+          : Promise.resolve(null);
+        const [one, prof0] = await Promise.all([
+          onePromise,
+          fetchMyProfile().catch(() => null),
+        ]);
+        if (!mounted) return;
+        if (one) {
+          const idx = SENTENCES.findIndex((s) => s.id === one.id);
+          if (idx >= 0) SENTENCES[idx] = { ...SENTENCES[idx], ...one };
+          else SENTENCES.push(one);
+        }
+        // 목록 hydrate (이어하기/다음 문장 계산용)
+        setLoadingStage("학습 목록을 준비하는 중…");
         const myLevel = (prof0?.current_level ?? prof0?.start_level) as
           | LevelCode
           | undefined;
@@ -261,21 +276,12 @@ const SentenceLearn = () => {
           hydrateSentencesFromDb(false, myLevel ? { levels: [myLevel] } : undefined),
           "문장 목록 불러오기",
         );
-
-        // 2) 현재 sentence 1건은 tokens 포함해 직접 fetch (hydrate 결과를 덮어씀)
-        let found = SENTENCES.find((s) => s.id === sentenceId) ?? null;
-        if (sentenceId) {
-          const one = await withLearnLoadTimeout(
-            loadSentenceByCode(sentenceId).catch(() => null),
-            "현재 문장 불러오기",
-          );
-          if (one) {
-            const idx = SENTENCES.findIndex((s) => s.id === one.id);
-            if (idx >= 0) SENTENCES[idx] = { ...SENTENCES[idx], ...one };
-            else SENTENCES.push(one);
-            found = SENTENCES.find((s) => s.id === sentenceId) ?? one;
-          }
+        if (one) {
+          const idx2 = SENTENCES.findIndex((s) => s.id === one.id);
+          if (idx2 >= 0) SENTENCES[idx2] = { ...SENTENCES[idx2], ...one };
         }
+        const found = (sentenceId ? SENTENCES.find((s) => s.id === sentenceId) : null) ?? one ?? null;
+
         if (!mounted) return;
         setSentence(found);
 
