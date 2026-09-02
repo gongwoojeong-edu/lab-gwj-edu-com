@@ -255,6 +255,15 @@ export const buildHandoutPrintHtml = (p: HandoutPayload): string => {
     <div class="section-title">③ 구조도</div>
     <div class="grid-box"></div>
   </div>
+  <div class="section">
+    <div class="section-title">핵심 키워드</div>
+    <div style="display:flex;align-items:flex-end;gap:3mm;padding:1mm 0;">
+      <span style="font-size:7.5pt;color:#666;font-family:monospace;">${escapeHtml(p.passageCode)}</span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
+    </div>
+  </div>
   <div class="gist-grid">
     <div>
       <div class="section-title">④ 지스트 (주제문장)</div>
@@ -1001,6 +1010,19 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   <div class="section">
     <div class="section-title">① 구조도</div>
     <div class="cb-grid"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">핵심 키워드 정리</div>
+    ${p.items
+      .map(
+        (it) => `<div style="display:flex;align-items:flex-end;gap:2.5mm;padding:0.7mm 0;border-bottom:0.3pt dashed #bbb;">
+      <span style="font-size:7pt;color:#777;font-family:monospace;min-width:17mm;">${escapeHtml(it.passageCode)}</span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4mm;"></span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4mm;"></span>
+      <span style="flex:1;border-bottom:0.5pt solid #000;height:4mm;"></span>
+    </div>`,
+      )
+      .join("")}
   </div>
   <div class="section">
     <div class="section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
