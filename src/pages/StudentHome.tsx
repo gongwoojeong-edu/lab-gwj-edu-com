@@ -218,6 +218,47 @@ const StudentHome = () => {
     };
   }, [next]);
 
+  // 서브덱(트랙 B) 다음 문장 — 선생님이 서브 진도를 등록한 학생만
+  useEffect(() => {
+    if (!profile?.track_b_enabled) {
+      setSubNext(null);
+      setSubDone(false);
+      setSubNoContent(false);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      const r = await resolveNextSentence("B");
+      if (!alive) return;
+      setSubNext(r.sentence);
+      setSubDone(r.done);
+      setSubNoContent(!!r.noContent);
+      if (r.sentence) {
+        const [ctx, prog] = await Promise.all([
+          fetchTaskModeForSentence(r.sentence.id),
+          fetchSentenceProgress(r.sentence.id),
+        ]);
+        if (!alive) return;
+        setSubTaskMode(ctx.taskMode);
+        setSubAnalysisPassed(prog?.status === "pass");
+        const s = await fetchPassageSource(r.sentence.id);
+        if (!alive) return;
+        const publisher = s?.seriesTitle ?? s?.textbookTitle;
+        const book =
+          publisher && s?.volumeNo != null ? `${publisher} ${s.volumeNo}과` : publisher;
+        const unit = s?.unitTitle ? `U${s.unitNo ?? ""} ${s.unitTitle}`.trim() : null;
+        setSubSource([book, unit].filter(Boolean).join(" · ") || null);
+      } else {
+        setSubSource(null);
+      }
+    })().catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [profile?.track_b_enabled, profile?.track_b_series_id, profile?.track_b_volume_id, profile?.track_b_unit_id]);
+
+
+
   // 과제/진도 유닛의 "출판사 N과" 라벨
   useEffect(() => {
     const ids = [
