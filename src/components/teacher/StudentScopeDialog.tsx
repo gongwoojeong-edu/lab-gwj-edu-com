@@ -58,6 +58,9 @@ interface Props {
 export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => {
   const { display: displayLevel } = useLevelLabels();
   const open = target !== null;
+  const [track, setTrack] = useState<"A" | "B">("A");
+  const [bEnabled, setBEnabled] = useState(false);
+  const [bLabel, setBLabel] = useState("");
   const [level, setLevel] = useState<LevelCode>("L05");
   const [seriesId, setSeriesId] = useState<string | null>(null);
   const [volumeId, setVolumeId] = useState<string | null>(null);
@@ -69,11 +72,62 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
 
   useEffect(() => {
     if (!target) return;
+    setTrack("A");
     setLevel(target.level);
     setSeriesId(target.seriesId);
     setVolumeId(target.volumeId);
     setUnitId(target.unitId);
   }, [target]);
+
+  // 서브덱(트랙 B) 현재 설정 로드
+  useEffect(() => {
+    if (!target) return;
+    let alive = true;
+    supabase
+      .from("student_profiles")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select("track_b_enabled, track_b_label, track_b_series_id, track_b_volume_id, track_b_unit_id" as any)
+      .eq("user_id", target.userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!alive || !data) return;
+        const d = data as unknown as {
+          track_b_enabled: boolean | null;
+          track_b_label: string | null;
+        };
+        setBEnabled(!!d.track_b_enabled);
+        setBLabel(d.track_b_label ?? "");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [target]);
+
+  // 트랙 전환 시 해당 트랙의 저장된 범위를 불러온다
+  const switchTrack = async (nextTrack: "A" | "B") => {
+    if (!target) return;
+    setTrack(nextTrack);
+    if (nextTrack === "A") {
+      setSeriesId(target.seriesId);
+      setVolumeId(target.volumeId);
+      setUnitId(target.unitId);
+      return;
+    }
+    const { data } = await supabase
+      .from("student_profiles")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select("track_b_series_id, track_b_volume_id, track_b_unit_id" as any)
+      .eq("user_id", target.userId)
+      .maybeSingle();
+    const d = (data ?? {}) as unknown as {
+      track_b_series_id?: string | null;
+      track_b_volume_id?: string | null;
+      track_b_unit_id?: string | null;
+    };
+    setSeriesId(d.track_b_series_id ?? null);
+    setVolumeId(d.track_b_volume_id ?? null);
+    setUnitId(d.track_b_unit_id ?? null);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -100,12 +154,6 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
     if (!target) return;
     setSaving(true);
     try {
-      await updateStudentStartScope(target.userId, {
-        start_level: level,
-        start_series_id: seriesId,
-        start_volume_id: volumeId,
-        start_unit_id: unitId,
-      });
       const parts: string[] = [];
       const s = seriesList.find((x) => x.id === seriesId);
       if (s) parts.push(s.title);
@@ -113,6 +161,29 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
       if (v) parts.push(`Vol.${v.volume_no} ${v.title}`);
       const u = unitList.find((x) => x.id === unitId);
       if (u) parts.push(`Unit ${u.unit_no} ${u.title}`);
+
+      if (track === "B") {
+        await updateStudentTrackB(target.userId, {
+          enabled: bEnabled,
+          label: bLabel.trim() || null,
+          series_id: seriesId,
+          volume_id: volumeId,
+          unit_id: unitId,
+        });
+        toast({
+          title: bEnabled ? "📗 서브덱 진도가 설정되었습니다" : "서브덱을 껐습니다",
+          description: parts.join(" / ") || "범위 미지정",
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      await updateStudentStartScope(target.userId, {
+        start_level: level,
+        start_series_id: seriesId,
+        start_volume_id: volumeId,
+        start_unit_id: unitId,
+      });
       onSaved({
         userId: target.userId,
         level,
