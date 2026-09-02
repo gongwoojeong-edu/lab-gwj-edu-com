@@ -6,6 +6,8 @@ import { getCurrentUserId } from "@/lib/authState";
 
 interface AnyProgress {
   pos: string | null;
+  /** 마스터키(정답 입력 모드)에서 선생님이 지정한 "필수 분석 지점" 플래그 */
+  required?: boolean;
   noun?: { form: string | null; element: string | null; role: string | null; subrole?: string | null };
   adj?: { form: string | null; element: string | null; role: string | null };
   adv?: { form: string | null; subtype?: string | null; role: string | null };
@@ -35,6 +37,10 @@ export interface AnalysisGradeResult {
   requiredOwnersFilled: boolean;
   /** 미충족된 필수 owner ID 목록 (학생에게 안내용) */
   missingRequiredOwnerIds: string[];
+  /** 선생님이 마스터 입력 시 "필수 분석"을 명시 지정한 owner가 1개 이상 있는지 */
+  hasExplicitRequired: boolean;
+  /** 명시 지정된 필수 owner 수 (0이면 휴리스틱 모드) */
+  explicitRequiredCount: number;
 }
 
 const norm = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
