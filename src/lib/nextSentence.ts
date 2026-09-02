@@ -11,6 +11,34 @@ import {
   fetchPassageOrderMeta,
 } from "@/lib/assignmentSequence";
 
+export type DeckTrack = "A" | "B";
+
+export interface TrackScope {
+  series_id: string | null;
+  volume_id: string | null;
+  unit_id: string | null;
+}
+
+/** 트랙별 진도 범위 (A=메인덱, B=서브덱) */
+export const trackScopeOf = (profile: StudentProfile, track: DeckTrack): TrackScope =>
+  track === "B"
+    ? {
+        series_id: profile.track_b_series_id ?? null,
+        volume_id: profile.track_b_volume_id ?? null,
+        unit_id: profile.track_b_unit_id ?? null,
+      }
+    : {
+        series_id: profile.start_series_id ?? null,
+        volume_id: profile.start_volume_id ?? null,
+        unit_id: profile.start_unit_id ?? null,
+      };
+
+/** 트랙 표시 이름 */
+export const trackLabelOf = (profile: StudentProfile | null, track: DeckTrack): string =>
+  track === "B"
+    ? (profile?.track_b_label?.trim() || "서브덱")
+    : (profile?.track_a_label?.trim() || "메인덱");
+
 export interface NextSentenceResult {
   sentence: Sentence | null;
   profile: StudentProfile | null;
@@ -19,27 +47,28 @@ export interface NextSentenceResult {
   noContent?: boolean;
   /** 특별과제 회독 id (있으면 학습 URL에 유지) */
   assignmentId?: string | null;
+  /** 이 결과가 속한 진도 트랙 */
+  track?: DeckTrack;
 }
 
 /**
- * 학생 프로필의 학습 범위 → passage code 집합.
+ * 학습 범위(트랙 scope) → passage code 집합.
  * - 시리즈만: 시리즈 전체
  * - 권(과) 지정: 지정한 권부터만 진행
  * - 시작 유닛: 그 권에서 그 유닛부터 권 끝까지
  * 범위 미지정 → null (= 레벨 전체)
  */
 const fetchScopedPassageCodes = async (
-  profile: StudentProfile,
-  completedCodes: Set<string>,
+  scope: TrackScope,
 ): Promise<Set<string> | null> => {
   let startUnitNo: number | null = null;
   let startUnitTextbookId: string | null = null;
 
-  if (profile.start_unit_id) {
+  if (scope.unit_id) {
     const { data: unit } = await supabase
       .from("textbook_units")
       .select("id, textbook_id, unit_no")
-      .eq("id", profile.start_unit_id)
+      .eq("id", scope.unit_id)
       .maybeSingle();
     if (unit) {
       startUnitNo = (unit as { unit_no: number }).unit_no;
@@ -48,7 +77,8 @@ const fetchScopedPassageCodes = async (
   }
 
   let textbookIds: string[] | null = null;
-  const startVolumeId = profile.start_volume_id ?? startUnitTextbookId;
+  const startVolumeId = scope.volume_id ?? startUnitTextbookId;
+
 
   if (startVolumeId) {
     if (startUnitTextbookId) {
