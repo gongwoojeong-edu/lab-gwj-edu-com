@@ -80,7 +80,7 @@ import {
   buildUnitWorkbookHtmlFor,
   summarizeUnitProgress,
 } from "@/lib/unitWorkbook";
-import { fetchExtraction, runExtraction, setExtractionReviewed, type ExtractedWord } from "@/lib/wordExtraction";
+import { fetchExtraction, runExtraction, saveExtractionWords, setExtractionReviewed, type ExtractedWord } from "@/lib/wordExtraction";
 import { errMsg } from "@/lib/errMsg";
 import { openSignedStorageFile } from "@/lib/openSignedStorageFile";
 import { toast } from "@/hooks/use-toast";
@@ -129,6 +129,7 @@ const BookshelfUnit = () => {
   const [hoverWordsMap, setHoverWordsMap] = useState<Record<string, ExtractedWord[]>>({});
   const [reviewedMap, setReviewedMap] = useState<Record<string, boolean>>({});
   const [reviewingCode, setReviewingCode] = useState<string | null>(null);
+  const [deletingWordKey, setDeletingWordKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -566,6 +567,28 @@ const BookshelfUnit = () => {
       toast({ title: "검수 표기 실패", description: errMsg(e), variant: "destructive" });
     } finally {
       setReviewingCode(null);
+    }
+  };
+
+  /** 호버 단어 목록에서 개별 단어 즉시 삭제 */
+  const handleDeleteHoverWord = async (p: Passage, idx: number) => {
+    const key = `${p.code}:${idx}`;
+    if (deletingWordKey) return;
+    const words = hoverWordsMap[p.code] ?? [];
+    const target = words[idx];
+    if (!target) return;
+    if (!window.confirm(`단어 '${target.word}'를 목록에서 삭제할까요?`)) return;
+    setDeletingWordKey(key);
+    try {
+      const next = words.filter((_, i) => i !== idx);
+      await saveExtractionWords(p.code, p.english, next);
+      setHoverWordsMap((prev) => ({ ...prev, [p.code]: next }));
+      setExtractedMap((prev) => ({ ...prev, [p.code]: next.length }));
+      toast({ title: "단어 삭제 완료", description: `'${target.word}' 제거 (남은 단어 ${next.length}개)` });
+    } catch (e) {
+      toast({ title: "단어 삭제 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setDeletingWordKey(null);
     }
   };
 
@@ -1666,12 +1689,27 @@ const BookshelfUnit = () => {
                                 </div>
                                 <ul className="max-h-64 overflow-y-auto space-y-1">
                                   {(hoverWordsMap[p.code] ?? []).map((w, i) => (
-                                    <li key={i} className="text-xs leading-tight">
-                                      <span className="font-semibold">{w.word}</span>
-                                      {w.pos && (
-                                        <span className="text-muted-foreground ml-1">({w.pos})</span>
-                                      )}
-                                      <span className="text-foreground/80 ml-1 font-kr">{w.meaning}</span>
+                                    <li key={i} className="group flex items-start gap-1 text-xs leading-tight">
+                                      <span className="flex-1 min-w-0">
+                                        <span className="font-semibold">{w.word}</span>
+                                        {w.pos && (
+                                          <span className="text-muted-foreground ml-1">({w.pos})</span>
+                                        )}
+                                        <span className="text-foreground/80 ml-1 font-kr">{w.meaning}</span>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        title="이 단어 삭제"
+                                        disabled={deletingWordKey !== null}
+                                        onClick={() => void handleDeleteHoverWord(p, i)}
+                                        className="shrink-0 mt-px rounded p-0.5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition disabled:opacity-30"
+                                      >
+                                        {deletingWordKey === `${p.code}:${i}` ? (
+                                          <Loader2 className="size-3 animate-spin" />
+                                        ) : (
+                                          <X className="size-3" />
+                                        )}
+                                      </button>
                                     </li>
                                   ))}
                                 </ul>
