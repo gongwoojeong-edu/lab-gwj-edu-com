@@ -11,6 +11,34 @@ import {
   fetchPassageOrderMeta,
 } from "@/lib/assignmentSequence";
 
+export type DeckTrack = "A" | "B";
+
+export interface TrackScope {
+  series_id: string | null;
+  volume_id: string | null;
+  unit_id: string | null;
+}
+
+/** 트랙별 진도 범위 (A=메인덱, B=서브덱) */
+export const trackScopeOf = (profile: StudentProfile, track: DeckTrack): TrackScope =>
+  track === "B"
+    ? {
+        series_id: profile.track_b_series_id ?? null,
+        volume_id: profile.track_b_volume_id ?? null,
+        unit_id: profile.track_b_unit_id ?? null,
+      }
+    : {
+        series_id: profile.start_series_id ?? null,
+        volume_id: profile.start_volume_id ?? null,
+        unit_id: profile.start_unit_id ?? null,
+      };
+
+/** 트랙 표시 이름 */
+export const trackLabelOf = (profile: StudentProfile | null, track: DeckTrack): string =>
+  track === "B"
+    ? (profile?.track_b_label?.trim() || "서브덱")
+    : (profile?.track_a_label?.trim() || "메인덱");
+
 export interface NextSentenceResult {
   sentence: Sentence | null;
   profile: StudentProfile | null;
@@ -19,27 +47,28 @@ export interface NextSentenceResult {
   noContent?: boolean;
   /** 특별과제 회독 id (있으면 학습 URL에 유지) */
   assignmentId?: string | null;
+  /** 이 결과가 속한 진도 트랙 */
+  track?: DeckTrack;
 }
 
 /**
- * 학생 프로필의 학습 범위 → passage code 집합.
+ * 학습 범위(트랙 scope) → passage code 집합.
  * - 시리즈만: 시리즈 전체
  * - 권(과) 지정: 지정한 권부터만 진행
  * - 시작 유닛: 그 권에서 그 유닛부터 권 끝까지
  * 범위 미지정 → null (= 레벨 전체)
  */
 const fetchScopedPassageCodes = async (
-  profile: StudentProfile,
-  completedCodes: Set<string>,
+  scope: TrackScope,
 ): Promise<Set<string> | null> => {
   let startUnitNo: number | null = null;
   let startUnitTextbookId: string | null = null;
 
-  if (profile.start_unit_id) {
+  if (scope.unit_id) {
     const { data: unit } = await supabase
       .from("textbook_units")
       .select("id, textbook_id, unit_no")
-      .eq("id", profile.start_unit_id)
+      .eq("id", scope.unit_id)
       .maybeSingle();
     if (unit) {
       startUnitNo = (unit as { unit_no: number }).unit_no;
@@ -48,7 +77,8 @@ const fetchScopedPassageCodes = async (
   }
 
   let textbookIds: string[] | null = null;
-  const startVolumeId = profile.start_volume_id ?? startUnitTextbookId;
+  const startVolumeId = scope.volume_id ?? startUnitTextbookId;
+
 
   if (startVolumeId) {
     if (startUnitTextbookId) {
@@ -66,11 +96,11 @@ const fetchScopedPassageCodes = async (
       // 보존하되 메인덱 진입 범위에는 섞지 않는다.
       textbookIds = [startVolumeId];
     }
-  } else if (profile.start_series_id) {
+  } else if (scope.series_id) {
     const { data: vols } = await supabase
       .from("textbooks")
       .select("id")
-      .eq("series_id", profile.start_series_id);
+      .eq("series_id", scope.series_id);
     textbookIds = ((vols ?? []) as { id: string }[]).map((v) => v.id);
   } else {
     return null;
@@ -108,18 +138,20 @@ const fetchScopedPassageCodes = async (
   return new Set(((data ?? []) as { code: string }[]).map((r) => r.code));
 };
 
-export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
+export const resolveNextSentence = async (
+  track: DeckTrack = "A",
+): Promise<NextSentenceResult> => {
   // DB 지문이 SENTENCES에 머지될 때까지 대기 (실패해도 정적 폴백)
   await hydrateSentencesFromDb();
   const profile = await fetchMyProfile();
-  if (!profile) return { sentence: null, profile: null, done: false };
+  if (!profile) return { sentence: null, profile: null, done: false, track };
 
   // 선생님이 학생목록에서 지정한 학년(start_level)을 항상 기준으로 삼는다.
   const targetLevel = profile.start_level;
 
   // pull all passed sentence ids for this user
   const userId = await getCurrentUserId();
-  if (!userId) return { sentence: null, profile, done: false };
+  if (!userId) return { sentence: null, profile, done: false, track };
   const { data: passedRows } = await supabase
     .from("sentence_progress")
     .select("sentence_id, status")
@@ -129,7 +161,7 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
   const passed = new Set(((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id));
 
   // 시작 범위(시리즈/권/유닛) 지정이 있으면 그 code 집합으로 한 번 더 좁힌다.
-  const scopedCodes = await fetchScopedPassageCodes(profile, passed);
+  const scopedCodes = await fetchScopedPassageCodes(trackScopeOf(profile, track));
 
   // scopedCodes 중 메모리 SENTENCES에 아직 없는 것이 있으면 DB에서 직접 로드해 머지.
   // (sessionStorage 캐시가 stale 한 경우 신규 배정 책의 지문이 누락되는 사고 방지)
@@ -155,7 +187,7 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
 
   // 지정 범위에 등록된 지문이 0개 → 학습 자료 미준비 상태(완료가 아님)
   if (inLevel.length === 0) {
-    return { sentence: null, profile, done: false, noContent: true };
+    return { sentence: null, profile, done: false, noContent: true, track };
   }
 
   // passage_no는 유닛 안 번호라서, 유닛 순서(unit_no)까지 반영해 정렬
@@ -166,13 +198,19 @@ export const resolveNextSentence = async (): Promise<NextSentenceResult> => {
 
   const found = inLevel.find((s) => !passed.has(s.id));
   if (found) {
-    if (profile.current_level !== targetLevel || profile.current_no !== found.no) {
+    // current_level/current_no 는 메인덱(A) 진도 지표이므로 서브덱에서는 갱신하지 않는다.
+    if (track === "A" && (profile.current_level !== targetLevel || profile.current_no !== found.no)) {
       await updateMyProgress(targetLevel, found.no);
     }
-    return { sentence: found, profile: { ...profile, current_level: targetLevel, current_no: found.no }, done: false };
+    return {
+      sentence: found,
+      profile: track === "A" ? { ...profile, current_level: targetLevel, current_no: found.no } : profile,
+      done: false,
+      track,
+    };
   }
   // 지정 범위(시리즈/권)를 모두 끝낸 상태 — 처음(1번)으로 되돌리지 않고 완료로 안내한다.
-  return { sentence: null, profile: { ...profile, current_level: targetLevel }, done: true };
+  return { sentence: null, profile: { ...profile, current_level: targetLevel }, done: true, track };
 
 };
 
@@ -580,7 +618,17 @@ export const resolveNextAfterPass = async (
     if (curUnit) {
       const tbId = (curUnit as { textbook_id: string }).textbook_id;
       const curNo = (curUnit as { unit_no: number }).unit_no;
-      const scoped = profile ? await fetchScopedPassageCodes(profile, passed) : null;
+      // 두 트랙(메인덱/서브덱) 범위를 합쳐서 판단 — 어느 트랙의 지문이든 이어서 진행
+      let scoped: Set<string> | null = null;
+      if (profile) {
+        const a = await fetchScopedPassageCodes(trackScopeOf(profile, "A"));
+        const b = profile.track_b_enabled
+          ? await fetchScopedPassageCodes(trackScopeOf(profile, "B"))
+          : null;
+        if (a && b) scoped = new Set([...a, ...b]);
+        else if (a && !profile.track_b_enabled) scoped = a;
+        else scoped = null;
+      }
       const { data: laterUnits } = await supabase
         .from("textbook_units")
         .select("id, unit_no")

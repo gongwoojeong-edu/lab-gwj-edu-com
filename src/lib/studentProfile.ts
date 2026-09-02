@@ -16,6 +16,15 @@ export interface StudentProfile {
   /** 시작 유닛 id. null이면 권 전체 */
   start_unit_id: string | null;
   current_level: LevelCode;
+  /** 메인덱 표시 이름 (null = "메인덱") */
+  track_a_label?: string | null;
+  /** 서브덱(두 번째 진도 트랙) 사용 여부 */
+  track_b_enabled?: boolean | null;
+  /** 서브덱 표시 이름 (null = "서브덱") */
+  track_b_label?: string | null;
+  track_b_series_id?: string | null;
+  track_b_volume_id?: string | null;
+  track_b_unit_id?: string | null;
   current_no: number;
   teacher_id: string | null;
   homeroom_teacher_id: string | null;
@@ -158,6 +167,40 @@ export interface StudentStats {
 }
 
 /** 학생별 Pass 수 + 마지막 활동 시각(가장 최근 sentence_progress.updated_at)을 묶어서 조회 */
+/** 서브덱(트랙 B) 진도 범위 저장. enabled=false 면 서브덱을 끔 */
+export const updateStudentTrackB = async (
+  userId: string,
+  track: {
+    enabled: boolean;
+    label: string | null;
+    series_id: string | null;
+    volume_id: string | null;
+    unit_id: string | null;
+  },
+): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
+    .update({
+      track_b_enabled: track.enabled,
+      track_b_label: track.label,
+      track_b_series_id: track.series_id,
+      track_b_volume_id: track.volume_id,
+      track_b_unit_id: track.unit_id,
+    })
+    .eq("user_id", userId);
+};
+
+/** 메인덱 표시 이름 변경 */
+export const updateStudentTrackALabel = async (
+  userId: string,
+  label: string | null,
+): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from("student_profiles") as any)
+    .update({ track_a_label: label })
+    .eq("user_id", userId);
+};
+
 export const fetchStudentStatsMap = async (): Promise<Record<string, StudentStats>> => {
   const { data } = await supabase
     .from("sentence_progress")

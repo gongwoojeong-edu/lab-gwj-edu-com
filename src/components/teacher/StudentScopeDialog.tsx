@@ -23,7 +23,10 @@ import {
 import { LEVELS, type LevelCode } from "@/lib/levels";
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { toast } from "@/hooks/use-toast";
-import { updateStudentStartScope } from "@/lib/studentProfile";
+import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { updateStudentStartScope, updateStudentTrackB } from "@/lib/studentProfile";
 import {
   fetchAllSeries,
   fetchTextbooksBySeries,
@@ -58,6 +61,9 @@ interface Props {
 export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => {
   const { display: displayLevel } = useLevelLabels();
   const open = target !== null;
+  const [track, setTrack] = useState<"A" | "B">("A");
+  const [bEnabled, setBEnabled] = useState(false);
+  const [bLabel, setBLabel] = useState("");
   const [level, setLevel] = useState<LevelCode>("L05");
   const [seriesId, setSeriesId] = useState<string | null>(null);
   const [volumeId, setVolumeId] = useState<string | null>(null);
@@ -69,11 +75,62 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
 
   useEffect(() => {
     if (!target) return;
+    setTrack("A");
     setLevel(target.level);
     setSeriesId(target.seriesId);
     setVolumeId(target.volumeId);
     setUnitId(target.unitId);
   }, [target]);
+
+  // 서브덱(트랙 B) 현재 설정 로드
+  useEffect(() => {
+    if (!target) return;
+    let alive = true;
+    supabase
+      .from("student_profiles")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select("track_b_enabled, track_b_label, track_b_series_id, track_b_volume_id, track_b_unit_id" as any)
+      .eq("user_id", target.userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!alive || !data) return;
+        const d = data as unknown as {
+          track_b_enabled: boolean | null;
+          track_b_label: string | null;
+        };
+        setBEnabled(!!d.track_b_enabled);
+        setBLabel(d.track_b_label ?? "");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [target]);
+
+  // 트랙 전환 시 해당 트랙의 저장된 범위를 불러온다
+  const switchTrack = async (nextTrack: "A" | "B") => {
+    if (!target) return;
+    setTrack(nextTrack);
+    if (nextTrack === "A") {
+      setSeriesId(target.seriesId);
+      setVolumeId(target.volumeId);
+      setUnitId(target.unitId);
+      return;
+    }
+    const { data } = await supabase
+      .from("student_profiles")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select("track_b_series_id, track_b_volume_id, track_b_unit_id" as any)
+      .eq("user_id", target.userId)
+      .maybeSingle();
+    const d = (data ?? {}) as unknown as {
+      track_b_series_id?: string | null;
+      track_b_volume_id?: string | null;
+      track_b_unit_id?: string | null;
+    };
+    setSeriesId(d.track_b_series_id ?? null);
+    setVolumeId(d.track_b_volume_id ?? null);
+    setUnitId(d.track_b_unit_id ?? null);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -100,12 +157,6 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
     if (!target) return;
     setSaving(true);
     try {
-      await updateStudentStartScope(target.userId, {
-        start_level: level,
-        start_series_id: seriesId,
-        start_volume_id: volumeId,
-        start_unit_id: unitId,
-      });
       const parts: string[] = [];
       const s = seriesList.find((x) => x.id === seriesId);
       if (s) parts.push(s.title);
@@ -113,6 +164,29 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
       if (v) parts.push(`Vol.${v.volume_no} ${v.title}`);
       const u = unitList.find((x) => x.id === unitId);
       if (u) parts.push(`Unit ${u.unit_no} ${u.title}`);
+
+      if (track === "B") {
+        await updateStudentTrackB(target.userId, {
+          enabled: bEnabled,
+          label: bLabel.trim() || null,
+          series_id: seriesId,
+          volume_id: volumeId,
+          unit_id: unitId,
+        });
+        toast({
+          title: bEnabled ? "📗 서브덱 진도가 설정되었습니다" : "서브덱을 껐습니다",
+          description: parts.join(" / ") || "범위 미지정",
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      await updateStudentStartScope(target.userId, {
+        start_level: level,
+        start_series_id: seriesId,
+        start_volume_id: volumeId,
+        start_unit_id: unitId,
+      });
       onSaved({
         userId: target.userId,
         level,
@@ -141,12 +215,50 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
           <DialogTitle>진도 설정 — {target?.name}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
+          {/* 트랙 선택 */}
+          <div className="flex gap-2">
+            {(["A", "B"] as const).map((t) => (
+              <Button
+                key={t}
+                type="button"
+                size="sm"
+                variant={track === t ? "default" : "outline"}
+                onClick={() => void switchTrack(t)}
+              >
+                {t === "A" ? "메인덱" : `서브덱${bEnabled ? "" : " (꺼짐)"}`}
+              </Button>
+            ))}
+          </div>
+
+          {track === "B" && (
+            <div className="rounded-md border p-3 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-[13px]">서브덱 사용</Label>
+                <Switch checked={bEnabled} onCheckedChange={setBEnabled} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[13px]">서브덱 이름</Label>
+                <Input
+                  value={bLabel}
+                  onChange={(e) => setBLabel(e.target.value)}
+                  placeholder="예: 독해 진도 / 구문 진도"
+                />
+              </div>
+              <p className="text-[12px] text-muted-foreground">
+                메인덱과 별개로 병행 진행되는 두 번째 진도입니다. 학생 홈에 카드가 하나 더
+                표시됩니다. (레벨은 메인덱 설정을 따릅니다)
+              </p>
+            </div>
+          )}
+
           <p className="text-[12px] text-muted-foreground">
             시리즈(책) 또는 권 단위로 진도를 등록할 수 있습니다. 등록한 범위의 지문을 모두
             끝내면 학생 목록에 <b>진도 끊김</b>으로 표시되며, 새 시리즈·책을 다시 등록해 주세요.
           </p>
 
-          <div className="flex flex-col gap-1.5">
+
+
+          <div className={track === "B" ? "hidden" : "flex flex-col gap-1.5"}>
             <Label>레벨</Label>
             <Select
               value={level}
@@ -253,7 +365,9 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
-          <Button onClick={save} disabled={saving}>진도 저장</Button>
+          <Button onClick={save} disabled={saving}>
+            {track === "B" ? "서브덱 저장" : "진도 저장"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

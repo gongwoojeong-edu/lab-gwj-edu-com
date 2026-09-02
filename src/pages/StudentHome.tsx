@@ -17,7 +17,7 @@ import { Loader2, LogOut, Play, Trophy, Sparkles, Flame, Gem, ClipboardList, Clo
 import { Link } from "react-router-dom";
 import RetestBanner, { useRetestAlertsCount } from "@/components/student/RetestBanner";
 import DailyTestSummary from "@/components/teacher/DailyTestSummary";
-import { resolveNextSentence } from "@/lib/nextSentence";
+import { resolveNextSentence, trackLabelOf } from "@/lib/nextSentence";
 import { signOut, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { SENTENCES, type Sentence } from "@/data/sentences";
@@ -188,6 +188,13 @@ const StudentHome = () => {
   const [nextSource, setNextSource] = useState<string | null>(null);
   const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
   const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
+  // ── 서브덱(트랙 B) ─────────────────────────────
+  const [subNext, setSubNext] = useState<Sentence | null>(null);
+  const [subDone, setSubDone] = useState(false);
+  const [subNoContent, setSubNoContent] = useState(false);
+  const [subSource, setSubSource] = useState<string | null>(null);
+  const [subTaskMode, setSubTaskMode] = useState<TaskMode>("analysis_and_memorize");
+  const [subAnalysisPassed, setSubAnalysisPassed] = useState(false);
 
   // 현재 학습 지문의 출처(출판사 · N과 · 유닛)
   useEffect(() => {
@@ -210,6 +217,47 @@ const StudentHome = () => {
       alive = false;
     };
   }, [next]);
+
+  // 서브덱(트랙 B) 다음 문장 — 선생님이 서브 진도를 등록한 학생만
+  useEffect(() => {
+    if (!profile?.track_b_enabled) {
+      setSubNext(null);
+      setSubDone(false);
+      setSubNoContent(false);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      const r = await resolveNextSentence("B");
+      if (!alive) return;
+      setSubNext(r.sentence);
+      setSubDone(r.done);
+      setSubNoContent(!!r.noContent);
+      if (r.sentence) {
+        const [ctx, prog] = await Promise.all([
+          fetchTaskModeForSentence(r.sentence.id),
+          fetchSentenceProgress(r.sentence.id),
+        ]);
+        if (!alive) return;
+        setSubTaskMode(ctx.taskMode);
+        setSubAnalysisPassed(prog?.status === "pass");
+        const s = await fetchPassageSource(r.sentence.id);
+        if (!alive) return;
+        const publisher = s?.seriesTitle ?? s?.textbookTitle;
+        const book =
+          publisher && s?.volumeNo != null ? `${publisher} ${s.volumeNo}과` : publisher;
+        const unit = s?.unitTitle ? `U${s.unitNo ?? ""} ${s.unitTitle}`.trim() : null;
+        setSubSource([book, unit].filter(Boolean).join(" · ") || null);
+      } else {
+        setSubSource(null);
+      }
+    })().catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [profile?.track_b_enabled, profile?.track_b_series_id, profile?.track_b_volume_id, profile?.track_b_unit_id]);
+
+
 
   // 과제/진도 유닛의 "출판사 N과" 라벨
   useEffect(() => {
@@ -929,6 +977,19 @@ const StudentHome = () => {
     ? `${next.id} ${startButtonLabel(nextTaskMode, nextAnalysisPassed)}`
     : "다음 Passage 없음";
 
+  const subEnabled = !!profile?.track_b_enabled;
+
+  const handleSubStart = () => {
+    if (!subNext) return;
+    navigate(learnPathForSentence(subNext.id, subTaskMode, subAnalysisPassed));
+  };
+
+  const subStartLabel = subNext
+    ? `${subNext.id} ${startButtonLabel(subTaskMode, subAnalysisPassed)}`
+    : "다음 Passage 없음";
+
+
+
   // 진행중 / 지난과제 / 완료과제 분리
   // 규칙: 마감일이 있으면 마감 경과 시 '지난과제', 무기한(마감 없음)이면 출제 후 14일 초과 시 '지난과제'
   const STALE_DAYS = 14;
@@ -1645,13 +1706,16 @@ const StudentHome = () => {
 
 
 
-            {/* Hero start card */}
+            {/* Hero start card(s) — 서브덱이 켜져 있으면 두 트랙을 나란히 */}
+            <div className={cn("grid gap-4", subEnabled && "lg:grid-cols-2")}>
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute -bottom-16 -left-10 w-56 h-56 rounded-full bg-white/5 blur-3xl" />
               <div className="relative space-y-6">
                 <div className="space-y-1">
-                  <div className="text-xs uppercase tracking-widest opacity-80">오늘의 학습</div>
+                  <div className="text-xs uppercase tracking-widest opacity-80">
+                    오늘의 학습 · {trackLabelOf(profile, "A")}
+                  </div>
                   <h1 className="text-3xl sm:text-4xl font-extrabold">
                     {next ? levelDisplay(next.level) : "—"}
                   </h1>
@@ -1686,6 +1750,55 @@ const StudentHome = () => {
                 </div>
               </div>
             </Card>
+
+            {subEnabled && (
+              <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-accent to-primary text-primary-foreground border-0 shadow-2xl">
+                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute -bottom-16 -left-10 w-56 h-56 rounded-full bg-white/5 blur-3xl" />
+                <div className="relative space-y-6">
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-widest opacity-80">
+                      오늘의 학습 · {trackLabelOf(profile, "B")}
+                    </div>
+                    <h1 className="text-3xl sm:text-4xl font-extrabold">
+                      {subNext ? levelDisplay(subNext.level) : "—"}
+                    </h1>
+                    {subNext && subSource && (
+                      <div className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-white/20">
+                        {subSource}
+                      </div>
+                    )}
+                    <div className="text-sm opacity-90">
+                      {subNext
+                        ? `${subNext.id} · Passage ${subNext.no}`
+                        : subDone
+                          ? "이 진도는 모두 끝냈어요 🎉"
+                          : subNoContent
+                            ? "등록된 지문이 아직 없어요"
+                            : "다음 Passage가 없습니다"}
+                    </div>
+                  </div>
+                  {subNext && (
+                    <p className="text-base sm:text-lg leading-relaxed font-medium opacity-95 line-clamp-3">
+                      {subNext.english}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      size="lg"
+                      onClick={handleSubStart}
+                      disabled={!subNext}
+                      className="bg-white text-primary hover:bg-white/90 font-bold text-base h-12 px-8 shadow-lg"
+                    >
+                      <Play className="w-5 h-5 mr-2 fill-primary" />
+                      {subStartLabel}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+            </div>
+
 
 
 

@@ -1090,6 +1090,12 @@ export type Database = {
           teacher_id: string | null
           teacher_pin: string | null
           textbook_publisher: string | null
+          track_a_label: string | null
+          track_b_enabled: boolean
+          track_b_label: string | null
+          track_b_series_id: string | null
+          track_b_unit_id: string | null
+          track_b_volume_id: string | null
           unit_workbook_mode: string
           updated_at: string
           user_id: string
@@ -1127,6 +1133,12 @@ export type Database = {
           teacher_id?: string | null
           teacher_pin?: string | null
           textbook_publisher?: string | null
+          track_a_label?: string | null
+          track_b_enabled?: boolean
+          track_b_label?: string | null
+          track_b_series_id?: string | null
+          track_b_unit_id?: string | null
+          track_b_volume_id?: string | null
           unit_workbook_mode?: string
           updated_at?: string
           user_id: string
@@ -1164,6 +1176,12 @@ export type Database = {
           teacher_id?: string | null
           teacher_pin?: string | null
           textbook_publisher?: string | null
+          track_a_label?: string | null
+          track_b_enabled?: boolean
+          track_b_label?: string | null
+          track_b_series_id?: string | null
+          track_b_unit_id?: string | null
+          track_b_volume_id?: string | null
           unit_workbook_mode?: string
           updated_at?: string
           user_id?: string
