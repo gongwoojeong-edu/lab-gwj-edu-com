@@ -550,7 +550,7 @@ Deno.serve(async (req) => {
     unit = created as any;
   }
 
-  // ===== 4) Passage =====
+  // ===== 4) Passage (재전송 = 덮어쓰기, 문장 추가 금지) =====
   // Split incoming passage into per-sentence rows so word-study / syntax-analysis
   // can iterate one sentence at a time. A passage that contains a single sentence
   // is stored as one row; multi-sentence passages produce N rows that share a
@@ -562,63 +562,166 @@ Deno.serve(async (req) => {
   const fidelityErr = assertSentenceFidelity(p.passage, sentences);
   if (fidelityErr) return json({ ok: false, error: fidelityErr }, 400);
 
-  // Determine starting passage_no for this unit. An explicit passage_no means
-  // "replace this imported passage"; an omitted value keeps append behavior.
   const { data: existing } = await admin
     .from("textbook_passages")
     .select("passage_no")
     .eq("unit_id", unit!.id)
     .order("passage_no", { ascending: false })
     .limit(1);
-  const startNo = Number.isFinite(Number(p.passage_no))
-    ? Number(p.passage_no)
-    : ((existing?.[0]?.passage_no ?? 0) + 1);
 
-  // Build base code: prefer explicit item_code, else derive from unit + passage_no
+  const explicitPassageNo = Number.isFinite(Number(p.passage_no)) ? Number(p.passage_no) : null;
+  const startNo = explicitPassageNo ?? ((existing?.[0]?.passage_no ?? 0) + 1);
+
   const itemSlug = safeSlug(p.item_code || `${unit!.unit_no}-${startNo}`);
-  const baseCode = p.item_code?.trim()
+  const preferredCode = p.item_code?.trim()
     ? safeSlug(p.item_code)
     : `${safeSlug(seriesTitle)}-${unit!.unit_no}-${startNo}`;
 
-  // Ensure base code is free — append -alt2/3 if collision (rare)
-  let codeRoot = baseCode;
-  for (let i = 2; i < 50; i++) {
-    // Check if any existing code starts with codeRoot (would conflict with -1, -2, ...)
-    const { data: clash } = await admin
+  // 같은 유닛(또는 같은 교재)에서 이 item_code 계열 문장 찾기 → 있으면 덮어쓰기
+  const codeFamilyFilter = [
+    `code.eq.${preferredCode}`,
+    `code.like.${preferredCode}-%`,
+  ].join(",");
+
+  let existingFamily: Array<{ id: string; code: string; passage_no: number; unit_id: string; created_at: string }> = [];
+  {
+    const { data: inUnit } = await admin
       .from("textbook_passages")
-      .select("id")
-      .or(`code.eq.${codeRoot},code.like.${codeRoot}-%`)
-      .limit(1);
-    if (!clash || clash.length === 0) break;
-    codeRoot = `${baseCode}-alt${i}`;
+      .select("id, code, passage_no, unit_id, created_at")
+      .eq("unit_id", unit!.id)
+      .or(codeFamilyFilter)
+      .order("passage_no", { ascending: true });
+    if (inUnit?.length) {
+      existingFamily = inUnit as typeof existingFamily;
+    } else {
+      // 유닛이 달라도 같은 item_code면 그 유닛으로 합류해 덮어씀 (중복 유닛 방지)
+      const { data: anywhere } = await admin
+        .from("textbook_passages")
+        .select("id, code, passage_no, unit_id, created_at")
+        .eq("textbook_id", textbook!.id)
+        .or(codeFamilyFilter)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (anywhere?.length) {
+        existingFamily = anywhere as typeof existingFamily;
+        const homeUnitId = existingFamily[0].unit_id;
+        if (homeUnitId !== unit!.id) {
+          const { data: homeUnit } = await admin
+            .from("textbook_units")
+            .select("id, unit_no, analysis_pdf_url, structure_pdf_url")
+            .eq("id", homeUnitId)
+            .maybeSingle();
+          if (homeUnit) unit = homeUnit as typeof unit;
+        }
+      }
+    }
   }
 
-  // ⚠️ 지문 제목/주제(title_ko, topic_ko)를 문장 단위 korean 컬럼에 넣지 않는다.
-  //   과거에는 첫 문장 korean에 "title / topic"을 저장했으나,
-  //   그 값이 "한글해석 정답"으로 노출되어 실제 문장 해석과 무관한 문구가 학생/선생님 화면에 표시되는 문제가 있었다.
-  //   문장 단위 한글해석 정답은 반드시 선생님이 문장별로 직접 입력한다.
-  //   단, 신텍스스튜디오(외부 분석기)에서 영문과 함께 한글 해석을 함께 전송한 경우
-  //   문장 수가 정확히 일치하면 문장별 korean 컬럼에 자동 매핑한다.
+  // 코드 루트: 기존이 있으면 그 루트 유지( -alt 새로 만들지 않음 )
+  let codeRoot = preferredCode;
+  if (existingFamily.length > 0) {
+    const sample = existingFamily[0].code;
+    const m = sample.match(/^(.*?)(?:-\d+)?$/);
+    codeRoot = m?.[1] || preferredCode;
+    // -alt2-1 형태면 -alt2 를 루트로
+    const alt = sample.match(/^(.*?-alt\d+)(?:-\d+)?$/);
+    if (alt) codeRoot = alt[1];
+  } else {
+    // 신규만 충돌 시 -alt 부여
+    for (let i = 2; i < 50; i++) {
+      const { data: clash } = await admin
+        .from("textbook_passages")
+        .select("id")
+        .or(`code.eq.${codeRoot},code.like.${codeRoot}-%`)
+        .limit(1);
+      if (!clash || clash.length === 0) break;
+      codeRoot = `${preferredCode}-alt${i}`;
+    }
+  }
+
   const koreanSentences = extractPayloadKoreanSentences(p, sentences.length);
   const isMulti = sentences.length > 1;
+  // 덮어쓰기 시 passage_no 도 기존 시작 번호를 유지
+  const writeStartNo = existingFamily.length > 0
+    ? Math.min(...existingFamily.map((r) => r.passage_no))
+    : startNo;
+
   const rows = sentences.map((sent, i) => ({
     textbook_id: textbook!.id,
     unit_id: unit!.id,
-    passage_no: startNo + i,
+    passage_no: writeStartNo + i,
     code: isMulti ? `${codeRoot}-${i + 1}` : codeRoot,
     english: sent,
     korean: koreanSentences[i] ?? null,
-    analysis_status: "draft", // 🆕 v4: 분석기 전송본은 draft 상태 — 선생님이 마스터키 입력 후 학생 공개 버튼으로 ready 전환
+    analysis_status: "draft" as const,
   }));
 
   let insertedRows: Array<{ id: string; code: string }> = [];
-  if (Number.isFinite(Number(p.passage_no))) {
-    const endNo = startNo + rows.length - 1;
+
+  if (existingFamily.length > 0) {
+    // 기존 문장 덮어쓰기 + 남는 문장 삭제 + 부족분만 추가
+    const sorted = [...existingFamily].sort((a, b) =>
+      a.passage_no !== b.passage_no
+        ? a.passage_no - b.passage_no
+        : a.created_at.localeCompare(b.created_at)
+    );
+    // 같은 passage_no 중복은 첫 행만 유지
+    const keepers: typeof sorted = [];
+    const dupIds: string[] = [];
+    const seenNo = new Set<number>();
+    for (const row of sorted) {
+      if (seenNo.has(row.passage_no)) dupIds.push(row.id);
+      else {
+        seenNo.add(row.passage_no);
+        keepers.push(row);
+      }
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const keeper = keepers[i];
+      if (keeper) {
+        const { data: updated, error: updateErr } = await admin
+          .from("textbook_passages")
+          .update({
+            english: row.english,
+            korean: row.korean,
+            analysis_status: row.analysis_status,
+            passage_no: row.passage_no,
+            code: row.code,
+            unit_id: unit!.id,
+          })
+          .eq("id", keeper.id)
+          .select("id, code")
+          .single();
+        if (updateErr) return json({ ok: false, error: `Passage 덮어쓰기 실패: ${updateErr.message}` }, 500);
+        insertedRows.push(updated as { id: string; code: string });
+      } else {
+        const { data: created, error: createErr } = await admin
+          .from("textbook_passages")
+          .insert(row)
+          .select("id, code")
+          .single();
+        if (createErr) return json({ ok: false, error: `Passage 생성 실패: ${createErr.message}` }, 500);
+        insertedRows.push(created as { id: string; code: string });
+      }
+    }
+
+    // 문장 수가 줄었으면 남는 기존 행 삭제
+    const extraKeepers = keepers.slice(rows.length).map((k) => k.id);
+    const toDelete = [...dupIds, ...extraKeepers];
+    if (toDelete.length) {
+      const { error: deleteErr } = await admin.from("textbook_passages").delete().in("id", toDelete);
+      if (deleteErr) return json({ ok: false, error: `잉여 Passage 정리 실패: ${deleteErr.message}` }, 500);
+    }
+  } else if (explicitPassageNo !== null) {
+    // item_code 계열은 없지만 passage_no 가 명시된 경우: 해당 번호 구간만 덮어쓰기
+    const endNo = writeStartNo + rows.length - 1;
     const { data: replaceTargets, error: targetErr } = await admin
       .from("textbook_passages")
       .select("id, code, passage_no, created_at")
       .eq("unit_id", unit!.id)
-      .gte("passage_no", startNo)
+      .gte("passage_no", writeStartNo)
       .lte("passage_no", endNo)
       .order("created_at", { ascending: true });
     if (targetErr) return json({ ok: false, error: `기존 Passage 조회 실패: ${targetErr.message}` }, 500);
@@ -640,7 +743,12 @@ Deno.serve(async (req) => {
       }
       const { data: updated, error: updateErr } = await admin
         .from("textbook_passages")
-        .update({ english: row.english, korean: row.korean, analysis_status: row.analysis_status })
+        .update({
+          english: row.english,
+          korean: row.korean,
+          analysis_status: row.analysis_status,
+          code: row.code,
+        })
         .eq("id", keeper.id)
         .select("id, code")
         .single();
