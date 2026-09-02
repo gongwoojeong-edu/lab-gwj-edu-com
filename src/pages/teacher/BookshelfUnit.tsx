@@ -570,6 +570,28 @@ const BookshelfUnit = () => {
     }
   };
 
+  /** 호버 단어 목록에서 개별 단어 즉시 삭제 */
+  const handleDeleteHoverWord = async (p: Passage, idx: number) => {
+    const key = `${p.code}:${idx}`;
+    if (deletingWordKey) return;
+    const words = hoverWordsMap[p.code] ?? [];
+    const target = words[idx];
+    if (!target) return;
+    if (!window.confirm(`단어 '${target.word}'를 목록에서 삭제할까요?`)) return;
+    setDeletingWordKey(key);
+    try {
+      const next = words.filter((_, i) => i !== idx);
+      await saveExtractionWords(p.code, p.english, next);
+      setHoverWordsMap((prev) => ({ ...prev, [p.code]: next }));
+      setExtractedMap((prev) => ({ ...prev, [p.code]: next.length }));
+      toast({ title: "단어 삭제 완료", description: `'${target.word}' 제거 (남은 단어 ${next.length}개)` });
+    } catch (e) {
+      toast({ title: "단어 삭제 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setDeletingWordKey(null);
+    }
+  };
+
   const handleToggleStatus = async (p: Passage) => {
     if (statusTogglingCode) return;
     const nextReady = p.analysis_status !== "ready";
