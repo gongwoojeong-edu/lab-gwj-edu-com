@@ -451,7 +451,15 @@ interface IndexProps {
   /** 분석 진행률(0~1) 변화 콜백 — 외부 게이트에서 사용. meta.hasMaster 로 라벨 결정 */
   onAnalysisProgress?: (
     rate: number,
-    meta: { hasMaster: boolean; filled: number; total: number },
+    meta: {
+      hasMaster: boolean;
+      filled: number;
+      total: number;
+      /** 마스터키에 명시 지정된 "필수 분석" owner 수 (0이면 비율 게이트 사용) */
+      requiredTotal: number;
+      /** 그중 학생이 분석을 채운 수 */
+      requiredDone: number;
+    },
   ) => void;
   /**
    * Hydrate 대상 user_id를 명시. 미지정 시 현재 로그인 사용자(기존 동작).
@@ -682,6 +690,8 @@ const Index = ({
   const showTeacherAnnotations = true;
   // 마스터키 owner_id 집합 — hasMaster 판정 + 학생 화면 위치 힌트(옅은 음영)용 (품사/배지는 노출 안 함)
   const [masterOwnerIds, setMasterOwnerIds] = useState<Set<string>>(new Set());
+  // 마스터키에서 선생님이 "필수 분석"으로 명시 지정한 owner_id 집합
+  const [masterRequiredIds, setMasterRequiredIds] = useState<Set<string>>(new Set());
 
   // ===== 학습 흐름 (Cloud) =====
   const [learningStep, setLearningStep] = useState<LearningStep>("pre");
