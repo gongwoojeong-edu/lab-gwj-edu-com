@@ -1693,13 +1693,16 @@ const StudentHome = () => {
 
 
 
-            {/* Hero start card */}
+            {/* Hero start card(s) — 서브덱이 켜져 있으면 두 트랙을 나란히 */}
+            <div className={cn("grid gap-4", subEnabled && "lg:grid-cols-2")}>
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute -bottom-16 -left-10 w-56 h-56 rounded-full bg-white/5 blur-3xl" />
               <div className="relative space-y-6">
                 <div className="space-y-1">
-                  <div className="text-xs uppercase tracking-widest opacity-80">오늘의 학습</div>
+                  <div className="text-xs uppercase tracking-widest opacity-80">
+                    오늘의 학습 · {trackLabelOf(profile, "A")}
+                  </div>
                   <h1 className="text-3xl sm:text-4xl font-extrabold">
                     {next ? levelDisplay(next.level) : "—"}
                   </h1>
@@ -1734,6 +1737,55 @@ const StudentHome = () => {
                 </div>
               </div>
             </Card>
+
+            {subEnabled && (
+              <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-accent to-primary text-primary-foreground border-0 shadow-2xl">
+                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute -bottom-16 -left-10 w-56 h-56 rounded-full bg-white/5 blur-3xl" />
+                <div className="relative space-y-6">
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-widest opacity-80">
+                      오늘의 학습 · {trackLabelOf(profile, "B")}
+                    </div>
+                    <h1 className="text-3xl sm:text-4xl font-extrabold">
+                      {subNext ? levelDisplay(subNext.level) : "—"}
+                    </h1>
+                    {subNext && subSource && (
+                      <div className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded bg-white/20">
+                        {subSource}
+                      </div>
+                    )}
+                    <div className="text-sm opacity-90">
+                      {subNext
+                        ? `${subNext.id} · Passage ${subNext.no}`
+                        : subDone
+                          ? "이 진도는 모두 끝냈어요 🎉"
+                          : subNoContent
+                            ? "등록된 지문이 아직 없어요"
+                            : "다음 Passage가 없습니다"}
+                    </div>
+                  </div>
+                  {subNext && (
+                    <p className="text-base sm:text-lg leading-relaxed font-medium opacity-95 line-clamp-3">
+                      {subNext.english}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      size="lg"
+                      onClick={handleSubStart}
+                      disabled={!subNext}
+                      className="bg-white text-primary hover:bg-white/90 font-bold text-base h-12 px-8 shadow-lg"
+                    >
+                      <Play className="w-5 h-5 mr-2 fill-primary" />
+                      {subStartLabel}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+            </div>
+
 
 
 
