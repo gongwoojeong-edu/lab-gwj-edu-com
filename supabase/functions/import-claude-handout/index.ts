@@ -712,17 +712,31 @@ Deno.serve(async (req) => {
       unitPatch.structure_pdf_name = `${finalCode}-구조도.html`;
       unitPatch.structure_pdf_uploaded_at = new Date().toISOString();
     }
-    if (structureData?.nodes?.length) {
-      unitPatch.structure_data = structureData;
-    }
+
+    // 분석/구조도 URL은 반드시 먼저 저장 (structure_data 컬럼 유무와 무관)
     if (Object.keys(unitPatch).length > 0) {
-      await admin.from("textbook_units").update(unitPatch).eq("id", unit!.id);
+      const { error: patchErr } = await admin
+        .from("textbook_units")
+        .update(unitPatch)
+        .eq("id", unit!.id);
+      if (patchErr) throw new Error(`분석/구조도 저장 실패: ${patchErr.message}`);
+    }
+
+    // structure_data는 선택 — 마이그레이션 전이면 무시하고 본 전송은 성공 처리
+    if (structureData?.nodes?.length) {
+      const { error: structErr } = await admin
+        .from("textbook_units")
+        .update({ structure_data: structureData })
+        .eq("id", unit!.id);
+      if (structErr) {
+        console.warn("structure_data 저장 스킵:", structErr.message);
+      }
     }
   } catch (e) {
     return json(
       {
-        ok: true,
-        warning: (e as Error).message,
+        ok: false,
+        error: (e as Error).message,
         passage_id: passage.id,
         code: passage.code,
         unit_id: unit!.id,
