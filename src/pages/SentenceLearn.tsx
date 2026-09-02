@@ -155,6 +155,8 @@ const SentenceLearn = () => {
 
 
   const [loading, setLoading] = useState(true);
+  const [loadingStage, setLoadingStage] = useState<string | null>(null);
+
   const [entries, setEntries] = useState<WordTestEntry[]>([]);
   const [preDone, setPreDone] = useState(false);
   const [analysisDone, setAnalysisDone] = useState(false);
