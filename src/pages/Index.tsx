@@ -2582,6 +2582,12 @@ const Index = ({
                         type="button"
                         onClick={() => {
                           saveCustom(selectedId, { required: !isRequired });
+                          setMasterRequiredIds((prev) => {
+                            const next = new Set(prev);
+                            if (!isRequired) next.add(selectedId);
+                            else next.delete(selectedId);
+                            return next;
+                          });
                           toast({
                             title: !isRequired ? "⭐ 필수 분석 지점으로 지정" : "필수 지정 해제",
                             description: !isRequired
