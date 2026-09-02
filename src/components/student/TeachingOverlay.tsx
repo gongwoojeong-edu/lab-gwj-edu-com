@@ -104,6 +104,12 @@ export const TeachingOverlay = () => {
           showEmptyMemo
         />
 
+        <TeachingQnaPanel
+          studentUserId={uid}
+          sentenceId={signal.sentence_id}
+          role="student"
+        />
+
         {!liveMemo && (
           <div className="text-xs text-muted-foreground text-center py-2">
             선생님이 첨삭을 입력하면 이곳에 실시간으로 표시됩니다.
