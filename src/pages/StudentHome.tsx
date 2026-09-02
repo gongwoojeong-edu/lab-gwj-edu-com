@@ -188,6 +188,13 @@ const StudentHome = () => {
   const [nextSource, setNextSource] = useState<string | null>(null);
   const [nextTaskMode, setNextTaskMode] = useState<TaskMode>("analysis_and_memorize");
   const [nextAnalysisPassed, setNextAnalysisPassed] = useState(false);
+  // ── 서브덱(트랙 B) ─────────────────────────────
+  const [subNext, setSubNext] = useState<Sentence | null>(null);
+  const [subDone, setSubDone] = useState(false);
+  const [subNoContent, setSubNoContent] = useState(false);
+  const [subSource, setSubSource] = useState<string | null>(null);
+  const [subTaskMode, setSubTaskMode] = useState<TaskMode>("analysis_and_memorize");
+  const [subAnalysisPassed, setSubAnalysisPassed] = useState(false);
 
   // 현재 학습 지문의 출처(출판사 · N과 · 유닛)
   useEffect(() => {
