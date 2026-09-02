@@ -187,7 +187,7 @@ export const resolveNextSentence = async (
 
   // 지정 범위에 등록된 지문이 0개 → 학습 자료 미준비 상태(완료가 아님)
   if (inLevel.length === 0) {
-    return { sentence: null, profile, done: false, noContent: true };
+    return { sentence: null, profile, done: false, noContent: true, track };
   }
 
   // passage_no는 유닛 안 번호라서, 유닛 순서(unit_no)까지 반영해 정렬
@@ -198,13 +198,19 @@ export const resolveNextSentence = async (
 
   const found = inLevel.find((s) => !passed.has(s.id));
   if (found) {
-    if (profile.current_level !== targetLevel || profile.current_no !== found.no) {
+    // current_level/current_no 는 메인덱(A) 진도 지표이므로 서브덱에서는 갱신하지 않는다.
+    if (track === "A" && (profile.current_level !== targetLevel || profile.current_no !== found.no)) {
       await updateMyProgress(targetLevel, found.no);
     }
-    return { sentence: found, profile: { ...profile, current_level: targetLevel, current_no: found.no }, done: false };
+    return {
+      sentence: found,
+      profile: track === "A" ? { ...profile, current_level: targetLevel, current_no: found.no } : profile,
+      done: false,
+      track,
+    };
   }
   // 지정 범위(시리즈/권)를 모두 끝낸 상태 — 처음(1번)으로 되돌리지 않고 완료로 안내한다.
-  return { sentence: null, profile: { ...profile, current_level: targetLevel }, done: true };
+  return { sentence: null, profile: { ...profile, current_level: targetLevel }, done: true, track };
 
 };
 
