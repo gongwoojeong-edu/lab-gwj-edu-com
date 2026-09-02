@@ -3214,6 +3214,14 @@ const Index = ({
                         : undefined
                     }
                   >
+                    {requiredIdxSet.has(idx) && (
+                      <span
+                        className="absolute -top-2.5 -right-1.5 text-[10px] leading-none text-red-500 pointer-events-none z-10"
+                        title="선생님 지정 필수 분석 지점"
+                      >
+                        ★
+                      </span>
+                    )}
                     {(koreanLabel || outerKoreanLabel) && (() => {
                       // 부배지 수직 cascade — 같은 단어 위 N개 layer가 있으면
                       // 안쪽(layer 1)이 가장 아래, 바깥(layer N)이 가장 위로 쌓이도록
