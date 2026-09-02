@@ -618,7 +618,17 @@ export const resolveNextAfterPass = async (
     if (curUnit) {
       const tbId = (curUnit as { textbook_id: string }).textbook_id;
       const curNo = (curUnit as { unit_no: number }).unit_no;
-      const scoped = profile ? await fetchScopedPassageCodes(profile, passed) : null;
+      // 두 트랙(메인덱/서브덱) 범위를 합쳐서 판단 — 어느 트랙의 지문이든 이어서 진행
+      let scoped: Set<string> | null = null;
+      if (profile) {
+        const a = await fetchScopedPassageCodes(trackScopeOf(profile, "A"));
+        const b = profile.track_b_enabled
+          ? await fetchScopedPassageCodes(trackScopeOf(profile, "B"))
+          : null;
+        if (a && b) scoped = new Set([...a, ...b]);
+        else if (a && !profile.track_b_enabled) scoped = a;
+        else scoped = null;
+      }
       const { data: laterUnits } = await supabase
         .from("textbook_units")
         .select("id, unit_no")
