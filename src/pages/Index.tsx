@@ -3248,10 +3248,10 @@ const Index = ({
                                   onDoubleClick={(e) => ownerId && handleBadgeDoubleClick(e, ownerId)}
                                   title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
-                                   <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
-                                   {answerInputMode && (customAnswers[ownerId] as { required?: boolean } | undefined)?.required === true && (
-                                     <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
-                                   )}
+                                    <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
+                                    {ownerId && masterRequiredIds.has(ownerId) && (
+                                      <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
+                                    )}
                                    <span className="truncate max-w-[120px]">{koreanLabel}</span>
                                 </span>
                               </TooltipTrigger>
