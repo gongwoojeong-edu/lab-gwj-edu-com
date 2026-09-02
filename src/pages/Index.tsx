@@ -2438,6 +2438,15 @@ const Index = ({
     return m;
   }, [masterOwnerIds, wordUnits]);
 
+  // 필수 분석 지점 → 본문 인덱스 집합 (선생님·학생 화면 모두 ★ 표기)
+  const requiredIdxSet = useMemo(() => {
+    const s = new Set<number>();
+    masterRequiredIds.forEach((ownerId) => {
+      ownerIdToSelectionIndices(ownerId, wordUnits).forEach((i) => s.add(i));
+    });
+    return s;
+  }, [masterRequiredIds, wordUnits]);
+
   const showMasterGuide = studentMode && !compareMode && masterOwnerIds.size > 0;
 
   // 병렬(parallel) owner 판별 — `기타 > 접속 > 병렬`
@@ -3205,6 +3214,14 @@ const Index = ({
                         : undefined
                     }
                   >
+                    {requiredIdxSet.has(idx) && (
+                      <span
+                        className="absolute -top-2.5 -right-1.5 text-[10px] leading-none text-red-500 pointer-events-none z-10"
+                        title="선생님 지정 필수 분석 지점"
+                      >
+                        ★
+                      </span>
+                    )}
                     {(koreanLabel || outerKoreanLabel) && (() => {
                       // 부배지 수직 cascade — 같은 단어 위 N개 layer가 있으면
                       // 안쪽(layer 1)이 가장 아래, 바깥(layer N)이 가장 위로 쌓이도록
@@ -3239,10 +3256,10 @@ const Index = ({
                                   onDoubleClick={(e) => ownerId && handleBadgeDoubleClick(e, ownerId)}
                                   title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
-                                   <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
-                                   {answerInputMode && (customAnswers[ownerId] as { required?: boolean } | undefined)?.required === true && (
-                                     <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
-                                   )}
+                                    <span className={cn("sub-badge-num", !showInnerLayerNum && "is-hidden")}>{innerLayerNum}</span>
+                                    {ownerId && masterRequiredIds.has(ownerId) && (
+                                      <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
+                                    )}
                                    <span className="truncate max-w-[120px]">{koreanLabel}</span>
                                 </span>
                               </TooltipTrigger>
@@ -3276,10 +3293,10 @@ const Index = ({
                                   onDoubleClick={(e) => outerOwnerId && handleBadgeDoubleClick(e, outerOwnerId)}
                                   title="드래그로 좌우 이동, 더블클릭으로 위치 리셋"
                                 >
-                                   <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
-                                   {answerInputMode && outerOwnerId && (customAnswers[outerOwnerId] as { required?: boolean } | undefined)?.required === true && (
-                                     <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
-                                   )}
+                                    <span className={cn("sub-badge-num", !showOuterLayerNum && "is-hidden")}>{outerLayerNum}</span>
+                                    {outerOwnerId && masterRequiredIds.has(outerOwnerId) && (
+                                      <span className="text-red-500 shrink-0" title="필수 분석 지점">★</span>
+                                    )}
                                    <span className="truncate max-w-[120px]">{outerKoreanLabel}</span>
                                 </span>
                               </TooltipTrigger>
