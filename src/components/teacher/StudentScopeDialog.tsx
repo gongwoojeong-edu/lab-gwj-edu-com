@@ -231,12 +231,35 @@ export const StudentScopeDialog = ({ target, onOpenChange, onSaved }: Props) => 
           </div>
 
           {track === "B" && (
-            <div className="rounded-md border p-3 flex flex-col gap-3">
+            <div
+              className={
+                "rounded-lg border-2 p-4 flex flex-col gap-3 transition-colors " +
+                (bEnabled
+                  ? "border-primary/60 bg-primary/5"
+                  : "border-amber-400 bg-amber-50 dark:bg-amber-950/30")
+              }
+            >
               <div className="flex items-center justify-between gap-3">
-                <Label className="text-[13px]">서브덱 사용</Label>
-                <Switch checked={bEnabled} onCheckedChange={setBEnabled} />
+                <div className="flex items-center gap-2">
+                  <Label className="text-[14px] font-semibold">서브덱 사용</Label>
+                  <span
+                    className={
+                      "rounded-full px-2 py-0.5 text-[11px] font-bold " +
+                      (bEnabled
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-amber-500 text-white")
+                    }
+                  >
+                    {bEnabled ? "사용 중" : "사용 안 함"}
+                  </span>
+                </div>
+                <Switch
+                  checked={bEnabled}
+                  onCheckedChange={setBEnabled}
+                  className={bEnabled ? "" : "data-[state=unchecked]:bg-amber-400"}
+                />
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className={"flex flex-col gap-1.5 " + (bEnabled ? "" : "opacity-40 pointer-events-none")}>
                 <Label className="text-[13px]">서브덱 이름</Label>
                 <Input
                   value={bLabel}
