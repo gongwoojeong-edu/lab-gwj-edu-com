@@ -481,6 +481,17 @@ export const TeacherApprovalDialog = ({
                 <div className="whitespace-pre-wrap">{studentTranslation}</div>
               </div>
             )}
+
+            {skipPin && studentUserId && (
+              <AnnotationLayer
+                sentenceId={sentenceId}
+                studentId={studentUserId}
+                canEdit
+                channelName={teachingChannelName(studentUserId)}
+                extraBottomPx={0}
+                toolbarClassName="absolute right-2 top-1 z-30"
+              />
+            )}
           </div>
         )}
 
