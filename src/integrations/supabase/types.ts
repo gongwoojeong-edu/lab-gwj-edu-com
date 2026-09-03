@@ -674,6 +674,86 @@ export type Database = {
         }
         Relationships: []
       }
+      sentence_annotation_history: {
+        Row: {
+          action: string
+          actor_id: string
+          annotation_id: string
+          created_at: string
+          id: string
+          rev: number
+          strokes: Json
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          annotation_id: string
+          created_at?: string
+          id?: string
+          rev: number
+          strokes: Json
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          annotation_id?: string
+          created_at?: string
+          id?: string
+          rev?: number
+          strokes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sentence_annotation_history_annotation_id_fkey"
+            columns: ["annotation_id"]
+            isOneToOne: false
+            referencedRelation: "sentence_annotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sentence_annotations: {
+        Row: {
+          aspect: number
+          author_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          rev: number
+          scope: string
+          sentence_id: string
+          strokes: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          aspect?: number
+          author_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          rev?: number
+          scope?: string
+          sentence_id: string
+          strokes?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          aspect?: number
+          author_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          rev?: number
+          scope?: string
+          sentence_id?: string
+          strokes?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       sentence_approvals: {
         Row: {
           approved_at: string | null
@@ -1669,6 +1749,18 @@ export type Database = {
           total_students: number
           weekly_active_students: number
         }[]
+      }
+      fn_delete_annotation: { Args: { p_id: string }; Returns: undefined }
+      fn_restore_annotation: { Args: { p_id: string }; Returns: undefined }
+      fn_save_annotation: {
+        Args: {
+          p_aspect: number
+          p_scope: string
+          p_sentence_id: string
+          p_strokes: Json
+          p_user_id: string
+        }
+        Returns: string
       }
       has_role: {
         Args: {
