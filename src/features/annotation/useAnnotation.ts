@@ -193,7 +193,7 @@ export const useAnnotation = ({
     aspect,
     loaded,
     saveState,
-    canUndo: undoStack.current.length > 0 || stackVer < 0,
+    canUndo: stackVer >= 0 && undoStack.current.length > 0,
     canRedo: redoStack.current.length > 0,
     commit,
     setPreview,
