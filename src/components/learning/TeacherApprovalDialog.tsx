@@ -440,7 +440,7 @@ export const TeacherApprovalDialog = ({
 
 
         {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
-          <div className="shrink-0 bg-background border-b border-border p-3 space-y-2 text-sm">
+          <div className="relative shrink-0 bg-background border-b border-border p-3 space-y-2 text-sm">
             {koreanAnswer && (
               <div className="flex items-start justify-between gap-2">
                 {showAnswer ? (
