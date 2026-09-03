@@ -98,13 +98,22 @@ export const TeachingOverlay = () => {
           </div>
         </div>
 
-        <SentenceReviewDetail
-          sentenceId={signal.sentence_id}
-          userId={uid}
-          memo={liveMemo ?? undefined}
-          showEmptyMemo
-          hideQna
-        />
+        <div className="relative">
+          <SentenceReviewDetail
+            sentenceId={signal.sentence_id}
+            userId={uid}
+            memo={liveMemo ?? undefined}
+            showEmptyMemo
+            hideQna
+          />
+          <AnnotationLayer
+            sentenceId={signal.sentence_id}
+            studentId={uid}
+            canEdit={false}
+            channelName={teachingChannelName(uid)}
+            extraBottomPx={0}
+          />
+        </div>
 
         <TeachingQnaPanel
           studentUserId={uid}
