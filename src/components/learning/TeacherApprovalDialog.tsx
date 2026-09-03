@@ -31,6 +31,7 @@ import {
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
 import { fetchPassageSource, type PassageSource } from "@/lib/textbooks";
+import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 
 
 interface Props {
