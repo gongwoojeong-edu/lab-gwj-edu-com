@@ -78,7 +78,7 @@ export const useAnnotation = ({
       const { data } = await q.maybeSingle();
       if (!alive) return;
       if (data) {
-        setStrokes((data.strokes as Strokes) ?? []);
+        setStrokes((data.strokes as unknown as Strokes) ?? []);
         setAspect(Number(data.aspect) || 1);
       }
       setLoaded(true);
