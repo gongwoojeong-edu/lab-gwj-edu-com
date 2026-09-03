@@ -31,6 +31,7 @@ import {
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
 import { fetchPassageSource, type PassageSource } from "@/lib/textbooks";
+import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 
 
 interface Props {
@@ -440,7 +441,7 @@ export const TeacherApprovalDialog = ({
 
 
         {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
-          <div className="shrink-0 bg-background border-b border-border p-3 space-y-2 text-sm">
+          <div className="relative shrink-0 bg-background border-b border-border p-3 space-y-2 text-sm">
             {koreanAnswer && (
               <div className="flex items-start justify-between gap-2">
                 {showAnswer ? (
@@ -480,6 +481,17 @@ export const TeacherApprovalDialog = ({
                 <div className="text-[11px] text-muted-foreground">학생 한글해석</div>
                 <div className="whitespace-pre-wrap">{studentTranslation}</div>
               </div>
+            )}
+
+            {skipPin && studentUserId && (
+              <AnnotationLayer
+                sentenceId={sentenceId}
+                studentId={studentUserId}
+                canEdit
+                channelName={teachingChannelName(studentUserId)}
+                extraBottomPx={0}
+                toolbarClassName="absolute right-2 top-1 z-30"
+              />
             )}
           </div>
         )}
