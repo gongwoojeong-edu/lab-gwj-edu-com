@@ -30,6 +30,11 @@ interface Props {
   allowMouse?: boolean;
   /** 카드 아래로 확장할 여유 필기 공간 (px) */
   extraBottomPx?: number;
+  /** 레이저 포인터 모드 — 저장되지 않고 잔상만 남는다 */
+  laser?: boolean;
+  /** 원격(선생님) 레이저 좌표 — seq 가 바뀔 때마다 잔상에 추가 */
+  laserRemote?: { x: number; y: number; seq: number } | null;
+  onLaserPoint?: (x: number, y: number) => void;
   onPreview?: (next: Strokes) => void;
   onCommit?: (next: Strokes, aspect: number) => void;
 }
@@ -44,6 +49,9 @@ export const AnnotationCanvas = ({
   width = "thin",
   allowMouse = false,
   extraBottomPx = 72,
+  laser = false,
+  laserRemote = null,
+  onLaserPoint,
   onPreview,
   onCommit,
 }: Props) => {
