@@ -6,7 +6,17 @@
 // ============================================================
 import { useCallback, useEffect, useRef } from "react";
 import { drawStrokes, clamp01, hitStrokeIndex, pixelDistance } from "./strokeMath";
-import { PEN_WIDTHS, type PenColorIndex, type PenWidthKey, type Stroke, type Strokes } from "./types";
+import {
+  LASER_COLOR,
+  LASER_FADE_MS,
+  LASER_GLOW,
+  PEN_WIDTHS,
+  type LaserPoint,
+  type PenColorIndex,
+  type PenWidthKey,
+  type Stroke,
+  type Strokes,
+} from "./types";
 
 interface Props {
   strokes: Strokes;
@@ -20,6 +30,11 @@ interface Props {
   allowMouse?: boolean;
   /** 카드 아래로 확장할 여유 필기 공간 (px) */
   extraBottomPx?: number;
+  /** 레이저 포인터 모드 — 저장되지 않고 잔상만 남는다 */
+  laser?: boolean;
+  /** 원격(선생님) 레이저 좌표 — seq 가 바뀔 때마다 잔상에 추가 */
+  laserRemote?: { x: number; y: number; seq: number } | null;
+  onLaserPoint?: (x: number, y: number) => void;
   onPreview?: (next: Strokes) => void;
   onCommit?: (next: Strokes, aspect: number) => void;
 }
@@ -34,6 +49,9 @@ export const AnnotationCanvas = ({
   width = "thin",
   allowMouse = false,
   extraBottomPx = 72,
+  laser = false,
+  laserRemote = null,
+  onLaserPoint,
   onPreview,
   onCommit,
 }: Props) => {
@@ -47,6 +65,46 @@ export const AnnotationCanvas = ({
 
   strokesRef.current = strokes;
 
+  const laserRef = useRef<LaserPoint[]>([]);
+  const laserRafRef = useRef<number | null>(null);
+
+  const drawLaser = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    const now = performance.now();
+    const pts = laserRef.current.filter((p) => now - p.t < LASER_FADE_MS);
+    laserRef.current = pts;
+    if (pts.length === 0) return;
+
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (let i = 1; i < pts.length; i += 1) {
+      const age = (now - pts[i].t) / LASER_FADE_MS;
+      const alpha = Math.max(0, 1 - age);
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.strokeStyle = LASER_GLOW;
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(pts[i - 1].x * w, pts[i - 1].y * h);
+      ctx.lineTo(pts[i].x * w, pts[i].y * h);
+      ctx.stroke();
+
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = LASER_COLOR;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    }
+    // 헤드 (포인터 점)
+    const head = pts[pts.length - 1];
+    ctx.globalAlpha = Math.max(0, 1 - (now - head.t) / LASER_FADE_MS);
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = LASER_COLOR;
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(head.x * w, head.y * h, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }, []);
+
   const paint = useCallback(() => {
     rafRef.current = null;
     const canvas = canvasRef.current;
@@ -58,12 +116,47 @@ export const AnnotationCanvas = ({
       ? [...baseRef.current, drawingRef.current]
       : strokesRef.current;
     drawStrokes(ctx, list, { width: w, height: h, savedAspect: aspect || 1 });
-  }, [aspect]);
+    drawLaser(ctx, w, h);
+  }, [aspect, drawLaser]);
 
   const schedulePaint = useCallback(() => {
     if (rafRef.current != null) return;
     rafRef.current = requestAnimationFrame(paint);
   }, [paint]);
+
+  /** 잔상이 남아 있는 동안 연속 렌더 */
+  const runLaserLoop = useCallback(() => {
+    if (laserRafRef.current != null) return;
+    const tick = () => {
+      laserRafRef.current = null;
+      paint();
+      if (laserRef.current.length > 0) {
+        laserRafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    laserRafRef.current = requestAnimationFrame(tick);
+  }, [paint]);
+
+  const pushLaser = useCallback(
+    (x: number, y: number) => {
+      laserRef.current = [...laserRef.current, { x, y, t: performance.now() }].slice(-80);
+      runLaserLoop();
+    },
+    [runLaserLoop],
+  );
+
+  // 원격 레이저 수신
+  useEffect(() => {
+    if (!laserRemote) return;
+    pushLaser(laserRemote.x, laserRemote.y);
+  }, [laserRemote, pushLaser]);
+
+  useEffect(
+    () => () => {
+      if (laserRafRef.current != null) cancelAnimationFrame(laserRafRef.current);
+    },
+    [],
+  );
 
   // 카드 크기 추적
   useEffect(() => {
@@ -112,12 +205,22 @@ export const AnnotationCanvas = ({
   };
 
   const accepts = (e: React.PointerEvent) =>
-    e.pointerType === "pen" || (allowMouse && e.pointerType === "mouse");
+    e.pointerType === "pen" || ((allowMouse || laser) && e.pointerType === "mouse");
+
+  const interactive = enabled || laser;
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!enabled || !accepts(e)) return;
+    if (!interactive || !accepts(e)) return;
     e.preventDefault();
     const pt = toPoint(e);
+
+    if (laser) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      laserRef.current = [];
+      pushLaser(pt[0], pt[1]);
+      onLaserPoint?.(pt[0], pt[1]);
+      return;
+    }
 
     if (eraser) {
       const { w, h } = sizeRef.current;
@@ -136,6 +239,14 @@ export const AnnotationCanvas = ({
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (laser) {
+      if (!accepts(e) || e.buttons === 0) return;
+      e.preventDefault();
+      const pt = toPoint(e);
+      pushLaser(pt[0], pt[1]);
+      onLaserPoint?.(pt[0], pt[1]);
+      return;
+    }
     const cur = drawingRef.current;
     if (!enabled || !cur || !accepts(e)) return;
     e.preventDefault();
@@ -154,6 +265,14 @@ export const AnnotationCanvas = ({
   };
 
   const finish = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (laser) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* noop */
+      }
+      return; // 잔상은 자동으로 사라짐 — 저장하지 않음
+    }
     const cur = drawingRef.current;
     if (!cur) return;
     drawingRef.current = null;
@@ -173,14 +292,14 @@ export const AnnotationCanvas = ({
     <div
       ref={wrapRef}
       className="absolute left-0 right-0 top-0 z-20"
-      style={{ bottom: -extraBottomPx, pointerEvents: enabled ? "auto" : "none" }}
+      style={{ bottom: -extraBottomPx, pointerEvents: interactive ? "auto" : "none" }}
     >
       <canvas
         ref={canvasRef}
         className="h-full w-full"
         style={{
-          touchAction: enabled ? "none" : "auto",
-          pointerEvents: enabled ? "auto" : "none",
+          touchAction: interactive ? "none" : "auto",
+          pointerEvents: interactive ? "auto" : "none",
           opacity: visible ? 1 : 0,
         }}
         onPointerDown={onPointerDown}

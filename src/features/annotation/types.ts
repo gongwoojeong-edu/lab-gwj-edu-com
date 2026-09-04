@@ -21,6 +21,18 @@ export const PEN_COLORS = ["#2A2A2E", "#C0392B", "#6B5C9E"] as const;
 
 export const PEN_COLOR_LABELS = ["검정", "빨강", "퍼플"] as const;
 
+/** 레이저 포인터 (굿노트식) — 저장되지 않고 잠시 뒤 사라지는 잔상 */
+export const LASER_COLOR = "#FF2D55";
+export const LASER_GLOW = "rgba(255,45,85,0.45)";
+/** 잔상 유지 시간(ms) */
+export const LASER_FADE_MS = 900;
+
+export interface LaserPoint {
+  x: number;
+  y: number;
+  t: number;
+}
+
 /** 굵기 2단 — 캔버스 폭 비율 */
 export const PEN_WIDTHS = { thin: 0.0025, thick: 0.006 } as const;
 export type PenWidthKey = keyof typeof PEN_WIDTHS;

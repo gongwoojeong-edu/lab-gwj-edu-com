@@ -37,12 +37,15 @@ export const AnnotationLayer = ({
   const ann = useAnnotation({ sentenceId, studentId, scope, canEdit });
   const [tool, setTool] = useState<ToolbarState>({
     penMode: false,
+    laser: false,
     eraser: false,
     color: 1,
     width: "thin",
     visible: true,
     allowMouse: false,
   });
+  const [laserRemote, setLaserRemote] = useState<{ x: number; y: number; seq: number } | null>(null);
+  const laserSeqRef = useRef(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const showMouseToggle = useMemo(() => !isTouchDevice(), []);
 
@@ -60,6 +63,14 @@ export const AnnotationLayer = ({
         if ((body.scope ?? "teacher") !== scope) return;
         ann.replace(body.strokes ?? [], body.aspect ?? 1);
       });
+      ch.on("broadcast", { event: "laser" }, (payload) => {
+        const body = (payload as { payload?: { x?: number; y?: number; sentenceId?: string; scope?: string } })
+          .payload;
+        if (!body || body.sentenceId !== sentenceId) return;
+        if ((body.scope ?? "teacher") !== scope) return;
+        laserSeqRef.current += 1;
+        setLaserRemote({ x: body.x ?? 0, y: body.y ?? 0, seq: laserSeqRef.current });
+      });
     }
     ch.subscribe();
     channelRef.current = ch;
@@ -75,6 +86,14 @@ export const AnnotationLayer = ({
       type: "broadcast",
       event: "annot",
       payload: { sentenceId, strokes, aspect, scope },
+    });
+  };
+
+  const handleLaserPoint = (x: number, y: number) => {
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "laser",
+      payload: { sentenceId, scope, x, y },
     });
   };
 
@@ -112,6 +131,9 @@ export const AnnotationLayer = ({
         color={tool.color}
         width={tool.width}
         allowMouse={tool.allowMouse}
+        laser={canEdit && tool.laser}
+        laserRemote={canEdit ? null : laserRemote}
+        onLaserPoint={handleLaserPoint}
         extraBottomPx={extraBottomPx}
         onPreview={ann.setPreview}
         onCommit={handleCommit}
