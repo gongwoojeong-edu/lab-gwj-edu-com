@@ -24,8 +24,10 @@ export const PEN_COLOR_LABELS = ["검정", "빨강", "퍼플"] as const;
 /** 레이저 포인터 (굿노트식) — 저장되지 않고 잠시 뒤 사라지는 잔상 */
 export const LASER_COLOR = "#FF2D55";
 export const LASER_GLOW = "rgba(255,45,85,0.45)";
-/** 잔상 유지 시간(ms) */
-export const LASER_FADE_MS = 900;
+/** 펜을 뗀 뒤 잔상이 그대로 유지되는 시간(ms) */
+export const LASER_HOLD_MS = 600;
+/** 유지 시간이 지난 뒤 전체 잔상이 함께 사라지는 시간(ms) */
+export const LASER_FADE_MS = 700;
 
 export interface LaserPoint {
   x: number;
