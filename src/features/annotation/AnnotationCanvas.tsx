@@ -239,6 +239,14 @@ export const AnnotationCanvas = ({
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (laser) {
+      if (!accepts(e) || e.buttons === 0) return;
+      e.preventDefault();
+      const pt = toPoint(e);
+      pushLaser(pt[0], pt[1]);
+      onLaserPoint?.(pt[0], pt[1]);
+      return;
+    }
     const cur = drawingRef.current;
     if (!enabled || !cur || !accepts(e)) return;
     e.preventDefault();
