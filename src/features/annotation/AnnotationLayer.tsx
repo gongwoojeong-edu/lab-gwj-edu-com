@@ -54,9 +54,10 @@ export const AnnotationLayer = ({
     });
     if (!canEdit) {
       ch.on("broadcast", { event: "annot" }, (payload) => {
-        const body = (payload as { payload?: { strokes?: Strokes; aspect?: number; sentenceId?: string } })
+        const body = (payload as { payload?: { strokes?: Strokes; aspect?: number; sentenceId?: string; scope?: string } })
           .payload;
         if (!body || body.sentenceId !== sentenceId) return;
+        if ((body.scope ?? "teacher") !== scope) return;
         ann.replace(body.strokes ?? [], body.aspect ?? 1);
       });
     }
@@ -73,7 +74,7 @@ export const AnnotationLayer = ({
     channelRef.current?.send({
       type: "broadcast",
       event: "annot",
-      payload: { sentenceId, strokes, aspect },
+      payload: { sentenceId, strokes, aspect, scope },
     });
   };
 
