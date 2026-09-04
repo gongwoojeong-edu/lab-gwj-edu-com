@@ -118,7 +118,7 @@ export const AnnotationToolbar = ({
             key={hex}
             type="button"
             aria-label={PEN_COLOR_LABELS[i]}
-            onClick={() => onChange({ color: i as PenColorIndex, eraser: false })}
+            onClick={() => onChange({ color: i as PenColorIndex, eraser: false, laser: false })}
             className={cn(
               "h-6 w-6 rounded-full border-2 transition",
               color === i && !eraser ? "border-foreground scale-110" : "border-transparent",
