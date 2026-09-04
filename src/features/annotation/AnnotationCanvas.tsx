@@ -5,7 +5,7 @@
 //   · 렌더는 requestAnimationFrame 배치
 // ============================================================
 import { useCallback, useEffect, useRef } from "react";
-import { drawStrokes, clamp01, hitStrokeIndex, pixelDistance } from "./strokeMath";
+import { drawStrokes, clamp01, eraseAtPoint, pixelDistance } from "./strokeMath";
 import {
   LASER_COLOR,
   LASER_FADE_MS,
@@ -61,6 +61,8 @@ export const AnnotationCanvas = ({
   const sizeRef = useRef({ w: 0, h: 0 });
   const rafRef = useRef<number | null>(null);
   const drawingRef = useRef<Stroke | null>(null);
+  /** 지우개 드래그 중 임시 결과 — null 이면 지우는 중 아님 */
+  const erasingRef = useRef<Strokes | null>(null);
   const baseRef = useRef<Strokes>(strokes);
   const strokesRef = useRef<Strokes>(strokes);
 
@@ -133,7 +135,7 @@ export const AnnotationCanvas = ({
     if (w === 0 || h === 0) return;
     const list = drawingRef.current
       ? [...baseRef.current, drawingRef.current]
-      : strokesRef.current;
+      : (erasingRef.current ?? strokesRef.current);
     drawStrokes(ctx, list, { width: w, height: h, savedAspect: aspect || 1 });
     drawLaser(ctx, w, h);
   }, [aspect, drawLaser]);
@@ -248,12 +250,11 @@ export const AnnotationCanvas = ({
     }
 
     if (eraser) {
+      e.currentTarget.setPointerCapture(e.pointerId);
       const { w, h } = sizeRef.current;
-      const idx = hitStrokeIndex(strokesRef.current, [pt[0], pt[1]], w, h, aspect || 1);
-      if (idx >= 0) {
-        const next = strokesRef.current.filter((_, i) => i !== idx);
-        onCommit?.(next, h > 0 && w > 0 ? h / w : 1);
-      }
+      erasingRef.current = eraseAtPoint(strokesRef.current, [pt[0], pt[1]], w, h, aspect || 1);
+      onPreview?.(erasingRef.current);
+      schedulePaint();
       return;
     }
 
@@ -264,6 +265,19 @@ export const AnnotationCanvas = ({
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (eraser && erasingRef.current) {
+      if (e.buttons === 0) return;
+      e.preventDefault();
+      const pt = toPoint(e);
+      const { w, h } = sizeRef.current;
+      const next = eraseAtPoint(erasingRef.current, [pt[0], pt[1]], w, h, aspect || 1);
+      if (next.length !== erasingRef.current.length || next !== erasingRef.current) {
+        erasingRef.current = next;
+        onPreview?.(next);
+        schedulePaint();
+      }
+      return;
+    }
     if (laser) {
       if (!accepts(e) || e.buttons === 0) return;
       e.preventDefault();
@@ -290,6 +304,20 @@ export const AnnotationCanvas = ({
   };
 
   const finish = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (eraser && erasingRef.current) {
+      const next = erasingRef.current;
+      erasingRef.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* noop */
+      }
+      const { w, h } = sizeRef.current;
+      onPreview?.(next);
+      onCommit?.(next, w > 0 ? h / w : 1);
+      schedulePaint();
+      return;
+    }
     if (laser) {
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
