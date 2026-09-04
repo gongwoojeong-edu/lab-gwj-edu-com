@@ -63,6 +63,14 @@ export const AnnotationLayer = ({
         if ((body.scope ?? "teacher") !== scope) return;
         ann.replace(body.strokes ?? [], body.aspect ?? 1);
       });
+      ch.on("broadcast", { event: "laser" }, (payload) => {
+        const body = (payload as { payload?: { x?: number; y?: number; sentenceId?: string; scope?: string } })
+          .payload;
+        if (!body || body.sentenceId !== sentenceId) return;
+        if ((body.scope ?? "teacher") !== scope) return;
+        laserSeqRef.current += 1;
+        setLaserRemote({ x: body.x ?? 0, y: body.y ?? 0, seq: laserSeqRef.current });
+      });
     }
     ch.subscribe();
     channelRef.current = ch;
