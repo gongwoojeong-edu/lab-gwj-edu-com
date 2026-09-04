@@ -65,6 +65,46 @@ export const AnnotationCanvas = ({
 
   strokesRef.current = strokes;
 
+  const laserRef = useRef<LaserPoint[]>([]);
+  const laserRafRef = useRef<number | null>(null);
+
+  const drawLaser = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    const now = performance.now();
+    const pts = laserRef.current.filter((p) => now - p.t < LASER_FADE_MS);
+    laserRef.current = pts;
+    if (pts.length === 0) return;
+
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (let i = 1; i < pts.length; i += 1) {
+      const age = (now - pts[i].t) / LASER_FADE_MS;
+      const alpha = Math.max(0, 1 - age);
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.strokeStyle = LASER_GLOW;
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(pts[i - 1].x * w, pts[i - 1].y * h);
+      ctx.lineTo(pts[i].x * w, pts[i].y * h);
+      ctx.stroke();
+
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = LASER_COLOR;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    }
+    // 헤드 (포인터 점)
+    const head = pts[pts.length - 1];
+    ctx.globalAlpha = Math.max(0, 1 - (now - head.t) / LASER_FADE_MS);
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = LASER_COLOR;
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(head.x * w, head.y * h, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }, []);
+
   const paint = useCallback(() => {
     rafRef.current = null;
     const canvas = canvasRef.current;
@@ -76,12 +116,47 @@ export const AnnotationCanvas = ({
       ? [...baseRef.current, drawingRef.current]
       : strokesRef.current;
     drawStrokes(ctx, list, { width: w, height: h, savedAspect: aspect || 1 });
-  }, [aspect]);
+    drawLaser(ctx, w, h);
+  }, [aspect, drawLaser]);
 
   const schedulePaint = useCallback(() => {
     if (rafRef.current != null) return;
     rafRef.current = requestAnimationFrame(paint);
   }, [paint]);
+
+  /** 잔상이 남아 있는 동안 연속 렌더 */
+  const runLaserLoop = useCallback(() => {
+    if (laserRafRef.current != null) return;
+    const tick = () => {
+      laserRafRef.current = null;
+      paint();
+      if (laserRef.current.length > 0) {
+        laserRafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    laserRafRef.current = requestAnimationFrame(tick);
+  }, [paint]);
+
+  const pushLaser = useCallback(
+    (x: number, y: number) => {
+      laserRef.current = [...laserRef.current, { x, y, t: performance.now() }].slice(-80);
+      runLaserLoop();
+    },
+    [runLaserLoop],
+  );
+
+  // 원격 레이저 수신
+  useEffect(() => {
+    if (!laserRemote) return;
+    pushLaser(laserRemote.x, laserRemote.y);
+  }, [laserRemote, pushLaser]);
+
+  useEffect(
+    () => () => {
+      if (laserRafRef.current != null) cancelAnimationFrame(laserRafRef.current);
+    },
+    [],
+  );
 
   // 카드 크기 추적
   useEffect(() => {
