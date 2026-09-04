@@ -73,28 +73,52 @@ export const AnnotationToolbar = ({
       판서 {penMode ? "ON" : "OFF"}
     </Button>
 
-    <Button
-      type="button"
-      size="sm"
-      variant={laser ? "default" : "outline"}
-      className="h-8 gap-1.5"
-      onClick={() => onChange({ laser: !laser, penMode: false, eraser: false })}
-      title="레이저 포인터 — 잠시 뒤 사라지고 저장되지 않습니다"
-    >
-      <Sparkles className="w-3.5 h-3.5" />
-      레이저 {laser ? "ON" : "OFF"}
-    </Button>
-
-
     {penMode && (
       <>
         <span className="mx-0.5 h-5 w-px bg-border" />
-        {PEN_COLORS.map((hex, i) => (
+        {/* 펜 종류 선택: 펜 / 레이저 / 지우개 */}
+        <Button
+          type="button"
+          size="sm"
+          variant={!laser && !eraser ? "secondary" : "ghost"}
+          className="h-8 gap-1 px-2 text-xs"
+          onClick={() => onChange({ laser: false, eraser: false })}
+          title="펜 — 색상·굵기를 선택해 필기합니다"
+        >
+          <Pen className="w-3.5 h-3.5" />
+          펜
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={laser ? "secondary" : "ghost"}
+          className="h-8 gap-1 px-2 text-xs"
+          onClick={() => onChange({ laser: true, eraser: false })}
+          title="레이저 포인터 — 잠시 뒤 사라지고 저장되지 않습니다"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          레이저
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={eraser ? "secondary" : "ghost"}
+          className="h-8 px-2"
+          onClick={() => onChange({ eraser: true, laser: false })}
+          title="획 단위 지우개"
+        >
+          <Eraser className="w-3.5 h-3.5" />
+        </Button>
+
+        {!laser && (
+          <>
+            <span className="mx-0.5 h-5 w-px bg-border" />
+            {PEN_COLORS.map((hex, i) => (
           <button
             key={hex}
             type="button"
             aria-label={PEN_COLOR_LABELS[i]}
-            onClick={() => onChange({ color: i as PenColorIndex, eraser: false })}
+            onClick={() => onChange({ color: i as PenColorIndex, eraser: false, laser: false })}
             className={cn(
               "h-6 w-6 rounded-full border-2 transition",
               color === i && !eraser ? "border-foreground scale-110" : "border-transparent",
@@ -103,30 +127,21 @@ export const AnnotationToolbar = ({
           />
         ))}
 
-        <span className="mx-0.5 h-5 w-px bg-border" />
-        {(["thin", "thick"] as PenWidthKey[]).map((k) => (
-          <Button
-            key={k}
-            type="button"
-            size="sm"
-            variant={width === k ? "secondary" : "ghost"}
-            className="h-8 px-2 text-xs"
-            onClick={() => onChange({ width: k, eraser: false })}
-          >
-            {k === "thin" ? "얇게" : "굵게"}
-          </Button>
-        ))}
-
-        <Button
-          type="button"
-          size="sm"
-          variant={eraser ? "secondary" : "ghost"}
-          className="h-8 px-2"
-          onClick={() => onChange({ eraser: !eraser })}
-          title="획 단위 지우개"
-        >
-          <Eraser className="w-3.5 h-3.5" />
-        </Button>
+            <span className="mx-0.5 h-5 w-px bg-border" />
+            {(["thin", "thick"] as PenWidthKey[]).map((k) => (
+              <Button
+                key={k}
+                type="button"
+                size="sm"
+                variant={width === k ? "secondary" : "ghost"}
+                className="h-8 px-2 text-xs"
+                onClick={() => onChange({ width: k, eraser: false, laser: false })}
+              >
+                {k === "thin" ? "얇게" : "굵게"}
+              </Button>
+            ))}
+          </>
+        )}
 
         <Button
           type="button"
