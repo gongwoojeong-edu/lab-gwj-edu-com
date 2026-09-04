@@ -18,6 +18,8 @@ interface Props {
   channelName?: string;
   extraBottomPx?: number;
   toolbarClassName?: string;
+  /** 저장 scope — 한 문장 카드에 레이어를 여러 개 띄울 때 구분 */
+  scope?: "teacher" | "student" | "memo";
 }
 
 const isTouchDevice = () =>
