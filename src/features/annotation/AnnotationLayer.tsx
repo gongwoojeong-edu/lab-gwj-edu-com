@@ -32,8 +32,9 @@ export const AnnotationLayer = ({
   channelName,
   extraBottomPx = 72,
   toolbarClassName,
+  scope = "teacher",
 }: Props) => {
-  const ann = useAnnotation({ sentenceId, studentId, scope: "teacher", canEdit });
+  const ann = useAnnotation({ sentenceId, studentId, scope, canEdit });
   const [tool, setTool] = useState<ToolbarState>({
     penMode: false,
     eraser: false,
