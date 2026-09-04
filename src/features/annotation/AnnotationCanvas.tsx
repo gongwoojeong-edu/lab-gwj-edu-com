@@ -292,14 +292,14 @@ export const AnnotationCanvas = ({
     <div
       ref={wrapRef}
       className="absolute left-0 right-0 top-0 z-20"
-      style={{ bottom: -extraBottomPx, pointerEvents: enabled ? "auto" : "none" }}
+      style={{ bottom: -extraBottomPx, pointerEvents: interactive ? "auto" : "none" }}
     >
       <canvas
         ref={canvasRef}
         className="h-full w-full"
         style={{
-          touchAction: enabled ? "none" : "auto",
-          pointerEvents: enabled ? "auto" : "none",
+          touchAction: interactive ? "none" : "auto",
+          pointerEvents: interactive ? "auto" : "none",
           opacity: visible ? 1 : 0,
         }}
         onPointerDown={onPointerDown}
