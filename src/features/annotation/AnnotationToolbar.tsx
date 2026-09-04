@@ -10,6 +10,8 @@ import type { SaveState } from "./useAnnotation";
 
 export interface ToolbarState {
   penMode: boolean;
+  /** 레이저 포인터 (저장 안 됨, 잠시 뒤 사라짐) */
+  laser: boolean;
   eraser: boolean;
   color: PenColorIndex;
   width: PenWidthKey;
