@@ -127,30 +127,21 @@ export const AnnotationToolbar = ({
           />
         ))}
 
-        <span className="mx-0.5 h-5 w-px bg-border" />
-        {(["thin", "thick"] as PenWidthKey[]).map((k) => (
-          <Button
-            key={k}
-            type="button"
-            size="sm"
-            variant={width === k ? "secondary" : "ghost"}
-            className="h-8 px-2 text-xs"
-            onClick={() => onChange({ width: k, eraser: false })}
-          >
-            {k === "thin" ? "얇게" : "굵게"}
-          </Button>
-        ))}
-
-        <Button
-          type="button"
-          size="sm"
-          variant={eraser ? "secondary" : "ghost"}
-          className="h-8 px-2"
-          onClick={() => onChange({ eraser: !eraser })}
-          title="획 단위 지우개"
-        >
-          <Eraser className="w-3.5 h-3.5" />
-        </Button>
+            <span className="mx-0.5 h-5 w-px bg-border" />
+            {(["thin", "thick"] as PenWidthKey[]).map((k) => (
+              <Button
+                key={k}
+                type="button"
+                size="sm"
+                variant={width === k ? "secondary" : "ghost"}
+                className="h-8 px-2 text-xs"
+                onClick={() => onChange({ width: k, eraser: false, laser: false })}
+              >
+                {k === "thin" ? "얇게" : "굵게"}
+              </Button>
+            ))}
+          </>
+        )}
 
         <Button
           type="button"
