@@ -265,6 +265,14 @@ export const AnnotationCanvas = ({
   };
 
   const finish = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (laser) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* noop */
+      }
+      return; // 잔상은 자동으로 사라짐 — 저장하지 않음
+    }
     const cur = drawingRef.current;
     if (!cur) return;
     drawingRef.current = null;
