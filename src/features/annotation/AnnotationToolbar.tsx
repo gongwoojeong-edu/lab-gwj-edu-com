@@ -67,11 +67,24 @@ export const AnnotationToolbar = ({
       size="sm"
       variant={penMode ? "default" : "outline"}
       className="h-8 gap-1.5"
-      onClick={() => onChange({ penMode: !penMode, eraser: false })}
+      onClick={() => onChange({ penMode: !penMode, eraser: false, laser: false })}
     >
       <Pen className="w-3.5 h-3.5" />
       판서 {penMode ? "ON" : "OFF"}
     </Button>
+
+    <Button
+      type="button"
+      size="sm"
+      variant={laser ? "default" : "outline"}
+      className="h-8 gap-1.5"
+      onClick={() => onChange({ laser: !laser, penMode: false, eraser: false })}
+      title="레이저 포인터 — 잠시 뒤 사라지고 저장되지 않습니다"
+    >
+      <Sparkles className="w-3.5 h-3.5" />
+      레이저 {laser ? "ON" : "OFF"}
+    </Button>
+
 
     {penMode && (
       <>
