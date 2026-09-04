@@ -6,7 +6,17 @@
 // ============================================================
 import { useCallback, useEffect, useRef } from "react";
 import { drawStrokes, clamp01, hitStrokeIndex, pixelDistance } from "./strokeMath";
-import { PEN_WIDTHS, type PenColorIndex, type PenWidthKey, type Stroke, type Strokes } from "./types";
+import {
+  LASER_COLOR,
+  LASER_FADE_MS,
+  LASER_GLOW,
+  PEN_WIDTHS,
+  type LaserPoint,
+  type PenColorIndex,
+  type PenWidthKey,
+  type Stroke,
+  type Strokes,
+} from "./types";
 
 interface Props {
   strokes: Strokes;
