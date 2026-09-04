@@ -205,7 +205,7 @@ export const AnnotationCanvas = ({
   };
 
   const accepts = (e: React.PointerEvent) =>
-    e.pointerType === "pen" || (allowMouse && e.pointerType === "mouse");
+    e.pointerType === "pen" || ((allowMouse || laser) && e.pointerType === "mouse");
 
   const interactive = enabled || laser;
 
