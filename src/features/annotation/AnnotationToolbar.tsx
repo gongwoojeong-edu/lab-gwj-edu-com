@@ -2,7 +2,7 @@
 // AnnotationToolbar — 펜 / 색 / 굵기 / 지우개 / 되돌리기 / 표시토글
 //   · 일괄삭제 버튼 없음 (항목 단위만)
 // ============================================================
-import { Eraser, MousePointer2, Pen, Redo2, RefreshCw, Undo2, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Eraser, MousePointer2, Pen, Redo2, RefreshCw, Trash2, Undo2, Eye, EyeOff, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PEN_COLORS, PEN_COLOR_LABELS, type PenColorIndex, type PenWidthKey } from "./types";
@@ -27,6 +27,7 @@ interface Props extends ToolbarState {
   onChange: (patch: Partial<ToolbarState>) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onClearAll: () => void;
   onRetry: () => void;
   className?: string;
 }
@@ -53,6 +54,7 @@ export const AnnotationToolbar = ({
   onChange,
   onUndo,
   onRedo,
+  onClearAll,
   onRetry,
   className,
 }: Props) => (
@@ -105,10 +107,23 @@ export const AnnotationToolbar = ({
           variant={eraser ? "secondary" : "ghost"}
           className="h-8 px-2"
           onClick={() => onChange({ eraser: true, laser: false })}
-          title="획 단위 지우개"
+          title="부분 지우개 — 펜이 닿는 부분만 지웁니다"
         >
           <Eraser className="w-3.5 h-3.5" />
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-8 px-2 text-destructive hover:text-destructive"
+          title="전체 지우기 — 모든 필기를 지웁니다"
+          onClick={() => {
+            if (window.confirm("모든 필기를 지울까요?")) onClearAll();
+          }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+
 
         {!laser && (
           <>

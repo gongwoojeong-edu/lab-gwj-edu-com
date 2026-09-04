@@ -84,27 +84,38 @@ export const drawStrokes = (
   strokes.forEach((s) => strokePath(ctx, s, opts));
 };
 
-/** 지우개 — 클릭 지점 근처를 지나는 스트로크의 인덱스 */
-export const hitStrokeIndex = (
+/**
+ * 지우개 — 닿은 지점(반경) 안의 점만 제거하고 스트로크를 분할한다.
+ * 획 전체를 지우지 않고 펜이 스친 부분만 지워진다.
+ */
+export const eraseAtPoint = (
   strokes: Strokes,
   point: [number, number],
   width: number,
   height: number,
   savedAspect: number,
-  tolerancePx = 12,
-): number => {
+  radiusPx = 12,
+): Strokes => {
   const currentAspect = width > 0 ? height / width : 1;
   const tx = point[0] * width;
   const ty = point[1] * height;
-  for (let i = strokes.length - 1; i >= 0; i -= 1) {
-    const pts = strokes[i].p;
-    for (let j = 0; j < pts.length; j += 1) {
-      const x = pts[j][0] * width;
-      const y = adjustY(pts[j][1], savedAspect, currentAspect) * height;
-      if (Math.hypot(x - tx, y - ty) <= tolerancePx) return i;
+  const out: Strokes = [];
+  for (const s of strokes) {
+    const r = radiusPx + (s.w * width) / 2;
+    let seg: Stroke["p"] = [];
+    const flush = () => {
+      if (seg.length > 0) out.push({ ...s, p: seg });
+      seg = [];
+    };
+    for (const pt of s.p) {
+      const x = pt[0] * width;
+      const y = adjustY(pt[1], savedAspect, currentAspect) * height;
+      if (Math.hypot(x - tx, y - ty) <= r) flush();
+      else seg.push(pt);
     }
+    flush();
   }
-  return -1;
+  return out;
 };
 
 export const strokesBytes = (strokes: Strokes) => JSON.stringify(strokes).length;
