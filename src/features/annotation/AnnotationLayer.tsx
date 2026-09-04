@@ -37,12 +37,15 @@ export const AnnotationLayer = ({
   const ann = useAnnotation({ sentenceId, studentId, scope, canEdit });
   const [tool, setTool] = useState<ToolbarState>({
     penMode: false,
+    laser: false,
     eraser: false,
     color: 1,
     width: "thin",
     visible: true,
     allowMouse: false,
   });
+  const [laserRemote, setLaserRemote] = useState<{ x: number; y: number; seq: number } | null>(null);
+  const laserSeqRef = useRef(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const showMouseToggle = useMemo(() => !isTouchDevice(), []);
 
