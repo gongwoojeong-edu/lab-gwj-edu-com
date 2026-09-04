@@ -10,6 +10,7 @@ import {
   LASER_COLOR,
   LASER_FADE_MS,
   LASER_GLOW,
+  LASER_HOLD_MS,
   PEN_WIDTHS,
   type LaserPoint,
   type PenColorIndex,
