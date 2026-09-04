@@ -207,10 +207,20 @@ export const AnnotationCanvas = ({
   const accepts = (e: React.PointerEvent) =>
     e.pointerType === "pen" || (allowMouse && e.pointerType === "mouse");
 
+  const interactive = enabled || laser;
+
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!enabled || !accepts(e)) return;
+    if (!interactive || !accepts(e)) return;
     e.preventDefault();
     const pt = toPoint(e);
+
+    if (laser) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      laserRef.current = [];
+      pushLaser(pt[0], pt[1]);
+      onLaserPoint?.(pt[0], pt[1]);
+      return;
+    }
 
     if (eraser) {
       const { w, h } = sizeRef.current;
