@@ -68,19 +68,35 @@ export const AnnotationCanvas = ({
 
   const laserRef = useRef<LaserPoint[]>([]);
   const laserRafRef = useRef<number | null>(null);
+  /** 펜을 뗀 시각 — null 이면 필기 중(잔상 페이드 없이 전부 유지) */
+  const laserLiftRef = useRef<number | null>(null);
 
   const drawLaser = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
     const now = performance.now();
-    const pts = laserRef.current.filter((p) => now - p.t < LASER_FADE_MS);
-    laserRef.current = pts;
+    const pts = laserRef.current;
     if (pts.length === 0) return;
+
+    // 필기 중에는 잔상 전체 유지. 펜을 떼면 LASER_HOLD_MS 동안 유지 후
+    // LASER_FADE_MS 에 걸쳐 전체가 함께 사라진다 (굿노트 레이저 포인터 방식).
+    const lift = laserLiftRef.current;
+    let alpha = 1;
+    if (lift != null) {
+      const elapsed = now - lift;
+      if (elapsed >= LASER_HOLD_MS) {
+        alpha = Math.max(0, 1 - (elapsed - LASER_HOLD_MS) / LASER_FADE_MS);
+      }
+    }
+    if (alpha <= 0) {
+      laserRef.current = [];
+      return;
+    }
 
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     for (let i = 1; i < pts.length; i += 1) {
-      const age = (now - pts[i].t) / LASER_FADE_MS;
-      const alpha = Math.max(0, 1 - age);
+      // 끊어진 구간(새 획 시작 마커: t<0)은 연결하지 않음
+      if (pts[i].t < 0 || pts[i - 1].t < 0) continue;
       ctx.globalAlpha = alpha * 0.5;
       ctx.strokeStyle = LASER_GLOW;
       ctx.lineWidth = 14;
@@ -94,15 +110,17 @@ export const AnnotationCanvas = ({
       ctx.lineWidth = 5;
       ctx.stroke();
     }
-    // 헤드 (포인터 점)
-    const head = pts[pts.length - 1];
-    ctx.globalAlpha = Math.max(0, 1 - (now - head.t) / LASER_FADE_MS);
-    ctx.fillStyle = "#fff";
-    ctx.shadowColor = LASER_COLOR;
-    ctx.shadowBlur = 18;
-    ctx.beginPath();
-    ctx.arc(head.x * w, head.y * h, 5, 0, Math.PI * 2);
-    ctx.fill();
+    // 헤드 (포인터 점) — 필기 중에만 표시
+    if (lift == null) {
+      const head = pts[pts.length - 1];
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fff";
+      ctx.shadowColor = LASER_COLOR;
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(head.x * w, head.y * h, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }, []);
 
@@ -140,7 +158,7 @@ export const AnnotationCanvas = ({
 
   const pushLaser = useCallback(
     (x: number, y: number) => {
-      laserRef.current = [...laserRef.current, { x, y, t: performance.now() }].slice(-80);
+      laserRef.current = [...laserRef.current, { x, y, t: performance.now() }].slice(-600);
       runLaserLoop();
     },
     [runLaserLoop],
@@ -217,7 +235,11 @@ export const AnnotationCanvas = ({
 
     if (laser) {
       e.currentTarget.setPointerCapture(e.pointerId);
-      laserRef.current = [];
+      laserLiftRef.current = null;
+      if (laserRef.current.length > 0) {
+        // 이전 획과 연결되지 않도록 끊김 마커 삽입 (잔상은 유지)
+        laserRef.current = [...laserRef.current, { x: pt[0], y: pt[1], t: -1 }];
+      }
       pushLaser(pt[0], pt[1]);
       onLaserPoint?.(pt[0], pt[1]);
       return;
@@ -272,7 +294,9 @@ export const AnnotationCanvas = ({
       } catch {
         /* noop */
       }
-      return; // 잔상은 자동으로 사라짐 — 저장하지 않음
+      laserLiftRef.current = performance.now(); // 잠시 유지 후 전체 페이드
+      runLaserLoop();
+      return; // 저장하지 않음
     }
     const cur = drawingRef.current;
     if (!cur) return;
