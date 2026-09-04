@@ -118,6 +118,7 @@ export const AnnotationLayer = ({
           onRedo={() => {
             ann.redo();
           }}
+          onClearAll={() => handleCommit([], ann.aspect || 1)}
           onRetry={ann.retry}
           className={toolbarClassName}
         />
