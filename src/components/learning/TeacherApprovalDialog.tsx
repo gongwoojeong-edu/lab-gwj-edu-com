@@ -621,15 +621,28 @@ export const TeacherApprovalDialog = ({
             </div>
           )}
 
-          <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
+          <div className="relative">
+            <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
 
-          {studentUserId && (
-            <TeachingQnaPanel
-              studentUserId={studentUserId}
-              sentenceId={sentenceId}
-              role="teacher"
-            />
-          )}
+            {studentUserId && (
+              <TeachingQnaPanel
+                studentUserId={studentUserId}
+                sentenceId={sentenceId}
+                role="teacher"
+              />
+            )}
+
+            {skipPin && studentUserId && (
+              <AnnotationLayer
+                sentenceId={sentenceId}
+                studentId={studentUserId}
+                canEdit
+                scope="memo"
+                extraBottomPx={0}
+                toolbarClassName="absolute right-0 -top-1 z-30"
+              />
+            )}
+          </div>
         </div>
 
         <DialogFooter className="shrink-0 bg-background border-t border-border flex-wrap gap-2 sm:justify-between pt-3 pb-1">

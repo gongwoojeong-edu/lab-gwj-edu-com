@@ -18,6 +18,8 @@ interface Props {
   channelName?: string;
   extraBottomPx?: number;
   toolbarClassName?: string;
+  /** 저장 scope — 한 문장 카드에 레이어를 여러 개 띄울 때 구분 */
+  scope?: "teacher" | "student" | "memo";
 }
 
 const isTouchDevice = () =>
@@ -30,8 +32,9 @@ export const AnnotationLayer = ({
   channelName,
   extraBottomPx = 72,
   toolbarClassName,
+  scope = "teacher",
 }: Props) => {
-  const ann = useAnnotation({ sentenceId, studentId, scope: "teacher", canEdit });
+  const ann = useAnnotation({ sentenceId, studentId, scope, canEdit });
   const [tool, setTool] = useState<ToolbarState>({
     penMode: false,
     eraser: false,
@@ -51,9 +54,10 @@ export const AnnotationLayer = ({
     });
     if (!canEdit) {
       ch.on("broadcast", { event: "annot" }, (payload) => {
-        const body = (payload as { payload?: { strokes?: Strokes; aspect?: number; sentenceId?: string } })
+        const body = (payload as { payload?: { strokes?: Strokes; aspect?: number; sentenceId?: string; scope?: string } })
           .payload;
         if (!body || body.sentenceId !== sentenceId) return;
+        if ((body.scope ?? "teacher") !== scope) return;
         ann.replace(body.strokes ?? [], body.aspect ?? 1);
       });
     }
@@ -70,7 +74,7 @@ export const AnnotationLayer = ({
     channelRef.current?.send({
       type: "broadcast",
       event: "annot",
-      payload: { sentenceId, strokes, aspect },
+      payload: { sentenceId, strokes, aspect, scope },
     });
   };
 

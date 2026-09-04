@@ -25,7 +25,7 @@ export const PEN_COLOR_LABELS = ["검정", "빨강", "퍼플"] as const;
 export const PEN_WIDTHS = { thin: 0.0025, thick: 0.006 } as const;
 export type PenWidthKey = keyof typeof PEN_WIDTHS;
 
-export type AnnotationScope = "teacher" | "student";
+export type AnnotationScope = "teacher" | "student" | "memo";
 
 export interface AnnotationRecord {
   id: string;
