@@ -158,7 +158,9 @@ export const AnnotationCanvas = ({
 
   const pushLaser = useCallback(
     (x: number, y: number) => {
-      laserRef.current = [...laserRef.current, { x, y, t: performance.now() }].slice(-600);
+      // 펜을 떼기 전까지는 잔상을 잘라내지 않는다 (필기 중 앞 획이 사라지면 안 됨).
+      // 넉넉한 상한만 두어 메모리만 보호.
+      laserRef.current = [...laserRef.current, { x, y, t: performance.now() }].slice(-20000);
       runLaserLoop();
     },
     [runLaserLoop],
