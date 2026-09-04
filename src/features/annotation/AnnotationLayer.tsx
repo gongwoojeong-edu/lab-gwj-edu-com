@@ -89,6 +89,14 @@ export const AnnotationLayer = ({
     });
   };
 
+  const handleLaserPoint = (x: number, y: number) => {
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "laser",
+      payload: { sentenceId, scope, x, y },
+    });
+  };
+
   const handleCommit = (next: Strokes, aspect: number) => {
     ann.commit(next, aspect);
     if (canEdit) broadcast(next, aspect);
