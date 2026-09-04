@@ -119,5 +119,3 @@ export const eraseAtPoint = (
 };
 
 export const strokesBytes = (strokes: Strokes) => JSON.stringify(strokes).length;
-
-export const strokesBytes = (strokes: Strokes) => JSON.stringify(strokes).length;
