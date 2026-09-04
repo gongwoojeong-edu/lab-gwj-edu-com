@@ -40,6 +40,7 @@ const SAVE_DOT: Record<SaveState, string> = {
 
 export const AnnotationToolbar = ({
   penMode,
+  laser,
   eraser,
   color,
   width,
