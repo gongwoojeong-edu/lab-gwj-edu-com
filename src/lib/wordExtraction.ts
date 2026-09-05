@@ -23,6 +23,42 @@ export interface ExtractionRow {
   updated_at: string;
 }
 
+/**
+ * 본문 대조 정리 — 저장된 단어 중 본문에 없는 꼬리표현(예: "elements Closely")을
+ * 잘라내고, 그래도 본문에 없으면 제외한다. (과거 AI 추출 오류 데이터 방어)
+ */
+const normText = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
+
+export const sanitizeExtractedWords = (
+  words: ExtractedWord[],
+  english: string,
+): ExtractedWord[] => {
+  const eng = normText(english || "");
+  if (!eng) return words;
+  const has = (w: string) => !!w && eng.includes(normText(w));
+  const out: ExtractedWord[] = [];
+  for (const w of words) {
+    const raw = (w.word ?? "").trim();
+    if (!raw) continue;
+    let fixed: string | null = has(raw) ? raw : null;
+    if (!fixed) {
+      const toks = raw.split(/\s+/);
+      for (let end = toks.length - 1; end >= 1; end--) {
+        const cand = toks.slice(0, end).join(" ");
+        if (has(cand)) {
+          fixed = cand;
+          break;
+        }
+      }
+    }
+    if (!fixed) continue;
+    if (out.some((o) => o.word.toLowerCase() === fixed!.toLowerCase())) continue;
+    out.push({ ...w, word: fixed });
+  }
+  return out;
+};
+
 export const fetchExtraction = async (sentenceId: string): Promise<ExtractionRow | null> => {
   const { data, error } = await supabase
     .from("sentence_word_extractions")
@@ -34,14 +70,17 @@ export const fetchExtraction = async (sentenceId: string): Promise<ExtractionRow
     return null;
   }
   if (!data) return null;
+  const rawWords = Array.isArray(data.words) ? (data.words as unknown as ExtractedWord[]) : [];
   return {
     sentence_id: data.sentence_id,
     english: data.english,
-    words: Array.isArray(data.words) ? (data.words as unknown as ExtractedWord[]) : [],
+    words: sanitizeExtractedWords(rawWords, data.english ?? ""),
     model: data.model,
     updated_at: data.updated_at,
   };
 };
+
+
 
 export const extractedToEntries = (words: ExtractedWord[]): WordTestEntry[] =>
   words
