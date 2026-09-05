@@ -219,17 +219,46 @@ Deno.serve(async (req) => {
     } catch {
       return json({ error: "Invalid JSON from model" }, 500);
     }
+    // ── 본문 대조 검증 ──────────────────────────────────────────────
+    // 모델이 간혹 앞 항목의 단어를 뒤 항목 끝에 이어 붙여 내보내는 오류
+    // (예: "elements Closely")가 있어, 본문에 실제로 존재하는 표현만 남긴다.
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
+    const engNorm = norm(english);
+    const inEnglish = (w: string) => !!w && engNorm.includes(norm(w));
+    const sanitizeWord = (raw: string): string | null => {
+      const w = raw.trim();
+      if (inEnglish(w)) return w;
+      // 뒤에서부터 토큰을 하나씩 떼어내며 본문에 존재하는 형태를 찾는다
+      const toks = w.split(/\s+/);
+      for (let end = toks.length - 1; end >= 1; end--) {
+        const cand = toks.slice(0, end).join(" ");
+        if (inEnglish(cand)) return cand;
+      }
+      return null;
+    };
+
     const words = (parsed.words ?? [])
       .filter((w) => w?.word && w?.meaning && w?.pos)
-      .map((w) => ({
-        word: w.word.trim(),
-        meaning: w.meaning.trim(),
-        pos: w.pos,
-        base: (w.base ?? "").trim() || undefined,
-        form: (w.form ?? "").trim() || undefined,
-      }));
+      .map((w) => {
+        const word = sanitizeWord(w.word);
+        if (!word) {
+          console.warn("dropped out-of-text word", w.word, sentenceId);
+          return null;
+        }
+        return {
+          word,
+          meaning: w.meaning.trim(),
+          pos: w.pos,
+          base: (w.base ?? "").trim() || undefined,
+          form: (w.form ?? "").trim() || undefined,
+        };
+      })
+      .filter((w): w is NonNullable<typeof w> => w !== null)
+      // 동일 단어 중복 제거
+      .filter((w, i, arr) => arr.findIndex((o) => o.word.toLowerCase() === w.word.toLowerCase()) === i);
     // 상위 레벨에서 "학습할 만큼 어려운 단어가 없음"은 정상 결과 → 빈 목록으로 저장한다.
     if (words.length === 0 && levelNo < 8) return json({ error: "No words extracted" }, 422);
+
 
     const { error: upErr } = await admin
       .from("sentence_word_extractions")
