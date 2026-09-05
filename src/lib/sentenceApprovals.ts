@@ -146,6 +146,8 @@ export const approveSentenceRequest = async (input: {
   //    redo(추가학습) 등급: 기존 통과 기록은 보존하고 redo_requested_at 만 켠다.
   //    다른 등급: 통과 처리 + 이전에 켜져있던 추가학습 요청은 해제.
   const isRedo = input.grade === "redo";
+  // coach(코칭): 통과 처리하되 워크북 복습 대상으로 표시한다.
+  const isCoach = input.grade === "coach";
   const targetUserId = input.studentUserId ?? approverId;
   if (!targetUserId) return;
 
@@ -171,6 +173,9 @@ export const approveSentenceRequest = async (input: {
         word_test_done: true,
         // 다른 등급으로 승인되면 추가학습 요청은 충족된 것으로 보고 해제
         redo_requested_at: null,
+        ...(isCoach
+          ? { coach_flagged_at: nowIso, last_coach_memo: memoTrimmed }
+          : {}),
       };
 
   let updateQ = supabase
