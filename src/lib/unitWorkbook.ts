@@ -20,7 +20,12 @@ import {
   preloadWordPayload,
   PrintPreloadError,
 } from "./printPreload";
-import { MEMO_FIELD_KEYS, MEMO_FIELD_LABEL, parseMemo } from "./approvalMemo";
+import {
+  MEMO_FIELD_KEYS,
+  MEMO_FIELD_LABEL,
+  memoToPlainText,
+  parseMemo,
+} from "./approvalMemo";
 import {
   buildBookCombinedWorkbookHtml,
   buildHandoutPrintHtml,

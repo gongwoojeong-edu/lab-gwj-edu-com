@@ -1180,6 +1180,8 @@ export interface BookCombinedItem {
   memo: Array<{ label: string; text: string }>;
   /** 중요 어법 표기 (Grammar Watch 등) */
   grammarNote: string;
+  /** 코칭(조건부 통과) 메모 — 있으면 "코칭" 배지와 함께 다시 쓰기 유도 */
+  coachMemo?: string;
 }
 export interface BookCombinedUnit {
   unitTitle: string;
