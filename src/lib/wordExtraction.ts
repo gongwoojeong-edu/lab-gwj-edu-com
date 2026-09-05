@@ -39,7 +39,7 @@ export const sanitizeExtractedWords = (
   const has = (w: string) => !!w && eng.includes(normText(w));
   const out: ExtractedWord[] = [];
   for (const w of words) {
-    const raw = (w.word ?? "").trim();
+    const raw = (w.word ?? "").replace(/[^\x00-\x7F]+$/g, "").trim();
     if (!raw) continue;
     let fixed: string | null = has(raw) ? raw : null;
     if (!fixed) {
@@ -52,9 +52,10 @@ export const sanitizeExtractedWords = (
         }
       }
     }
-    if (!fixed) continue;
-    if (out.some((o) => o.word.toLowerCase() === fixed!.toLowerCase())) continue;
-    out.push({ ...w, word: fixed });
+    // 본문에서 못 찾으면(원형 표기 등 정상 케이스) 원문 그대로 둔다
+    const finalWord = fixed ?? raw;
+    if (out.some((o) => o.word.toLowerCase() === finalWord.toLowerCase())) continue;
+    out.push({ ...w, word: finalWord });
   }
   return out;
 };

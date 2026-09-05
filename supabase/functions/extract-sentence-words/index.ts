@@ -225,8 +225,8 @@ Deno.serve(async (req) => {
     const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
     const engNorm = norm(english);
     const inEnglish = (w: string) => !!w && engNorm.includes(norm(w));
-    const sanitizeWord = (raw: string): string | null => {
-      const w = raw.trim();
+    const sanitizeWord = (rawIn: string): string | null => {
+      const w = rawIn.replace(/[^\x00-\x7F]+$/g, "").trim();
       if (inEnglish(w)) return w;
       // 뒤에서부터 토큰을 하나씩 떼어내며 본문에 존재하는 형태를 찾는다
       const toks = w.split(/\s+/);
@@ -234,17 +234,16 @@ Deno.serve(async (req) => {
         const cand = toks.slice(0, end).join(" ");
         if (inEnglish(cand)) return cand;
       }
-      return null;
+      // 본문에서 못 찾으면(원형/변형 표기) 그대로 사용
+      return w || null;
     };
 
     const words = (parsed.words ?? [])
       .filter((w) => w?.word && w?.meaning && w?.pos)
       .map((w) => {
         const word = sanitizeWord(w.word);
-        if (!word) {
-          console.warn("dropped out-of-text word", w.word, sentenceId);
-          return null;
-        }
+        if (!word) return null;
+        if (word !== w.word.trim()) console.warn("repaired word", w.word, "→", word, sentenceId);
         return {
           word,
           meaning: w.meaning.trim(),
