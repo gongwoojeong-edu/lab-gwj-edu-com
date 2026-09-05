@@ -6,7 +6,7 @@ import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 import { memoToPlainText } from "@/lib/approvalMemo";
 
-export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo";
+export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo" | "coach";
 export type ApprovalStatus = "pending" | "approved" | "held";
 
 export const GRADE_LABEL: Record<ApprovalGrade, string> = {
@@ -15,6 +15,7 @@ export const GRADE_LABEL: Record<ApprovalGrade, string> = {
   fair: "보통",
   poor: "미흡",
   redo: "재학습",
+  coach: "코칭",
 };
 
 export const GRADE_BADGE_CLASS: Record<ApprovalGrade, string> = {
@@ -23,9 +24,10 @@ export const GRADE_BADGE_CLASS: Record<ApprovalGrade, string> = {
   fair: "bg-amber-500 text-white border-amber-600",
   poor: "bg-orange-500 text-white border-orange-600",
   redo: "bg-rose-500 text-white border-rose-600",
+  coach: "bg-violet-500 text-white border-violet-600",
 };
 
-export const GRADE_ORDER: ApprovalGrade[] = ["excellent", "good", "fair", "poor", "redo"];
+export const GRADE_ORDER: ApprovalGrade[] = ["excellent", "good", "fair", "poor", "coach", "redo"];
 
 export interface SentenceApproval {
   id: string;
@@ -144,6 +146,8 @@ export const approveSentenceRequest = async (input: {
   //    redo(추가학습) 등급: 기존 통과 기록은 보존하고 redo_requested_at 만 켠다.
   //    다른 등급: 통과 처리 + 이전에 켜져있던 추가학습 요청은 해제.
   const isRedo = input.grade === "redo";
+  // coach(코칭): 통과 처리하되 워크북 복습 대상으로 표시한다.
+  const isCoach = input.grade === "coach";
   const targetUserId = input.studentUserId ?? approverId;
   if (!targetUserId) return;
 
@@ -169,6 +173,9 @@ export const approveSentenceRequest = async (input: {
         word_test_done: true,
         // 다른 등급으로 승인되면 추가학습 요청은 충족된 것으로 보고 해제
         redo_requested_at: null,
+        ...(isCoach
+          ? { coach_flagged_at: nowIso, last_coach_memo: memoTrimmed }
+          : {}),
       };
 
   let updateQ = supabase
@@ -233,9 +240,11 @@ export const approveSentenceRequest = async (input: {
       kind: "evaluation",
       title: isRedo
         ? "선생님 추가학습 요청 — 한 번 더 제출해주세요"
-        : congrats
-          ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
-          : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
+        : isCoach
+          ? "선생님 코칭 — 워크북에서 다시 써보세요"
+          : congrats
+            ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
+            : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
       body: [congrats, memoText].filter(Boolean).join("\n\n") || null,
       grade: input.grade,
       sentenceId: input.sentenceId,
@@ -276,6 +285,7 @@ export async function applyApprovalToMyProgress(
     return;
   }
 
+  const isCoach = !isHeld && approval.grade === "coach";
   await upsertSentenceProgress(approval.sentence_id, {
     last_grade: isHeld ? null : approval.grade,
     last_memo: memoTrimmed,
@@ -286,6 +296,9 @@ export async function applyApprovalToMyProgress(
     analysis_done: true,
     word_test_done: true,
     redo_requested_at: null,
+    ...(isCoach
+      ? { coach_flagged_at: approval.approved_at ?? nowIso, last_coach_memo: memoTrimmed }
+      : {}),
     touchActivity: true,
     assignmentId,
   });

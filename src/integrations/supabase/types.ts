@@ -889,9 +889,11 @@ export type Database = {
           analysis_done: boolean
           analysis_match_rate: number | null
           assignment_id: string | null
+          coach_flagged_at: string | null
           created_at: string
           id: string
           last_activity_at: string | null
+          last_coach_memo: string | null
           last_grade: string | null
           last_memo: string | null
           last_redo_memo: string | null
@@ -925,9 +927,11 @@ export type Database = {
           analysis_done?: boolean
           analysis_match_rate?: number | null
           assignment_id?: string | null
+          coach_flagged_at?: string | null
           created_at?: string
           id?: string
           last_activity_at?: string | null
+          last_coach_memo?: string | null
           last_grade?: string | null
           last_memo?: string | null
           last_redo_memo?: string | null
@@ -961,9 +965,11 @@ export type Database = {
           analysis_done?: boolean
           analysis_match_rate?: number | null
           assignment_id?: string | null
+          coach_flagged_at?: string | null
           created_at?: string
           id?: string
           last_activity_at?: string | null
+          last_coach_memo?: string | null
           last_grade?: string | null
           last_memo?: string | null
           last_redo_memo?: string | null
