@@ -58,13 +58,82 @@ export const AnnotationToolbar = ({
   onClearAll,
   onRetry,
   className,
-}: Props) => (
+}: Props) => {
+  // 드래그 이동 + 접기 — 툴바가 원문을 가리지 않도록
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [collapsed, setCollapsed] = useState(false);
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+
+  const onGripPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: offset.x,
+      baseY: offset.y,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onGripPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    setOffset({ x: d.baseX + e.clientX - d.startX, y: d.baseY + e.clientY - d.startY });
+  };
+  const onGripPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+  };
+
+  if (collapsed) {
+    return (
+      <div
+        className={cn("flex items-center gap-1 rounded-lg border bg-card/95 px-1.5 py-1 shadow-sm", className)}
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+      >
+        <button
+          type="button"
+          aria-label="판서 도구 이동"
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+          onPointerDown={onGripPointerDown}
+          onPointerMove={onGripPointerMove}
+          onPointerUp={onGripPointerUp}
+          onPointerCancel={onGripPointerUp}
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <Pen className="w-3.5 h-3.5 text-muted-foreground" />
+        <button
+          type="button"
+          aria-label="판서 도구 펼치기"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => setCollapsed(false)}
+        >
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
   <div
     className={cn(
       "flex flex-wrap items-center gap-1.5 rounded-lg border bg-card/95 px-2 py-1.5 shadow-sm",
       className,
     )}
+    style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
   >
+    <button
+      type="button"
+      aria-label="판서 도구 이동"
+      className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+      title="드래그해서 도구 모음 위치 이동"
+      onPointerDown={onGripPointerDown}
+      onPointerMove={onGripPointerMove}
+      onPointerUp={onGripPointerUp}
+      onPointerCancel={onGripPointerUp}
+    >
+      <GripVertical className="w-4 h-4" />
+    </button>
     <Button
       type="button"
       size="sm"
