@@ -2,7 +2,8 @@
 // AnnotationToolbar — 펜 / 색 / 굵기 / 지우개 / 되돌리기 / 표시토글
 //   · 일괄삭제 버튼 없음 (항목 단위만)
 // ============================================================
-import { Eraser, MousePointer2, Pen, Redo2, RefreshCw, Trash2, Undo2, Eye, EyeOff, Sparkles } from "lucide-react";
+import { useRef, useState } from "react";
+import { Eraser, MousePointer2, Pen, Redo2, RefreshCw, Trash2, Undo2, Eye, EyeOff, Sparkles, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PEN_COLORS, PEN_COLOR_LABELS, type PenColorIndex, type PenWidthKey } from "./types";
