@@ -193,6 +193,7 @@ const buildSyntaxUnit = async (
   studentId: string,
   ctx: UnitWorkbookContext,
   answerKey = false,
+  coachMap: Map<string, string> = new Map(),
 ): Promise<string> => {
   const codes = passages.map((p) => p.code);
   const { data: trs } = await supabase
@@ -240,12 +241,17 @@ const buildSyntaxUnit = async (
           `<div class="lg-ko lg-ko-faint"><span class="lg-ko-tag">처음</span>${escapeHtml(pair.first)}</div>` +
           `<div class="lg-ko lg-ko-faint"><span class="lg-ko-tag">최종</span>${escapeHtml(pair.last)}</div>`;
       }
+      const coachTxt = (coachMap.get(p.code) ?? "").trim();
+      const coachHtml = coachTxt
+        ? `<div class="lg-coach"><span class="lg-coach-tag">코칭 — 워크북에서 다시 써보세요</span>${escapeHtml(coachTxt)}</div>`
+        : "";
       return `
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
           <div class="lg-code">${escapeHtml(p.code)}</div>
           ${koHtml}
+          ${coachHtml}
         </div>
       </div>`;
     })
@@ -293,6 +299,19 @@ const buildSyntaxUnit = async (
     padding: 0 1mm; vertical-align: 1.2mm;
   }
   .lg-muted { color: #888; }
+  /* 코칭(조건부 통과) 표시 */
+  .lg-coach {
+    margin-top: 0.8mm; font-size: 8.5pt; line-height: 1.45; color: #4c1d95;
+    background: #f3ecfd; border-left: 1.5pt solid #7c3aed; padding: 0.8mm 2mm;
+    white-space: pre-wrap;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .lg-coach-tag {
+    display: inline-block; background: #7c3aed; color: #fff;
+    font-size: 7pt; font-weight: 800; border-radius: 1mm;
+    padding: 0 1.2mm; margin-right: 1.5mm; vertical-align: 0.4mm;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
   /* 뒷면 구조도 페이지 */
   .lg-back { page-break-before: always; }
   .lg-back .lg-section-title { margin-top: 2mm; }
@@ -440,7 +459,7 @@ const collectBookUnit = async (
     return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
   }
 
-  const [{ data: trs }, { data: apps }, { data: exts }] = await Promise.all([
+  const [{ data: trs }, { data: apps }, { data: exts }, coachMap] = await Promise.all([
     supabase
       .from("sentence_translations")
       .select("sentence_id, text, submitted_at")
@@ -457,6 +476,7 @@ const collectBookUnit = async (
       .from("sentence_word_extractions")
       .select("sentence_id, words")
       .in("sentence_id", codes),
+    fetchCoachFlags(studentId, codes),
   ]);
 
   const words: Array<{ word: string; meaning: string }> = [];
@@ -501,6 +521,7 @@ const collectBookUnit = async (
           }))
         : [],
       grammarNote: (memo?.grammar_watch ?? "").trim(),
+      coachMemo: coachMap.get(p.code) ?? "",
     });
   }
   return { unitTitle: u.unitTitle, unitCode: u.unitCode, items, words };
@@ -780,7 +801,8 @@ export const buildUnitWorkbookHtmlFor = async (
   let html: string;
   switch (mode) {
     case "syntax_unit": {
-      html = await buildSyntaxUnit(allPassages, input.studentId, ctx, input.answerKey ?? false);
+      const coachMap = await fetchCoachFlags(input.studentId, allCodes);
+      html = await buildSyntaxUnit(allPassages, input.studentId, ctx, input.answerKey ?? false, coachMap);
       break;
     }
     case "syntax_book": {
