@@ -660,12 +660,12 @@ Deno.serve(async (req) => {
 
   if (existingFamily.length > 0) {
     // 기존 문장 덮어쓰기 + 남는 문장 삭제 + 부족분만 추가
+    // ※ 기존 code 는 유지 (일괄 update 시 unique 충돌로 대량 실패하는 것 방지)
     const sorted = [...existingFamily].sort((a, b) =>
       a.passage_no !== b.passage_no
         ? a.passage_no - b.passage_no
         : a.created_at.localeCompare(b.created_at)
     );
-    // 같은 passage_no 중복은 첫 행만 유지
     const keepers: typeof sorted = [];
     const dupIds: string[] = [];
     const seenNo = new Set<number>();
@@ -687,9 +687,7 @@ Deno.serve(async (req) => {
             english: row.english,
             korean: row.korean,
             analysis_status: row.analysis_status,
-            passage_no: row.passage_no,
-            code: row.code,
-            unit_id: unit!.id,
+            // code/passage_no 유지 — 바꾸면 unique 충돌로 연쇄 실패
           })
           .eq("id", keeper.id)
           .select("id, code")
@@ -707,7 +705,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 문장 수가 줄었으면 남는 기존 행 삭제
     const extraKeepers = keepers.slice(rows.length).map((k) => k.id);
     const toDelete = [...dupIds, ...extraKeepers];
     if (toDelete.length) {
@@ -747,7 +744,6 @@ Deno.serve(async (req) => {
           english: row.english,
           korean: row.korean,
           analysis_status: row.analysis_status,
-          code: row.code,
         })
         .eq("id", keeper.id)
         .select("id, code")
@@ -841,14 +837,17 @@ Deno.serve(async (req) => {
       }
     }
   } catch (e) {
+    // 문장은 이미 반영됐을 수 있음 — 분석/구조도만 실패로 표시 (전체 실패로 오인 방지)
     return json(
       {
-        ok: false,
-        error: (e as Error).message,
+        ok: true,
+        warning: (e as Error).message,
+        materials_ok: false,
         passage_id: passage.id,
         code: passage.code,
         unit_id: unit!.id,
         learn_url: `/learn/sentence/${passage.code}`,
+        uploads,
       },
       200,
     );
