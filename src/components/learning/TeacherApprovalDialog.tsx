@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
@@ -30,7 +31,7 @@ import {
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
-import { fetchPassageSource, type PassageSource } from "@/lib/textbooks";
+import { fetchPassageSource, fetchPassageByCode, updatePassage, type PassageSource } from "@/lib/textbooks";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 
 
@@ -514,10 +515,50 @@ export const TeacherApprovalDialog = ({
                 )}
               </div>
             )}
-            {englishSentence && (
+            {(shownEnglish || editingEnglish) && (
               <div>
-                <div className="text-[11px] text-muted-foreground">원문</div>
-                <div className="font-medium leading-snug">{englishSentence}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[11px] text-muted-foreground">원문</div>
+                  {!editingEnglish && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnglishDraft(shownEnglish ?? "");
+                        setEditingEnglish(true);
+                      }}
+                      className="relative z-30 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                      title="원문 수정"
+                    >
+                      <Pencil className="w-3 h-3" /> 수정
+                    </button>
+                  )}
+                </div>
+                {editingEnglish ? (
+                  <div className="relative z-30 space-y-1.5">
+                    <Textarea
+                      value={englishDraft}
+                      onChange={(e) => setEnglishDraft(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" onClick={saveEnglish} disabled={savingEnglish}>
+                        {savingEnglish ? "저장 중…" : "저장"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingEnglish(false)}
+                        disabled={savingEnglish}
+                      >
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="font-medium leading-snug">{shownEnglish}</div>
+                )}
               </div>
             )}
             {studentTranslation && (
