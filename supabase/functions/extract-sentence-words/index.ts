@@ -220,29 +220,41 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid JSON from model" }, 500);
     }
     // ── 본문 대조 검증 ──────────────────────────────────────────────
-    // 모델이 간혹 앞 항목의 단어를 뒤 항목 끝에 이어 붙여 내보내는 오류
-    // (예: "elements Closely")가 있어, 본문에 실제로 존재하는 표현만 남긴다.
+    // 모델이 같은 꼬리말을 여러 단어 끝에 반복해 붙이는 오류(예: "elements Closely")와
+    // 프롬프트 찌꺼기("head_word:", "Base:")를 제거한다. 정상 숙어/원형 표기는 유지.
     const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
     const engNorm = norm(english);
     const inEnglish = (w: string) => !!w && engNorm.includes(norm(w));
-    const sanitizeWord = (rawIn: string): string | null => {
-      const w = rawIn.replace(/[^\x00-\x7F]+$/g, "").trim();
-      if (inEnglish(w)) return w;
-      // 뒤에서부터 토큰을 하나씩 떼어내며 본문에 존재하는 형태를 찾는다
-      const toks = w.split(/\s+/);
-      for (let end = toks.length - 1; end >= 1; end--) {
-        const cand = toks.slice(0, end).join(" ");
-        if (inEnglish(cand)) return cand;
-      }
-      // 본문에서 못 찾으면(원형/변형 표기) 그대로 사용
-      return w || null;
-    };
+    const stripJunk = (raw: string) =>
+      raw
+        .replace(/\s*(head_word|base|form|pos)\s*[:：].*$/i, "")
+        .replace(/\s*Extracting core vocabulary.*$/i, "")
+        .replace(/[^\x00-\x7F]+$/g, "")
+        .trim();
 
-    const words = (parsed.words ?? [])
-      .filter((w) => w?.word && w?.meaning && w?.pos)
+    const rawList = (parsed.words ?? []).filter((w) => w?.word && w?.meaning && w?.pos);
+    const tailCount = new Map<string, number>();
+    for (const w of rawList) {
+      const s = stripJunk(w.word);
+      if (!s || inEnglish(s)) continue;
+      const toks = s.split(/\s+/);
+      if (toks.length < 2) continue;
+      const tail = toks[toks.length - 1].toLowerCase();
+      tailCount.set(tail, (tailCount.get(tail) ?? 0) + 1);
+    }
+
+    const words = rawList
       .map((w) => {
-        const word = sanitizeWord(w.word);
+        let word = stripJunk(w.word);
         if (!word) return null;
+        if (!inEnglish(word)) {
+          const toks = word.split(/\s+/);
+          const tail = toks[toks.length - 1]?.toLowerCase() ?? "";
+          if (toks.length >= 2 && (tailCount.get(tail) ?? 0) >= 2) {
+            const trimmed = toks.slice(0, -1).join(" ");
+            if (inEnglish(trimmed)) word = trimmed;
+          }
+        }
         if (word !== w.word.trim()) console.warn("repaired word", w.word, "→", word, sentenceId);
         return {
           word,
@@ -255,6 +267,7 @@ Deno.serve(async (req) => {
       .filter((w): w is NonNullable<typeof w> => w !== null)
       // 동일 단어 중복 제거
       .filter((w, i, arr) => arr.findIndex((o) => o.word.toLowerCase() === w.word.toLowerCase()) === i);
+
     // 상위 레벨에서 "학습할 만큼 어려운 단어가 없음"은 정상 결과 → 빈 목록으로 저장한다.
     if (words.length === 0 && levelNo < 8) return json({ error: "No words extracted" }, 422);
 
