@@ -284,5 +284,17 @@ export const AnnotationToolbar = ({
         재시도
       </Button>
     )}
+
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-8 px-2"
+      onClick={() => setCollapsed(true)}
+      title="도구 모음 접기"
+    >
+      <ChevronUp className="w-3.5 h-3.5" />
+    </Button>
   </div>
-);
+  );
+};
