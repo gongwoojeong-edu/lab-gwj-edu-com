@@ -2,7 +2,8 @@
 // AnnotationToolbar — 펜 / 색 / 굵기 / 지우개 / 되돌리기 / 표시토글
 //   · 일괄삭제 버튼 없음 (항목 단위만)
 // ============================================================
-import { Eraser, MousePointer2, Pen, Redo2, RefreshCw, Trash2, Undo2, Eye, EyeOff, Sparkles } from "lucide-react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Eraser, MousePointer2, Pen, Redo2, RefreshCw, Trash2, Undo2, Eye, EyeOff, Sparkles, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PEN_COLORS, PEN_COLOR_LABELS, type PenColorIndex, type PenWidthKey } from "./types";
@@ -57,13 +58,82 @@ export const AnnotationToolbar = ({
   onClearAll,
   onRetry,
   className,
-}: Props) => (
+}: Props) => {
+  // 드래그 이동 + 접기 — 툴바가 원문을 가리지 않도록
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [collapsed, setCollapsed] = useState(false);
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+
+  const onGripPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: offset.x,
+      baseY: offset.y,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onGripPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    setOffset({ x: d.baseX + e.clientX - d.startX, y: d.baseY + e.clientY - d.startY });
+  };
+  const onGripPointerUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+  };
+
+  if (collapsed) {
+    return (
+      <div
+        className={cn("flex items-center gap-1 rounded-lg border bg-card/95 px-1.5 py-1 shadow-sm", className)}
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+      >
+        <button
+          type="button"
+          aria-label="판서 도구 이동"
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+          onPointerDown={onGripPointerDown}
+          onPointerMove={onGripPointerMove}
+          onPointerUp={onGripPointerUp}
+          onPointerCancel={onGripPointerUp}
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <Pen className="w-3.5 h-3.5 text-muted-foreground" />
+        <button
+          type="button"
+          aria-label="판서 도구 펼치기"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => setCollapsed(false)}
+        >
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
   <div
     className={cn(
       "flex flex-wrap items-center gap-1.5 rounded-lg border bg-card/95 px-2 py-1.5 shadow-sm",
       className,
     )}
+    style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
   >
+    <button
+      type="button"
+      aria-label="판서 도구 이동"
+      className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+      title="드래그해서 도구 모음 위치 이동"
+      onPointerDown={onGripPointerDown}
+      onPointerMove={onGripPointerMove}
+      onPointerUp={onGripPointerUp}
+      onPointerCancel={onGripPointerUp}
+    >
+      <GripVertical className="w-4 h-4" />
+    </button>
     <Button
       type="button"
       size="sm"
@@ -214,5 +284,17 @@ export const AnnotationToolbar = ({
         재시도
       </Button>
     )}
+
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-8 px-2"
+      onClick={() => setCollapsed(true)}
+      title="도구 모음 접기"
+    >
+      <ChevronUp className="w-3.5 h-3.5" />
+    </Button>
   </div>
-);
+  );
+};
