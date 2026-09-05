@@ -316,7 +316,10 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
     "expected_title", "level", "series_title", "volume_title", "unit_title",
   ]) {
     if (p[k] != null && typeof p[k] !== "string") return { ok: false, error: `${k} must be string` };
-    if (typeof p[k] === "string" && p[k].length > 500) return { ok: false, error: `${k} too long` };
+    // 거절하지 말고 잘라서 수용 (expected_title에 본문이 들어간 자료 다수)
+    if (typeof p[k] === "string" && p[k].length > 500) {
+      p[k] = p[k].slice(0, 499) + "…";
+    }
   }
   for (const k of ["analysis_html", "analysisHtml", "structure_html", "structureHtml"]) {
     if (p[k] != null && typeof p[k] !== "string") return { ok: false, error: `${k} must be string` };
