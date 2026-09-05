@@ -1301,11 +1301,14 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
           const grammar = it.grammarNote.trim()
             ? `<div class="bk-gram"><span class="bk-gram-tag">중요어법</span>${escapeHtml(it.grammarNote)}</div>`
             : "";
+          const coachMark = (it.coachMemo ?? "").trim()
+            ? '<span class="bk-coach-tag bk-coach-inline">코칭</span>'
+            : "";
           return `
         <div class="bk-prow">
           <div class="bk-num">${idx}.</div>
           <div class="bk-body">
-            <div class="bk-code">${escapeHtml(it.passageCode)}</div>
+            <div class="bk-code">${escapeHtml(it.passageCode)} ${coachMark}</div>
             ${passageHtml}
             ${grammar}
           </div>
@@ -1336,6 +1339,10 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
                 )
                 .join("")}</div>`
             : "";
+          const coachTxt = (it.coachMemo ?? "").trim();
+          const coachHtml = coachTxt
+            ? `<div class="bk-coach"><span class="bk-coach-tag">코칭 — 워크북에서 다시 써보세요</span>${escapeHtml(coachTxt)}</div>`
+            : "";
           const refHtml =
             !disableCorrection && it.referenceKorean.trim()
               ? `<div class="bk-ref"><span class="bk-ref-tag">모범</span>${escapeHtml(it.referenceKorean)}</div>`
@@ -1347,6 +1354,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
             <div class="bk-code">${escapeHtml(it.passageCode)}</div>
             <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>
             ${refHtml}
+            ${coachHtml}
             ${memoHtml}
             <div class="bk-rewrite"><span class="bk-rewrite-tag">고쳐쓰기</span><span class="bk-line"></span></div>
           </div>
@@ -1470,6 +1478,20 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     font-size: 7pt; font-weight: 800; color: #7a1fa2;
     margin-right: 1.5mm;
   }
+  /* 코칭(조건부 통과) 표시 */
+  .bk-coach {
+    margin-top: 0.8mm; font-size: 8pt; line-height: 1.45; color: #4c1d95;
+    background: #f3ecfd; border-left: 1.5pt solid #7c3aed; padding: 0.8mm 2mm;
+    white-space: pre-wrap;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .bk-coach-tag {
+    display: inline-block; background: #7c3aed; color: #fff;
+    font-size: 7pt; font-weight: 800; border-radius: 1mm;
+    padding: 0 1.2mm; margin-right: 1.5mm; vertical-align: 0.4mm;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .bk-coach-inline { margin-left: 1mm; margin-right: 0; }
   .bk-rewrite { display: flex; align-items: flex-end; gap: 1.5mm; margin-top: 1.6mm; }
   .bk-rewrite-tag { font-size: 7pt; color: #888; white-space: nowrap; }
   .bk-rewrite .bk-line { flex: 1; }
