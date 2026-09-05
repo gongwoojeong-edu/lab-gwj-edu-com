@@ -24,41 +24,57 @@ export interface ExtractionRow {
 }
 
 /**
- * 본문 대조 정리 — 저장된 단어 중 본문에 없는 꼬리표현(예: "elements Closely")을
- * 잘라내고, 그래도 본문에 없으면 제외한다. (과거 AI 추출 오류 데이터 방어)
+ * AI 추출 오류 방어 —
+ * 모델이 같은 꼬리말을 여러 단어 끝에 반복해서 붙이는 오류(예: "elements Closely",
+ * "incorporate Closely" …)나 프롬프트 찌꺼기("head_word:", "Base:" 등)를 제거한다.
+ * 정상적인 숙어(take care of)나 원형 표기는 건드리지 않는다.
  */
 const normText = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
+
+const stripJunk = (raw: string) =>
+  raw
+    .replace(/\s*(head_word|base|form|pos)\s*[:：].*$/i, "")
+    .replace(/\s*Extracting core vocabulary.*$/i, "")
+    .replace(/[^\x00-\x7F]+$/g, "")
+    .trim();
 
 export const sanitizeExtractedWords = (
   words: ExtractedWord[],
   english: string,
 ): ExtractedWord[] => {
   const eng = normText(english || "");
-  if (!eng) return words;
   const has = (w: string) => !!w && eng.includes(normText(w));
+
+  // 1) 본문에 없는 항목들의 "마지막 토큰"이 2번 이상 반복되면 반복 꼬리말로 판단
+  const tailCount = new Map<string, number>();
+  for (const w of words) {
+    const raw = stripJunk(w.word ?? "");
+    if (!raw || !eng || has(raw)) continue;
+    const toks = raw.split(/\s+/);
+    if (toks.length < 2) continue;
+    const tail = toks[toks.length - 1].toLowerCase();
+    tailCount.set(tail, (tailCount.get(tail) ?? 0) + 1);
+  }
+
   const out: ExtractedWord[] = [];
   for (const w of words) {
-    const raw = (w.word ?? "").replace(/[^\x00-\x7F]+$/g, "").trim();
-    if (!raw) continue;
-    let fixed: string | null = has(raw) ? raw : null;
-    if (!fixed) {
-      const toks = raw.split(/\s+/);
-      for (let end = toks.length - 1; end >= 1; end--) {
-        const cand = toks.slice(0, end).join(" ");
-        if (has(cand)) {
-          fixed = cand;
-          break;
-        }
+    let word = stripJunk(w.word ?? "");
+    if (!word) continue;
+    if (eng && !has(word)) {
+      const toks = word.split(/\s+/);
+      const tail = toks[toks.length - 1]?.toLowerCase() ?? "";
+      if (toks.length >= 2 && (tailCount.get(tail) ?? 0) >= 2) {
+        const trimmed = toks.slice(0, -1).join(" ");
+        if (has(trimmed)) word = trimmed;
       }
     }
-    // 본문에서 못 찾으면(원형 표기 등 정상 케이스) 원문 그대로 둔다
-    const finalWord = fixed ?? raw;
-    if (out.some((o) => o.word.toLowerCase() === finalWord.toLowerCase())) continue;
-    out.push({ ...w, word: finalWord });
+    if (out.some((o) => o.word.toLowerCase() === word.toLowerCase())) continue;
+    out.push({ ...w, word });
   }
   return out;
 };
+
 
 export const fetchExtraction = async (sentenceId: string): Promise<ExtractionRow | null> => {
   const { data, error } = await supabase
