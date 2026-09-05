@@ -159,6 +159,31 @@ interface UnitWorkbookContext {
   studentNo: string | null;
 }
 
+/**
+ * 코칭(조건부 통과) 표시 조회 — code → 선생님 코칭 메모(평문).
+ * coach_flagged_at 이 있는 문장만 반환.
+ */
+const fetchCoachFlags = async (
+  studentId: string,
+  codes: string[],
+): Promise<Map<string, string>> => {
+  const map = new Map<string, string>();
+  if (codes.length === 0) return map;
+  const { data } = await supabase
+    .from("sentence_progress")
+    .select("sentence_id, last_coach_memo")
+    .eq("user_id", studentId)
+    .in("sentence_id", codes)
+    .not("coach_flagged_at", "is", null);
+  (data ?? []).forEach((r) => {
+    const memo = memoToPlainText(
+      (r as { last_coach_memo?: string | null }).last_coach_memo,
+    ).trim();
+    map.set(r.sentence_id as string, memo || "선생님 코칭 대상 문장이에요.");
+  });
+  return map;
+};
+
 // ============================================================
 // 1) 구문 · 유닛 통합 — [레거시] 영문 한 유닛 전체 + 학생 한글해석
 //    분석 채점본/구조도 페이지 없음 — 화면으로 첨삭하므로 인쇄에는 불필요
