@@ -2,7 +2,7 @@
 // AnnotationToolbar — 펜 / 색 / 굵기 / 지우개 / 되돌리기 / 표시토글
 //   · 일괄삭제 버튼 없음 (항목 단위만)
 // ============================================================
-import { useRef, useState } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Eraser, MousePointer2, Pen, Redo2, RefreshCw, Trash2, Undo2, Eye, EyeOff, Sparkles, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -64,7 +64,7 @@ export const AnnotationToolbar = ({
   const [collapsed, setCollapsed] = useState(false);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; baseX: number; baseY: number } | null>(null);
 
-  const onGripPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onGripPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     dragRef.current = {
       pointerId: e.pointerId,
@@ -75,12 +75,12 @@ export const AnnotationToolbar = ({
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
-  const onGripPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onGripPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
     setOffset({ x: d.baseX + e.clientX - d.startX, y: d.baseY + e.clientY - d.startY });
   };
-  const onGripPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onGripPointerUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
     if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
   };
 
