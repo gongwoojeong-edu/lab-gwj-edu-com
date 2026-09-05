@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { StructuredMemoInput } from "@/components/learning/StructuredMemoInput";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
@@ -30,7 +31,7 @@ import {
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
-import { fetchPassageSource, type PassageSource } from "@/lib/textbooks";
+import { fetchPassageSource, fetchPassageByCode, updatePassage, type PassageSource } from "@/lib/textbooks";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 
 
@@ -109,6 +110,50 @@ export const TeacherApprovalDialog = ({
   const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
   const [history, setHistory] = useState<PastFeedback[]>([]);
   const [resolved, setResolved] = useState<Record<string, boolean>>({});
+  /** 원문 즉시 수정 */
+  const [editingEnglish, setEditingEnglish] = useState(false);
+  const [englishDraft, setEnglishDraft] = useState("");
+  const [englishOverride, setEnglishOverride] = useState<string | null>(null);
+  const [savingEnglish, setSavingEnglish] = useState(false);
+
+  const shownEnglish = englishOverride ?? englishSentence;
+
+  useEffect(() => {
+    if (!open) {
+      setEditingEnglish(false);
+      setEnglishOverride(null);
+    }
+  }, [open]);
+
+  const saveEnglish = async () => {
+    const next = englishDraft.trim();
+    if (!next) {
+      toast({ title: "원문을 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    setSavingEnglish(true);
+    try {
+      const passage = await fetchPassageByCode(sentenceId);
+      if (!passage) throw new Error("문장을 찾을 수 없습니다");
+      const res = await updatePassage(passage.id, { english: next });
+      setEnglishOverride(res.passage.english);
+      setEditingEnglish(false);
+      toast({
+        title: "원문을 수정했어요",
+        description: res.englishChanged
+          ? "단어·토큰 캐시를 비웠어요. 학생 화면은 새로고침 후 반영됩니다."
+          : undefined,
+      });
+    } catch (e) {
+      toast({
+        title: "수정 실패",
+        description: e instanceof Error ? e.message : "잠시 후 다시 시도해 주세요",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEnglish(false);
+    }
+  };
 
   const redoCount = useMemo(() => history.filter((h) => h.grade === "redo").length, [history]);
   const roundNo = history.length + 1;
@@ -470,10 +515,50 @@ export const TeacherApprovalDialog = ({
                 )}
               </div>
             )}
-            {englishSentence && (
+            {(shownEnglish || editingEnglish) && (
               <div>
-                <div className="text-[11px] text-muted-foreground">원문</div>
-                <div className="font-medium leading-snug">{englishSentence}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[11px] text-muted-foreground">원문</div>
+                  {!editingEnglish && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnglishDraft(shownEnglish ?? "");
+                        setEditingEnglish(true);
+                      }}
+                      className="relative z-30 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                      title="원문 수정"
+                    >
+                      <Pencil className="w-3 h-3" /> 수정
+                    </button>
+                  )}
+                </div>
+                {editingEnglish ? (
+                  <div className="relative z-30 space-y-1.5">
+                    <Textarea
+                      value={englishDraft}
+                      onChange={(e) => setEnglishDraft(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" onClick={saveEnglish} disabled={savingEnglish}>
+                        {savingEnglish ? "저장 중…" : "저장"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingEnglish(false)}
+                        disabled={savingEnglish}
+                      >
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="font-medium leading-snug">{shownEnglish}</div>
+                )}
               </div>
             )}
             {studentTranslation && (
