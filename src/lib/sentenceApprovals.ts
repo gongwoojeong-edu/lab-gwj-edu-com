@@ -6,7 +6,7 @@ import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 import { memoToPlainText } from "@/lib/approvalMemo";
 
-export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo";
+export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo" | "coach";
 export type ApprovalStatus = "pending" | "approved" | "held";
 
 export const GRADE_LABEL: Record<ApprovalGrade, string> = {
@@ -15,6 +15,7 @@ export const GRADE_LABEL: Record<ApprovalGrade, string> = {
   fair: "보통",
   poor: "미흡",
   redo: "재학습",
+  coach: "코칭",
 };
 
 export const GRADE_BADGE_CLASS: Record<ApprovalGrade, string> = {
@@ -23,9 +24,10 @@ export const GRADE_BADGE_CLASS: Record<ApprovalGrade, string> = {
   fair: "bg-amber-500 text-white border-amber-600",
   poor: "bg-orange-500 text-white border-orange-600",
   redo: "bg-rose-500 text-white border-rose-600",
+  coach: "bg-violet-500 text-white border-violet-600",
 };
 
-export const GRADE_ORDER: ApprovalGrade[] = ["excellent", "good", "fair", "poor", "redo"];
+export const GRADE_ORDER: ApprovalGrade[] = ["excellent", "good", "fair", "poor", "coach", "redo"];
 
 export interface SentenceApproval {
   id: string;
