@@ -17,41 +17,54 @@ interface Detail {
   final: string | null;
 }
 
-const cache = new Map<string, Detail>();
+const CACHE_TTL_MS = 10_000;
+const cache = new Map<string, { at: number; detail: Detail }>();
 
 const loadDetail = async (sentenceId: string, userId: string): Promise<Detail> => {
   const key = `${userId}::${sentenceId}`;
   const hit = cache.get(key);
-  if (hit) return hit;
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.detail;
 
-  const [passageRes, transRes] = await Promise.all([
+  const [passageRes, transRes, logsRes] = await Promise.all([
     supabase
       .from("textbook_passages")
       .select("english")
       .eq("code", sentenceId)
       .limit(1)
       .maybeSingle(),
+    // 현재 저장된 해석 = 항상 최신(수정 제출 반영)
     supabase
       .from("sentence_translations")
       .select("text, submitted_at")
       .eq("user_id", userId)
       .eq("sentence_id", sentenceId)
-      .order("submitted_at", { ascending: true }),
+      .order("submitted_at", { ascending: false })
+      .limit(1),
+    // 최초 제출본은 시도 로그에서
+    supabase
+      .from("sentence_attempt_logs")
+      .select("translation_text, completed_at")
+      .eq("user_id", userId)
+      .eq("sentence_id", sentenceId)
+      .order("completed_at", { ascending: true })
+      .limit(1),
   ]);
 
   const rawEnglish = (passageRes.data as { english: string } | null)?.english ?? null;
-  const list = ((transRes.data ?? []) as { text: string }[])
-    .map((r) => (r.text ?? "").trim())
-    .filter(Boolean);
+  const latest = (((transRes.data ?? [])[0] as { text?: string } | undefined)?.text ?? "").trim();
+  const firstLog = (
+    ((logsRes.data ?? [])[0] as { translation_text?: string | null } | undefined)?.translation_text ?? ""
+  ).trim();
 
   const detail: Detail = {
     english: rawEnglish ? stripKoreanFromEnglishSource(rawEnglish) : null,
-    first: list[0] ?? null,
-    final: list.length > 1 ? list[list.length - 1] : null,
+    first: firstLog && latest && firstLog !== latest ? firstLog : latest || firstLog || null,
+    final: firstLog && latest && firstLog !== latest ? latest : null,
   };
-  cache.set(key, detail);
+  cache.set(key, { at: Date.now(), detail });
   return detail;
 };
+
 
 interface Props {
   sentenceId: string;
