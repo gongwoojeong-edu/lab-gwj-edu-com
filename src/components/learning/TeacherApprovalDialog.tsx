@@ -109,6 +109,50 @@ export const TeacherApprovalDialog = ({
   const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
   const [history, setHistory] = useState<PastFeedback[]>([]);
   const [resolved, setResolved] = useState<Record<string, boolean>>({});
+  /** 원문 즉시 수정 */
+  const [editingEnglish, setEditingEnglish] = useState(false);
+  const [englishDraft, setEnglishDraft] = useState("");
+  const [englishOverride, setEnglishOverride] = useState<string | null>(null);
+  const [savingEnglish, setSavingEnglish] = useState(false);
+
+  const shownEnglish = englishOverride ?? englishSentence;
+
+  useEffect(() => {
+    if (!open) {
+      setEditingEnglish(false);
+      setEnglishOverride(null);
+    }
+  }, [open]);
+
+  const saveEnglish = async () => {
+    const next = englishDraft.trim();
+    if (!next) {
+      toast({ title: "원문을 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    setSavingEnglish(true);
+    try {
+      const passage = await fetchPassageByCode(sentenceId);
+      if (!passage) throw new Error("문장을 찾을 수 없습니다");
+      const res = await updatePassage(passage.id, { english: next });
+      setEnglishOverride(res.passage.english);
+      setEditingEnglish(false);
+      toast({
+        title: "원문을 수정했어요",
+        description: res.englishChanged
+          ? "단어·토큰 캐시를 비웠어요. 학생 화면은 새로고침 후 반영됩니다."
+          : undefined,
+      });
+    } catch (e) {
+      toast({
+        title: "수정 실패",
+        description: e instanceof Error ? e.message : "잠시 후 다시 시도해 주세요",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEnglish(false);
+    }
+  };
 
   const redoCount = useMemo(() => history.filter((h) => h.grade === "redo").length, [history]);
   const roundNo = history.length + 1;
