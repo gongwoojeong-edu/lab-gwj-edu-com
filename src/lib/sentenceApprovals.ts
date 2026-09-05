@@ -240,9 +240,11 @@ export const approveSentenceRequest = async (input: {
       kind: "evaluation",
       title: isRedo
         ? "선생님 추가학습 요청 — 한 번 더 제출해주세요"
-        : congrats
-          ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
-          : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
+        : isCoach
+          ? "선생님 코칭 — 워크북에서 다시 써보세요"
+          : congrats
+            ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
+            : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
       body: [congrats, memoText].filter(Boolean).join("\n\n") || null,
       grade: input.grade,
       sentenceId: input.sentenceId,
