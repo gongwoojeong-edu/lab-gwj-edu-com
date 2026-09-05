@@ -285,6 +285,7 @@ export async function applyApprovalToMyProgress(
     return;
   }
 
+  const isCoach = !isHeld && approval.grade === "coach";
   await upsertSentenceProgress(approval.sentence_id, {
     last_grade: isHeld ? null : approval.grade,
     last_memo: memoTrimmed,
@@ -295,6 +296,9 @@ export async function applyApprovalToMyProgress(
     analysis_done: true,
     word_test_done: true,
     redo_requested_at: null,
+    ...(isCoach
+      ? { coach_flagged_at: approval.approved_at ?? nowIso, last_coach_memo: memoTrimmed }
+      : {}),
     touchActivity: true,
     assignmentId,
   });
