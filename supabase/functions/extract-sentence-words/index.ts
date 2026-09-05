@@ -250,9 +250,10 @@ Deno.serve(async (req) => {
         if (!inEnglish(word)) {
           const toks = word.split(/\s+/);
           const tail = toks[toks.length - 1]?.toLowerCase() ?? "";
-          if (toks.length >= 2 && (tailCount.get(tail) ?? 0) >= 2) {
-            const trimmed = toks.slice(0, -1).join(" ");
-            if (inEnglish(trimmed)) word = trimmed;
+          const trimmed = toks.slice(0, -1).join(" ");
+          const tailMissing = !!tail && !engNorm.includes(tail);
+          if (toks.length >= 2 && ((tailCount.get(tail) ?? 0) >= 2 || tailMissing) && inEnglish(trimmed)) {
+            word = trimmed;
           }
         }
         if (word !== w.word.trim()) console.warn("repaired word", w.word, "→", word, sentenceId);
