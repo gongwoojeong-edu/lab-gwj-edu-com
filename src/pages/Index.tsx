@@ -137,6 +137,10 @@ import {
   fetchSentenceProgress,
   upsertSentenceProgress,
   upsertOwnerProgress,
+  deleteOwnerProgress,
+  deleteModifierRelation,
+  deleteReferentRelation,
+  deleteIdiomRow,
   fetchBadgeOffsets,
   upsertBadgeOffset,
 } from "@/integrations/supabase/storage";
@@ -1687,14 +1691,15 @@ const Index = ({
 
     // 관용구 잔상 제거 — owner의 단어 인덱스 범위와 겹치는 idiom을 모두 삭제
     const ownerIndices = completedSelectionMap[ownerId];
+    let removedIdioms: { indices: number[] }[] = [];
     if (ownerIndices && ownerIndices.length > 0) {
       const sentIdioms = idiomMap[sentence.id] ?? [];
-      const toRemove = sentIdioms.filter((m) =>
+      removedIdioms = sentIdioms.filter((m) =>
         m.indices.some((i) => ownerIndices.includes(i)),
       );
-      if (toRemove.length > 0) {
+      if (removedIdioms.length > 0) {
         let nextIdiomMap = idiomMap;
-        toRemove.forEach((m) => {
+        removedIdioms.forEach((m) => {
           nextIdiomMap = removeIdiom(sentence.id, m.indices);
         });
         setIdiomMap(nextIdiomMap);
@@ -1707,6 +1712,25 @@ const Index = ({
       setDragStart(null);
       setDrawerOpen(false);
     }
+
+    // 클라우드 저장분도 함께 삭제 — 로컬만 지우면 다음 로드 때 복원되어
+    // "지우개가 안 되는" 것처럼 보이는 문제가 생긴다.
+    void (async () => {
+      const results = await Promise.allSettled([
+        deleteOwnerProgress(sentence.id, ownerId),
+        deleteModifierRelation(sentence.id, ownerId),
+        deleteReferentRelation(sentence.id, ownerId),
+        ...removedIdioms.map((m) => deleteIdiomRow(sentence.id, m.indices)),
+      ]);
+      if (results.some((r) => r.status === "rejected")) {
+        console.warn("[eraseOwner] 클라우드 삭제 실패", results);
+        toast({
+          title: "삭제 저장에 실패했어요",
+          description: "인터넷 연결을 확인하고 한 번 더 지워주세요.",
+          variant: "destructive",
+        });
+      }
+    })();
   };
 
   // ===== 단어 단위 선택 =====
@@ -1914,6 +1938,25 @@ const Index = ({
       return changed ? n : prev;
     });
     clearActiveSelection();
+
+    // 클라우드 저장분도 함께 삭제 (eraseOwner와 동일한 이유)
+    void (async () => {
+      const results = await Promise.allSettled(
+        Array.from(ownerIds).flatMap((id) => [
+          deleteOwnerProgress(sentence.id, id),
+          deleteModifierRelation(sentence.id, id),
+          deleteReferentRelation(sentence.id, id),
+        ]),
+      );
+      if (results.some((r) => r.status === "rejected")) {
+        console.warn("[handleEraser] 클라우드 삭제 실패", results);
+        toast({
+          title: "삭제 저장에 실패했어요",
+          description: "인터넷 연결을 확인하고 한 번 더 지워주세요.",
+          variant: "destructive",
+        });
+      }
+    })();
   };
 
   // ===== 숙어 / Phrase 핸들러 =====
