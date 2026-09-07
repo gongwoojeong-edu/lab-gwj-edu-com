@@ -82,6 +82,24 @@ const PendingApprovals = () => {
     }
   };
 
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteRows = async (ids: string[], label: string) => {
+    if (ids.length === 0) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("sentence_approvals").delete().in("id", ids);
+      if (error) throw error;
+      setRows((prev) => prev.filter((r) => !ids.includes(r.id)));
+      toast({ title: `🗑️ ${label} ${ids.length}건을 삭제했습니다` });
+      await load();
+    } catch (e: any) {
+      toast({ title: "삭제 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
