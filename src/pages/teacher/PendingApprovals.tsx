@@ -248,10 +248,31 @@ const PendingApprovals = () => {
             <h1 className="text-2xl font-bold">한글해석 승인 대기</h1>
             <Badge variant="secondary">{countLabel}</Badge>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
-            새로고침
-          </Button>
+          <div className="flex items-center gap-2">
+            {orphanIds.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                disabled={deleting}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `원문이 사라진 항목 ${orphanIds.length}건을 삭제할까요? (지문 삭제·합치기로 남은 찌꺼기)`,
+                    )
+                  )
+                    void deleteRows(orphanIds, "원문 없는 항목");
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                원문 없는 항목 {orphanIds.length}건 삭제
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
+              새로고침
+            </Button>
+          </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus)}>
