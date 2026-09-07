@@ -20,7 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Save, X, BookOpen } from "lucide-react";
+import { Pencil, Save, X, BookOpen, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -234,6 +234,11 @@ const PendingApprovals = () => {
     return () => unsub();
   }, [load]);
 
+  const orphanIds = useMemo(
+    () => rows.filter((r) => !r.english?.trim()).map((r) => r.id),
+    [rows],
+  );
+
   const countLabel = useMemo(
     () => `${rows.length}건 ${tab === "held" ? "보류" : "대기"}`,
     [rows.length, tab],
@@ -384,6 +389,19 @@ const PendingApprovals = () => {
                   </Button>
                   <Button size="sm" onClick={() => setTarget(row)}>
                     <ShieldCheck className="w-4 h-4 mr-1" /> {row.status === "held" ? "첨삭·최종승인" : "승인하기"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    disabled={deleting}
+                    title="이 요청을 목록에서 삭제"
+                    onClick={() => {
+                      if (window.confirm("이 승인 요청을 삭제할까요? 되돌릴 수 없습니다."))
+                        void deleteRows([row.id], "승인 요청");
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
