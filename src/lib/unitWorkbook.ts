@@ -312,19 +312,24 @@ const buildSyntaxUnit = async (
     padding: 0 1.2mm; margin-right: 1.5mm; vertical-align: 0.4mm;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  /* 뒷면 구조도 페이지 */
-  .lg-back { page-break-before: always; }
+  /* 구조도는 앞 내용 뒤의 남는 공간부터 이어서 배치한다. */
+  .lg-back { page-break-before: auto; break-before: auto; padding-top: 2mm; }
+  .lg-structure-lead { break-inside: avoid; page-break-inside: avoid; }
   .lg-back .lg-section-title { margin-top: 2mm; }
   .lg-grid {
-    min-height: 70mm;
+    min-height: 52mm;
     background-image:
       linear-gradient(#bbb 0.3pt, transparent 0.3pt),
       linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
     background-size: 4mm 4mm;
     border: 0.5pt solid #000;
   }
-  .lg-write { display: flex; flex-direction: column; gap: 9mm; padding: 2mm 0 0.5mm; }
+  .lg-write { display: flex; flex-direction: column; gap: 6mm; padding: 1.5mm 0 0.5mm; }
   .lg-line { border-bottom: 0.5pt solid #000; height: 0; }
+  .lg-wrap-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; break-inside: avoid; page-break-inside: avoid; }
+  .lg-keywords { border: 0.5pt solid #000; padding: 0.5mm 2mm; }
+  .lg-keyword-row { display:flex; align-items:flex-end; gap:2mm; padding:0.35mm 0; border-bottom:0.3pt dashed #bbb; }
+  .lg-keyword-row:last-child { border-bottom: 0; }
   /* 답지 모드 */
   .lg-ans-banner {
     display: inline-block; background: #c00; color: #fff;
@@ -381,6 +386,7 @@ const buildSyntaxUnit = async (
 </div>
 
 <div class="lg-back">
+  <div class="lg-structure-lead">
   <div class="lg-header">
     <div>
       <div class="lg-eyebrow">Gongwoojeong · Unit Wrap-up${answerKey ? " · ANSWER KEY" : ""}</div>
@@ -397,48 +403,49 @@ const buildSyntaxUnit = async (
     ? '<div class="lg-ans-grid-note">구조도 정답은 DB에 저장되지 않습니다 — 화면 분석으로 대조하세요.</div>'
     : '<div class="lg-grid"></div>'}
   <div class="lg-section-title" style="margin-top:1.5mm;">핵심 키워드 정리</div>
-  <div style="border:0.5pt solid #000;padding:1mm 2mm;">
+  <div class="lg-keywords">
     ${passages
       .map(
         (p) => `
-      <div style="display:flex;align-items:flex-end;gap:2mm;padding:0.8mm 0;border-bottom:0.3pt dashed #bbb;">
+      <div class="lg-keyword-row">
         <span style="font-size:6.5pt;color:#888;font-family:monospace;min-width:17mm;">${escapeHtml(p.code)}</span>
         <span style="font-size:7.5pt;color:#555;">키워드</span>
-        <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
-        <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
-        <span style="flex:1;border-bottom:0.5pt solid #000;height:4.5mm;"></span>
+        <span style="flex:1;border-bottom:0.5pt solid #000;height:3.5mm;"></span>
+        <span style="flex:1;border-bottom:0.5pt solid #000;height:3.5mm;"></span>
+        <span style="flex:1;border-bottom:0.5pt solid #000;height:3.5mm;"></span>
       </div>`,
       )
       .join("") || '<div class="lg-muted">(지문 없음)</div>'}
   </div>
-  <div class="lg-section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
-  ${answerKey
-    ? '<div class="lg-ans-grid-note" style="min-height:18mm">지스트 정답은 DB에 저장되지 않습니다.</div>'
-    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
-  <div class="lg-section-title">③ 영작</div>
-  ${answerKey
-    ? `<div class="lg-ans-fill">${
-        passages
-          .map((p, i) => `${i + 1}. ${escapeHtml(p.english ?? "")}`)
-          .join("\n") || '(지문 없음)'
-      }</div>`
-    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
-  <div class="lg-section-title">④ 주요 어법과 어휘 정리칸 (유의어/반의어)</div>
-  ${answerKey
-    ? '<div class="lg-ans-grid-note" style="min-height:22mm">어법·어휘 정답은 DB에 저장되지 않습니다 — 수업 중 판서로 대조하세요.</div>'
-    : `<div class="lg-write">
-        <div class="lg-line"></div>
-        <div class="lg-line"></div>
-        <div class="lg-line"></div>
-      </div>`}
-  <div class="lg-section-title">⑤ 재영작</div>
-  ${answerKey
-    ? `<div class="lg-ans-fill">${
-        passages
-          .map((p, i) => `${i + 1}. ${escapeHtml(p.english ?? "")}`)
-          .join("\n") || '(지문 없음)'
-      }</div>`
-    : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
+  </div>
+  <div class="lg-wrap-cols">
+    <div>
+      <div class="lg-section-title">② 지스트 (한글 주제문)</div>
+      ${answerKey
+        ? '<div class="lg-ans-grid-note" style="min-height:14mm">지스트 정답은 DB에 저장되지 않습니다.</div>'
+        : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
+    </div>
+    <div>
+      <div class="lg-section-title">③ 영작</div>
+      ${answerKey
+        ? `<div class="lg-ans-fill">${passages.map((p, i) => `${i + 1}. ${escapeHtml(p.english ?? "")}`).join("\n") || '(지문 없음)'}</div>`
+        : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>'}
+    </div>
+  </div>
+  <div class="lg-wrap-cols">
+    <div>
+      <div class="lg-section-title">④ 주요 어법·어휘 (유의어/반의어)</div>
+      ${answerKey
+        ? '<div class="lg-ans-grid-note" style="min-height:18mm">어법·어휘 정답은 DB에 저장되지 않습니다 — 수업 중 판서로 대조하세요.</div>'
+        : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div><div class="lg-line"></div></div>'}
+    </div>
+    <div>
+      <div class="lg-section-title">⑤ 재영작</div>
+      ${answerKey
+        ? `<div class="lg-ans-fill">${passages.map((p, i) => `${i + 1}. ${escapeHtml(p.english ?? "")}`).join("\n") || '(지문 없음)'}</div>`
+        : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div><div class="lg-line"></div></div>'}
+    </div>
+  </div>
 </div>
 <script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script>
 </body></html>`;

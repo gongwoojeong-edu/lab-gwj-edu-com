@@ -1024,30 +1024,24 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
       )
       .join("")}
   </div>
-  <div class="section">
-    <div class="section-title">② 지스트 (한글, 한문장으로 주제쓰기)</div>
-    <div class="cb-write cb-write-wide">
-      <div class="cb-line"></div><div class="cb-line"></div>
+  <div class="cb-two-cols">
+    <div class="section">
+      <div class="section-title">② 지스트 (한글 주제문)</div>
+      <div class="cb-write cb-write-wide"><div class="cb-line"></div><div class="cb-line"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">③ 영작</div>
+      <div class="cb-write cb-write-wide"><div class="cb-line"></div><div class="cb-line"></div></div>
     </div>
   </div>
-  <div class="section">
-    <div class="section-title">③ 영작</div>
-    <div class="cb-write cb-write-wide">
-      <div class="cb-line"></div><div class="cb-line"></div>
+  <div class="cb-two-cols">
+    <div class="section">
+      <div class="section-title">④ 주요 어법 정리</div>
+      <div class="cb-write cb-write-large"><div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div></div>
     </div>
-  </div>
-  <div class="section">
-    <div class="section-title">④ 주요 어법 정리</div>
-    <div class="cb-write cb-write-wide cb-write-large">
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
-    </div>
-  </div>
-  <div class="section">
-    <div class="section-title">⑤ 주요 어휘 정리 (유의어/반의어)</div>
-    <div class="cb-write cb-write-wide cb-write-large">
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
-      <div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div>
+    <div class="section">
+      <div class="section-title">⑤ 주요 어휘 (유의어/반의어)</div>
+      <div class="cb-write cb-write-large"><div class="cb-line"></div><div class="cb-line"></div><div class="cb-line"></div></div>
     </div>
   </div>
   <div class="section">
@@ -1110,24 +1104,25 @@ export const buildUnitCombinedWorkbookHtml = (p: UnitCombinedPayload): string =>
   .cb-empty { padding: 4mm; text-align: center; font-size: 10pt; color: #777; }
 
   /* 뒷면 */
-  .cb-back { padding: 0 0 4mm; }
-  .cb-back .section { padding: 1.5mm 2mm; }
+  .cb-back { padding: 0 0 2mm; }
+  .cb-back .section { padding: 1mm 2mm; break-inside: avoid; page-break-inside: avoid; }
   .cb-back .section-title {
     font-size: 9.5pt; font-weight: 700; margin-bottom: 1mm;
     border-left: 2pt solid #000; padding-left: 2mm;
   }
   .cb-grid {
-    min-height: 70mm;
+    min-height: 52mm;
     background-image:
       linear-gradient(#bbb 0.3pt, transparent 0.3pt),
       linear-gradient(90deg, #bbb 0.3pt, transparent 0.3pt);
     background-size: 4mm 4mm;
     border: 0.5pt solid #000;
   }
-  .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 2mm; }
-  .cb-write-wide { gap: 9mm; padding-top: 2mm; padding-bottom: 0.5mm; }
-  .cb-write-large { gap: 10mm; padding-top: 2.5mm; padding-bottom: 1mm; }
+  .cb-write { display: flex; flex-direction: column; gap: 5mm; padding-top: 1.5mm; }
+  .cb-write-wide { gap: 7mm; padding-top: 1.5mm; padding-bottom: 0.5mm; }
+  .cb-write-large { gap: 7mm; padding-top: 1.5mm; padding-bottom: 0.5mm; }
   .cb-line { border-bottom: 0.5pt solid #000; height: 0; }
+  .cb-two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; break-inside: avoid; page-break-inside: avoid; }
 
 </style>
 
