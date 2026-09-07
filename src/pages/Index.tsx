@@ -1938,6 +1938,25 @@ const Index = ({
       return changed ? n : prev;
     });
     clearActiveSelection();
+
+    // 클라우드 저장분도 함께 삭제 (eraseOwner와 동일한 이유)
+    void (async () => {
+      const results = await Promise.allSettled(
+        Array.from(ownerIds).flatMap((id) => [
+          deleteOwnerProgress(sentence.id, id),
+          deleteModifierRelation(sentence.id, id),
+          deleteReferentRelation(sentence.id, id),
+        ]),
+      );
+      if (results.some((r) => r.status === "rejected")) {
+        console.warn("[handleEraser] 클라우드 삭제 실패", results);
+        toast({
+          title: "삭제 저장에 실패했어요",
+          description: "인터넷 연결을 확인하고 한 번 더 지워주세요.",
+          variant: "destructive",
+        });
+      }
+    })();
   };
 
   // ===== 숙어 / Phrase 핸들러 =====
