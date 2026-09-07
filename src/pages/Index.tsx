@@ -137,6 +137,10 @@ import {
   fetchSentenceProgress,
   upsertSentenceProgress,
   upsertOwnerProgress,
+  deleteOwnerProgress,
+  deleteModifierRelation,
+  deleteReferentRelation,
+  deleteIdiomRow,
   fetchBadgeOffsets,
   upsertBadgeOffset,
 } from "@/integrations/supabase/storage";
