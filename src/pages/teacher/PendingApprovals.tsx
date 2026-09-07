@@ -20,7 +20,7 @@ import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Save, X, BookOpen } from "lucide-react";
+import { Pencil, Save, X, BookOpen, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -79,6 +79,24 @@ const PendingApprovals = () => {
       toast({ title: "저장 실패", description: e?.message ?? String(e), variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteRows = async (ids: string[], label: string) => {
+    if (ids.length === 0) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("sentence_approvals").delete().in("id", ids);
+      if (error) throw error;
+      setRows((prev) => prev.filter((r) => !ids.includes(r.id)));
+      toast({ title: `🗑️ ${label} ${ids.length}건을 삭제했습니다` });
+      await load();
+    } catch (e: any) {
+      toast({ title: "삭제 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -216,6 +234,11 @@ const PendingApprovals = () => {
     return () => unsub();
   }, [load]);
 
+  const orphanIds = useMemo(
+    () => rows.filter((r) => !r.english?.trim()).map((r) => r.id),
+    [rows],
+  );
+
   const countLabel = useMemo(
     () => `${rows.length}건 ${tab === "held" ? "보류" : "대기"}`,
     [rows.length, tab],
@@ -230,10 +253,31 @@ const PendingApprovals = () => {
             <h1 className="text-2xl font-bold">한글해석 승인 대기</h1>
             <Badge variant="secondary">{countLabel}</Badge>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
-            새로고침
-          </Button>
+          <div className="flex items-center gap-2">
+            {orphanIds.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                disabled={deleting}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `원문이 사라진 항목 ${orphanIds.length}건을 삭제할까요? (지문 삭제·합치기로 남은 찌꺼기)`,
+                    )
+                  )
+                    void deleteRows(orphanIds, "원문 없는 항목");
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                원문 없는 항목 {orphanIds.length}건 삭제
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
+              새로고침
+            </Button>
+          </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus)}>
@@ -345,6 +389,19 @@ const PendingApprovals = () => {
                   </Button>
                   <Button size="sm" onClick={() => setTarget(row)}>
                     <ShieldCheck className="w-4 h-4 mr-1" /> {row.status === "held" ? "첨삭·최종승인" : "승인하기"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    disabled={deleting}
+                    title="이 요청을 목록에서 삭제"
+                    onClick={() => {
+                      if (window.confirm("이 승인 요청을 삭제할까요? 되돌릴 수 없습니다."))
+                        void deleteRows([row.id], "승인 요청");
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
