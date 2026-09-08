@@ -734,6 +734,7 @@ export const resolveNextAfterPass = async (
         .from("textbook_units")
         .select("id, unit_no")
         .eq("textbook_id", tbId)
+        .eq("excluded_from_scope", false)
         .gt("unit_no", curNo)
         .order("unit_no", { ascending: true });
 
