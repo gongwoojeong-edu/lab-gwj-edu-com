@@ -55,7 +55,13 @@ export const SentenceSkipBulkDialog = ({
 
   useEffect(() => {
     if (!open) return;
-    setSelectedCodes(new Set(defaultSelectedCodes ?? passages.map((p) => p.code)));
+    setSelectedCodes(
+      new Set(
+        defaultSelectedCodes && defaultSelectedCodes.length > 0
+          ? defaultSelectedCodes
+          : passages.map((p) => p.code),
+      ),
+    );
     setSelectedStudents(new Set());
     setQuery("");
     let cancelled = false;

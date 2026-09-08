@@ -21,6 +21,7 @@ import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
 import {
   fetchOverridesForStudent,
   upsertSkipPre,
+  upsertSkipSentence,
 } from "@/lib/studentPassageOverrides";
 import { LEVEL_LABEL } from "@/lib/levels";
 import { toast } from "@/hooks/use-toast";
@@ -36,6 +37,7 @@ export const SkipPreManagerDialog = ({ open, onOpenChange, userId, studentName }
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [skipMap, setSkipMap] = useState<Record<string, boolean>>({});
+  const [skipSentenceMap, setSkipSentenceMap] = useState<Record<string, boolean>>({});
   const [allSentences, setAllSentences] = useState<Sentence[]>([]);
   const [query, setQuery] = useState("");
   const [showOnlyOn, setShowOnlyOn] = useState(false);
@@ -50,10 +52,13 @@ export const SkipPreManagerDialog = ({ open, onOpenChange, userId, studentName }
         const overrides = await fetchOverridesForStudent(userId);
         if (cancelled) return;
         const m: Record<string, boolean> = {};
+        const ms: Record<string, boolean> = {};
         overrides.forEach((o) => {
           if (o.skip_pre) m[o.sentence_id] = true;
+          if (o.skip_sentence) ms[o.sentence_id] = true;
         });
         setSkipMap(m);
+        setSkipSentenceMap(ms);
         // SENTENCES는 hydrate 후 모듈 export로 갱신됨
         setAllSentences([...SENTENCES]);
       } catch (e) {
@@ -100,6 +105,24 @@ export const SkipPreManagerDialog = ({ open, onOpenChange, userId, studentName }
     }
   };
 
+  const onToggleSentence = async (sentenceId: string, next: boolean) => {
+    if (!userId) return;
+    setSavingId(sentenceId);
+    try {
+      await upsertSkipSentence(userId, sentenceId, next);
+      setSkipSentenceMap((prev) => {
+        const m = { ...prev };
+        if (next) m[sentenceId] = true;
+        else delete m[sentenceId];
+        return m;
+      });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const onCount = Object.values(skipMap).filter(Boolean).length;
 
   return (
@@ -108,7 +131,7 @@ export const SkipPreManagerDialog = ({ open, onOpenChange, userId, studentName }
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FastForward className="size-4" />
-            단어학습 스킵 관리
+            스킵 관리 (단어학습 · 문장 전체)
             {studentName && <span className="text-muted-foreground font-normal text-sm">— {studentName}</span>}
           </DialogTitle>
         </DialogHeader>
@@ -159,15 +182,29 @@ export const SkipPreManagerDialog = ({ open, onOpenChange, userId, studentName }
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs ${on ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                        {on ? "단어학습 스킵" : "기본"}
-                      </span>
-                      <Switch
-                        checked={on}
-                        disabled={savingId === s.id}
-                        onCheckedChange={(v) => onToggle(s.id, v)}
-                      />
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs ${on ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                          단어학습 스킵
+                        </span>
+                        <Switch
+                          checked={on}
+                          disabled={savingId === s.id}
+                          onCheckedChange={(v) => onToggle(s.id, v)}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-xs ${skipSentenceMap[s.id] ? "text-amber-600 font-semibold" : "text-muted-foreground"}`}
+                        >
+                          문장 전체 스킵
+                        </span>
+                        <Switch
+                          checked={!!skipSentenceMap[s.id]}
+                          disabled={savingId === s.id}
+                          onCheckedChange={(v) => onToggleSentence(s.id, v)}
+                        />
+                      </div>
                     </div>
                   </li>
                 );
