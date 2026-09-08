@@ -102,7 +102,20 @@ export const createApprovalRequest = async (
     console.error("[createApprovalRequest] insert failed", error, payload);
     throw error;
   }
+
+  // 학생이 재학습을 실제로 다시 제출했으므로 진도 잠금을 해제한다.
+  let clearQ = supabase
+    .from("sentence_progress")
+    .update({ redo_requested_at: null } as never)
+    .eq("user_id", userId)
+    .eq("sentence_id", sentenceId);
+  if (assignmentId) clearQ = clearQ.eq("assignment_id", assignmentId);
+  else clearQ = clearQ.is("assignment_id", null);
+  const { error: clearErr } = await clearQ;
+  if (clearErr) console.warn("[createApprovalRequest] redo flag clear failed", clearErr);
+
   return data as SentenceApproval;
+
 };
 
 /** 선생님(또는 PIN 통과 후 현재 세션): 승인 + 등급/메모 기록.
