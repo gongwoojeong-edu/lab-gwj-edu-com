@@ -114,6 +114,7 @@ const withLearnLoadTimeout = async <T,>(promise: PromiseLike<T>, label: string):
 const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
+  const [skippedSentence, setSkippedSentence] = useState(false);
   const { roles } = useAuth();
   const { setMode } = useViewMode();
   const { displayStudent: levelDisplay } = useLevelLabels();
@@ -414,6 +415,7 @@ const SentenceLearn = () => {
       // 특별과제의 단계 포함 여부 — 없으면 기본(모두 true)
       // 학생×지문 override (skip_pre)가 켜져 있으면 단어학습(pre)을 OFF로 강제
       const overrideSkipPre = !!overrideRes?.skip_pre;
+      if (mounted) setSkippedSentence(!!overrideRes?.skip_sentence);
       const flags = {
         pre: overrideSkipPre ? false : (assignRes ? !!assignRes.include_pre : true),
         analysis: assignRes ? !!assignRes.include_analysis : true,
@@ -1059,6 +1061,11 @@ const SentenceLearn = () => {
                 )}
                 {levelDisplay(sentence.level)} · {sentence.id}
 
+                {skippedSentence && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
+                    건너뛰기 지정
+                  </span>
+                )}
                 {previousStatus === "fail" && (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
                     미통
