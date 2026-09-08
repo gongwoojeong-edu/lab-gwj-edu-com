@@ -245,7 +245,7 @@ const MemorizeLearn = () => {
       });
       const r = await resolveNextAfterPass(sentence.id, null);
       if (r.sentence && r.sentence.id !== sentence.id) {
-        navigate(`/learn/memorize/${encodeURIComponent(r.sentence.id)}`);
+        navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}/memorize`);
       } else {
         navigate("/learn");
       }
