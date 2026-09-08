@@ -103,6 +103,7 @@ export const UnitWorkbookPreviewDialog = ({
 }: UnitWorkbookPreviewProps) => {
   const [mode, setMode] = useState<WorkbookMode>(defaultMode);
   const [answerKey, setAnswerKey] = useState(false);
+  const [hideTranslation, setHideTranslation] = useState(false);
   const [extraUnitIds, setExtraUnitIds] = useState<string[]>([]);
 
   // 다이얼로그가 열릴 때마다 기본 모드로 리셋
@@ -110,9 +111,14 @@ export const UnitWorkbookPreviewDialog = ({
     if (open) {
       setMode(defaultMode);
       setAnswerKey(false);
+      setHideTranslation(false);
       setExtraUnitIds([]);
     }
   }, [open, defaultMode]);
+
+  // 학생해석 빼기 옵션은 구문 워크북에서만 의미 있음
+  const canHideTranslation = mode === "syntax_unit" || mode === "syntax_book";
+  const hideStudentTranslation = canHideTranslation && hideTranslation;
 
   const toggleExtraUnit = (id: string) =>
     setExtraUnitIds((prev) =>
