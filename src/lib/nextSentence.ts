@@ -287,7 +287,8 @@ export const resolveNextSentence = async (
     .slice()
     .sort((a, b) => comparePassageOrder(a.id, b.id, orderMeta));
 
-  const found = inLevel.find((s) => !passed.has(s.id));
+  const skipped = await fetchSkippedSentenceIds(userId);
+  const found = inLevel.find((s) => !passed.has(s.id) && !skipped.has(s.id));
   if (found) {
     // current_level/current_no 는 메인덱(A) 진도 지표이므로 서브덱에서는 갱신하지 않는다.
     if (track === "A" && (profile.current_level !== targetLevel || profile.current_no !== found.no)) {
