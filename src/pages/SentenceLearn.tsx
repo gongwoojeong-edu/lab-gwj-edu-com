@@ -737,6 +737,14 @@ const SentenceLearn = () => {
     }
     const r = await resolveNextAfterPass(sid, assignmentIdParam);
     if (r.sentence) {
+      if (r.redoLock) {
+        toast({
+          title: "재학습 먼저 완료해 주세요",
+          description:
+            memoToPlainText(r.redoMemo ?? null) ||
+            "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
+        });
+      }
       const qs = r.assignmentId
         ? `?assignment=${encodeURIComponent(r.assignmentId)}`
         : "";
@@ -744,6 +752,7 @@ const SentenceLearn = () => {
     } else {
       navigate("/learn");
     }
+
   };
 
   const advanceAfterApproval = async (approval: SentenceApproval) => {
@@ -1571,6 +1580,14 @@ const SentenceLearn = () => {
                   {
                     const r = await resolveNextAfterPass(sentence.id, asnId);
                     if (r.sentence && r.sentence.id !== sentence.id) {
+                      if (r.redoLock) {
+                        toast({
+                          title: "재학습 먼저 완료해 주세요",
+                          description:
+                            memoToPlainText(r.redoMemo ?? null) ||
+                            "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
+                        });
+                      }
                       const qs = r.assignmentId
                         ? `?assignment=${encodeURIComponent(r.assignmentId)}`
                         : "";
@@ -1579,6 +1596,7 @@ const SentenceLearn = () => {
                       navigate("/learn");
                     }
                   }
+
 
 
                 } catch (e: unknown) {

@@ -49,7 +49,93 @@ export interface NextSentenceResult {
   assignmentId?: string | null;
   /** 이 결과가 속한 진도 트랙 */
   track?: DeckTrack;
+  /** 선생님 재학습 요청 때문에 이 문장으로 되돌아온 경우 */
+  redoLock?: boolean;
+  /** 재학습 요청 메모 */
+  redoMemo?: string | null;
 }
+
+export interface PendingRedo {
+  sentenceId: string;
+  assignmentId: string | null;
+  memo: string | null;
+  requestedAt: string;
+}
+
+/** 선생님/관리자 세션에서는 재학습 잠금을 우회한다 (수업 중 진도 진행용). */
+let staffSessionCache: { userId: string; isStaff: boolean } | null = null;
+const isStaffSession = async (userId: string): Promise<boolean> => {
+  if (staffSessionCache?.userId === userId) return staffSessionCache.isStaff;
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["teacher", "admin"]);
+  const isStaff = ((data ?? []) as { role: string }[]).length > 0;
+  staffSessionCache = { userId, isStaff };
+  return isStaff;
+};
+
+/**
+ * 아직 다시 제출하지 않은 "재학습 요청" 문장 중 가장 먼저 요청된 것.
+ * - assignmentId 지정: 해당 특별과제 안에서만
+ * - 미지정(null): 일반 진도(assignment_id IS NULL) 행만
+ */
+export const findPendingRedo = async (
+  excludeSentenceId?: string,
+  assignmentId?: string | null,
+): Promise<PendingRedo | null> => {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  if (await isStaffSession(userId)) return null;
+
+  let q = supabase
+    .from("sentence_progress")
+    .select("sentence_id, assignment_id, redo_requested_at, last_redo_memo")
+    .eq("user_id", userId)
+    .not("redo_requested_at", "is", null)
+    .order("redo_requested_at", { ascending: true })
+    .limit(10);
+  if (assignmentId) q = q.eq("assignment_id", assignmentId);
+  else q = q.is("assignment_id", null);
+
+  const { data } = await q;
+  const rows = (data ?? []) as {
+    sentence_id: string;
+    assignment_id: string | null;
+    redo_requested_at: string;
+    last_redo_memo: string | null;
+  }[];
+  const row = rows.find((r) => r.sentence_id !== excludeSentenceId);
+  if (!row) return null;
+  return {
+    sentenceId: row.sentence_id,
+    assignmentId: row.assignment_id ?? null,
+    memo: row.last_redo_memo ?? null,
+    requestedAt: row.redo_requested_at,
+  };
+};
+
+/** 재학습 잠금이 걸려 있으면 그 문장으로 되돌리는 결과를 만든다. */
+const redoLockResult = async (
+  profile: StudentProfile | null,
+  excludeSentenceId?: string,
+  assignmentId?: string | null,
+): Promise<NextSentenceResult | null> => {
+  const redo = await findPendingRedo(excludeSentenceId, assignmentId ?? null);
+  if (!redo) return null;
+  const sentence = await loadSentenceById(redo.sentenceId);
+  if (!sentence) return null;
+  return {
+    sentence,
+    profile,
+    done: false,
+    assignmentId: redo.assignmentId,
+    redoLock: true,
+    redoMemo: redo.memo,
+  };
+};
+
 
 /**
  * 학습 범위(트랙 scope) → passage code 집합.
@@ -152,6 +238,11 @@ export const resolveNextSentence = async (
   // pull all passed sentence ids for this user
   const userId = await getCurrentUserId();
   if (!userId) return { sentence: null, profile, done: false, track };
+
+  // 선생님 재학습 요청이 남아 있으면 새 문장으로 넘어가지 못하게 잠근다.
+  const locked = await redoLockResult(profile, undefined, null);
+  if (locked) return { ...locked, track };
+
   const { data: passedRows } = await supabase
     .from("sentence_progress")
     .select("sentence_id, status")
@@ -468,6 +559,15 @@ export const resolveNextAfterPass = async (
   const profile = await fetchMyProfile();
   const userId = await getCurrentUserId();
   if (!userId) return { sentence: null, profile, done: false };
+
+  // 재학습 요청이 남아 있으면 그 문장을 먼저 끝내게 한다. (진행 중이던 문장은 그대로 완료 후 이동)
+  const locked = await redoLockResult(
+    profile,
+    currentSentenceId,
+    currentAssignmentId ?? null,
+  );
+  if (locked) return locked;
+
 
   const { data: assignData } = await supabase
     .from("assignments")
