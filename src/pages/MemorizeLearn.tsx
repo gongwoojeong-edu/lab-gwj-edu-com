@@ -35,7 +35,10 @@ import { MemInterpretStep } from "@/components/learning/memorization/MemInterpre
 import { MemTranslateStep } from "@/components/learning/memorization/MemTranslateStep";
 import { MemSpeechStep } from "@/components/learning/memorization/MemSpeechStep";
 import { MemRecordStep } from "@/components/learning/memorization/MemRecordStep";
-import { resolveNextSentence } from "@/lib/nextSentence";
+import { resolveNextSentence, resolveNextAfterPass } from "@/lib/nextSentence";
+import { TeacherSkipButton } from "@/components/learning/TeacherSkipButton";
+import { upsertSkipSentence } from "@/lib/studentPassageOverrides";
+import { getCurrentUserId } from "@/lib/authState";
 import { toast } from "@/hooks/use-toast";
 
 
@@ -231,6 +234,26 @@ const MemorizeLearn = () => {
       ? memFlags.mem_interpret_done
       : memFlags.mem_dictation_done;
 
+  const handleTeacherSkipSentence = async () => {
+    const uid = await getCurrentUserId();
+    if (!sentence || !uid) return;
+    try {
+      await upsertSkipSentence(uid, sentence.id, true);
+      toast({
+        title: "이 문장을 건너뜁니다",
+        description: "선생님이 언제든 스킵을 해제할 수 있습니다.",
+      });
+      const r = await resolveNextAfterPass(sentence.id, null);
+      if (r.sentence && r.sentence.id !== sentence.id) {
+        navigate(`/learn/memorize/${encodeURIComponent(r.sentence.id)}`);
+      } else {
+        navigate("/learn");
+      }
+    } catch (e) {
+      toast({ title: "건너뛰기 실패", description: String(e), variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur px-4 py-3 space-y-2">
@@ -242,6 +265,10 @@ const MemorizeLearn = () => {
             <div className="text-xs text-muted-foreground">문장암기</div>
             <div className="font-bold truncate">{sentence.id}</div>
           </div>
+          <TeacherSkipButton
+            label="선생님 확인 후 문장 건너뛰기"
+            onApproved={handleTeacherSkipSentence}
+          />
           {taskMode && <Badge variant="secondary">{TASK_MODE_LABEL[taskMode]}</Badge>}
         </div>
         <MemStepProgressBar
