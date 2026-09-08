@@ -300,12 +300,7 @@ export const createUnit = async (input: {
 
 export const updateUnit = async (
   id: string,
-  patch: {
-    title?: string;
-    unit_no?: number;
-    description?: string | null;
-    excluded_from_scope?: boolean;
-  },
+  patch: { title?: string; unit_no?: number; description?: string | null },
 ): Promise<void> => {
   const { error } = await supabase.from("textbook_units").update(patch).eq("id", id);
   if (error) throw error;

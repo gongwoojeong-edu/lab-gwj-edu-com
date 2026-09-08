@@ -198,7 +198,6 @@ const fetchScopedPassageCodes = async (
   const { data: units } = await supabase
     .from("textbook_units")
     .select("id, textbook_id, unit_no")
-    .eq("excluded_from_scope", false)
     .in("textbook_id", textbookIds);
 
   let unitRows = (units ?? []) as {
@@ -734,7 +733,6 @@ export const resolveNextAfterPass = async (
         .from("textbook_units")
         .select("id, unit_no")
         .eq("textbook_id", tbId)
-        .eq("excluded_from_scope", false)
         .gt("unit_no", curNo)
         .order("unit_no", { ascending: true });
 

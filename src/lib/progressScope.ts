@@ -58,9 +58,6 @@ export const buildBookIndex = async (): Promise<BookIndex> => {
     fetchAllRows<{ id: string; unit_no: number; textbook_id: string }>(
       "textbook_units",
       "id, unit_no, textbook_id",
-      // 시험범위 제외(잠금) 유닛은 진도 범위에서 빼고 계산
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (q) => (q as any).eq("excluded_from_scope", false),
     ),
     fetchAllRows<{ id: string; series_id: string; volume_no: number }>(
       "textbooks",
