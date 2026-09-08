@@ -367,7 +367,7 @@ const buildSyntaxUnit = async (
   </div>
   <div class="lg-section-title">① 본문 (English)</div>
   <div class="lg-box">${enRows || '<div class="lg-muted">(지문 없음)</div>'}</div>
-  <div class="lg-section-title">② ${answerKey ? "모범 한글해석 (정답)" : '학생 한글해석 <span style="font-weight:400;font-size:8pt;color:#777">(처음/최종 제출 · 흐린 글씨 — 따라쓰거나 자연스럽게 다시 쓰기)</span>'}</div>
+  <div class="lg-section-title">② ${answerKey ? "모범 한글해석 (정답)" : hideStudentTranslation ? '한글 해석 다시 쓰기 <span style="font-weight:400;font-size:8pt;color:#777">(코칭 내용을 참고해 새로 쓰기)</span>' : '학생 한글해석 <span style="font-weight:400;font-size:8pt;color:#777">(처음/최종 제출 · 흐린 글씨 — 따라쓰거나 자연스럽게 다시 쓰기)</span>'}</div>
   <div class="lg-box">${
     answerKey
       ? (passages
