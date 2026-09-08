@@ -233,7 +233,9 @@ const buildSyntaxUnit = async (
     .map((p, i) => {
       const pair = transMap.get(p.code);
       let koHtml: string;
-      if (!pair) {
+      if (hideStudentTranslation) {
+        koHtml = '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div></div>';
+      } else if (!pair) {
         koHtml = '<span class="lg-muted">(미제출)</span>';
       } else if (pair.first === pair.last) {
         koHtml = `<div class="lg-ko lg-ko-faint">${escapeHtml(pair.first)}</div>`;
