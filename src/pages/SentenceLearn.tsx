@@ -46,7 +46,8 @@ import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
-import { fetchMyOverrideForSentence } from "@/lib/studentPassageOverrides";
+import { fetchMyOverrideForSentence, upsertSkipSentence } from "@/lib/studentPassageOverrides";
+import { TeacherSkipButton } from "@/components/learning/TeacherSkipButton";
 import {
   resolveEarlierIncompleteInAssignment,
   resolveNextAfterPass,
@@ -755,6 +756,23 @@ const SentenceLearn = () => {
 
   };
 
+  /** 선생님 PIN 확인 후: 이 문장을 건너뛰기로 지정하고 다음 문장으로 이동 */
+  const handleTeacherSkipSentence = async () => {
+    const sid = sentence?.id;
+    const uid = await getCurrentUserId();
+    if (!sid || !uid) return;
+    try {
+      await upsertSkipSentence(uid, sid, true);
+      toast({
+        title: "이 문장을 건너뜁니다",
+        description: "선생님이 언제든 스킵을 해제할 수 있습니다.",
+      });
+      await handleSkipToNext(sid);
+    } catch (e) {
+      toast({ title: "건너뛰기 실패", description: String(e), variant: "destructive" });
+    }
+  };
+
   const advanceAfterApproval = async (approval: SentenceApproval) => {
     setPendingApproval(null);
     const isHeld = approval.status === "held";
@@ -1063,6 +1081,10 @@ const SentenceLearn = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <TeacherSkipButton
+              label="선생님 확인 후 문장 건너뛰기"
+              onApproved={handleTeacherSkipSentence}
+            />
             {isStaff && (
               <button
                 type="button"
