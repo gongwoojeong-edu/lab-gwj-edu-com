@@ -238,6 +238,11 @@ export const resolveNextSentence = async (
   // pull all passed sentence ids for this user
   const userId = await getCurrentUserId();
   if (!userId) return { sentence: null, profile, done: false, track };
+
+  // 선생님 재학습 요청이 남아 있으면 새 문장으로 넘어가지 못하게 잠근다.
+  const locked = await redoLockResult(profile, undefined, null);
+  if (locked) return { ...locked, track };
+
   const { data: passedRows } = await supabase
     .from("sentence_progress")
     .select("sentence_id, status")
