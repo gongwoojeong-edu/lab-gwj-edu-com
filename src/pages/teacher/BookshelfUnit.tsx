@@ -93,7 +93,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, SkipForward } from "lucide-react";
 import {
   TASK_MODES,
   TASK_MODE_LABEL,
