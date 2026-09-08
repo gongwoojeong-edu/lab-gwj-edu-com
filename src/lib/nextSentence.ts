@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/studentProfile";
 import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { getCurrentUserId } from "@/lib/authState";
+import { fetchSkippedSentenceIds } from "@/lib/studentPassageOverrides";
 import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
 import {
   assignmentSequenceKey,
@@ -591,6 +592,7 @@ export const resolveNextAfterPass = async (
       .in("sentence_id", assignCodes);
 
     const getFlags = buildAssignmentProgressLookup((progRows ?? []) as ProgRow[]);
+    const skippedCodes = await fetchSkippedSentenceIds(userId);
 
     const orderMeta = await fetchPassageOrderMeta(assignCodes);
 
@@ -622,6 +624,7 @@ export const resolveNextAfterPass = async (
           }) === groupKey
         );
       })
+      .filter((a) => a.sentence_id === currentSentenceId || !skippedCodes.has(a.sentence_id!))
       .sort((a, b) => comparePassageOrder(a.sentence_id, b.sentence_id, orderMeta));
 
     const currentIdx = groupRows.findIndex((a) =>
@@ -701,8 +704,10 @@ export const resolveNextAfterPass = async (
       ((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id),
     );
 
+    const skippedUnit = await fetchSkippedSentenceIds(userId);
     const idx = codes.indexOf(currentSentenceId);
     for (let i = idx + 1; i < codes.length; i++) {
+      if (skippedUnit.has(codes[i])) continue;
       if (!passed.has(codes[i])) {
         const sentence = await loadSentenceById(codes[i]);
         if (sentence) return { sentence, profile, done: false };
@@ -760,6 +765,7 @@ export const resolveNextAfterPass = async (
         );
         for (const code of laterCodes) {
           if (laterPassedSet.has(code)) continue;
+          if (skippedUnit.has(code)) continue;
           if (scoped && !scoped.has(code)) continue;
           const sentence = await loadSentenceById(code);
           if (sentence) return { sentence, profile, done: false };
