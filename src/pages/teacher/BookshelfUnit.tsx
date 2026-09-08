@@ -284,9 +284,14 @@ const BookshelfUnit = () => {
   // 미리보기 안의 [인쇄 시작] → 실제 인쇄 실행 (모달에서 선택한 mode 사용)
   const handleConfirmPrintWorkbook = async (
     mode: import("@/lib/unitWorkbook").WorkbookMode,
-    opts: { answerKey: boolean; extraUnitIds: string[] } = {
+    opts: {
+      answerKey: boolean;
+      extraUnitIds: string[];
+      hideStudentTranslation?: boolean;
+    } = {
       answerKey: false,
       extraUnitIds: [],
+      hideStudentTranslation: false,
     },
   ) => {
     if (!unit || !workbookStudentId || workbookPrinting) return;
@@ -304,6 +309,8 @@ const BookshelfUnit = () => {
         .filter((u): u is NonNullable<typeof u> => !!u)
         .sort((a, b) => a.unit_no - b.unit_no);
 
+      const hideKo = opts.hideStudentTranslation ?? false;
+
       let html: string;
       let completedCount: number;
       if (extras.length > 0) {
@@ -320,6 +327,7 @@ const BookshelfUnit = () => {
           studentId: workbookStudentId,
           mode,
           answerKey: opts.answerKey,
+          hideStudentTranslation: hideKo,
         });
         html = res.html;
         completedCount = res.passageCount;
@@ -331,6 +339,7 @@ const BookshelfUnit = () => {
           studentId: workbookStudentId,
           mode,
           answerKey: opts.answerKey,
+          hideStudentTranslation: hideKo,
         });
         html = res.html;
         completedCount = res.completedCount;
