@@ -1193,6 +1193,8 @@ export interface BookCombinedPayload {
   words?: Array<{ word: string; meaning: string }>;
   /** 학생해석 자동 첨삭(diff) 표기 끄기 */
   disableCorrection?: boolean;
+  /** 학생해석 텍스트를 아예 빼고 빈칸으로 출력 (코칭 메모는 유지) */
+  hideStudentTranslation?: boolean;
 }
 
 /** 한글 해석 첨삭 — 학생 제출본 vs 모범해석 토큰 diff */
@@ -1319,7 +1321,8 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     .join("");
 
   // ---------- ② 학생해석 ----------
-  const disableCorrection = !!p.disableCorrection;
+  const hideKo = !!p.hideStudentTranslation;
+  const disableCorrection = !!p.disableCorrection || hideKo;
   let idx2 = 0;
   const transSections = p.units
     .map((u) => {
@@ -1347,11 +1350,14 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
           <div class="bk-num">${idx2}.</div>
           <div class="bk-body">
             <div class="bk-code">${escapeHtml(it.passageCode)}</div>
-            <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>
+            ${hideKo
+              ? ""
+              : `<div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>`}
             ${refHtml}
             ${coachHtml}
             ${memoHtml}
-            <div class="bk-rewrite"><span class="bk-rewrite-tag">고쳐쓰기</span><span class="bk-line"></span></div>
+            <div class="bk-rewrite"><span class="bk-rewrite-tag">${hideKo ? "해석 쓰기" : "고쳐쓰기"}</span><span class="bk-line"></span></div>
+            ${hideKo ? '<div class="bk-rewrite"><span class="bk-rewrite-tag"></span><span class="bk-line"></span></div>' : ""}
           </div>
         </div>`;
         })
@@ -1533,8 +1539,10 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
 </div>
 
 <div class="page bk-page">
-  ${header("Book Workbook", disableCorrection ? `② 선택유닛 전체 학생해석 · ${p.bookTitle}` : `② 선택유닛 전체 학생해석 (첨삭) · ${p.bookTitle}`, `지문 ${allItems.length}건`)}
-  ${disableCorrection
+  ${header("Book Workbook", hideKo ? `② 한글 해석 다시 쓰기 · ${p.bookTitle}` : disableCorrection ? `② 선택유닛 전체 학생해석 · ${p.bookTitle}` : `② 선택유닛 전체 학생해석 (첨삭) · ${p.bookTitle}`, `지문 ${allItems.length}건`)}
+  ${hideKo
+    ? '<div class="bk-legend">코칭 내용을 참고해 해석을 처음부터 다시 써보세요.</div>'
+    : disableCorrection
     ? '<div class="bk-legend">학생이 제출한 해석 그대로 출력됩니다.</div>'
     : `<div class="bk-legend">
     <span class="bk-ok">일치</span> ·

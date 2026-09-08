@@ -1442,6 +1442,7 @@ export type Database = {
           default_mem_direction: Database["public"]["Enums"]["mem_direction_setting"]
           default_task_mode: Database["public"]["Enums"]["passage_task_mode"]
           description: string | null
+          excluded_from_scope: boolean
           id: string
           mem_dictation_blank_ratio: number
           mem_dictation_min_score: number
@@ -1466,6 +1467,7 @@ export type Database = {
           default_mem_direction?: Database["public"]["Enums"]["mem_direction_setting"]
           default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
+          excluded_from_scope?: boolean
           id?: string
           mem_dictation_blank_ratio?: number
           mem_dictation_min_score?: number
@@ -1490,6 +1492,7 @@ export type Database = {
           default_mem_direction?: Database["public"]["Enums"]["mem_direction_setting"]
           default_task_mode?: Database["public"]["Enums"]["passage_task_mode"]
           description?: string | null
+          excluded_from_scope?: boolean
           id?: string
           mem_dictation_blank_ratio?: number
           mem_dictation_min_score?: number

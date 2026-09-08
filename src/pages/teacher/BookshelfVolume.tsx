@@ -230,6 +230,7 @@ const BookshelfVolume = () => {
   const [assignedStudentIds, setAssignedStudentIds] = useState<Set<string> | null>(null);
   /** 통합 워크북에서 학생해석 자동 첨삭 표기 끄기 */
   const [printDisableCorrection, setPrintDisableCorrection] = useState(false);
+  const [printHideTranslation, setPrintHideTranslation] = useState(false);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -342,6 +343,8 @@ const BookshelfVolume = () => {
         mode: printMode as WorkbookMode,
         answerKey: printMode === "syntax_unit" && printAnswerKey,
         disableCorrection: printMode === "syntax_book" && printDisableCorrection,
+        hideStudentTranslation:
+          (printMode === "syntax_book" || printMode === "syntax_unit") && printHideTranslation,
       });
       await launchPrintHtml(html, {
         jobKey: `multi-unit-workbook:${textbook.id}:${printStudentId}:${printMode}:${Array.from(selectedIds).sort().join(",")}`,
@@ -1714,6 +1717,25 @@ const BookshelfVolume = () => {
                   <div className="font-medium">학생해석 첨삭 표기 빼고 출력</div>
                   <div className="text-[11px] text-muted-foreground">
                     학생이 제출한 해석을 diff 없이 흐린 글씨로만 출력합니다. 모범해석도 함께 숨겨집니다.
+                  </div>
+                </div>
+              </label>
+            )}
+
+            {/* 학생해석 빼고 빈칸 (구문 워크북) */}
+            {(printMode === "syntax_book" || printMode === "syntax_unit") && (
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printHideTranslation}
+                  onChange={(e) => setPrintHideTranslation(e.target.checked)}
+                  disabled={printing}
+                  className="size-4 accent-primary mt-0.5"
+                />
+                <div className="leading-snug">
+                  <div className="font-medium">학생해석 빼고 빈칸으로 출력</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    학생이 쓴 해석은 보이지 않고 코칭 내용만 남습니다. 코칭을 참고해 해석을 새로 쓰게 할 때 사용하세요.
                   </div>
                 </div>
               </label>
