@@ -67,6 +67,7 @@ import {
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
+import { SentenceSkipBulkDialog } from "@/components/teacher/SentenceSkipBulkDialog";
 import { swapListOrder } from "@/lib/bookshelfOrder";
 import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
@@ -164,6 +165,7 @@ const BookshelfUnit = () => {
   const { display: levelDisplay } = useLevelLabels();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
+  const [skipBulkOpen, setSkipBulkOpen] = useState(false);
   const [allUnits, setAllUnits] = useState<
     Array<Unit & { textbook_id: string }>
   >([]);
@@ -1362,6 +1364,15 @@ const BookshelfUnit = () => {
               disabled={selectedIds.size === 0}
             >
               <ArrowRight className="size-4 mr-1" /> 다른 유닛으로 이동
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSkipBulkOpen(true)}
+              disabled={passages.length === 0}
+              title="선택한 지문을 여러 학생에게 건너뛰기로 지정"
+            >
+              <SkipForward className="size-4 mr-1" /> 문장 스킵 지정
             </Button>
             <Button
               variant="outline"
