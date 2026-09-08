@@ -345,14 +345,14 @@ const BookshelfUnit = () => {
         completedCount = res.completedCount;
       }
       await launchPrintHtml(html, {
-        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}:${mode}${opts.answerKey ? ":ans" : ""}`,
+        jobKey: `unit-workbook:${unit.id}:${workbookStudentId}:${mode}${opts.answerKey ? ":ans" : ""}${hideKo ? ":hide" : ""}`,
         loadTimeoutMs: 12000,
         cleanupAfterMs: 2500,
       });
       const { WORKBOOK_MODE_LABEL } = await import("@/lib/unitWorkbook");
       toast({
         title: opts.answerKey ? "답지 인쇄 시작" : "워크북 인쇄 시작",
-        description: `${WORKBOOK_MODE_LABEL[mode]}${opts.answerKey ? " · 답지" : ""} · ${completedCount}개 지문`,
+        description: `${WORKBOOK_MODE_LABEL[mode]}${opts.answerKey ? " · 답지" : ""}${hideKo ? " · 해석 빈칸" : ""} · ${completedCount}개 지문`,
       });
       setPreviewOpen(false);
     } catch (err) {
