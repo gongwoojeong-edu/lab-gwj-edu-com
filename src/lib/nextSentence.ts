@@ -560,6 +560,15 @@ export const resolveNextAfterPass = async (
   const userId = await getCurrentUserId();
   if (!userId) return { sentence: null, profile, done: false };
 
+  // 재학습 요청이 남아 있으면 그 문장을 먼저 끝내게 한다. (진행 중이던 문장은 그대로 완료 후 이동)
+  const locked = await redoLockResult(
+    profile,
+    currentSentenceId,
+    currentAssignmentId ?? null,
+  );
+  if (locked) return locked;
+
+
   const { data: assignData } = await supabase
     .from("assignments")
     .select(ASSIGN_NAV_SELECT)
