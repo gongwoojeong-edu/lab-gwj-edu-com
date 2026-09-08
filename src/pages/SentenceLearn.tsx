@@ -387,10 +387,16 @@ const SentenceLearn = () => {
       const progStatus = (prog?.status ?? "pending") as "pending" | "pass" | "fail" | "hold";
       // 메인덱·특별과제 모두 승인 없이 계속 진행 — 승인 대기 화면으로 막지 않는다.
       const gateOnPending = false;
+      // 재학습 요청이 걸려 있거나 학생이 "다시 하기"로 들어온 경우에는
+      // 자동으로 pass 처리하고 다음 문장으로 넘기지 않는다. (이 문장을 다시 풀어야 함)
+      const redoPending = !!(prog as { redo_requested_at?: string | null } | null)
+        ?.redo_requested_at;
+      const keepHere = restartParam || redoPending;
       if (mounted && latestApproval?.status === "pending" && gateOnPending) {
         setPendingApproval(latestApproval);
       } else if (
         mounted &&
+        !keepHere &&
         (latestApproval?.status === "held" ||
           (latestApproval?.status === "pending" && !gateOnPending) ||
           (latestApproval?.status === "approved" &&
