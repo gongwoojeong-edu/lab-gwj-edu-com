@@ -389,8 +389,14 @@ const SentenceLearn = () => {
       const gateOnPending = false;
       // 재학습 요청이 걸려 있거나 학생이 "다시 하기"로 들어온 경우에는
       // 자동으로 pass 처리하고 다음 문장으로 넘기지 않는다. (이 문장을 다시 풀어야 함)
-      const redoPending = !!(prog as { redo_requested_at?: string | null } | null)
-        ?.redo_requested_at;
+      const redoAt =
+        (prog as { redo_requested_at?: string | null } | null)?.redo_requested_at ?? null;
+      // 재학습 요청 이후에 이미 다시 제출(승인 요청 생성)했다면 잠금은 해제된 것으로 본다.
+      const resubmittedAfterRedo =
+        !!redoAt &&
+        !!latestApproval?.created_at &&
+        new Date(latestApproval.created_at).getTime() > new Date(redoAt).getTime();
+      const redoPending = !!redoAt && !resubmittedAfterRedo;
       const keepHere = restartParam || redoPending;
       if (mounted && latestApproval?.status === "pending" && gateOnPending) {
         setPendingApproval(latestApproval);
