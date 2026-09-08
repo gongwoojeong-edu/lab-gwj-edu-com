@@ -1949,6 +1949,18 @@ const BookshelfUnit = () => {
           void reload();
         }}
       />
+
+      <SentenceSkipBulkDialog
+        open={skipBulkOpen}
+        onOpenChange={setSkipBulkOpen}
+        passages={passages.map((p) => ({
+          code: p.code,
+          label: `#${p.passage_no} ${p.english?.slice(0, 60) ?? ""}`,
+        }))}
+        defaultSelectedCodes={passages
+          .filter((p) => selectedIds.has(p.id))
+          .map((p) => p.code)}
+      />
     </TeacherLayout>
   );
 };
