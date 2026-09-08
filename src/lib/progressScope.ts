@@ -145,7 +145,7 @@ export const fetchScopeStatusMap = async (
   const out: Record<string, ScopeStatus> = {};
   if (students.length === 0) return out;
 
-  const [idx, passRows] = await Promise.all([
+  const [idx, passRows, skipRows] = await Promise.all([
     buildBookIndex(),
     fetchAllRows<{ user_id: string | null; sentence_id: string; assignment_id: string | null }>(
       "sentence_progress",
@@ -153,7 +153,22 @@ export const fetchScopeStatusMap = async (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q) => (q as any).in("status", ["pass", "fail"]).is("assignment_id", null),
     ),
+    fetchAllRows<{ user_id: string; sentence_id: string }>(
+      "student_passage_overrides",
+      "user_id, sentence_id",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q) => (q as any).eq("skip_sentence", true),
+    ),
   ]);
+
+  // 선생님이 "문장 스킵"으로 지정한 지문은 진도 분모에서 제외한다.
+  const skippedByUser = new Map<string, Set<string>>();
+  skipRows.forEach((r) => {
+    if (!r.user_id) return;
+    const set = skippedByUser.get(r.user_id) ?? new Set<string>();
+    set.add(r.sentence_id);
+    skippedByUser.set(r.user_id, set);
+  });
 
   const passedByUser = new Map<string, Set<string>>();
   passRows.forEach((r) => {
@@ -165,7 +180,9 @@ export const fetchScopeStatusMap = async (
 
   students.forEach((s) => {
     const passed = passedByUser.get(s.user_id) ?? new Set<string>();
-    const codes = scopedCodesFor(idx, s, passed);
+    const skipped = skippedByUser.get(s.user_id) ?? new Set<string>();
+    const scoped = scopedCodesFor(idx, s, passed);
+    const codes = scoped == null ? null : scoped.filter((c) => !skipped.has(c));
     if (codes == null) {
       out[s.user_id] = { kind: "unset", total: 0, doneCount: 0, remaining: 0 };
       return;
