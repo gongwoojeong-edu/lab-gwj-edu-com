@@ -107,7 +107,27 @@ export const findPendingRedo = async (
     redo_requested_at: string;
     last_redo_memo: string | null;
   }[];
-  const row = rows.find((r) => r.sentence_id !== excludeSentenceId);
+  const candidates = rows.filter((r) => r.sentence_id !== excludeSentenceId);
+  if (candidates.length === 0) return null;
+
+  // 재학습 요청 이후에 학생이 다시 제출(승인 요청 생성)했다면 잠금은 해제된 것으로 본다.
+  // (플래그 정리가 실패해 남아 있는 경우 학생이 계속 되돌아가는 문제 방지)
+  const { data: apprData } = await supabase
+    .from("sentence_approvals")
+    .select("sentence_id, created_at")
+    .eq("user_id", userId)
+    .in("sentence_id", candidates.map((r) => r.sentence_id));
+  const latestSubmit = new Map<string, number>();
+  ((apprData ?? []) as { sentence_id: string; created_at: string }[]).forEach((a) => {
+    const t = new Date(a.created_at).getTime();
+    if (t > (latestSubmit.get(a.sentence_id) ?? 0)) latestSubmit.set(a.sentence_id, t);
+  });
+
+  const row = candidates.find(
+    (r) =>
+      (latestSubmit.get(r.sentence_id) ?? 0) <=
+      new Date(r.redo_requested_at).getTime(),
+  );
   if (!row) return null;
   return {
     sentenceId: row.sentence_id,
