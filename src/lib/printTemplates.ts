@@ -1321,7 +1321,8 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     .join("");
 
   // ---------- ② 학생해석 ----------
-  const disableCorrection = !!p.disableCorrection;
+  const hideKo = !!p.hideStudentTranslation;
+  const disableCorrection = !!p.disableCorrection || hideKo;
   let idx2 = 0;
   const transSections = p.units
     .map((u) => {
