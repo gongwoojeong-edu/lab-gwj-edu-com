@@ -1118,6 +1118,7 @@ export type Database = {
           id: string
           sentence_id: string
           skip_pre: boolean
+          skip_sentence: boolean
           task_mode: Database["public"]["Enums"]["passage_task_mode"] | null
           updated_at: string
           user_id: string
@@ -1128,6 +1129,7 @@ export type Database = {
           id?: string
           sentence_id: string
           skip_pre?: boolean
+          skip_sentence?: boolean
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           updated_at?: string
           user_id: string
@@ -1138,6 +1140,7 @@ export type Database = {
           id?: string
           sentence_id?: string
           skip_pre?: boolean
+          skip_sentence?: boolean
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
           updated_at?: string
           user_id?: string
