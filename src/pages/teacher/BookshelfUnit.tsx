@@ -67,6 +67,7 @@ import {
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
+import { SentenceSkipBulkDialog } from "@/components/teacher/SentenceSkipBulkDialog";
 import { swapListOrder } from "@/lib/bookshelfOrder";
 import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,7 +93,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, SkipForward } from "lucide-react";
 import {
   TASK_MODES,
   TASK_MODE_LABEL,
@@ -164,6 +165,7 @@ const BookshelfUnit = () => {
   const { display: levelDisplay } = useLevelLabels();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
+  const [skipBulkOpen, setSkipBulkOpen] = useState(false);
   const [allUnits, setAllUnits] = useState<
     Array<Unit & { textbook_id: string }>
   >([]);
@@ -1366,6 +1368,15 @@ const BookshelfUnit = () => {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setSkipBulkOpen(true)}
+              disabled={passages.length === 0}
+              title="선택한 지문을 여러 학생에게 건너뛰기로 지정"
+            >
+              <SkipForward className="size-4 mr-1" /> 문장 스킵 지정
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               disabled={selectedIds.size === 0}
               className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
               onClick={() => setBulkDeleteOpen(true)}
@@ -1937,6 +1948,18 @@ const BookshelfUnit = () => {
           clearSel();
           void reload();
         }}
+      />
+
+      <SentenceSkipBulkDialog
+        open={skipBulkOpen}
+        onOpenChange={setSkipBulkOpen}
+        passages={passages.map((p) => ({
+          code: p.code,
+          label: `#${p.passage_no} ${p.english?.slice(0, 60) ?? ""}`,
+        }))}
+        defaultSelectedCodes={passages
+          .filter((p) => selectedIds.has(p.id))
+          .map((p) => p.code)}
       />
     </TeacherLayout>
   );

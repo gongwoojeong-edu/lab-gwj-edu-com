@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/studentProfile";
 import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { getCurrentUserId } from "@/lib/authState";
+import { fetchSkippedSentenceIds } from "@/lib/studentPassageOverrides";
 import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
 import {
   assignmentSequenceKey,
@@ -287,7 +288,8 @@ export const resolveNextSentence = async (
     .slice()
     .sort((a, b) => comparePassageOrder(a.id, b.id, orderMeta));
 
-  const found = inLevel.find((s) => !passed.has(s.id));
+  const skipped = await fetchSkippedSentenceIds(userId);
+  const found = inLevel.find((s) => !passed.has(s.id) && !skipped.has(s.id));
   if (found) {
     // current_level/current_no 는 메인덱(A) 진도 지표이므로 서브덱에서는 갱신하지 않는다.
     if (track === "A" && (profile.current_level !== targetLevel || profile.current_no !== found.no)) {
@@ -590,6 +592,7 @@ export const resolveNextAfterPass = async (
       .in("sentence_id", assignCodes);
 
     const getFlags = buildAssignmentProgressLookup((progRows ?? []) as ProgRow[]);
+    const skippedCodes = await fetchSkippedSentenceIds(userId);
 
     const orderMeta = await fetchPassageOrderMeta(assignCodes);
 
@@ -621,6 +624,7 @@ export const resolveNextAfterPass = async (
           }) === groupKey
         );
       })
+      .filter((a) => a.sentence_id === currentSentenceId || !skippedCodes.has(a.sentence_id!))
       .sort((a, b) => comparePassageOrder(a.sentence_id, b.sentence_id, orderMeta));
 
     const currentIdx = groupRows.findIndex((a) =>
@@ -700,8 +704,10 @@ export const resolveNextAfterPass = async (
       ((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id),
     );
 
+    const skippedUnit = await fetchSkippedSentenceIds(userId);
     const idx = codes.indexOf(currentSentenceId);
     for (let i = idx + 1; i < codes.length; i++) {
+      if (skippedUnit.has(codes[i])) continue;
       if (!passed.has(codes[i])) {
         const sentence = await loadSentenceById(codes[i]);
         if (sentence) return { sentence, profile, done: false };
@@ -759,6 +765,7 @@ export const resolveNextAfterPass = async (
         );
         for (const code of laterCodes) {
           if (laterPassedSet.has(code)) continue;
+          if (skippedUnit.has(code)) continue;
           if (scoped && !scoped.has(code)) continue;
           const sentence = await loadSentenceById(code);
           if (sentence) return { sentence, profile, done: false };
