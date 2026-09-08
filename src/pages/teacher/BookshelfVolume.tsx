@@ -208,6 +208,29 @@ const BookshelfVolume = () => {
   const [moveOpen, setMoveOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [excludingId, setExcludingId] = useState<string | null>(null);
+
+  // 시험범위 제외(학습 잠금) 토글 — 학생 진도에서 해당 유닛 문장을 건너뜀
+  const handleToggleExcluded = async (u: Unit, next: boolean) => {
+    setExcludingId(u.id);
+    try {
+      await updateUnit(u.id, { excluded_from_scope: next });
+      setUnits((prev) =>
+        prev.map((x) =>
+          x.id === u.id ? ({ ...x, excluded_from_scope: next } as Unit) : x,
+        ),
+      );
+      toast({
+        title: next
+          ? `U${u.unit_no} 학습 제외 — 학생 진도에서 건너뜁니다`
+          : `U${u.unit_no} 학습 제외 해제`,
+      });
+    } catch (e) {
+      toast({ title: "저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setExcludingId(null);
+    }
+  };
   const [allTextbooks, setAllTextbooks] = useState<
     Array<{ id: string; title: string; volume_no: number; series_id: string }>
   >([]);
