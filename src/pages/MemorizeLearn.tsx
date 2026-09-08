@@ -36,6 +36,8 @@ import { MemTranslateStep } from "@/components/learning/memorization/MemTranslat
 import { MemSpeechStep } from "@/components/learning/memorization/MemSpeechStep";
 import { MemRecordStep } from "@/components/learning/memorization/MemRecordStep";
 import { resolveNextSentence } from "@/lib/nextSentence";
+import { toast } from "@/hooks/use-toast";
+
 
 const MemorizeLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
