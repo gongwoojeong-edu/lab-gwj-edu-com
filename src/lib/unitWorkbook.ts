@@ -194,6 +194,7 @@ const buildSyntaxUnit = async (
   ctx: UnitWorkbookContext,
   answerKey = false,
   coachMap: Map<string, string> = new Map(),
+  hideStudentTranslation = false,
 ): Promise<string> => {
   const codes = passages.map((p) => p.code);
   const { data: trs } = await supabase
