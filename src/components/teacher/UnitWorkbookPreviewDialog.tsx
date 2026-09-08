@@ -376,6 +376,40 @@ export const UnitWorkbookPreviewDialog = ({
           </label>
         )}
 
+        {/* 학생해석 빼고 빈칸으로 출력 — 구문 워크북에서만 */}
+        {canHideTranslation && !answerKey && (
+          <label
+            className={cn(
+              "flex items-start gap-2.5 rounded-md border p-3 cursor-pointer transition-colors",
+              hideTranslation
+                ? "border-primary bg-primary/5"
+                : "border-border bg-card hover:bg-muted/40",
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={hideTranslation}
+              onChange={(e) => setHideTranslation(e.target.checked)}
+              disabled={printing}
+              className="mt-0.5 size-4 accent-primary"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-semibold flex items-center gap-1.5">
+                학생해석 빼고 빈칸으로 출력
+                {hideTranslation && (
+                  <Badge className="bg-primary text-primary-foreground text-[10px] h-4 px-1.5">
+                    빈칸
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                학생이 쓴 해석과 자동 첨삭은 빼고 빈 줄만 인쇄합니다.
+                선생님 코칭 내용은 그대로 표시되어, 코칭을 참고해 다시 해석하도록 유도합니다.
+              </div>
+            </div>
+          </label>
+        )}
+
         {/* 요약 */}
         <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 flex items-center justify-between text-sm">
           <div>
