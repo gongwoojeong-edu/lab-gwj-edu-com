@@ -198,6 +198,7 @@ const fetchScopedPassageCodes = async (
   const { data: units } = await supabase
     .from("textbook_units")
     .select("id, textbook_id, unit_no")
+    .eq("excluded_from_scope", false)
     .in("textbook_id", textbookIds);
 
   let unitRows = (units ?? []) as {
