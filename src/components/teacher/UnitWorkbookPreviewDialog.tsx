@@ -64,7 +64,11 @@ export interface UnitWorkbookPreviewProps {
   /** 사용자가 선택한 모드를 받아 인쇄 실행 (extraUnitIds = 함께 인쇄할 다른 유닛) */
   onConfirmPrint: (
     mode: WorkbookMode,
-    opts: { answerKey: boolean; extraUnitIds: string[] },
+    opts: {
+      answerKey: boolean;
+      extraUnitIds: string[];
+      hideStudentTranslation: boolean;
+    },
   ) => void;
 }
 
@@ -99,6 +103,7 @@ export const UnitWorkbookPreviewDialog = ({
 }: UnitWorkbookPreviewProps) => {
   const [mode, setMode] = useState<WorkbookMode>(defaultMode);
   const [answerKey, setAnswerKey] = useState(false);
+  const [hideTranslation, setHideTranslation] = useState(false);
   const [extraUnitIds, setExtraUnitIds] = useState<string[]>([]);
 
   // 다이얼로그가 열릴 때마다 기본 모드로 리셋
@@ -106,9 +111,14 @@ export const UnitWorkbookPreviewDialog = ({
     if (open) {
       setMode(defaultMode);
       setAnswerKey(false);
+      setHideTranslation(false);
       setExtraUnitIds([]);
     }
   }, [open, defaultMode]);
+
+  // 학생해석 빼기 옵션은 구문 워크북에서만 의미 있음
+  const canHideTranslation = mode === "syntax_unit" || mode === "syntax_book";
+  const hideStudentTranslation = canHideTranslation && hideTranslation;
 
   const toggleExtraUnit = (id: string) =>
     setExtraUnitIds((prev) =>
@@ -366,6 +376,40 @@ export const UnitWorkbookPreviewDialog = ({
           </label>
         )}
 
+        {/* 학생해석 빼고 빈칸으로 출력 — 구문 워크북에서만 */}
+        {canHideTranslation && !answerKey && (
+          <label
+            className={cn(
+              "flex items-start gap-2.5 rounded-md border p-3 cursor-pointer transition-colors",
+              hideTranslation
+                ? "border-primary bg-primary/5"
+                : "border-border bg-card hover:bg-muted/40",
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={hideTranslation}
+              onChange={(e) => setHideTranslation(e.target.checked)}
+              disabled={printing}
+              className="mt-0.5 size-4 accent-primary"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-semibold flex items-center gap-1.5">
+                학생해석 빼고 빈칸으로 출력
+                {hideTranslation && (
+                  <Badge className="bg-primary text-primary-foreground text-[10px] h-4 px-1.5">
+                    빈칸
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                학생이 쓴 해석과 자동 첨삭은 빼고 빈 줄만 인쇄합니다.
+                선생님 코칭 내용은 그대로 표시되어, 코칭을 참고해 다시 해석하도록 유도합니다.
+              </div>
+            </div>
+          </label>
+        )}
+
         {/* 요약 */}
         <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 flex items-center justify-between text-sm">
           <div>
@@ -379,6 +423,9 @@ export const UnitWorkbookPreviewDialog = ({
             )}
             {mode === "syntax_unit" && answerKey && (
               <span className="ml-2 text-destructive font-bold">· 답지</span>
+            )}
+            {hideStudentTranslation && (
+              <span className="ml-2 text-primary font-bold">· 해석 빈칸</span>
             )}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -399,6 +446,7 @@ export const UnitWorkbookPreviewDialog = ({
               onConfirmPrint(mode, {
                 answerKey: mode === "syntax_unit" && answerKey,
                 extraUnitIds,
+                hideStudentTranslation,
               })
             }
 
