@@ -1350,11 +1350,14 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
           <div class="bk-num">${idx2}.</div>
           <div class="bk-body">
             <div class="bk-code">${escapeHtml(it.passageCode)}</div>
-            <div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>
+            ${hideKo
+              ? ""
+              : `<div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>`}
             ${refHtml}
             ${coachHtml}
             ${memoHtml}
-            <div class="bk-rewrite"><span class="bk-rewrite-tag">고쳐쓰기</span><span class="bk-line"></span></div>
+            <div class="bk-rewrite"><span class="bk-rewrite-tag">${hideKo ? "해석 쓰기" : "고쳐쓰기"}</span><span class="bk-line"></span></div>
+            ${hideKo ? '<div class="bk-rewrite"><span class="bk-rewrite-tag"></span><span class="bk-line"></span></div>' : ""}
           </div>
         </div>`;
         })
