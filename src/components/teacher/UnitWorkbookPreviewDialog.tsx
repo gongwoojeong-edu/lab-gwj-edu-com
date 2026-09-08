@@ -424,6 +424,9 @@ export const UnitWorkbookPreviewDialog = ({
             {mode === "syntax_unit" && answerKey && (
               <span className="ml-2 text-destructive font-bold">· 답지</span>
             )}
+            {hideStudentTranslation && (
+              <span className="ml-2 text-primary font-bold">· 해석 빈칸</span>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             예상 페이지 ≈ <b className="text-foreground">{estimatedPages}</b>p
@@ -443,6 +446,7 @@ export const UnitWorkbookPreviewDialog = ({
               onConfirmPrint(mode, {
                 answerKey: mode === "syntax_unit" && answerKey,
                 extraUnitIds,
+                hideStudentTranslation,
               })
             }
 
