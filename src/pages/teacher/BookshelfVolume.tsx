@@ -347,7 +347,7 @@ const BookshelfVolume = () => {
           (printMode === "syntax_book" || printMode === "syntax_unit") && printHideTranslation,
       });
       await launchPrintHtml(html, {
-        jobKey: `multi-unit-workbook:${textbook.id}:${printStudentId}:${printMode}:${Array.from(selectedIds).sort().join(",")}`,
+        jobKey: `multi-unit-workbook:${textbook.id}:${printStudentId}:${printMode}:${Array.from(selectedIds).sort().join(",")}${printHideTranslation ? ":hide" : ""}`,
         loadTimeoutMs: 15000,
         cleanupAfterMs: 2500,
       });
