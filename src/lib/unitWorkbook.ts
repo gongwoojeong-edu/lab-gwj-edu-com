@@ -544,6 +544,8 @@ export const buildBookCombinedWorkbookFor = async (input: {
   bookTitle?: string;
   /** 학생해석 자동 첨삭(diff) 표기 끄기 */
   disableCorrection?: boolean;
+  /** 학생해석 텍스트 빼고 빈칸으로 출력 (코칭 메모는 유지) */
+  hideStudentTranslation?: boolean;
 }): Promise<{ html: string; unitCount: number; passageCount: number }> => {
   const { data: sp } = await supabase
     .from("student_profiles")
@@ -582,6 +584,7 @@ export const buildBookCombinedWorkbookFor = async (input: {
     units,
     words,
     disableCorrection: input.disableCorrection,
+    hideStudentTranslation: input.hideStudentTranslation,
   });
   return {
     html,
@@ -768,6 +771,8 @@ export interface BuildUnitWorkbookInput {
   answerKey?: boolean;
   /** syntax_book 모드에서 학생해석 자동 첨삭(diff) 표기 끄기 */
   disableCorrection?: boolean;
+  /** 학생해석 텍스트 빼고 빈칸으로 출력 (코칭 메모는 유지) */
+  hideStudentTranslation?: boolean;
 }
 
 /**
@@ -812,7 +817,14 @@ export const buildUnitWorkbookHtmlFor = async (
   switch (mode) {
     case "syntax_unit": {
       const coachMap = await fetchCoachFlags(input.studentId, allCodes);
-      html = await buildSyntaxUnit(allPassages, input.studentId, ctx, input.answerKey ?? false, coachMap);
+      html = await buildSyntaxUnit(
+        allPassages,
+        input.studentId,
+        ctx,
+        input.answerKey ?? false,
+        coachMap,
+        input.hideStudentTranslation ?? false,
+      );
       break;
     }
     case "syntax_book": {
@@ -823,6 +835,7 @@ export const buildUnitWorkbookHtmlFor = async (
         studentId: input.studentId,
         bookTitle: input.unitTitle,
         disableCorrection: input.disableCorrection,
+        hideStudentTranslation: input.hideStudentTranslation,
       });
       html = r.html;
       break;
@@ -852,6 +865,8 @@ export interface BuildMultiUnitWorkbookInput {
   answerKey?: boolean;
   /** syntax_book 모드에서 학생해석 자동 첨삭(diff) 표기 끄기 */
   disableCorrection?: boolean;
+  /** 학생해석 텍스트 빼고 빈칸으로 출력 (코칭 메모는 유지) */
+  hideStudentTranslation?: boolean;
 }
 
 /**
@@ -870,6 +885,7 @@ export const buildMultiUnitWorkbookHtml = async (
       units: input.units,
       studentId: input.studentId,
       disableCorrection: input.disableCorrection,
+      hideStudentTranslation: input.hideStudentTranslation,
     });
     return { html: r.html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
   }
@@ -886,6 +902,7 @@ export const buildMultiUnitWorkbookHtml = async (
         mode,
         paperSize: input.paperSize,
         answerKey: input.answerKey,
+        hideStudentTranslation: input.hideStudentTranslation,
       });
       parts.push({ htmlDoc: r.html, passages: r.completedCount, title: u.unitTitle });
     } catch {
