@@ -1193,6 +1193,8 @@ export interface BookCombinedPayload {
   words?: Array<{ word: string; meaning: string }>;
   /** 학생해석 자동 첨삭(diff) 표기 끄기 */
   disableCorrection?: boolean;
+  /** 학생해석 텍스트를 아예 빼고 빈칸으로 출력 (코칭 메모는 유지) */
+  hideStudentTranslation?: boolean;
 }
 
 /** 한글 해석 첨삭 — 학생 제출본 vs 모범해석 토큰 diff */
