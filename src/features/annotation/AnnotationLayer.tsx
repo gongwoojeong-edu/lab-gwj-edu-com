@@ -35,6 +35,7 @@ export const AnnotationLayer = ({
   channelName,
   extraBottomPx = 72,
   toolbarClassName,
+  toolbarPortalTarget = null,
   scope = "teacher",
 }: Props) => {
   const ann = useAnnotation({ sentenceId, studentId, scope, canEdit });
@@ -105,27 +106,29 @@ export const AnnotationLayer = ({
     if (canEdit) broadcast(next, aspect);
   };
 
+  const toolbar = canEdit ? (
+    <AnnotationToolbar
+      {...tool}
+      saveState={ann.saveState}
+      canUndo={ann.canUndo}
+      canRedo={ann.canRedo}
+      showMouseToggle={showMouseToggle}
+      onChange={(patch) => setTool((t) => ({ ...t, ...patch }))}
+      onUndo={() => {
+        ann.undo();
+      }}
+      onRedo={() => {
+        ann.redo();
+      }}
+      onClearAll={() => handleCommit([], ann.aspect || 1)}
+      onRetry={ann.retry}
+      className={toolbarClassName}
+    />
+  ) : null;
+
   return (
     <>
-      {canEdit && (
-        <AnnotationToolbar
-          {...tool}
-          saveState={ann.saveState}
-          canUndo={ann.canUndo}
-          canRedo={ann.canRedo}
-          showMouseToggle={showMouseToggle}
-          onChange={(patch) => setTool((t) => ({ ...t, ...patch }))}
-          onUndo={() => {
-            ann.undo();
-          }}
-          onRedo={() => {
-            ann.redo();
-          }}
-          onClearAll={() => handleCommit([], ann.aspect || 1)}
-          onRetry={ann.retry}
-          className={toolbarClassName}
-        />
-      )}
+      {toolbar && (toolbarPortalTarget ? createPortal(toolbar, toolbarPortalTarget) : toolbar)}
       <AnnotationCanvas
         strokes={ann.strokes}
         aspect={ann.aspect}
