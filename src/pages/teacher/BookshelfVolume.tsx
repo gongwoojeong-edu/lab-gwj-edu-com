@@ -47,6 +47,7 @@ import {
   ListPlus,
   Combine,
   Printer,
+  SkipForward,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -76,6 +77,7 @@ import {
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { MergeUnitsDialog } from "@/components/teacher/MergeUnitsDialog";
+import { UnitSkipBulkDialog } from "@/components/teacher/UnitSkipBulkDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
 import { swapListOrder } from "@/lib/bookshelfOrder";
 import { cn } from "@/lib/utils";
@@ -207,6 +209,7 @@ const BookshelfVolume = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [unitSkipOpen, setUnitSkipOpen] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [allTextbooks, setAllTextbooks] = useState<
     Array<{ id: string; title: string; volume_no: number; series_id: string }>
@@ -902,6 +905,14 @@ const BookshelfVolume = () => {
                 >
                   <Printer className="size-4 mr-1" /> 워크북 인쇄
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUnitSkipOpen(true)}
+                  title="선택한 유닛 전체를 여러 학생에게 건너뛰기로 지정"
+                >
+                  <SkipForward className="size-4 mr-1" /> 유닛 스킵 지정
+                </Button>
                 {selectedIds.size >= 2 && (
                   <Button
                     variant="outline"
@@ -1588,6 +1599,18 @@ const BookshelfVolume = () => {
           void reload();
         }}
       />
+
+      <UnitSkipBulkDialog
+        open={unitSkipOpen}
+        onOpenChange={setUnitSkipOpen}
+        units={units.map((u) => ({
+          id: u.id,
+          label: `${u.unit_no}. ${u.title}`,
+        }))}
+        defaultSelectedIds={Array.from(selectedIds)}
+      />
+
+
 
       {/* 다중 유닛 워크북 인쇄 다이얼로그 */}
       <Dialog open={printOpen} onOpenChange={(o) => !printing && setPrintOpen(o)}>

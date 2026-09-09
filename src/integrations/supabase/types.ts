@@ -1279,6 +1279,44 @@ export type Database = {
         }
         Relationships: []
       }
+      student_unit_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          skip_unit: boolean
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          skip_unit?: boolean
+          unit_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          skip_unit?: boolean
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_unit_overrides_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "textbook_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teaching_questions: {
         Row: {
           answer: string | null

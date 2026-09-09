@@ -5,6 +5,7 @@ import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/stu
 import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { getCurrentUserId } from "@/lib/authState";
 import { fetchSkippedSentenceIds } from "@/lib/studentPassageOverrides";
+import { fetchSkippedUnitPassageCodes } from "@/lib/studentUnitOverrides";
 import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
 import {
   assignmentSequenceKey,
@@ -65,6 +66,16 @@ export interface PendingRedo {
 
 /** 선생님/관리자 세션에서는 재학습 잠금을 우회한다 (수업 중 진도 진행용). */
 let staffSessionCache: { userId: string; isStaff: boolean } | null = null;
+
+/** 문장 스킵 + 유닛 전체 스킵을 합친 제외 지문 코드 집합 */
+const fetchAllSkippedCodes = async (userId: string): Promise<Set<string>> => {
+  const [bySentence, byUnit] = await Promise.all([
+    fetchSkippedSentenceIds(userId),
+    fetchSkippedUnitPassageCodes(userId),
+  ]);
+  return new Set([...bySentence, ...byUnit]);
+};
+
 const isStaffSession = async (userId: string): Promise<boolean> => {
   if (staffSessionCache?.userId === userId) return staffSessionCache.isStaff;
   const { data } = await supabase
@@ -308,7 +319,7 @@ export const resolveNextSentence = async (
     .slice()
     .sort((a, b) => comparePassageOrder(a.id, b.id, orderMeta));
 
-  const skipped = await fetchSkippedSentenceIds(userId);
+  const skipped = await fetchAllSkippedCodes(userId);
   const found = inLevel.find((s) => !passed.has(s.id) && !skipped.has(s.id));
   if (found) {
     // current_level/current_no 는 메인덱(A) 진도 지표이므로 서브덱에서는 갱신하지 않는다.
@@ -612,7 +623,7 @@ export const resolveNextAfterPass = async (
       .in("sentence_id", assignCodes);
 
     const getFlags = buildAssignmentProgressLookup((progRows ?? []) as ProgRow[]);
-    const skippedCodes = await fetchSkippedSentenceIds(userId);
+    const skippedCodes = await fetchAllSkippedCodes(userId);
 
     const orderMeta = await fetchPassageOrderMeta(assignCodes);
 
@@ -724,7 +735,7 @@ export const resolveNextAfterPass = async (
       ((passedRows ?? []) as { sentence_id: string }[]).map((r) => r.sentence_id),
     );
 
-    const skippedUnit = await fetchSkippedSentenceIds(userId);
+    const skippedUnit = await fetchAllSkippedCodes(userId);
     const idx = codes.indexOf(currentSentenceId);
     for (let i = idx + 1; i < codes.length; i++) {
       if (skippedUnit.has(codes[i])) continue;
