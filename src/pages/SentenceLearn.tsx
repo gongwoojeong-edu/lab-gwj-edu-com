@@ -1153,6 +1153,16 @@ const SentenceLearn = () => {
           refreshKey={`${redoRequestedAt ?? ""}|${lastEvaluation?.grade ?? ""}`}
         />
 
+        {/* 선생님 첨삭 문답 — 승인창을 닫아도 남아 있고, 답해야 다음 문장으로 넘어갈 수 있음 */}
+        {myUserId && sentence?.id && (
+          <TeachingQnaPanel
+            studentUserId={myUserId}
+            sentenceId={sentence.id}
+            role="student"
+            hideWhenEmpty
+          />
+        )}
+
         {/* 선생님 추가학습 요청 배너 — 기존 통과 기록은 유지된 채 한 번 더 제출 */}
 
 
