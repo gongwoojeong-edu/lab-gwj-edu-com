@@ -104,7 +104,9 @@ export const findPendingRedo = async (
 
   let q = supabase
     .from("sentence_progress")
-    .select("sentence_id, assignment_id, redo_requested_at, last_redo_memo")
+    .select(
+      "sentence_id, assignment_id, redo_requested_at, last_redo_memo, status, passed_at, updated_at",
+    )
     .eq("user_id", userId)
     .not("redo_requested_at", "is", null)
     .order("redo_requested_at", { ascending: true })
@@ -118,12 +120,21 @@ export const findPendingRedo = async (
     assignment_id: string | null;
     redo_requested_at: string;
     last_redo_memo: string | null;
+    status: string | null;
+    passed_at: string | null;
+    updated_at: string | null;
   }[];
-  const candidates = rows.filter(
-    (r) =>
-      r.sentence_id !== excludeSentenceId &&
-      (!allowedSentenceIds || allowedSentenceIds.has(r.sentence_id)),
-  );
+  const ts = (v: string | null | undefined) => (v ? new Date(v).getTime() : 0);
+  const candidates = rows.filter((r) => {
+    if (r.sentence_id === excludeSentenceId) return false;
+    if (allowedSentenceIds && !allowedSentenceIds.has(r.sentence_id)) return false;
+    // 재학습 요청 이후 이미 통과 처리된 문장은 잠금이 남아 있어도 해제된 것으로 본다.
+    if (r.status === "pass") {
+      const requested = ts(r.redo_requested_at);
+      if (ts(r.passed_at) >= requested || ts(r.updated_at) >= requested) return false;
+    }
+    return true;
+  });
   if (candidates.length === 0) return null;
 
   // 재학습 요청 이후에 학생이 다시 제출(승인 요청 생성)했다면 잠금은 해제된 것으로 본다.
