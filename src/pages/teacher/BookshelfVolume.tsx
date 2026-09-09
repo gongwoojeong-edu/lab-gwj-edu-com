@@ -47,6 +47,7 @@ import {
   ListPlus,
   Combine,
   Printer,
+  SkipForward,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -903,6 +904,14 @@ const BookshelfVolume = () => {
                   className="border-primary/40 text-primary hover:bg-primary/10"
                 >
                   <Printer className="size-4 mr-1" /> 워크북 인쇄
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUnitSkipOpen(true)}
+                  title="선택한 유닛 전체를 여러 학생에게 건너뛰기로 지정"
+                >
+                  <SkipForward className="size-4 mr-1" /> 유닛 스킵 지정
                 </Button>
                 {selectedIds.size >= 2 && (
                   <Button
