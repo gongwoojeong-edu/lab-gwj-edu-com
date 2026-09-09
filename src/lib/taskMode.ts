@@ -21,7 +21,8 @@ export const TASK_MODE_SHORT: Record<TaskMode, string> = {
   analysis_and_memorize: "분석+암기",
 };
 
-export const DEFAULT_TASK_MODE: TaskMode = "analysis_and_memorize";
+// 기본값은 단어·구문분석·한글해석까지. 문장암기는 선생님이 지정할 때만 열린다.
+export const DEFAULT_TASK_MODE: TaskMode = "analysis_only";
 
 /** 특별과제 학습 단계 체크박스 → task_mode (별도 드롭다운 불필요) */
 export function deriveTaskModeFromSteps(opts: {
