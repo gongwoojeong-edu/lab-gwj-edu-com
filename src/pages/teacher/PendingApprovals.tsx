@@ -340,6 +340,11 @@ const PendingApprovals = () => {
     return () => unsub();
   }, [load]);
 
+  // 문답 탭 배지 — 다른 탭에 있어도 개수는 보이도록
+  useEffect(() => {
+    void fetchAnsweredUnjudgedQuestions().then((list) => setQnaCount(list.length));
+  }, [tab]);
+
   const orphanIds = useMemo(
     () => rows.filter((r) => !r.english?.trim()).map((r) => r.id),
     [rows],
