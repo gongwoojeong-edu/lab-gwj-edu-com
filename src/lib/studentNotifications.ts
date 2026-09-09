@@ -87,6 +87,8 @@ export const markAllNotificationsRead = async (): Promise<void> => {
     .from("student_notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("user_id", uid)
+    // 티칭 신호는 선생님이 끝낼 때만 읽음 처리한다 (학생 '모두 읽음'으로 꺼지면 안 됨)
+    .neq("kind", "teaching")
     .is("read_at", null);
 };
 
