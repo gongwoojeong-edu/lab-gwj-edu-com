@@ -259,6 +259,14 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/redo-audit" className={({ isActive }) => linkCls(isActive)}>
+                    <AlertTriangle className="size-4" />
+                    {!collapsed && <span>재학습 점검</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
                   <NavLink to="/teacher/integrations" className={({ isActive }) => linkCls(isActive)}>
                     <Plug className="size-4" />
                     {!collapsed && <span>외부 연동</span>}

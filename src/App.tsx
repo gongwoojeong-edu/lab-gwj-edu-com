@@ -32,6 +32,7 @@ import LearningResultsCalendar from "./pages/teacher/LearningResultsCalendar.tsx
 import EvaluationReports from "./pages/teacher/EvaluationReports.tsx";
 import StudentNotifications from "./pages/StudentNotifications.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
+import RedoAudit from "./pages/teacher/RedoAudit.tsx";
 import HandoutPage from "./pages/Handout.tsx";
 import HandoutWord from "./pages/HandoutWord.tsx";
 import AnalysisReview from "./pages/AnalysisReview.tsx";
@@ -334,6 +335,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <HandoutPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/redo-audit"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <RedoAudit />
                 </RequireAuth>
               }
             />
