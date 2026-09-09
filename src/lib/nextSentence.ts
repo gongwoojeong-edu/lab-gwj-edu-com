@@ -5,6 +5,7 @@ import { fetchMyProfile, updateMyProgress, type StudentProfile } from "@/lib/stu
 import { hydrateSentencesFromDb, loadSentenceByCode } from "@/lib/sentenceSource";
 import { getCurrentUserId } from "@/lib/authState";
 import { fetchSkippedSentenceIds } from "@/lib/studentPassageOverrides";
+import { fetchSkippedUnitPassageCodes } from "@/lib/studentUnitOverrides";
 import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
 import {
   assignmentSequenceKey,
