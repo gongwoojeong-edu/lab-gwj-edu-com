@@ -67,3 +67,32 @@
 - RLS는 기존 `student_passage_overrides` 정책과 동일 구조 유지.
 - 타입: 마이그레이션 후 자동 재생성되는 `types.ts` 반영 확인.
 - 검증: `bunx tsgo --noEmit -p tsconfig.app.json`, `bunx vitest run src/test/example.test.ts`.
+
+---
+
+# 승인·평가 화면에서 학생 한글해석 수정
+
+## 목표
+선생님 승인·평가 창(`/teacher/approvals` 등)에서 학생이 쓴 한글해석을 그 자리에서 바로 고칠 수 있게 한다. 원문(영문) 즉시 수정 버튼과 동일한 방식.
+
+## 동작
+- "학생 한글해석" 영역 옆에 연필(수정) 버튼 추가.
+- 누르면 여러 줄 입력창으로 바뀌고 `저장` / `취소`.
+- 저장하면 해당 학생의 최신 해석이 갱신되고, 화면·워크북·인쇄물에 반영된다.
+- 수정 후 평가 등급·메모 입력 흐름은 그대로.
+
+## 권한(중요)
+현재 학생 해석 테이블은 **본인만 수정 가능**하도록 되어 있어, 선생님이 저장하면 권한 오류가 난다.
+마이그레이션으로 교사/관리자 수정 권한을 추가한다:
+- `sentence_translations` UPDATE 정책을 `user_id = auth.uid() OR has_role(auth.uid(),'teacher') OR has_role(auth.uid(),'admin')` 로 교체(USING/WITH CHECK 동일).
+- INSERT 정책도 동일하게 확장(해석 행이 아직 없는 문장을 선생님이 처음 입력하는 경우 대비).
+
+## 기술 메모
+- `src/lib/translationEdit.ts`(또는 기존 `storage.ts`에 추가): `updateStudentTranslation(userId, sentenceId, text)` — 해당 학생 행 upsert(`onConflict: user_id,sentence_id`), `submitted_at` 갱신.
+- `src/components/learning/TeacherApprovalDialog.tsx`
+  - 상태: `editingTranslation`, `translationDraft`, `translationOverride`, `savingTranslation` (원문 수정 패턴과 동일).
+  - 표시값 `shownTranslation = translationOverride ?? studentTranslation`.
+  - 수정 버튼은 `skipPin && studentUserId`(선생님 세션)일 때만 노출 — 학생 PIN 흐름에서는 숨김.
+  - 저장 성공 시 토스트 + 로컬 표시 즉시 갱신.
+- `src/pages/teacher/PendingApprovals.tsx`: 저장 후 목록의 해석 값도 최신으로 보이도록 콜백(`onTranslationUpdated`)으로 행 갱신.
+- 검증: `bunx tsgo --noEmit -p tsconfig.app.json`.
