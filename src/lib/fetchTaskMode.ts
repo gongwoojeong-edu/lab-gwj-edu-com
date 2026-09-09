@@ -24,13 +24,19 @@ export async function fetchTaskModeForSentence(
 
   const { data: passageRow } = await supabase
     .from("textbook_passages")
-    .select("unit_id, task_mode")
+    .select("unit_id, task_mode, mem_status")
     .eq("code", sentenceId)
     .maybeSingle();
 
-  const rec = passageRow as { unit_id: string; task_mode: TaskMode | null } | null;
+  const rec = passageRow as {
+    unit_id: string;
+    task_mode: TaskMode | null;
+    mem_status: string | null;
+  } | null;
   const unitId = rec?.unit_id ?? null;
   const passageTaskMode = rec?.task_mode ?? null;
+  // 암기 데이터가 준비(ready)되지 않은 지문은 문장암기 단계를 노출하지 않는다.
+  const memReady = rec?.mem_status === "ready";
 
   let unitDefault: TaskMode = DEFAULT_TASK_MODE;
   if (unitId) {
@@ -74,7 +80,7 @@ export async function fetchTaskModeForSentence(
         (unitId && a.unit_id === unitId && !a.sentence_id)),
   );
 
-  const taskMode = resolveTaskMode({
+  const resolved = resolveTaskMode({
     unitDefault,
     passageTaskMode,
     studentOverride,
@@ -82,6 +88,7 @@ export async function fetchTaskModeForSentence(
     sentenceId,
     unitId,
   });
+  const taskMode: TaskMode = memReady ? resolved : "analysis_only";
 
   return { taskMode, unitId, unitDefault, passageTaskMode };
 }
