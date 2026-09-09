@@ -91,6 +91,38 @@ export const answerTeachingQuestion = async (
   if (error) throw error;
 };
 
+/**
+ * 학생이 아직 답하지 않은(또는 오답으로 다시 답해야 하는) 질문들.
+ * 진도 잠금·학습화면 표시에 사용한다.
+ */
+export const fetchOpenQuestionsForStudent = async (
+  studentUserId?: string,
+): Promise<TeachingQuestion[]> => {
+  const uid = studentUserId ?? (await getCurrentUserId());
+  if (!uid) return [];
+  const { data } = await supabase
+    .from("teaching_questions")
+    .select("*")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  return ((data ?? []) as Record<string, unknown>[])
+    .map(normalize)
+    .filter((q) => !q.answered_at || q.verdict === "wrong");
+};
+
+/** 선생님: 학생이 답했지만 아직 O/X 판정을 안 한 문답 (승인 대기함용) */
+export const fetchAnsweredUnjudgedQuestions = async (): Promise<TeachingQuestion[]> => {
+  const { data } = await supabase
+    .from("teaching_questions")
+    .select("*")
+    .not("answered_at", "is", null)
+    .is("verdict", null)
+    .order("answered_at", { ascending: true })
+    .limit(300);
+  return ((data ?? []) as Record<string, unknown>[]).map(normalize);
+};
+
 /** 선생님: O/X 판정 */
 export const judgeTeachingQuestion = async (
   id: string,
