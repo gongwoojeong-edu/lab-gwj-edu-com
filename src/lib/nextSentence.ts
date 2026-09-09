@@ -304,10 +304,19 @@ export const resolveNextSentence = async (
   }
 
   if (locked && locked.sentence) {
-    const inTrack =
-      track === "A" ? true : !!scopedCodes && scopedCodes.has(locked.sentence.id);
+    let inTrack: boolean;
+    if (track === "B") {
+      inTrack = !!scopedCodes && scopedCodes.has(locked.sentence.id);
+    } else if (profile.track_b_enabled) {
+      // 서브덱을 쓰는 학생: 서브덱 범위의 재학습 문장은 메인덱 카드에 띄우지 않는다.
+      const bCodes = await fetchScopedPassageCodes(trackScopeOf(profile, "B"));
+      inTrack = !(bCodes && bCodes.has(locked.sentence.id));
+    } else {
+      inTrack = true;
+    }
     if (inTrack) return { ...locked, track };
   }
+
 
   // 진도 범위가 지정된 경우 범위가 우선 — 같은 책 안의 다른 레벨 코드 지문도 건너뛰지 않는다.
   let inLevel = scopedCodes
