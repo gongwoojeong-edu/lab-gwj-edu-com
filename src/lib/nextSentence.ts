@@ -96,6 +96,7 @@ const isStaffSession = async (userId: string): Promise<boolean> => {
 export const findPendingRedo = async (
   excludeSentenceId?: string,
   assignmentId?: string | null,
+  allowedSentenceIds?: Set<string> | null,
 ): Promise<PendingRedo | null> => {
   const userId = await getCurrentUserId();
   if (!userId) return null;
@@ -107,7 +108,7 @@ export const findPendingRedo = async (
     .eq("user_id", userId)
     .not("redo_requested_at", "is", null)
     .order("redo_requested_at", { ascending: true })
-    .limit(10);
+    .limit(1000);
   if (assignmentId) q = q.eq("assignment_id", assignmentId);
   else q = q.is("assignment_id", null);
 
@@ -118,16 +119,21 @@ export const findPendingRedo = async (
     redo_requested_at: string;
     last_redo_memo: string | null;
   }[];
-  const candidates = rows.filter((r) => r.sentence_id !== excludeSentenceId);
+  const candidates = rows.filter(
+    (r) =>
+      r.sentence_id !== excludeSentenceId &&
+      (!allowedSentenceIds || allowedSentenceIds.has(r.sentence_id)),
+  );
   if (candidates.length === 0) return null;
 
   // 재학습 요청 이후에 학생이 다시 제출(승인 요청 생성)했다면 잠금은 해제된 것으로 본다.
   // (플래그 정리가 실패해 남아 있는 경우 학생이 계속 되돌아가는 문제 방지)
   const { data: apprData } = await supabase
     .from("sentence_approvals")
-    .select("sentence_id, created_at")
+    .select("sentence_id, assignment_id, created_at")
     .eq("user_id", userId)
-    .in("sentence_id", candidates.map((r) => r.sentence_id));
+    .in("sentence_id", candidates.map((r) => r.sentence_id))
+    .filter("assignment_id", assignmentId ? "eq" : "is", assignmentId ?? null);
   const latestSubmit = new Map<string, number>();
   ((apprData ?? []) as { sentence_id: string; created_at: string }[]).forEach((a) => {
     const t = new Date(a.created_at).getTime();
@@ -155,13 +161,12 @@ const redoLockResult = async (
   assignmentId?: string | null,
   allowedSentenceIds?: Set<string> | null,
 ): Promise<NextSentenceResult | null> => {
-  const redo = await findPendingRedo(excludeSentenceId, assignmentId ?? null);
+  const redo = await findPendingRedo(
+    excludeSentenceId,
+    assignmentId ?? null,
+    allowedSentenceIds,
+  );
   if (!redo) return null;
-  // 일반 진도 재학습은 현재 메인덱/서브덱 범위 안에서만 잠근다.
-  // 과거 교재에 남은 요청이 새 진도 카드와 다음 이동을 가로채지 않게 한다.
-  if (assignmentId == null && allowedSentenceIds && !allowedSentenceIds.has(redo.sentenceId)) {
-    return null;
-  }
   const sentence = await loadSentenceById(redo.sentenceId);
   if (!sentence) return null;
   return {
