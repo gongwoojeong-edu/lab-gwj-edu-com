@@ -80,7 +80,7 @@ export async function fetchTaskModeForSentence(
         (unitId && a.unit_id === unitId && !a.sentence_id)),
   );
 
-  const taskMode = resolveTaskMode({
+  const resolved = resolveTaskMode({
     unitDefault,
     passageTaskMode,
     studentOverride,
@@ -88,6 +88,7 @@ export async function fetchTaskModeForSentence(
     sentenceId,
     unitId,
   });
+  const taskMode: TaskMode = memReady ? resolved : "analysis_only";
 
   return { taskMode, unitId, unitDefault, passageTaskMode };
 }
