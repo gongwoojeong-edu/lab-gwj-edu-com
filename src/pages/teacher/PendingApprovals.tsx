@@ -386,7 +386,7 @@ const PendingApprovals = () => {
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus)}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus | "qna")}>
           <TabsList>
             <TabsTrigger value="pending" className="gap-2">
               대기
@@ -396,20 +396,28 @@ const PendingApprovals = () => {
               <PauseCircle className="w-3.5 h-3.5" /> 보류
               <Badge variant="secondary" className="h-5 px-1.5">{heldCount}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="qna" className="gap-2">
+              <MessageCircleQuestion className="w-3.5 h-3.5" /> 문답
+              <Badge variant="secondary" className="h-5 px-1.5">{qnaCount}</Badge>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
         <p className="text-sm text-muted-foreground">
-          {tab === "held"
+          {tab === "qna"
+            ? "승인창에서 보낸 질문에 학생이 답한 내용입니다. 학생은 답하기 전에는 다음 문장으로 넘어가지 못합니다."
+            : tab === "held"
             ? "지금 판정하지 않고 보류해둔 문장입니다. 카드의 [승인하기]를 눌러 상세한 첨삭 메모와 함께 최종 평가를 남기세요."
             : (<>학생이 제출한 한글해석을 확인하고 <b>매우잘함/잘함/보통/미흡/재학습</b> 중 하나로 평가하거나, 지금 판정하기 어렵다면 <b>보류</b>로 넘겨두세요.</>)}
         </p>
 
-        {loading && rows.length === 0 && (
+        {tab === "qna" && <QnaInbox onCount={setQnaCount} />}
+
+        {tab !== "qna" && loading && rows.length === 0 && (
           <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>
         )}
 
-        {!loading && rows.length === 0 && (
+        {tab !== "qna" && !loading && rows.length === 0 && (
           <Card className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
             <Inbox className="w-8 h-8" />
             <div className="font-semibold">
