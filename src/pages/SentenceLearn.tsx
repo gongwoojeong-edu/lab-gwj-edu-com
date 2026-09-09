@@ -79,6 +79,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { TeacherFeedbackPanel } from "@/components/student/TeacherFeedbackPanel";
+import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 
 import { memoToPlainText } from "@/lib/approvalMemo";
 import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
