@@ -178,10 +178,12 @@ const MemorizeLearn = () => {
   const goNextSentence = async () => {
     const r = await resolveNextSentence();
     if (r.sentence) {
-      if (r.redoLock) {
+      if (r.redoLock || r.qnaLock) {
         toast({
-          title: "재학습 먼저 완료해 주세요",
-          description: "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
+          title: r.qnaLock ? "선생님 질문에 먼저 답해 주세요" : "재학습 먼저 완료해 주세요",
+          description: r.qnaLock
+            ? (r.qnaQuestion ?? "첨삭 문답이 도착했어요.")
+            : "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
         });
         navigate(`/learn/sentence/${encodeURIComponent(r.sentence.id)}`);
         return;

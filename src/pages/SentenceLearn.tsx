@@ -79,6 +79,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { TeacherFeedbackPanel } from "@/components/student/TeacherFeedbackPanel";
+import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 
 import { memoToPlainText } from "@/lib/approvalMemo";
 import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
@@ -225,6 +226,12 @@ const SentenceLearn = () => {
   // 한글해석 제출 후 선생님 승인 게이트
   const [pendingApproval, setPendingApproval] = useState<SentenceApproval | null>(null);
   const [submittedTranslation, setSubmittedTranslation] = useState<string>("");
+
+  // 첨삭 문답 패널용 내 user id
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+  useEffect(() => {
+    void getCurrentUserId().then((id) => setMyUserId(id ?? null));
+  }, []);
 
   // 추가학습 요청 (선생님이 redo 등급으로 승인) — 기존 통과 기록은 유지하되 한 번 더 제출
   const [redoRequestedAt, setRedoRequestedAt] = useState<string | null>(null);
@@ -759,6 +766,11 @@ const SentenceLearn = () => {
             memoToPlainText(r.redoMemo ?? null) ||
             "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
         });
+      } else if (r.qnaLock) {
+        toast({
+          title: "선생님 질문에 먼저 답해 주세요",
+          description: r.qnaQuestion ?? "첨삭 문답이 도착했어요.",
+        });
       }
       const qs = r.assignmentId
         ? `?assignment=${encodeURIComponent(r.assignmentId)}`
@@ -1141,6 +1153,16 @@ const SentenceLearn = () => {
           sentenceId={sentence?.id}
           refreshKey={`${redoRequestedAt ?? ""}|${lastEvaluation?.grade ?? ""}`}
         />
+
+        {/* 선생님 첨삭 문답 — 승인창을 닫아도 남아 있고, 답해야 다음 문장으로 넘어갈 수 있음 */}
+        {myUserId && sentence?.id && (
+          <TeachingQnaPanel
+            studentUserId={myUserId}
+            sentenceId={sentence.id}
+            role="student"
+            hideWhenEmpty
+          />
+        )}
 
         {/* 선생님 추가학습 요청 배너 — 기존 통과 기록은 유지된 채 한 번 더 제출 */}
 
@@ -1627,6 +1649,11 @@ const SentenceLearn = () => {
                           description:
                             memoToPlainText(r.redoMemo ?? null) ||
                             "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
+                        });
+                      } else if (r.qnaLock) {
+                        toast({
+                          title: "선생님 질문에 먼저 답해 주세요",
+                          description: r.qnaQuestion ?? "첨삭 문답이 도착했어요.",
                         });
                       }
                       const qs = r.assignmentId

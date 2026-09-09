@@ -25,9 +25,17 @@ interface Props {
   sentenceId: string;
   role: "teacher" | "student" | "readonly";
   className?: string;
+  /** 질문이 하나도 없으면 아무것도 그리지 않는다 (학습화면 상시 노출용) */
+  hideWhenEmpty?: boolean;
 }
 
-export const TeachingQnaPanel = ({ studentUserId, sentenceId, role, className }: Props) => {
+export const TeachingQnaPanel = ({
+  studentUserId,
+  sentenceId,
+  role,
+  className,
+  hideWhenEmpty,
+}: Props) => {
   const [rows, setRows] = useState<TeachingQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [question, setQuestion] = useState("");
@@ -102,7 +110,8 @@ export const TeachingQnaPanel = ({ studentUserId, sentenceId, role, className }:
     }
   };
 
-  if (role === "readonly" && !loading && rows.length === 0) return null;
+  if ((role === "readonly" || hideWhenEmpty) && !loading && rows.length === 0) return null;
+  if (hideWhenEmpty && loading) return null;
 
   return (
     <div className={cn("rounded-md border border-sky-500/40 bg-sky-500/5 p-3 space-y-3", className)}>

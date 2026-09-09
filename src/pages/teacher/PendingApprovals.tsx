@@ -24,6 +24,107 @@ import { Pencil, Save, X, BookOpen, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
+import {
+  fetchAnsweredUnjudgedQuestions,
+  judgeTeachingQuestion,
+  type TeachingQuestion,
+} from "@/lib/teachingQuestions";
+import { MessageCircleQuestion, Check } from "lucide-react";
+
+/** 학생이 답한 첨삭 문답 — 선생님 O/X 판정 대기 목록 */
+const QnaInbox = ({ onCount }: { onCount: (n: number) => void }) => {
+  const [rows, setRows] = useState<TeachingQuestion[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const list = await fetchAnsweredUnjudgedQuestions();
+      setRows(list);
+      onCount(list.length);
+      const ids = Array.from(new Set(list.map((r) => r.user_id)));
+      if (ids.length) {
+        const { data } = await supabase
+          .from("student_profiles")
+          .select("user_id, student_no, display_name")
+          .in("user_id", ids);
+        const map: Record<string, string> = {};
+        ((data ?? []) as { user_id: string; student_no: string; display_name: string | null }[]).forEach(
+          (p) => (map[p.user_id] = `${p.display_name ?? p.student_no} (${p.student_no})`),
+        );
+        setNames(map);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [onCount]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const judge = async (id: string, verdict: "correct" | "wrong") => {
+    setBusyId(id);
+    try {
+      await judgeTeachingQuestion(id, verdict);
+      await load();
+    } catch (e: any) {
+      toast({ title: "판정 저장 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) return <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>;
+  if (rows.length === 0)
+    return (
+      <Card className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
+        <MessageCircleQuestion className="w-8 h-8" />
+        <div className="font-semibold">판정할 문답이 없어요</div>
+        <div className="text-xs">승인창에서 보낸 질문에 학생이 답하면 이곳에 모입니다.</div>
+      </Card>
+    );
+
+  return (
+    <div className="space-y-3">
+      {rows.map((r) => (
+        <Card key={r.id} className="p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <Badge>{names[r.user_id] ?? "학생"}</Badge>
+            <span className="font-mono text-xs">{r.sentence_id}</span>
+            <span className="text-xs text-muted-foreground">
+              {r.answered_at ? new Date(r.answered_at).toLocaleString("ko-KR") : ""}
+            </span>
+          </div>
+          <div className="text-sm">
+            <span className="text-[11px] font-bold text-muted-foreground mr-1.5">선생님</span>
+            <span className="whitespace-pre-wrap font-medium">{r.question}</span>
+          </div>
+          <div className="text-sm">
+            <span className="text-[11px] font-bold text-muted-foreground mr-1.5">학생</span>
+            <span className="whitespace-pre-wrap">{r.answer}</span>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" disabled={busyId === r.id} onClick={() => judge(r.id, "correct")}>
+              <Check className="w-4 h-4 mr-1" /> 정답
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={busyId === r.id}
+              onClick={() => judge(r.id, "wrong")}
+            >
+              <X className="w-4 h-4 mr-1" /> 오답(다시 답하기)
+            </Button>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 interface Row extends SentenceApproval {
   student_no?: string | null;
   display_name?: string | null;
@@ -47,7 +148,8 @@ const PendingApprovals = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<ApprovalStatus>("pending");
+  const [tab, setTab] = useState<ApprovalStatus | "qna">("pending");
+  const [qnaCount, setQnaCount] = useState(0);
   const [heldCount, setHeldCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -101,6 +203,10 @@ const PendingApprovals = () => {
   };
 
   const load = useCallback(async () => {
+    if (tab === "qna") {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [list, otherList] = await Promise.all([
@@ -234,6 +340,11 @@ const PendingApprovals = () => {
     return () => unsub();
   }, [load]);
 
+  // 문답 탭 배지 — 다른 탭에 있어도 개수는 보이도록
+  useEffect(() => {
+    void fetchAnsweredUnjudgedQuestions().then((list) => setQnaCount(list.length));
+  }, [tab]);
+
   const orphanIds = useMemo(
     () => rows.filter((r) => !r.english?.trim()).map((r) => r.id),
     [rows],
@@ -280,7 +391,7 @@ const PendingApprovals = () => {
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus)}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus | "qna")}>
           <TabsList>
             <TabsTrigger value="pending" className="gap-2">
               대기
@@ -290,20 +401,28 @@ const PendingApprovals = () => {
               <PauseCircle className="w-3.5 h-3.5" /> 보류
               <Badge variant="secondary" className="h-5 px-1.5">{heldCount}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="qna" className="gap-2">
+              <MessageCircleQuestion className="w-3.5 h-3.5" /> 문답
+              <Badge variant="secondary" className="h-5 px-1.5">{qnaCount}</Badge>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
         <p className="text-sm text-muted-foreground">
-          {tab === "held"
+          {tab === "qna"
+            ? "승인창에서 보낸 질문에 학생이 답한 내용입니다. 학생은 답하기 전에는 다음 문장으로 넘어가지 못합니다."
+            : tab === "held"
             ? "지금 판정하지 않고 보류해둔 문장입니다. 카드의 [승인하기]를 눌러 상세한 첨삭 메모와 함께 최종 평가를 남기세요."
             : (<>학생이 제출한 한글해석을 확인하고 <b>매우잘함/잘함/보통/미흡/재학습</b> 중 하나로 평가하거나, 지금 판정하기 어렵다면 <b>보류</b>로 넘겨두세요.</>)}
         </p>
 
-        {loading && rows.length === 0 && (
+        {tab === "qna" && <QnaInbox onCount={setQnaCount} />}
+
+        {tab !== "qna" && loading && rows.length === 0 && (
           <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>
         )}
 
-        {!loading && rows.length === 0 && (
+        {tab !== "qna" && !loading && rows.length === 0 && (
           <Card className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
             <Inbox className="w-8 h-8" />
             <div className="font-semibold">
@@ -318,7 +437,7 @@ const PendingApprovals = () => {
         )}
 
         <div className="space-y-3">
-          {rows.map((row) => (
+          {(tab === "qna" ? [] : rows).map((row) => (
             <Card key={row.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-sm flex-wrap">
