@@ -432,7 +432,7 @@ const PendingApprovals = () => {
         )}
 
         <div className="space-y-3">
-          {rows.map((row) => (
+          {(tab === "qna" ? [] : rows).map((row) => (
             <Card key={row.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-sm flex-wrap">
