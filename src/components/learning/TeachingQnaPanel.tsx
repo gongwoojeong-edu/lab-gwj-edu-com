@@ -25,9 +25,17 @@ interface Props {
   sentenceId: string;
   role: "teacher" | "student" | "readonly";
   className?: string;
+  /** 질문이 하나도 없으면 아무것도 그리지 않는다 (학습화면 상시 노출용) */
+  hideWhenEmpty?: boolean;
 }
 
-export const TeachingQnaPanel = ({ studentUserId, sentenceId, role, className }: Props) => {
+export const TeachingQnaPanel = ({
+  studentUserId,
+  sentenceId,
+  role,
+  className,
+  hideWhenEmpty,
+}: Props) => {
   const [rows, setRows] = useState<TeachingQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [question, setQuestion] = useState("");
