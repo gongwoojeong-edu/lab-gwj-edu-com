@@ -314,6 +314,19 @@ export const upsertTranslation = async (sentenceId: string, text: string): Promi
   if (error) throw error;
 };
 
+/** 선생님/관리자가 특정 학생의 한글해석을 직접 수정할 때 사용 */
+export const upsertTranslationFor = async (
+  userId: string,
+  sentenceId: string,
+  text: string,
+): Promise<void> => {
+  const { error } = await supabase.from("sentence_translations").upsert(
+    { user_id: userId, sentence_id: sentenceId, text, submitted_at: new Date().toISOString() },
+    { onConflict: "user_id,sentence_id" },
+  );
+  if (error) throw error;
+};
+
 // ---------- word_test_results ----------
 export interface WordTestItem {
   word: string;
