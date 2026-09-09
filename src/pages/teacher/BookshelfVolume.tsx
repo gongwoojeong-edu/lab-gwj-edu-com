@@ -1600,6 +1600,18 @@ const BookshelfVolume = () => {
         }}
       />
 
+      <UnitSkipBulkDialog
+        open={unitSkipOpen}
+        onOpenChange={setUnitSkipOpen}
+        units={units.map((u) => ({
+          id: u.id,
+          label: `${u.unit_no}. ${u.title}`,
+        }))}
+        defaultSelectedIds={Array.from(selectedIds)}
+      />
+
+
+
       {/* 다중 유닛 워크북 인쇄 다이얼로그 */}
       <Dialog open={printOpen} onOpenChange={(o) => !printing && setPrintOpen(o)}>
         <DialogContent className="max-w-2xl">
