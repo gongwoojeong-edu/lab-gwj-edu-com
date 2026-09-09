@@ -115,15 +115,44 @@ export const TeacherApprovalDialog = ({
   const [englishDraft, setEnglishDraft] = useState("");
   const [englishOverride, setEnglishOverride] = useState<string | null>(null);
   const [savingEnglish, setSavingEnglish] = useState(false);
+  /** 학생 한글해석 즉시 수정 (선생님 전용) */
+  const [editingTranslation, setEditingTranslation] = useState(false);
+  const [translationDraft, setTranslationDraft] = useState("");
+  const [translationOverride, setTranslationOverride] = useState<string | null>(null);
+  const [savingTranslation, setSavingTranslation] = useState(false);
 
   const shownEnglish = englishOverride ?? englishSentence;
+  const shownTranslation = translationOverride ?? studentTranslation ?? "";
 
   useEffect(() => {
     if (!open) {
       setEditingEnglish(false);
       setEnglishOverride(null);
+      setEditingTranslation(false);
+      setTranslationOverride(null);
     }
   }, [open]);
+
+  const saveTranslation = async () => {
+    if (!studentUserId) return;
+    const next = translationDraft.trim();
+    setSavingTranslation(true);
+    try {
+      await upsertTranslationFor(studentUserId, sentenceId, next);
+      setTranslationOverride(next);
+      setEditingTranslation(false);
+      onTranslationUpdated?.(next);
+      toast({ title: "학생 한글해석을 수정했어요" });
+    } catch (e) {
+      toast({
+        title: "수정 실패",
+        description: e instanceof Error ? e.message : "잠시 후 다시 시도해 주세요",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingTranslation(false);
+    }
+  };
 
   const saveEnglish = async () => {
     const next = englishDraft.trim();
@@ -561,10 +590,50 @@ export const TeacherApprovalDialog = ({
                 )}
               </div>
             )}
-            {studentTranslation && (
+            {(shownTranslation || editingTranslation) && (
               <div>
-                <div className="text-[11px] text-muted-foreground">학생 한글해석</div>
-                <div className="whitespace-pre-wrap">{studentTranslation}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[11px] text-muted-foreground">학생 한글해석</div>
+                  {!editingTranslation && skipPin && studentUserId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTranslationDraft(shownTranslation ?? "");
+                        setEditingTranslation(true);
+                      }}
+                      className="relative z-30 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                      title="학생 한글해석 수정"
+                    >
+                      <Pencil className="w-3 h-3" /> 수정
+                    </button>
+                  )}
+                </div>
+                {editingTranslation ? (
+                  <div className="relative z-30 space-y-1.5">
+                    <Textarea
+                      value={translationDraft}
+                      onChange={(e) => setTranslationDraft(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" onClick={saveTranslation} disabled={savingTranslation}>
+                        {savingTranslation ? "저장 중…" : "저장"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingTranslation(false)}
+                        disabled={savingTranslation}
+                      >
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap">{shownTranslation}</div>
+                )}
               </div>
             )}
 
