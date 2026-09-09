@@ -137,6 +137,35 @@ export const findPendingRedo = async (
   });
   if (candidates.length === 0) return null;
 
+  // 같은 문장을 특별과제 행(assignment_id 있음)으로 다시 통과했다면 남아 있는
+  // 일반 진도 행의 재학습 플래그는 stale 로 본다. (행이 분리되어 해제가 누락됨)
+  const { data: crossRows } = await supabase
+    .from("sentence_progress")
+    .select("sentence_id, status, passed_at, updated_at")
+    .eq("user_id", userId)
+    .in(
+      "sentence_id",
+      candidates.map((r) => r.sentence_id),
+    )
+    .eq("status", "pass");
+  const latestPass = new Map<string, number>();
+  (
+    (crossRows ?? []) as {
+      sentence_id: string;
+      passed_at: string | null;
+      updated_at: string | null;
+    }[]
+  ).forEach((r) => {
+    const t = Math.max(ts(r.passed_at), ts(r.updated_at));
+    if (t > (latestPass.get(r.sentence_id) ?? 0)) latestPass.set(r.sentence_id, t);
+  });
+  const fresh = candidates.filter(
+    (r) => (latestPass.get(r.sentence_id) ?? 0) < ts(r.redo_requested_at),
+  );
+  if (fresh.length === 0) return null;
+  candidates.length = 0;
+  candidates.push(...fresh);
+
   // 재학습 요청 이후에 학생이 다시 제출(승인 요청 생성)했다면 잠금은 해제된 것으로 본다.
   // (플래그 정리가 실패해 남아 있는 경우 학생이 계속 되돌아가는 문제 방지)
   const { data: apprData } = await supabase
