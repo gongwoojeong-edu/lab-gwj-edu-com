@@ -32,6 +32,7 @@ import {
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
 import { fetchPassageSource, fetchPassageByCode, updatePassage, type PassageSource } from "@/lib/textbooks";
+import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 
 
