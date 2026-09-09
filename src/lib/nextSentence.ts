@@ -7,6 +7,7 @@ import { getCurrentUserId } from "@/lib/authState";
 import { fetchSkippedSentenceIds } from "@/lib/studentPassageOverrides";
 import { fetchSkippedUnitPassageCodes } from "@/lib/studentUnitOverrides";
 import { taskModeIncludesMemorize, type TaskMode } from "@/lib/taskMode";
+import { fetchOpenQuestionsForStudent } from "@/lib/teachingQuestions";
 import {
   assignmentSequenceKey,
   comparePassageOrder,
