@@ -4,6 +4,7 @@
 //   · canEdit=false : 읽기 전용 표시 (학생 화면 — 실시간 수신)
 // ============================================================
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AnnotationCanvas } from "./AnnotationCanvas";
 import { AnnotationToolbar, type ToolbarState } from "./AnnotationToolbar";
@@ -18,6 +19,8 @@ interface Props {
   channelName?: string;
   extraBottomPx?: number;
   toolbarClassName?: string;
+  /** 지정하면 도구 모음을 이 요소 안에 포털로 렌더링 (예: 대화상자 헤더) */
+  toolbarPortalTarget?: HTMLElement | null;
   /** 저장 scope — 한 문장 카드에 레이어를 여러 개 띄울 때 구분 */
   scope?: "teacher" | "student" | "memo";
 }
@@ -32,6 +35,7 @@ export const AnnotationLayer = ({
   channelName,
   extraBottomPx = 72,
   toolbarClassName,
+  toolbarPortalTarget = null,
   scope = "teacher",
 }: Props) => {
   const ann = useAnnotation({ sentenceId, studentId, scope, canEdit });
@@ -102,27 +106,29 @@ export const AnnotationLayer = ({
     if (canEdit) broadcast(next, aspect);
   };
 
+  const toolbar = canEdit ? (
+    <AnnotationToolbar
+      {...tool}
+      saveState={ann.saveState}
+      canUndo={ann.canUndo}
+      canRedo={ann.canRedo}
+      showMouseToggle={showMouseToggle}
+      onChange={(patch) => setTool((t) => ({ ...t, ...patch }))}
+      onUndo={() => {
+        ann.undo();
+      }}
+      onRedo={() => {
+        ann.redo();
+      }}
+      onClearAll={() => handleCommit([], ann.aspect || 1)}
+      onRetry={ann.retry}
+      className={toolbarClassName}
+    />
+  ) : null;
+
   return (
     <>
-      {canEdit && (
-        <AnnotationToolbar
-          {...tool}
-          saveState={ann.saveState}
-          canUndo={ann.canUndo}
-          canRedo={ann.canRedo}
-          showMouseToggle={showMouseToggle}
-          onChange={(patch) => setTool((t) => ({ ...t, ...patch }))}
-          onUndo={() => {
-            ann.undo();
-          }}
-          onRedo={() => {
-            ann.redo();
-          }}
-          onClearAll={() => handleCommit([], ann.aspect || 1)}
-          onRetry={ann.retry}
-          className={toolbarClassName}
-        />
-      )}
+      {toolbar && (toolbarPortalTarget ? createPortal(toolbar, toolbarPortalTarget) : toolbar)}
       <AnnotationCanvas
         strokes={ann.strokes}
         aspect={ann.aspect}

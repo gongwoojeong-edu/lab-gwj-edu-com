@@ -124,6 +124,8 @@ export const TeacherApprovalDialog = ({
   const [translationDraft, setTranslationDraft] = useState("");
   const [translationOverride, setTranslationOverride] = useState<string | null>(null);
   const [savingTranslation, setSavingTranslation] = useState(false);
+  // 판서 도구 모음을 헤더 제목 줄에 포털로 붙이기 위한 슬롯
+  const [headerToolbarEl, setHeaderToolbarEl] = useState<HTMLElement | null>(null);
 
   const shownEnglish = englishOverride ?? englishSentence;
   const shownTranslation = translationOverride ?? studentTranslation ?? "";
@@ -488,6 +490,8 @@ export const TeacherApprovalDialog = ({
                 {roundNo}회차
               </span>
             )}
+            {/* 판서 도구 모음 슬롯 — 본문을 가리지 않도록 제목 줄 오른쪽에 고정 */}
+            <span ref={setHeaderToolbarEl} className="ml-auto flex items-center flex-wrap gap-1 pr-6" />
           </DialogTitle>
 
           <DialogDescription>
@@ -649,6 +653,7 @@ export const TeacherApprovalDialog = ({
                 channelName={teachingChannelName(studentUserId)}
                 extraBottomPx={0}
                 toolbarClassName="absolute right-2 top-1 z-30"
+                toolbarPortalTarget={headerToolbarEl}
               />
             )}
           </div>
