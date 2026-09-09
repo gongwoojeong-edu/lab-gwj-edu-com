@@ -303,6 +303,12 @@ export const resolveNextSentence = async (
     }
   }
 
+  if (locked && locked.sentence) {
+    const inTrack =
+      track === "A" ? true : !!scopedCodes && scopedCodes.has(locked.sentence.id);
+    if (inTrack) return { ...locked, track };
+  }
+
   // 진도 범위가 지정된 경우 범위가 우선 — 같은 책 안의 다른 레벨 코드 지문도 건너뛰지 않는다.
   let inLevel = scopedCodes
     ? SENTENCES.filter((s) => scopedCodes.has(s.id))
