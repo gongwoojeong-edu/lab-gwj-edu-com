@@ -153,9 +153,15 @@ const redoLockResult = async (
   profile: StudentProfile | null,
   excludeSentenceId?: string,
   assignmentId?: string | null,
+  allowedSentenceIds?: Set<string> | null,
 ): Promise<NextSentenceResult | null> => {
   const redo = await findPendingRedo(excludeSentenceId, assignmentId ?? null);
   if (!redo) return null;
+  // 일반 진도 재학습은 현재 메인덱/서브덱 범위 안에서만 잠근다.
+  // 과거 교재에 남은 요청이 새 진도 카드와 다음 이동을 가로채지 않게 한다.
+  if (assignmentId == null && allowedSentenceIds && !allowedSentenceIds.has(redo.sentenceId)) {
+    return null;
+  }
   const sentence = await loadSentenceById(redo.sentenceId);
   if (!sentence) return null;
   return {
@@ -271,10 +277,6 @@ export const resolveNextSentence = async (
   const userId = await getCurrentUserId();
   if (!userId) return { sentence: null, profile, done: false, track };
 
-  // 선생님 재학습 요청이 남아 있으면 새 문장으로 넘어가지 못하게 잠근다.
-  // (트랙 B 카드는 자기 범위의 재학습만 잠금 — 메인덱 문장이 서브덱에 뜨지 않게)
-  const locked = await redoLockResult(profile, undefined, null);
-
   const { data: passedRows } = await supabase
     .from("sentence_progress")
     .select("sentence_id, status")
@@ -285,6 +287,13 @@ export const resolveNextSentence = async (
 
   // 시작 범위(시리즈/권/유닛) 지정이 있으면 그 code 집합으로 한 번 더 좁힌다.
   const scopedCodes = await fetchScopedPassageCodes(trackScopeOf(profile, track));
+
+  // 선생님 재학습 요청도 반드시 현재 트랙 범위 안의 문장만 적용한다.
+  // 범위 미지정 레거시 계정은 현재 레벨을 범위로 사용한다.
+  const redoScope = scopedCodes ?? new Set(
+    SENTENCES.filter((sentence) => sentence.level === targetLevel).map((sentence) => sentence.id),
+  );
+  const locked = await redoLockResult(profile, undefined, null, redoScope);
 
   // scopedCodes 중 메모리 SENTENCES에 아직 없는 것이 있으면 DB에서 직접 로드해 머지.
   // (sessionStorage 캐시가 stale 한 경우 신규 배정 책의 지문이 누락되는 사고 방지)
@@ -303,19 +312,7 @@ export const resolveNextSentence = async (
     }
   }
 
-  if (locked && locked.sentence) {
-    let inTrack: boolean;
-    if (track === "B") {
-      inTrack = !!scopedCodes && scopedCodes.has(locked.sentence.id);
-    } else if (profile.track_b_enabled) {
-      // 서브덱을 쓰는 학생: 서브덱 범위의 재학습 문장은 메인덱 카드에 띄우지 않는다.
-      const bCodes = await fetchScopedPassageCodes(trackScopeOf(profile, "B"));
-      inTrack = !(bCodes && bCodes.has(locked.sentence.id));
-    } else {
-      inTrack = true;
-    }
-    if (inTrack) return { ...locked, track };
-  }
+  if (locked?.sentence) return { ...locked, track };
 
 
   // 진도 범위가 지정된 경우 범위가 우선 — 같은 책 안의 다른 레벨 코드 지문도 건너뛰지 않는다.
@@ -608,13 +605,34 @@ export const resolveNextAfterPass = async (
   const userId = await getCurrentUserId();
   if (!userId) return { sentence: null, profile, done: false };
 
-  // 재학습 요청이 남아 있으면 그 문장을 먼저 끝내게 한다. (진행 중이던 문장은 그대로 완료 후 이동)
+  // 현재 문장이 어느 덱에 속하는지 먼저 판정한다. 완료 후에도 같은 덱 안에서만
+  // 재학습 잠금과 다음 진도를 이어가야 메인덱/서브덱이 서로 섞이지 않는다.
+  let currentTrack: DeckTrack = "A";
+  let currentTrackScope: Set<string> | null = null;
+  if (!currentAssignmentId && profile) {
+    const [aCodes, bCodes] = await Promise.all([
+      fetchScopedPassageCodes(trackScopeOf(profile, "A")),
+      profile.track_b_enabled
+        ? fetchScopedPassageCodes(trackScopeOf(profile, "B"))
+        : Promise.resolve(null),
+    ]);
+    if (bCodes?.has(currentSentenceId) && !aCodes?.has(currentSentenceId)) {
+      currentTrack = "B";
+      currentTrackScope = bCodes;
+    } else {
+      currentTrackScope = aCodes;
+    }
+  }
+
+  // 재학습 요청이 남아 있으면 같은 특별과제 또는 같은 덱의 문장을 먼저 끝내게 한다.
+  // 진행 중이던 현재 문장은 그대로 완료한 뒤 이동한다.
   const locked = await redoLockResult(
     profile,
     currentSentenceId,
     currentAssignmentId ?? null,
+    currentTrackScope,
   );
-  if (locked) return locked;
+  if (locked) return { ...locked, track: currentTrack };
 
 
   const { data: assignData } = await supabase
@@ -822,5 +840,5 @@ export const resolveNextAfterPass = async (
 
   const current = await loadSentenceById(currentSentenceId);
   if (current) await advanceAfterPass(current);
-  return resolveNextSentence();
+  return resolveNextSentence(currentTrack);
 };
