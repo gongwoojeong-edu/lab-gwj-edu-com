@@ -251,8 +251,9 @@ const fetchScopedPassageCodes = async (
 
   // 시작 유닛이 있으면 그 권에서만 이전 유닛을 제외 (이후 권들은 전체 포함)
   if (startUnitNo != null && startUnitTextbookId) {
+    const minimumUnitNo = startUnitNo;
     unitRows = unitRows.filter(
-      (u) => u.textbook_id !== startUnitTextbookId || u.unit_no >= startUnitNo!,
+      (u) => u.textbook_id !== startUnitTextbookId || u.unit_no >= minimumUnitNo,
     );
   }
 
@@ -693,7 +694,11 @@ export const resolveNextAfterPass = async (
           }) === groupKey
         );
       })
-      .filter((a) => a.sentence_id === currentSentenceId || !skippedCodes.has(a.sentence_id!))
+      .filter(
+        (a) =>
+          a.sentence_id === currentSentenceId ||
+          (a.sentence_id != null && !skippedCodes.has(a.sentence_id)),
+      )
       .sort((a, b) => comparePassageOrder(a.sentence_id, b.sentence_id, orderMeta));
 
     const currentIdx = groupRows.findIndex((a) =>
