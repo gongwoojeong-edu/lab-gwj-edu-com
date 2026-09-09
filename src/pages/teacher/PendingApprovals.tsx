@@ -148,7 +148,8 @@ const PendingApprovals = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<ApprovalStatus>("pending");
+  const [tab, setTab] = useState<ApprovalStatus | "qna">("pending");
+  const [qnaCount, setQnaCount] = useState(0);
   const [heldCount, setHeldCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
 
