@@ -272,8 +272,8 @@ export const resolveNextSentence = async (
   if (!userId) return { sentence: null, profile, done: false, track };
 
   // 선생님 재학습 요청이 남아 있으면 새 문장으로 넘어가지 못하게 잠근다.
+  // (트랙 B 카드는 자기 범위의 재학습만 잠금 — 메인덱 문장이 서브덱에 뜨지 않게)
   const locked = await redoLockResult(profile, undefined, null);
-  if (locked) return { ...locked, track };
 
   const { data: passedRows } = await supabase
     .from("sentence_progress")
