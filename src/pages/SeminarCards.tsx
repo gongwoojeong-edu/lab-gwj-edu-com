@@ -322,7 +322,7 @@ function Card4() {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", gap: 28, alignItems: "baseline", justifyContent: "center" }}>
+    <div style={{ display: "flex", gap: 28, alignItems: "baseline", justifyContent: "flex-start" }}>
       <div style={{ width: 80, textAlign: "left", fontWeight: 700, fontSize: 30, color: C.primary }}>
         {label}
       </div>
@@ -336,7 +336,15 @@ function Card5() {
     <Frame index={5}>
       <Label>지금 신청하세요</Label>
 
-      <div style={{ marginTop: 48, display: "flex", flexDirection: "column", gap: 22 }}>
+      <div
+        style={{
+          marginTop: 48,
+          display: "flex",
+          flexDirection: "column",
+          gap: 22,
+          alignItems: "flex-start",
+        }}
+      >
         <InfoRow label="일시" value="2026. 10. 17 (토) 오후 1~3시" />
         <InfoRow label="장소" value="구미코(GUMICO)" />
         <InfoRow label="대상" value="초4~중3 학부모 · 사전 예약제" />
