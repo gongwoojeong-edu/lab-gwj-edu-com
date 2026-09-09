@@ -1,0 +1,2 @@
+ALTER TABLE public.textbook_units ALTER COLUMN default_task_mode SET DEFAULT 'analysis_only'::passage_task_mode;
+UPDATE public.textbook_units SET default_task_mode = 'analysis_only' WHERE default_task_mode = 'analysis_and_memorize';
