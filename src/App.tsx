@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/NotFound.tsx";
+import SeminarCards from "./pages/SeminarCards.tsx";
+import BlogSkin from "./pages/BlogSkin.tsx";
 import TeacherDashboard from "./pages/TeacherDashboard.tsx";
 import TeacherStudents from "./pages/TeacherStudents.tsx";
 import StudentRoster from "./pages/teacher/StudentRoster.tsx";
@@ -401,6 +403,8 @@ const App = () => (
                 </RequireAuth>
               }
             />
+            <Route path="/seminar-cards" element={<SeminarCards />} />
+            <Route path="/blog-skin" element={<BlogSkin />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
