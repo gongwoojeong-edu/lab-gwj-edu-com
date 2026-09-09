@@ -55,6 +55,10 @@ export interface NextSentenceResult {
   redoLock?: boolean;
   /** 재학습 요청 메모 */
   redoMemo?: string | null;
+  /** 선생님 첨삭 질문에 아직 답하지 않아 이 문장으로 되돌아온 경우 */
+  qnaLock?: boolean;
+  /** 답해야 하는 질문 내용 */
+  qnaQuestion?: string | null;
 }
 
 export interface PendingRedo {
