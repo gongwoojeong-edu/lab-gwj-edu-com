@@ -3740,6 +3740,11 @@ const Index = ({
                           title: "재학습 먼저 완료해 주세요",
                           description: "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
                         });
+                      } else if (res.qnaLock) {
+                        toast({
+                          title: "선생님 질문에 먼저 답해 주세요",
+                          description: res.qnaQuestion ?? "첨삭 문답이 도착했어요.",
+                        });
                       }
 
                       const idx = SENTENCES.findIndex((s) => s.id === res.sentence!.id);

@@ -759,6 +759,11 @@ const SentenceLearn = () => {
             memoToPlainText(r.redoMemo ?? null) ||
             "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
         });
+      } else if (r.qnaLock) {
+        toast({
+          title: "선생님 질문에 먼저 답해 주세요",
+          description: r.qnaQuestion ?? "첨삭 문답이 도착했어요.",
+        });
       }
       const qs = r.assignmentId
         ? `?assignment=${encodeURIComponent(r.assignmentId)}`
@@ -1627,6 +1632,11 @@ const SentenceLearn = () => {
                           description:
                             memoToPlainText(r.redoMemo ?? null) ||
                             "선생님이 다시 학습을 요청한 문장으로 이동합니다.",
+                        });
+                      } else if (r.qnaLock) {
+                        toast({
+                          title: "선생님 질문에 먼저 답해 주세요",
+                          description: r.qnaQuestion ?? "첨삭 문답이 도착했어요.",
                         });
                       }
                       const qs = r.assignmentId
