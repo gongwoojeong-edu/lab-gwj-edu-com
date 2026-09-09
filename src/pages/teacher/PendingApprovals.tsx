@@ -484,6 +484,14 @@ const PendingApprovals = () => {
             englishSentence={target.english ?? undefined}
             koreanAnswer={target.korean ?? undefined}
             studentTranslation={target.translation}
+            onTranslationUpdated={(text) => {
+              setTarget((prev) => (prev ? { ...prev, translation: text } : prev));
+              setRows((prev) =>
+                prev.map((r) =>
+                  r.id === target.id ? { ...r, translation: text } : r,
+                ),
+              );
+            }}
             initialMemo={target.held_memo ?? undefined}
             mode={target.status === "held" || tab === "held" ? "held" : "pending"}
             sourceInfo={target.source}
