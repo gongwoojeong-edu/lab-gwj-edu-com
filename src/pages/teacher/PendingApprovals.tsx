@@ -203,6 +203,10 @@ const PendingApprovals = () => {
   };
 
   const load = useCallback(async () => {
+    if (tab === "qna") {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [list, otherList] = await Promise.all([
