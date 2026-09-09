@@ -52,6 +52,8 @@ interface Props {
   studentNo?: string | null;
   /** true 면 PIN 입력을 생략 (선생님 로그인 상태에서 사용) */
   skipPin?: boolean;
+  /** 선생님이 학생 한글해석을 수정 저장했을 때 */
+  onTranslationUpdated?: (text: string) => void;
   /** 재오픈 시 초기 메모값 (예: 이전 보류 메모) */
   initialMemo?: string;
   /** 다이얼로그 모드 — pending: 대기중 승인 / held: 보류함 최종 처리 */
