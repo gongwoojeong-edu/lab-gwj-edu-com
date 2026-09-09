@@ -114,6 +114,11 @@ export const scopedCodesFor = (
   }
 
   const startVolumeId = s.start_volume_id ?? startUnitTextbookId;
+  // 권과 시작 유닛이 불일치하는 오래된 설정은 권을 우선한다.
+  if (s.start_volume_id && startUnitTextbookId !== s.start_volume_id) {
+    startUnitNo = null;
+    startUnitTextbookId = null;
+  }
   let textbookIds: string[];
   if (startVolumeId) {
     if (startUnitTextbookId) {

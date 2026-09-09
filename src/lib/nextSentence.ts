@@ -208,6 +208,13 @@ const fetchScopedPassageCodes = async (
   let textbookIds: string[] | null = null;
   const startVolumeId = scope.volume_id ?? startUnitTextbookId;
 
+  // 권과 시작 유닛이 서로 다른 교재를 가리키는 오래된 설정은 권 설정을 우선한다.
+  // 잘못 남은 유닛 번호 때문에 새 권의 진도가 앞/뒤로 뒤틀리지 않게 한다.
+  if (scope.volume_id && startUnitTextbookId !== scope.volume_id) {
+    startUnitNo = null;
+    startUnitTextbookId = null;
+  }
+
 
   if (startVolumeId) {
     if (startUnitTextbookId) {
@@ -798,17 +805,9 @@ export const resolveNextAfterPass = async (
     if (curUnit) {
       const tbId = (curUnit as { textbook_id: string }).textbook_id;
       const curNo = (curUnit as { unit_no: number }).unit_no;
-      // 두 트랙(메인덱/서브덱) 범위를 합쳐서 판단 — 어느 트랙의 지문이든 이어서 진행
-      let scoped: Set<string> | null = null;
-      if (profile) {
-        const a = await fetchScopedPassageCodes(trackScopeOf(profile, "A"));
-        const b = profile.track_b_enabled
-          ? await fetchScopedPassageCodes(trackScopeOf(profile, "B"))
-          : null;
-        if (a && b) scoped = new Set([...a, ...b]);
-        else if (a && !profile.track_b_enabled) scoped = a;
-        else scoped = null;
-      }
+      // 현재 학습 중인 덱의 범위에서만 다음 유닛을 찾는다.
+      // 두 덱 범위를 합치면 같은 권을 공유할 때 다른 덱 진도로 넘어갈 수 있다.
+      const scoped = currentTrackScope;
       const { data: laterUnits } = await supabase
         .from("textbook_units")
         .select("id, unit_no")
