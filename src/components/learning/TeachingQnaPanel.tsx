@@ -110,7 +110,8 @@ export const TeachingQnaPanel = ({
     }
   };
 
-  if (role === "readonly" && !loading && rows.length === 0) return null;
+  if ((role === "readonly" || hideWhenEmpty) && !loading && rows.length === 0) return null;
+  if (hideWhenEmpty && loading) return null;
 
   return (
     <div className={cn("rounded-md border border-sky-500/40 bg-sky-500/5 p-3 space-y-3", className)}>
