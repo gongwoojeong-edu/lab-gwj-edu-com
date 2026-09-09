@@ -94,6 +94,7 @@ export const TeacherApprovalDialog = ({
   studentName,
   studentNo,
   skipPin = false,
+  onTranslationUpdated,
   initialMemo,
   mode = "pending",
   sourceInfo: initialSource,
