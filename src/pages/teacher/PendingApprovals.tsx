@@ -24,6 +24,107 @@ import { Pencil, Save, X, BookOpen, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
+import {
+  fetchAnsweredUnjudgedQuestions,
+  judgeTeachingQuestion,
+  type TeachingQuestion,
+} from "@/lib/teachingQuestions";
+import { MessageCircleQuestion, Check } from "lucide-react";
+
+/** 학생이 답한 첨삭 문답 — 선생님 O/X 판정 대기 목록 */
+const QnaInbox = ({ onCount }: { onCount: (n: number) => void }) => {
+  const [rows, setRows] = useState<TeachingQuestion[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const list = await fetchAnsweredUnjudgedQuestions();
+      setRows(list);
+      onCount(list.length);
+      const ids = Array.from(new Set(list.map((r) => r.user_id)));
+      if (ids.length) {
+        const { data } = await supabase
+          .from("student_profiles")
+          .select("user_id, student_no, display_name")
+          .in("user_id", ids);
+        const map: Record<string, string> = {};
+        ((data ?? []) as { user_id: string; student_no: string; display_name: string | null }[]).forEach(
+          (p) => (map[p.user_id] = `${p.display_name ?? p.student_no} (${p.student_no})`),
+        );
+        setNames(map);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [onCount]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const judge = async (id: string, verdict: "correct" | "wrong") => {
+    setBusyId(id);
+    try {
+      await judgeTeachingQuestion(id, verdict);
+      await load();
+    } catch (e: any) {
+      toast({ title: "판정 저장 실패", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) return <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>;
+  if (rows.length === 0)
+    return (
+      <Card className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
+        <MessageCircleQuestion className="w-8 h-8" />
+        <div className="font-semibold">판정할 문답이 없어요</div>
+        <div className="text-xs">승인창에서 보낸 질문에 학생이 답하면 이곳에 모입니다.</div>
+      </Card>
+    );
+
+  return (
+    <div className="space-y-3">
+      {rows.map((r) => (
+        <Card key={r.id} className="p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <Badge>{names[r.user_id] ?? "학생"}</Badge>
+            <span className="font-mono text-xs">{r.sentence_id}</span>
+            <span className="text-xs text-muted-foreground">
+              {r.answered_at ? new Date(r.answered_at).toLocaleString("ko-KR") : ""}
+            </span>
+          </div>
+          <div className="text-sm">
+            <span className="text-[11px] font-bold text-muted-foreground mr-1.5">선생님</span>
+            <span className="whitespace-pre-wrap font-medium">{r.question}</span>
+          </div>
+          <div className="text-sm">
+            <span className="text-[11px] font-bold text-muted-foreground mr-1.5">학생</span>
+            <span className="whitespace-pre-wrap">{r.answer}</span>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" disabled={busyId === r.id} onClick={() => judge(r.id, "correct")}>
+              <Check className="w-4 h-4 mr-1" /> 정답
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={busyId === r.id}
+              onClick={() => judge(r.id, "wrong")}
+            >
+              <X className="w-4 h-4 mr-1" /> 오답(다시 답하기)
+            </Button>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 interface Row extends SentenceApproval {
   student_no?: string | null;
   display_name?: string | null;
