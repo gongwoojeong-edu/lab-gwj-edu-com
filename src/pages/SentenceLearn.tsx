@@ -226,6 +226,12 @@ const SentenceLearn = () => {
   const [pendingApproval, setPendingApproval] = useState<SentenceApproval | null>(null);
   const [submittedTranslation, setSubmittedTranslation] = useState<string>("");
 
+  // 첨삭 문답 패널용 내 user id
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+  useEffect(() => {
+    void getCurrentUserId().then((id) => setMyUserId(id ?? null));
+  }, []);
+
   // 추가학습 요청 (선생님이 redo 등급으로 승인) — 기존 통과 기록은 유지하되 한 번 더 제출
   const [redoRequestedAt, setRedoRequestedAt] = useState<string | null>(null);
   const [redoMemo, setRedoMemo] = useState<string | null>(null);
