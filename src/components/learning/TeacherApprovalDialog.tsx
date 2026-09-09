@@ -653,6 +653,7 @@ export const TeacherApprovalDialog = ({
                 channelName={teachingChannelName(studentUserId)}
                 extraBottomPx={0}
                 toolbarClassName="absolute right-2 top-1 z-30"
+                toolbarPortalTarget={headerToolbarEl}
               />
             )}
           </div>
