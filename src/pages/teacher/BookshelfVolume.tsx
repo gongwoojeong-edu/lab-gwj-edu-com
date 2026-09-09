@@ -76,6 +76,7 @@ import {
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { MergeUnitsDialog } from "@/components/teacher/MergeUnitsDialog";
+import { UnitSkipBulkDialog } from "@/components/teacher/UnitSkipBulkDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
 import { swapListOrder } from "@/lib/bookshelfOrder";
 import { cn } from "@/lib/utils";
@@ -207,6 +208,7 @@ const BookshelfVolume = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveOpen, setMoveOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [unitSkipOpen, setUnitSkipOpen] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [allTextbooks, setAllTextbooks] = useState<
     Array<{ id: string; title: string; volume_no: number; series_id: string }>
