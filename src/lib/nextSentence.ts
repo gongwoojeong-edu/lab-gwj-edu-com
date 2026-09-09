@@ -198,7 +198,28 @@ export const findPendingRedo = async (
   };
 };
 
-/** 재학습 잠금이 걸려 있으면 그 문장으로 되돌리는 결과를 만든다. */
+/**
+ * 아직 답하지 않은 선생님 첨삭 질문 중 가장 먼저 보낸 것.
+ * 답하지 않으면 다음 문장으로 넘어가지 못하게 한다.
+ */
+export const findPendingQna = async (
+  excludeSentenceId?: string,
+  allowedSentenceIds?: Set<string> | null,
+): Promise<{ sentenceId: string; question: string } | null> => {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  if (await isStaffSession(userId)) return null;
+  const open = await fetchOpenQuestionsForStudent(userId);
+  const hit = open.find(
+    (q) =>
+      q.sentence_id !== excludeSentenceId &&
+      (!allowedSentenceIds || allowedSentenceIds.has(q.sentence_id)),
+  );
+  if (!hit) return null;
+  return { sentenceId: hit.sentence_id, question: hit.question };
+};
+
+/** 재학습·첨삭 질문 잠금이 걸려 있으면 그 문장으로 되돌리는 결과를 만든다. */
 const redoLockResult = async (
   profile: StudentProfile | null,
   excludeSentenceId?: string,
@@ -210,16 +231,31 @@ const redoLockResult = async (
     assignmentId ?? null,
     allowedSentenceIds,
   );
-  if (!redo) return null;
-  const sentence = await loadSentenceById(redo.sentenceId);
-  if (!sentence) return null;
+  if (redo) {
+    const sentence = await loadSentenceById(redo.sentenceId);
+    if (sentence) {
+      return {
+        sentence,
+        profile,
+        done: false,
+        assignmentId: redo.assignmentId,
+        redoLock: true,
+        redoMemo: redo.memo,
+      };
+    }
+  }
+
+  const qna = await findPendingQna(excludeSentenceId, allowedSentenceIds);
+  if (!qna) return null;
+  const qSentence = await loadSentenceById(qna.sentenceId);
+  if (!qSentence) return null;
   return {
-    sentence,
+    sentence: qSentence,
     profile,
     done: false,
-    assignmentId: redo.assignmentId,
-    redoLock: true,
-    redoMemo: redo.memo,
+    assignmentId: assignmentId ?? null,
+    qnaLock: true,
+    qnaQuestion: qna.question,
   };
 };
 
