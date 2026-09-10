@@ -124,10 +124,16 @@ export const TeacherApprovalDialog = ({
   const [translationDraft, setTranslationDraft] = useState("");
   const [translationOverride, setTranslationOverride] = useState<string | null>(null);
   const [savingTranslation, setSavingTranslation] = useState(false);
+  /** 한글해석(정답) 즉시 수정 */
+  const [editingKorean, setEditingKorean] = useState(false);
+  const [koreanDraft, setKoreanDraft] = useState("");
+  const [koreanOverride, setKoreanOverride] = useState<string | null>(null);
+  const [savingKorean, setSavingKorean] = useState(false);
   // 판서 도구 모음을 헤더 제목 줄에 포털로 붙이기 위한 슬롯
   const [headerToolbarEl, setHeaderToolbarEl] = useState<HTMLElement | null>(null);
 
   const shownEnglish = englishOverride ?? englishSentence;
+  const shownKorean = koreanOverride ?? koreanAnswer ?? "";
   const shownTranslation = translationOverride ?? studentTranslation ?? "";
 
   useEffect(() => {
