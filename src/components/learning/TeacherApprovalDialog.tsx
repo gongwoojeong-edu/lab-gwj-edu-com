@@ -142,8 +142,31 @@ export const TeacherApprovalDialog = ({
       setEnglishOverride(null);
       setEditingTranslation(false);
       setTranslationOverride(null);
+      setEditingKorean(false);
+      setKoreanOverride(null);
     }
   }, [open]);
+
+  const saveKorean = async () => {
+    const next = koreanDraft.trim();
+    setSavingKorean(true);
+    try {
+      await updatePassageKorean(sentenceId, next);
+      setKoreanOverride(next);
+      setEditingKorean(false);
+      toast({ title: "한글해석(정답)을 수정했어요" });
+    } catch (e) {
+      toast({
+        title: "수정 실패",
+        description: e instanceof Error ? e.message : "잠시 후 다시 시도해 주세요",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingKorean(false);
+    }
+  };
+
+
 
   const saveTranslation = async () => {
     if (!studentUserId) return;
