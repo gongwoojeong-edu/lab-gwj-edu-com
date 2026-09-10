@@ -1273,6 +1273,9 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
   const headerMeta = `학생: ${sName} ${sNo}`;
   const allItems = p.units.flatMap((u) => u.items);
+  // 짧은 워크북은 원문과 해석을 굳이 두 장으로 나누지 않는다.
+  // 4지문 이하는 B5에서도 한 면에 안정적으로 들어가는 분량이다.
+  const useOneSheetForSourceAndTranslation = allItems.length <= 4;
 
   const header = (eyebrow: string, title: string, right: string) => `
   <div class="header">
@@ -1531,9 +1534,38 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   .bk-wnum { color: #888; font-size: 6.5pt; min-width: 5mm; }
   .bk-wword { font-weight: 700; min-width: 26mm; }
   .bk-wmean { color: #333; flex: 1; }
+  /* 짧은 워크북: 원문과 해석을 같은 면에 이어 배치 */
+  .bk-one-sheet .header { padding-top: 1mm; padding-bottom: 1.5mm; }
+  .bk-one-sheet .bk-part-title {
+    font-size: 9.5pt; font-weight: 800; margin: 1.5mm 0 0.8mm;
+    border-left: 2pt solid #000; padding-left: 2mm;
+  }
+  .bk-one-sheet .bk-unit { margin-bottom: 1.5mm; }
+  .bk-one-sheet .bk-unit-title { margin: 0.8mm 0 0.6mm; }
+  .bk-one-sheet .bk-box { padding-top: 0.8mm; padding-bottom: 0.8mm; }
+  .bk-one-sheet .bk-prow,
+  .bk-one-sheet .bk-trow { padding-top: 0.45mm; padding-bottom: 0.45mm; }
+  .bk-one-sheet .bk-body .passage,
+  .bk-one-sheet .bk-body .body-text { line-height: 1.45 !important; }
+  .bk-one-sheet .bk-ko-line { line-height: 1.45; }
+  .bk-one-sheet .bk-rewrite { margin-top: 1mm; }
+  .bk-one-sheet .bk-line { height: 3mm; }
 </style>
 
-<div class="page bk-page">
+${useOneSheetForSourceAndTranslation
+  ? `<div class="page bk-page bk-one-sheet">
+  ${header("Book Workbook", `원문 · 한글 해석 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
+  <div class="bk-part-title">① 선택유닛 전체 원문</div>
+  ${sourceSections || '<div class="bk-muted">(지문 없음)</div>'}
+  <div class="bk-part-title">② ${hideKo ? "한글 해석 다시 쓰기" : disableCorrection ? "선택유닛 전체 학생해석" : "선택유닛 전체 학생해석 (첨삭)"}</div>
+  ${hideKo
+    ? '<div class="bk-legend">코칭 내용을 참고해 해석을 처음부터 다시 써보세요.</div>'
+    : disableCorrection
+    ? '<div class="bk-legend">학생이 제출한 해석 그대로 출력됩니다.</div>'
+    : `<div class="bk-legend"><span class="bk-ok">일치</span> · <span class="bk-del">빼야 할 부분</span> · <span class="bk-ins">보충할 부분(모범해석 기준)</span></div>`}
+  ${transSections || '<div class="bk-muted">(제출 없음)</div>'}
+</div>`
+  : `<div class="page bk-page">
   ${header("Book Workbook", `① 선택유닛 전체 원문 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
   ${sourceSections || '<div class="bk-muted">(지문 없음)</div>'}
 </div>
@@ -1550,7 +1582,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
     <span class="bk-ins">보충할 부분(모범해석 기준)</span>
   </div>`}
   ${transSections || '<div class="bk-muted">(제출 없음)</div>'}
-</div>
+</div>`}
 
 ${wrapUpPages}
 ${wordPage}
