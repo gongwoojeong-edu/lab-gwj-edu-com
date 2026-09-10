@@ -351,9 +351,19 @@ const buildSyntaxUnit = async (
     display: flex; align-items: center; justify-content: center;
     background: #fafafa;
   }
+  /* 지문이 1~2개인 짧은 워크북은 앞·뒤 내용을 한 면에 이어서 인쇄한다. */
+  .lg-one-sheet { break-inside: avoid-page; page-break-inside: avoid; }
+  .lg-one-sheet .lg-back {
+    page-break-before: avoid; break-before: avoid-page; padding-top: 1.5mm;
+  }
+  .lg-one-sheet .lg-back > .lg-structure-lead > .lg-header { display: none; }
+  .lg-one-sheet .lg-section-title { margin-top: 1.5mm; margin-bottom: 1mm; }
+  .lg-one-sheet .lg-grid { min-height: 40mm; }
+  .lg-one-sheet .lg-keyword-row { padding: 0.2mm 0; }
+  .lg-one-sheet .lg-write { gap: 4.5mm; padding-top: 1mm; }
 </style>
 </head><body>
-<div>
+<div class="${passages.length <= 2 ? "lg-one-sheet" : ""}">
   <div class="lg-header">
     <div>
       <div class="lg-eyebrow">Gongwoojeong · Unit Workbook${answerKey ? " · ANSWER KEY" : ""}</div>
@@ -386,8 +396,6 @@ const buildSyntaxUnit = async (
           .join("") || '<div class="lg-muted">(지문 없음)</div>')
       : (koRows || '<div class="lg-muted">(미제출)</div>')
   }</div>
-</div>
-
 <div class="lg-back">
   <div class="lg-structure-lead">
   <div class="lg-header">
@@ -449,6 +457,7 @@ const buildSyntaxUnit = async (
         : '<div class="lg-write"><div class="lg-line"></div><div class="lg-line"></div><div class="lg-line"></div></div>'}
     </div>
   </div>
+</div>
 </div>
 <script>try{window.__LOVABLE_PRINT_READY=true;}catch(e){}</script>
 </body></html>`;
