@@ -31,7 +31,7 @@ import {
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
-import { fetchPassageSource, fetchPassageByCode, updatePassage, type PassageSource } from "@/lib/textbooks";
+import { fetchPassageSource, fetchPassageByCode, updatePassage, updatePassageKorean, type PassageSource } from "@/lib/textbooks";
 import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 
@@ -124,10 +124,16 @@ export const TeacherApprovalDialog = ({
   const [translationDraft, setTranslationDraft] = useState("");
   const [translationOverride, setTranslationOverride] = useState<string | null>(null);
   const [savingTranslation, setSavingTranslation] = useState(false);
+  /** 한글해석(정답) 즉시 수정 */
+  const [editingKorean, setEditingKorean] = useState(false);
+  const [koreanDraft, setKoreanDraft] = useState("");
+  const [koreanOverride, setKoreanOverride] = useState<string | null>(null);
+  const [savingKorean, setSavingKorean] = useState(false);
   // 판서 도구 모음을 헤더 제목 줄에 포털로 붙이기 위한 슬롯
   const [headerToolbarEl, setHeaderToolbarEl] = useState<HTMLElement | null>(null);
 
   const shownEnglish = englishOverride ?? englishSentence;
+  const shownKorean = koreanOverride ?? koreanAnswer ?? "";
   const shownTranslation = translationOverride ?? studentTranslation ?? "";
 
   useEffect(() => {
@@ -136,8 +142,31 @@ export const TeacherApprovalDialog = ({
       setEnglishOverride(null);
       setEditingTranslation(false);
       setTranslationOverride(null);
+      setEditingKorean(false);
+      setKoreanOverride(null);
     }
   }, [open]);
+
+  const saveKorean = async () => {
+    const next = koreanDraft.trim();
+    setSavingKorean(true);
+    try {
+      await updatePassageKorean(sentenceId, next);
+      setKoreanOverride(next);
+      setEditingKorean(false);
+      toast({ title: "한글해석(정답)을 수정했어요" });
+    } catch (e) {
+      toast({
+        title: "수정 실패",
+        description: e instanceof Error ? e.message : "잠시 후 다시 시도해 주세요",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingKorean(false);
+    }
+  };
+
+
 
   const saveTranslation = async () => {
     if (!studentUserId) return;
@@ -524,20 +553,57 @@ export const TeacherApprovalDialog = ({
 
         {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
           <div className="relative shrink-0 bg-background border-b border-border p-3 space-y-2 text-sm">
-            {koreanAnswer && (
+            {(shownKorean || editingKorean) && (
               <div className="flex items-start justify-between gap-2">
-                {showAnswer ? (
+                {editingKorean ? (
+                  <div className="relative z-30 flex-1 space-y-1.5">
+                    <div className="text-[11px] text-muted-foreground">한글해석(정답) 수정</div>
+                    <Textarea
+                      value={koreanDraft}
+                      onChange={(e) => setKoreanDraft(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" onClick={saveKorean} disabled={savingKorean}>
+                        {savingKorean ? "저장 중…" : "저장"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingKorean(false)}
+                        disabled={savingKorean}
+                      >
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                ) : showAnswer ? (
                   <>
-                    <div className="whitespace-pre-wrap leading-snug">{koreanAnswer}</div>
-                    <button
-                      type="button"
-                      onClick={() => setShowAnswer(false)}
-                      className="shrink-0 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
-                      title="가리기"
-                      aria-label="가리기"
-                    >
-                      <EyeOff className="w-3 h-3" />
-                    </button>
+                    <div className="whitespace-pre-wrap leading-snug">{shownKorean}</div>
+                    <div className="shrink-0 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setKoreanDraft(shownKorean ?? "");
+                          setEditingKorean(true);
+                        }}
+                        className="relative z-30 inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                        title="한글해석(정답) 수정"
+                      >
+                        <Pencil className="w-3 h-3" /> 수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAnswer(false)}
+                        className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                        title="가리기"
+                        aria-label="가리기"
+                      >
+                        <EyeOff className="w-3 h-3" />
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <button
@@ -552,6 +618,7 @@ export const TeacherApprovalDialog = ({
                 )}
               </div>
             )}
+
             {(shownEnglish || editingEnglish) && (
               <div>
                 <div className="flex items-center gap-2">
