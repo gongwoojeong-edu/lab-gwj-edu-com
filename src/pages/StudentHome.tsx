@@ -1769,6 +1769,7 @@ const StudentHome = () => {
                 </div>
               </div>
             </Card>
+            )}
 
             {subEnabled && (
               <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-accent to-primary text-primary-foreground border-0 shadow-2xl">
