@@ -988,6 +988,10 @@ const StudentHome = () => {
     ? `${subNext.id} ${startButtonLabel(subTaskMode, subAnalysisPassed)}`
     : "다음 Passage 없음";
 
+  // 메인덱이 끝나도 서브덱에 학습할 지문이 있으면 화면을 계속 보여준다.
+  const subActive = subEnabled && !!subNext;
+  const mainBlocked = noContent || done;
+
 
 
   // 진행중 / 지난과제 / 완료과제 분리
@@ -1665,7 +1669,7 @@ const StudentHome = () => {
             )}
 
 
-            {noContent ? (
+            {noContent && !subActive ? (
               <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 dark:from-amber-950/30 dark:to-orange-950/30">
                 <AlertCircle className="w-16 h-16 mx-auto text-amber-600" />
                 <h1 className="text-2xl font-extrabold text-amber-700 dark:text-amber-400">학습 자료 준비 중</h1>
@@ -1674,7 +1678,7 @@ const StudentHome = () => {
                   선생님께 문의해 주세요.
                 </p>
               </Card>
-            ) : done ? (
+            ) : done && !subActive ? (
               <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
                 <Trophy className="w-16 h-16 mx-auto text-primary" />
                 <h1 className="text-3xl font-extrabold text-primary">진도 범위 학습 완료! 🎓</h1>
@@ -1707,7 +1711,22 @@ const StudentHome = () => {
 
 
             {/* Hero start card(s) — 서브덱이 켜져 있으면 두 트랙을 나란히 */}
-            <div className={cn("grid gap-4", subEnabled && "lg:grid-cols-2")}>
+            <div className={cn("grid gap-4", subEnabled && !mainBlocked && "lg:grid-cols-2")}>
+            {mainBlocked ? (
+              <Card className="p-5 text-center space-y-2 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
+                <Trophy className="w-8 h-8 mx-auto text-primary" />
+                <h2 className="text-lg font-extrabold text-primary">
+                  {noContent
+                    ? `${trackLabelOf(profile, "A")} 학습 자료 준비 중`
+                    : `${trackLabelOf(profile, "A")} 진도 범위 학습 완료! 🎓`}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {noContent
+                    ? "지정된 범위에 등록된 지문이 아직 없어요. 선생님께 문의해 주세요."
+                    : "아래 진도를 이어서 학습하세요."}
+                </p>
+              </Card>
+            ) : (
             <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-primary to-accent text-primary-foreground border-0 shadow-2xl">
               <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute -bottom-16 -left-10 w-56 h-56 rounded-full bg-white/5 blur-3xl" />
@@ -1750,6 +1769,7 @@ const StudentHome = () => {
                 </div>
               </div>
             </Card>
+            )}
 
             {subEnabled && (
               <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-accent to-primary text-primary-foreground border-0 shadow-2xl">
