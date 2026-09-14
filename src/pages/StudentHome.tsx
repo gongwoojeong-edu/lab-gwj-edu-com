@@ -988,6 +988,10 @@ const StudentHome = () => {
     ? `${subNext.id} ${startButtonLabel(subTaskMode, subAnalysisPassed)}`
     : "다음 Passage 없음";
 
+  // 메인덱이 끝나도 서브덱에 학습할 지문이 있으면 화면을 계속 보여준다.
+  const subActive = subEnabled && !!subNext;
+  const mainBlocked = noContent || done;
+
 
 
   // 진행중 / 지난과제 / 완료과제 분리
