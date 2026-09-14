@@ -1669,7 +1669,7 @@ const StudentHome = () => {
             )}
 
 
-            {noContent ? (
+            {noContent && !subActive ? (
               <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 dark:from-amber-950/30 dark:to-orange-950/30">
                 <AlertCircle className="w-16 h-16 mx-auto text-amber-600" />
                 <h1 className="text-2xl font-extrabold text-amber-700 dark:text-amber-400">학습 자료 준비 중</h1>
@@ -1678,7 +1678,7 @@ const StudentHome = () => {
                   선생님께 문의해 주세요.
                 </p>
               </Card>
-            ) : done ? (
+            ) : done && !subActive ? (
               <Card className="p-10 text-center space-y-4 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/30">
                 <Trophy className="w-16 h-16 mx-auto text-primary" />
                 <h1 className="text-3xl font-extrabold text-primary">진도 범위 학습 완료! 🎓</h1>
