@@ -108,6 +108,8 @@ export const TeacherApprovalDialog = ({
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
   const [memo, setMemo] = useState<StructuredMemo>(emptyMemo());
+  /** 선생님이 직접 적는 칭찬 한 줄 (excellent/good일 때만 노출) */
+  const [praise, setPraise] = useState("");
   const [saving, setSaving] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [teaching, setTeaching] = useState(false);
@@ -422,6 +424,7 @@ export const TeacherApprovalDialog = ({
         sentenceId,
         grade,
         memo: serializeMemo(memo) ?? "",
+        praise: (grade === "excellent" || grade === "good") ? praise : undefined,
         studentUserId,
       });
       await endTeaching();
