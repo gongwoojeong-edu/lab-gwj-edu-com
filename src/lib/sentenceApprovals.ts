@@ -161,9 +161,10 @@ export const approveSentenceRequest = async (input: {
       grade: input.grade,
       memo: input.memo?.trim() || null,
       praise_text: praiseTrimmed,
+      resolved_feedback: !!input.resolvedFeedback,
       approved_by: approverId,
       approved_at: nowIso,
-    })
+    } as never)
     .eq("id", input.approvalId);
   if (apErr) throw apErr;
 
@@ -254,14 +255,17 @@ export const approveSentenceRequest = async (input: {
   }
 
   const memoText = memoToPlainText(memoTrimmed) || null;
-  const congrats =
-    !isRedo && priorRounds > 0
+  // 선생님이 "해결됨" 체크 후 승인했거나 이전 보류/재학습 이력이 있으면 재학습 해결 칭찬.
+  const isComebackApproval = !isRedo && (input.resolvedFeedback || priorRounds > 0);
+  const congrats = isComebackApproval
+    ? priorRounds > 0
       ? `🎉 첨삭 지적 사항을 모두 해결했어요! (재학습 ${priorRounds}회 끝에 통과)`
-      : null;
+      : "🎉 첨삭 지적 사항을 해결했어요!"
+    : null;
 
   // excellent/good 칭찬 문구 (선생님 직접 칭찬 우선, 없으면 자동 랜덤)
   const praiseLine = !isRedo && !isCoach
-    ? congrats
+    ? isComebackApproval
       ? pickComebackPraise(praiseTrimmed)
       : pickPraise(input.grade, praiseTrimmed)
     : null;
