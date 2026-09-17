@@ -723,7 +723,7 @@ export const TeacherApprovalDialog = ({
                 canEdit
                 channelName={teachingChannelName(studentUserId)}
                 extraBottomPx={0}
-                toolbarClassName="absolute right-2 top-1 z-30"
+                toolbarClassName="relative z-30 flex flex-wrap items-center gap-1"
                 toolbarPortalTarget={headerToolbarEl}
               />
             )}

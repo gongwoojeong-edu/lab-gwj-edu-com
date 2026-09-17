@@ -37,7 +37,7 @@ import { MemSpeechStep } from "@/components/learning/memorization/MemSpeechStep"
 import { MemRecordStep } from "@/components/learning/memorization/MemRecordStep";
 import { resolveNextSentence, resolveNextAfterPass } from "@/lib/nextSentence";
 import { TeacherSkipButton } from "@/components/learning/TeacherSkipButton";
-import { upsertSkipSentence } from "@/lib/studentPassageOverrides";
+import { skipSentenceWithTeacherPin } from "@/lib/studentPassageOverrides";
 import { getCurrentUserId } from "@/lib/authState";
 import { toast } from "@/hooks/use-toast";
 
@@ -236,11 +236,10 @@ const MemorizeLearn = () => {
       ? memFlags.mem_interpret_done
       : memFlags.mem_dictation_done;
 
-  const handleTeacherSkipSentence = async () => {
-    const uid = await getCurrentUserId();
-    if (!sentence || !uid) return;
+  const handleTeacherSkipSentence = async (pin: string) => {
+    if (!sentence) return;
     try {
-      await upsertSkipSentence(uid, sentence.id, true);
+      await skipSentenceWithTeacherPin(sentence.id, pin);
       toast({
         title: "이 문장을 건너뜁니다",
         description: "선생님이 언제든 스킵을 해제할 수 있습니다.",
