@@ -74,7 +74,6 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
       setLoading(false);
       onApproved(approvedPin);
       return;
-      onApproved(pinToCheck.trim());
     } else {
       toast({ title: "PIN이 일치하지 않습니다", variant: "destructive" });
       setPin("");
