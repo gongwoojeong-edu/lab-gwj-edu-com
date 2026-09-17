@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 import { memoToPlainText } from "@/lib/approvalMemo";
-import { pickPraise } from "@/lib/praisePhrases";
+import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
 
 export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo" | "coach";
 export type ApprovalStatus = "pending" | "approved" | "held";
@@ -255,7 +255,11 @@ export const approveSentenceRequest = async (input: {
       : null;
 
   // excellent/good 칭찬 문구 (선생님 직접 칭찬 우선, 없으면 자동 랜덤)
-  const praiseLine = !isRedo && !isCoach ? pickPraise(input.grade, praiseTrimmed) : null;
+  const praiseLine = !isRedo && !isCoach
+    ? congrats
+      ? pickComebackPraise(praiseTrimmed)
+      : pickPraise(input.grade, praiseTrimmed)
+    : null;
 
   try {
     await createNotification({
@@ -266,11 +270,11 @@ export const approveSentenceRequest = async (input: {
         : isCoach
           ? "선생님 코칭 — 워크북에서 다시 써보세요"
           : congrats
-            ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
+            ? `${praiseLine ?? "첨삭 해결 완료"} · 최종 승인: ${GRADE_LABEL[input.grade]}`
             : praiseLine
               ? `${praiseLine} · ${GRADE_LABEL[input.grade]}`
               : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
-      body: [congrats, praiseLine && !congrats ? praiseLine : null, memoText]
+      body: [congrats, memoText]
         .filter(Boolean)
         .join("\n\n") || null,
       grade: input.grade,
