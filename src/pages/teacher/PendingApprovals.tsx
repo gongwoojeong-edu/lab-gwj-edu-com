@@ -20,7 +20,8 @@ import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Save, X, BookOpen, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Pencil, Save, X, BookOpen, Trash2, Search } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -185,6 +186,7 @@ const PendingApprovals = () => {
   };
 
   const [deleting, setDeleting] = useState(false);
+  const [query, setQuery] = useState("");
 
   const deleteRows = async (ids: string[], label: string) => {
     if (ids.length === 0) return;
