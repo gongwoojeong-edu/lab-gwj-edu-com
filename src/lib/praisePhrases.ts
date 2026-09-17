@@ -51,3 +51,14 @@ export const pickPraise = (
   if (grade === "good") return pickRandom(GOOD_PRAISE);
   return null;
 };
+
+/**
+ * 재학습(추가학습) 지적 사항을 해결하고 최종 통과했을 때의 칭찬.
+ * - 선생님이 직접 적은 칭찬이 있으면 그것을 우선 반환.
+ * - 없으면 재학습 해결 전용 자동 칭찬.
+ */
+export const pickComebackPraise = (praiseText?: string | null): string => {
+  const custom = praiseText?.trim();
+  if (custom) return custom;
+  return pickRandom(COMEBACK_PRAISE);
+};
