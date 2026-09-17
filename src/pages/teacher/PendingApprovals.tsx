@@ -448,6 +448,12 @@ const PendingApprovals = () => {
           <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>
         )}
 
+        {tab !== "qna" && !loading && filteredRows.length === 0 && rows.length > 0 && (
+          <Card className="p-8 text-center text-muted-foreground">
+            “{query}”에 해당하는 항목이 없어요.
+          </Card>
+        )}
+
         {tab !== "qna" && !loading && rows.length === 0 && (
           <Card className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
             <Inbox className="w-8 h-8" />
@@ -463,7 +469,7 @@ const PendingApprovals = () => {
         )}
 
         <div className="space-y-3">
-          {(tab === "qna" ? [] : rows).map((row) => (
+          {(tab === "qna" ? [] : filteredRows).map((row) => (
             <Card key={row.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-sm flex-wrap">
