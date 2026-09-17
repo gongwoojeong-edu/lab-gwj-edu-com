@@ -83,7 +83,7 @@ import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 import { PraiseSparkle } from "@/components/learning/PraiseSparkle";
 
 import { memoToPlainText } from "@/lib/approvalMemo";
-import { pickPraise } from "@/lib/praisePhrases";
+import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
 import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
 
 type Step = "pre" | "wordtest" | "analysis" | "translation";
@@ -244,6 +244,7 @@ const SentenceLearn = () => {
     grade: ApprovalGrade;
     memo: string | null;
     praise: string | null;
+    comeback: boolean;
     sentenceId: string;
     at: string;
   } | null>(null);
@@ -817,15 +818,23 @@ const SentenceLearn = () => {
     try {
       await applyApprovalToMyProgress(approval);
       setPreviousStatus("pass");
-      const praiseLine =
-        !isHeld && approval.grade
+      // 재학습(추가학습) 요청을 해결하고 최종 통과한 경우 — 등급과 무관하게 칭찬
+      const isComeback = !isHeld && !!approval.grade && !!redoRequestedAt;
+      const praiseLine = isComeback
+        ? pickComebackPraise(approval.praise_text)
+        : !isHeld && approval.grade
           ? pickPraise(approval.grade, approval.praise_text)
           : null;
+      if (isComeback) {
+        setRedoRequestedAt(null);
+        setRedoMemo(null);
+      }
       if (!isHeld && approval.grade) {
         setLastEvaluation({
           grade: approval.grade,
           memo: approval.memo,
           praise: praiseLine,
+          comeback: isComeback,
           sentenceId: approval.sentence_id,
           at: approval.approved_at ?? new Date().toISOString(),
         });
@@ -839,7 +848,8 @@ const SentenceLearn = () => {
         description: "잠시 후 다음 문장으로 이동합니다.",
       });
       // 칭찬 문구를 읽고 연출이 자연스럽게 끝날 만큼만 대기.
-      const delay = praiseLine && approval.grade === "excellent" ? 2200 : 1600;
+      const delay =
+        praiseLine && (approval.grade === "excellent" || isComeback) ? 2200 : 1600;
       window.setTimeout(() => {
         void handleSkipToNext(approval.sentence_id);
       }, delay);
@@ -1218,6 +1228,7 @@ const SentenceLearn = () => {
               <PraiseSparkle
                 grade={lastEvaluation.grade}
                 text={lastEvaluation.praise}
+                comeback={lastEvaluation.comeback}
               />
             )}
             <div className="flex items-start gap-3">
