@@ -421,6 +421,19 @@ const PendingApprovals = () => {
           </TabsList>
         </Tabs>
 
+        {tab !== "qna" && (
+          <div className="relative max-w-xs">
+            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="학생 이름 · 번호 · 문장코드 검색"
+              className="pl-9"
+            />
+          </div>
+        )}
+
+
         <p className="text-sm text-muted-foreground">
           {tab === "qna"
             ? "승인창에서 보낸 질문에 학생이 답한 내용입니다. 학생은 답하기 전에는 다음 문장으로 넘어가지 못합니다."
