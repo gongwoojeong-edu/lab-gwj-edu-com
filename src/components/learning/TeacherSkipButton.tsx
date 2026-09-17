@@ -15,7 +15,7 @@ import { fetchTeacherPin } from "@/lib/teacherPin";
 
 interface Props {
   /** PIN 일치 시 호출. 호출 측에서 onFinish(90, { teacherSkipped: true }) 처리. */
-  onApproved: () => void;
+  onApproved: (pin: string) => void;
   disabled?: boolean;
   /** 버튼 라벨 (기본: "선생님 확인 후 스킵") */
   label?: string;
@@ -67,11 +67,14 @@ export const TeacherSkipButton = ({ onApproved, disabled, label }: Props) => {
       return;
     }
     if (pin.trim() === pinToCheck.trim()) {
+      const approvedPin = pin.trim();
       toast({ title: "선생님 확인 — 통과 처리", description: "다음 단계로 진행합니다" });
       setOpen(false);
       setPin("");
       setLoading(false);
-      onApproved();
+      onApproved(approvedPin);
+      return;
+      onApproved(pinToCheck.trim());
     } else {
       toast({ title: "PIN이 일치하지 않습니다", variant: "destructive" });
       setPin("");

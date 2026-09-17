@@ -80,6 +80,18 @@ export const upsertSkipSentence = async (
   if (error) throw error;
 };
 
+/** 학생 화면: 선생님 PIN 확인 후 본인 문장 건너뛰기 (SECURITY DEFINER RPC) */
+export const skipSentenceWithTeacherPin = async (
+  sentenceId: string,
+  pin: string,
+): Promise<void> => {
+  const { error } = await supabase.rpc("fn_student_skip_sentence", {
+    p_sentence_id: sentenceId,
+    p_pin: pin,
+  });
+  if (error) throw error;
+};
+
 /** 여러 학생 × 여러 지문 스킵 일괄 지정/해제 */
 export const bulkSetSkipSentence = async (
   userIds: string[],

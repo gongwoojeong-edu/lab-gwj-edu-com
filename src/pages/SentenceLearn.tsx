@@ -46,7 +46,7 @@ import { cn } from "@/lib/utils";
 import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
-import { fetchMyOverrideForSentence, upsertSkipSentence } from "@/lib/studentPassageOverrides";
+import { fetchMyOverrideForSentence, skipSentenceWithTeacherPin } from "@/lib/studentPassageOverrides";
 import { TeacherSkipButton } from "@/components/learning/TeacherSkipButton";
 import {
   resolveEarlierIncompleteInAssignment,
@@ -786,12 +786,11 @@ const SentenceLearn = () => {
   };
 
   /** 선생님 PIN 확인 후: 이 문장을 건너뛰기로 지정하고 다음 문장으로 이동 */
-  const handleTeacherSkipSentence = async () => {
+  const handleTeacherSkipSentence = async (pin: string) => {
     const sid = sentence?.id;
-    const uid = await getCurrentUserId();
-    if (!sid || !uid) return;
+    if (!sid) return;
     try {
-      await upsertSkipSentence(uid, sid, true);
+      await skipSentenceWithTeacherPin(sid, pin);
       toast({
         title: "이 문장을 건너뜁니다",
         description: "선생님이 언제든 스킵을 해제할 수 있습니다.",
