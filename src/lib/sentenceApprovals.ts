@@ -254,6 +254,9 @@ export const approveSentenceRequest = async (input: {
       ? `🎉 첨삭 지적 사항을 모두 해결했어요! (재학습 ${priorRounds}회 끝에 통과)`
       : null;
 
+  // excellent/good 칭찬 문구 (선생님 직접 칭찬 우선, 없으면 자동 랜덤)
+  const praiseLine = !isRedo && !isCoach ? pickPraise(input.grade, praiseTrimmed) : null;
+
   try {
     await createNotification({
       userId: targetUserId,
@@ -264,8 +267,12 @@ export const approveSentenceRequest = async (input: {
           ? "선생님 코칭 — 워크북에서 다시 써보세요"
           : congrats
             ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
-            : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
-      body: [congrats, memoText].filter(Boolean).join("\n\n") || null,
+            : praiseLine
+              ? `${praiseLine} · ${GRADE_LABEL[input.grade]}`
+              : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
+      body: [congrats, praiseLine && !congrats ? praiseLine : null, memoText]
+        .filter(Boolean)
+        .join("\n\n") || null,
       grade: input.grade,
       sentenceId: input.sentenceId,
       approvalId: input.approvalId,
