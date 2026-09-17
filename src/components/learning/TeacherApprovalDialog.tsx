@@ -420,13 +420,19 @@ export const TeacherApprovalDialog = ({
 
     setSaving(true);
     try {
+      // 이전 첨삭 중 "해결됨"으로 체크된 항목이 있으면 재학습 해결 칭찬 대상
+      const resolvedFeedback = history.some((h) => !!resolved[h.id]);
       await approveSentenceRequest({
         approvalId,
         sentenceId,
         grade,
         memo: serializeMemo(memo) ?? "",
-        praise: (grade === "excellent" || grade === "good") ? praise : undefined,
+        praise:
+          grade === "excellent" || grade === "good" || resolvedFeedback
+            ? praise
+            : undefined,
         studentUserId,
+        resolvedFeedback,
       });
       await endTeaching();
       toast({
