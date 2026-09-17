@@ -242,6 +242,7 @@ const SentenceLearn = () => {
   const [lastEvaluation, setLastEvaluation] = useState<{
     grade: ApprovalGrade;
     memo: string | null;
+    praise: string | null;
     sentenceId: string;
     at: string;
   } | null>(null);
@@ -816,10 +817,15 @@ const SentenceLearn = () => {
     try {
       await applyApprovalToMyProgress(approval);
       setPreviousStatus("pass");
+      const praiseLine =
+        !isHeld && approval.grade
+          ? pickPraise(approval.grade, approval.praise_text)
+          : null;
       if (!isHeld && approval.grade) {
         setLastEvaluation({
           grade: approval.grade,
           memo: approval.memo,
+          praise: praiseLine,
           sentenceId: approval.sentence_id,
           at: approval.approved_at ?? new Date().toISOString(),
         });
@@ -827,13 +833,16 @@ const SentenceLearn = () => {
       toast({
         title: isHeld
           ? "📝 선생님이 첨삭을 나중에 해주실 거예요"
-          : `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
+          : praiseLine
+            ? praiseLine
+            : `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
         description: "잠시 후 다음 문장으로 이동합니다.",
       });
-      // 2.5초 뒤 자동 이동 — 배너를 잠깐 보여준 뒤 다음 문장으로.
+      // 매우잘함은 칭찬 배너를 충분히 볼 수 있도록 살짝 더 대기.
+      const delay = praiseLine && approval.grade === "excellent" ? 3200 : 2500;
       window.setTimeout(() => {
         void handleSkipToNext(approval.sentence_id);
-      }, 2500);
+      }, delay);
     } catch (e) {
       toast({
         title: "평가 적용 실패",
