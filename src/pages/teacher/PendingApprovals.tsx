@@ -20,7 +20,8 @@ import { toast } from "@/hooks/use-toast";
 import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Save, X, BookOpen, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Pencil, Save, X, BookOpen, Trash2, Search } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -185,6 +186,7 @@ const PendingApprovals = () => {
   };
 
   const [deleting, setDeleting] = useState(false);
+  const [query, setQuery] = useState("");
 
   const deleteRows = async (ids: string[], label: string) => {
     if (ids.length === 0) return;
@@ -350,6 +352,17 @@ const PendingApprovals = () => {
     [rows],
   );
 
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (r) =>
+        (r.display_name ?? "").toLowerCase().includes(q) ||
+        (r.student_no ?? "").toLowerCase().includes(q) ||
+        r.sentence_id.toLowerCase().includes(q),
+    );
+  }, [rows, query]);
+
   const countLabel = useMemo(
     () => `${rows.length}건 ${tab === "held" ? "보류" : "대기"}`,
     [rows.length, tab],
@@ -408,6 +421,19 @@ const PendingApprovals = () => {
           </TabsList>
         </Tabs>
 
+        {tab !== "qna" && (
+          <div className="relative max-w-xs">
+            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="학생 이름 · 번호 · 문장코드 검색"
+              className="pl-9"
+            />
+          </div>
+        )}
+
+
         <p className="text-sm text-muted-foreground">
           {tab === "qna"
             ? "승인창에서 보낸 질문에 학생이 답한 내용입니다. 학생은 답하기 전에는 다음 문장으로 넘어가지 못합니다."
@@ -420,6 +446,12 @@ const PendingApprovals = () => {
 
         {tab !== "qna" && loading && rows.length === 0 && (
           <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>
+        )}
+
+        {tab !== "qna" && !loading && filteredRows.length === 0 && rows.length > 0 && (
+          <Card className="p-8 text-center text-muted-foreground">
+            “{query}”에 해당하는 항목이 없어요.
+          </Card>
         )}
 
         {tab !== "qna" && !loading && rows.length === 0 && (
@@ -437,7 +469,7 @@ const PendingApprovals = () => {
         )}
 
         <div className="space-y-3">
-          {(tab === "qna" ? [] : rows).map((row) => (
+          {(tab === "qna" ? [] : filteredRows).map((row) => (
             <Card key={row.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-sm flex-wrap">
