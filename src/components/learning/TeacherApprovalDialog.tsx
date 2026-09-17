@@ -267,6 +267,7 @@ export const TeacherApprovalDialog = ({
     setPin("");
     setGrade(null);
     setMemo(parseMemo(initialMemo));
+    setPraise("");
     setShowAnswer(false);
     setTeaching(false);
     if (skipPin) {
