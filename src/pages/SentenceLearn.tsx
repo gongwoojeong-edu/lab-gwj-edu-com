@@ -1214,6 +1214,12 @@ const SentenceLearn = () => {
         {/* 선생님 평가 결과 배너 (redo 외 모든 등급) — 코멘트 확인 후 다음 문장으로 이동 */}
         {lastEvaluation && lastEvaluation.sentenceId === sentence?.id && (
           <Card className="p-5 space-y-3 border-2 border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-500/5">
+            {lastEvaluation.praise && (
+              <PraiseSparkle
+                grade={lastEvaluation.grade}
+                text={lastEvaluation.praise}
+              />
+            )}
             <div className="flex items-start gap-3">
               <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
               <div className="space-y-2 flex-1 min-w-0">
