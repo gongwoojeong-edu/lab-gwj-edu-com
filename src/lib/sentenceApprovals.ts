@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 import { memoToPlainText } from "@/lib/approvalMemo";
+import { pickPraise } from "@/lib/praisePhrases";
 
 export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo" | "coach";
 export type ApprovalStatus = "pending" | "approved" | "held";
@@ -47,6 +48,8 @@ export interface SentenceApproval {
   held_memo?: string | null;
   /** 회독(특별과제) 격리 키. null/미지정 = 레거시 진도 */
   assignment_id?: string | null;
+  /** 선생님이 직접 적은 칭찬 한 줄 (excellent/good). */
+  praise_text?: string | null;
 }
 
 /** 본 학생의 해당 문장 최신 행.
@@ -126,6 +129,8 @@ export const approveSentenceRequest = async (input: {
   sentenceId: string;
   grade: ApprovalGrade;
   memo?: string;
+  /** 선생님이 직접 적은 칭찬 한 줄 (excellent/good일 때 학생 화면에 우선 표시). */
+  praise?: string;
   /** 대상 학생 user_id. 선생님이 승인하는 경우 반드시 전달.
    *  미전달 시 현재 세션 사용자(학생 본인 PIN 흐름)로 폴백. */
   studentUserId?: string;
@@ -143,12 +148,14 @@ export const approveSentenceRequest = async (input: {
     (approvalRow as { assignment_id: string | null } | null)?.assignment_id ?? null;
 
   // 1) 승인 행 갱신
+  const praiseTrimmed = input.praise?.trim() || null;
   const { error: apErr } = await supabase
     .from("sentence_approvals")
     .update({
       status: "approved",
       grade: input.grade,
       memo: input.memo?.trim() || null,
+      praise_text: praiseTrimmed,
       approved_by: approverId,
       approved_at: nowIso,
     })
@@ -247,6 +254,9 @@ export const approveSentenceRequest = async (input: {
       ? `🎉 첨삭 지적 사항을 모두 해결했어요! (재학습 ${priorRounds}회 끝에 통과)`
       : null;
 
+  // excellent/good 칭찬 문구 (선생님 직접 칭찬 우선, 없으면 자동 랜덤)
+  const praiseLine = !isRedo && !isCoach ? pickPraise(input.grade, praiseTrimmed) : null;
+
   try {
     await createNotification({
       userId: targetUserId,
@@ -257,8 +267,12 @@ export const approveSentenceRequest = async (input: {
           ? "선생님 코칭 — 워크북에서 다시 써보세요"
           : congrats
             ? `첨삭 해결 완료 · 최종 승인: ${GRADE_LABEL[input.grade]}`
-            : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
-      body: [congrats, memoText].filter(Boolean).join("\n\n") || null,
+            : praiseLine
+              ? `${praiseLine} · ${GRADE_LABEL[input.grade]}`
+              : `선생님 학습평가: ${GRADE_LABEL[input.grade]}`,
+      body: [congrats, praiseLine && !congrats ? praiseLine : null, memoText]
+        .filter(Boolean)
+        .join("\n\n") || null,
       grade: input.grade,
       sentenceId: input.sentenceId,
       approvalId: input.approvalId,

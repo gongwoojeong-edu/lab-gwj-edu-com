@@ -1,0 +1,1 @@
+ALTER TABLE public.sentence_approvals ADD COLUMN IF NOT EXISTS praise_text text NULL;

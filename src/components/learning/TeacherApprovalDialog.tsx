@@ -108,6 +108,8 @@ export const TeacherApprovalDialog = ({
   const [storedPin, setStoredPin] = useState<string | null | undefined>(undefined);
   const [grade, setGrade] = useState<ApprovalGrade | null>(null);
   const [memo, setMemo] = useState<StructuredMemo>(emptyMemo());
+  /** 선생님이 직접 적는 칭찬 한 줄 (excellent/good일 때만 노출) */
+  const [praise, setPraise] = useState("");
   const [saving, setSaving] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [teaching, setTeaching] = useState(false);
@@ -265,6 +267,7 @@ export const TeacherApprovalDialog = ({
     setPin("");
     setGrade(null);
     setMemo(parseMemo(initialMemo));
+    setPraise("");
     setShowAnswer(false);
     setTeaching(false);
     if (skipPin) {
@@ -422,6 +425,7 @@ export const TeacherApprovalDialog = ({
         sentenceId,
         grade,
         memo: serializeMemo(memo) ?? "",
+        praise: (grade === "excellent" || grade === "good") ? praise : undefined,
         studentUserId,
       });
       await endTeaching();
@@ -767,6 +771,25 @@ export const TeacherApprovalDialog = ({
               })}
             </div>
           </div>
+
+          {(grade === "excellent" || grade === "good") && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-semibold text-muted-foreground">
+                칭찬 한 줄 <span className="font-normal">(선택 · 비우면 자동 칭찬)</span>
+              </div>
+              <Input
+                value={praise}
+                onChange={(e) => setPraise(e.target.value.slice(0, 80))}
+                placeholder={
+                  grade === "excellent"
+                    ? "예) 오늘 집중력 최고! 연결사 처리 완벽했어요"
+                    : "예) 실력이 쑥쑥 자라요! 지금 흐름 좋아요"
+                }
+                maxLength={80}
+                disabled={saving}
+              />
+            </div>
+          )}
 
           {history.length > 0 && (
             <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">

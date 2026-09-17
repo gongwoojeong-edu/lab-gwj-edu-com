@@ -768,6 +768,7 @@ export type Database = {
           held_memo: string | null
           id: string
           memo: string | null
+          praise_text: string | null
           requested_at: string
           sentence_id: string
           status: string
@@ -787,6 +788,7 @@ export type Database = {
           held_memo?: string | null
           id?: string
           memo?: string | null
+          praise_text?: string | null
           requested_at?: string
           sentence_id: string
           status?: string
@@ -806,6 +808,7 @@ export type Database = {
           held_memo?: string | null
           id?: string
           memo?: string | null
+          praise_text?: string | null
           requested_at?: string
           sentence_id?: string
           status?: string
