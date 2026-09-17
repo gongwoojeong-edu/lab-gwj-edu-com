@@ -352,6 +352,17 @@ const PendingApprovals = () => {
     [rows],
   );
 
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (r) =>
+        (r.display_name ?? "").toLowerCase().includes(q) ||
+        (r.student_no ?? "").toLowerCase().includes(q) ||
+        r.sentence_id.toLowerCase().includes(q),
+    );
+  }, [rows, query]);
+
   const countLabel = useMemo(
     () => `${rows.length}건 ${tab === "held" ? "보류" : "대기"}`,
     [rows.length, tab],
