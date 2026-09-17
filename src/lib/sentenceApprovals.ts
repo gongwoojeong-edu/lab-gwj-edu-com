@@ -50,6 +50,8 @@ export interface SentenceApproval {
   assignment_id?: string | null;
   /** 선생님이 직접 적은 칭찬 한 줄 (excellent/good). */
   praise_text?: string | null;
+  /** 승인 시 이전 첨삭 항목을 "해결됨"으로 체크했는지 — 재학습 해결 칭찬 트리거 */
+  resolved_feedback?: boolean | null;
 }
 
 /** 본 학생의 해당 문장 최신 행.
@@ -134,6 +136,9 @@ export const approveSentenceRequest = async (input: {
   /** 대상 학생 user_id. 선생님이 승인하는 경우 반드시 전달.
    *  미전달 시 현재 세션 사용자(학생 본인 PIN 흐름)로 폴백. */
   studentUserId?: string;
+  /** 승인창에서 이전 첨삭 항목을 "해결됨"으로 체크하고 승인한 경우 true.
+   *  재학습 해결 칭찬(comeback) 트리거. */
+  resolvedFeedback?: boolean;
 }): Promise<void> => {
   const approverId = await getCurrentUserId();
   const nowIso = new Date().toISOString();
