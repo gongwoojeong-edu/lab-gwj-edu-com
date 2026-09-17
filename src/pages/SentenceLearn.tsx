@@ -82,6 +82,7 @@ import { TeacherFeedbackPanel } from "@/components/student/TeacherFeedbackPanel"
 import { TeachingQnaPanel } from "@/components/learning/TeachingQnaPanel";
 
 import { memoToPlainText } from "@/lib/approvalMemo";
+import { pickPraise } from "@/lib/praisePhrases";
 import { getCurrentUserId, waitForAuthReady } from "@/lib/authState";
 
 type Step = "pre" | "wordtest" | "analysis" | "translation";
