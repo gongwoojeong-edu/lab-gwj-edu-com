@@ -838,8 +838,8 @@ const SentenceLearn = () => {
             : `✅ 선생님 평가: ${approval.grade ? GRADE_LABEL[approval.grade] : "승인"}`,
         description: "잠시 후 다음 문장으로 이동합니다.",
       });
-      // 매우잘함은 칭찬 배너를 충분히 볼 수 있도록 살짝 더 대기.
-      const delay = praiseLine && approval.grade === "excellent" ? 3200 : 2500;
+      // 칭찬 문구를 읽고 연출이 자연스럽게 끝날 만큼만 대기.
+      const delay = praiseLine && approval.grade === "excellent" ? 2200 : 1600;
       window.setTimeout(() => {
         void handleSkipToNext(approval.sentence_id);
       }, delay);
