@@ -1815,6 +1815,10 @@ export type Database = {
         }
         Returns: string
       }
+      fn_student_skip_sentence: {
+        Args: { p_pin: string; p_sentence_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
