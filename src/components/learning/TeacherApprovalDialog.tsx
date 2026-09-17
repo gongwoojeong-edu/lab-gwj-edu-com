@@ -420,13 +420,19 @@ export const TeacherApprovalDialog = ({
 
     setSaving(true);
     try {
+      // 이전 첨삭 중 "해결됨"으로 체크된 항목이 있으면 재학습 해결 칭찬 대상
+      const resolvedFeedback = history.some((h) => !!resolved[h.id]);
       await approveSentenceRequest({
         approvalId,
         sentenceId,
         grade,
         memo: serializeMemo(memo) ?? "",
-        praise: (grade === "excellent" || grade === "good") ? praise : undefined,
+        praise:
+          grade === "excellent" || grade === "good" || resolvedFeedback
+            ? praise
+            : undefined,
         studentUserId,
+        resolvedFeedback,
       });
       await endTeaching();
       toast({
@@ -772,7 +778,9 @@ export const TeacherApprovalDialog = ({
             </div>
           </div>
 
-          {(grade === "excellent" || grade === "good") && (
+          {(grade === "excellent" ||
+            grade === "good" ||
+            history.some((h) => !!resolved[h.id])) && (
             <div className="space-y-1.5">
               <div className="text-xs font-semibold text-muted-foreground">
                 칭찬 한 줄 <span className="font-normal">(선택 · 비우면 자동 칭찬)</span>
@@ -783,7 +791,9 @@ export const TeacherApprovalDialog = ({
                 placeholder={
                   grade === "excellent"
                     ? "예) 오늘 집중력 최고! 연결사 처리 완벽했어요"
-                    : "예) 실력이 쑥쑥 자라요! 지금 흐름 좋아요"
+                    : grade === "good"
+                      ? "예) 실력이 쑥쑥 자라요! 지금 흐름 좋아요"
+                      : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
                 }
                 maxLength={80}
                 disabled={saving}

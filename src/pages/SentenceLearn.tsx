@@ -819,7 +819,11 @@ const SentenceLearn = () => {
       await applyApprovalToMyProgress(approval);
       setPreviousStatus("pass");
       // 재학습(추가학습) 요청을 해결하고 최종 통과한 경우 — 등급과 무관하게 칭찬
-      const isComeback = !isHeld && !!approval.grade && !!redoRequestedAt;
+      // (선생님이 승인창에서 "해결됨" 체크 후 승인한 경우도 포함)
+      const isComeback =
+        !isHeld &&
+        !!approval.grade &&
+        (!!redoRequestedAt || !!approval.resolved_feedback);
       const praiseLine = isComeback
         ? pickComebackPraise(approval.praise_text)
         : !isHeld && approval.grade

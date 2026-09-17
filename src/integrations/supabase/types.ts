@@ -770,6 +770,7 @@ export type Database = {
           memo: string | null
           praise_text: string | null
           requested_at: string
+          resolved_feedback: boolean
           sentence_id: string
           status: string
           updated_at: string
@@ -790,6 +791,7 @@ export type Database = {
           memo?: string | null
           praise_text?: string | null
           requested_at?: string
+          resolved_feedback?: boolean
           sentence_id: string
           status?: string
           updated_at?: string
@@ -810,6 +812,7 @@ export type Database = {
           memo?: string | null
           praise_text?: string | null
           requested_at?: string
+          resolved_feedback?: boolean
           sentence_id?: string
           status?: string
           updated_at?: string
