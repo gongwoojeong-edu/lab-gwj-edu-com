@@ -33,12 +33,37 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
   useEffect(() => {
     // 정책: 새 학습 진입 시 이전 제출 내용을 불러오지 않는다.
     // (예전 attempt 해석이 붙어 있거나 "제출됨"으로 보이는 문제 방지)
+    // 예외: 재학습(다시하기)에서는 이전 해석을 불러와 고쳐 쓸 수 있게 한다.
     setText("");
     setShowPrevious(false);
     setPreviousText(null);
     setSubmitted(false);
-    setLoading(false);
-  }, [sentenceId]);
+    if (!redoMode) {
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    fetchTranslation(sentenceId)
+      .then((prev) => {
+        if (!alive) return;
+        const t = (prev ?? "").trim();
+        if (t) {
+          setPreviousText(t);
+          setText(t);
+          setShowPrevious(false);
+        }
+      })
+      .catch(() => {
+        /* 이전 해석을 못 불러와도 빈 칸으로 작성 가능 */
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [sentenceId, redoMode]);
 
 
   const handleSubmit = async () => {
