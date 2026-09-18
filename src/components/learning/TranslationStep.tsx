@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Check, Eye, EyeOff } from "lucide-react";
-import { upsertTranslation } from "@/integrations/supabase/storage";
+import { fetchTranslation, upsertTranslation } from "@/integrations/supabase/storage";
 import { toast } from "@/hooks/use-toast";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 
@@ -11,6 +11,8 @@ interface Props {
   sentenceId: string;
   englishSentence: string;
   onSubmitted: (submittedText: string) => void;
+  /** 재학습(다시하기) 진입 시 true — 이전에 제출한 해석을 불러와 그대로 고쳐 쓸 수 있게 한다. */
+  redoMode?: boolean;
 }
 
 /**
@@ -19,7 +21,7 @@ interface Props {
  *  - 이전 제출이 있으면 "제출됨" 뱃지만 표시하고, [이전 제출 보기/숨기기] 버튼으로만 노출.
  *  - textarea 는 항상 빈 상태로 시작 → 학생이 새로 작성.
  */
-export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Props) => {
+export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redoMode = false }: Props) => {
   const [text, setText] = useState("");
   const [previousText, setPreviousText] = useState<string | null>(null);
   const [showPrevious, setShowPrevious] = useState(false);
@@ -31,12 +33,37 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Pr
   useEffect(() => {
     // 정책: 새 학습 진입 시 이전 제출 내용을 불러오지 않는다.
     // (예전 attempt 해석이 붙어 있거나 "제출됨"으로 보이는 문제 방지)
+    // 예외: 재학습(다시하기)에서는 이전 해석을 불러와 고쳐 쓸 수 있게 한다.
     setText("");
     setShowPrevious(false);
     setPreviousText(null);
     setSubmitted(false);
-    setLoading(false);
-  }, [sentenceId]);
+    if (!redoMode) {
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    fetchTranslation(sentenceId)
+      .then((prev) => {
+        if (!alive) return;
+        const t = (prev ?? "").trim();
+        if (t) {
+          setPreviousText(t);
+          setText(t);
+          setShowPrevious(false);
+        }
+      })
+      .catch(() => {
+        /* 이전 해석을 못 불러와도 빈 칸으로 작성 가능 */
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [sentenceId, redoMode]);
 
 
   const handleSubmit = async () => {
