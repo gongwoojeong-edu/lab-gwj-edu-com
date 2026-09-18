@@ -21,7 +21,7 @@ interface Props {
  *  - 이전 제출이 있으면 "제출됨" 뱃지만 표시하고, [이전 제출 보기/숨기기] 버튼으로만 노출.
  *  - textarea 는 항상 빈 상태로 시작 → 학생이 새로 작성.
  */
-export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted }: Props) => {
+export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redoMode = false }: Props) => {
   const [text, setText] = useState("");
   const [previousText, setPreviousText] = useState<string | null>(null);
   const [showPrevious, setShowPrevious] = useState(false);
