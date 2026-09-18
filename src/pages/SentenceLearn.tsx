@@ -1645,6 +1645,7 @@ const SentenceLearn = () => {
             <TranslationStep
               sentenceId={sentence.id}
               englishSentence={sentence.english}
+              redoMode={!!redoRequestedAt || !!lastEvaluation}
               onSubmitted={async (submittedText) => {
                 try {
                   const sp = new URLSearchParams(window.location.search);
