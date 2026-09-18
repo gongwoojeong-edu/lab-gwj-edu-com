@@ -11,6 +11,8 @@ interface Props {
   sentenceId: string;
   englishSentence: string;
   onSubmitted: (submittedText: string) => void;
+  /** 재학습(다시하기) 진입 시 true — 이전에 제출한 해석을 불러와 그대로 고쳐 쓸 수 있게 한다. */
+  redoMode?: boolean;
 }
 
 /**
