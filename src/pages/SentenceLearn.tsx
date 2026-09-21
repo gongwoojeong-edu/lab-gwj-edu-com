@@ -409,7 +409,22 @@ const SentenceLearn = () => {
         !!latestApproval?.created_at &&
         new Date(latestApproval.created_at).getTime() > new Date(redoAt).getTime();
       const redoPending = !!redoAt && !resubmittedAfterRedo;
-      const keepHere = restartParam || redoPending;
+
+      // 현재 문장에 답하지 않은(또는 오답 판정된) 첨삭 질문이 있으면
+      // 이 문장에 머물러 답하게 한다. 미답변 질문이 2개 이상 다른 문장에 걸려 있을 때
+      // resolveNextAfterPass 가 서로 다른 문장으로 리다이렉트하며 무한 루프에 빠지는 걸 막는다.
+      let currentHasOpenQna = false;
+      try {
+        const tq = await withLearnLoadTimeout(
+          fetchTeachingQuestions(currentUserId ?? "", found.id),
+          "첨삭 문답 불러오기",
+        );
+        currentHasOpenQna = tq.some((q) => !q.answered_at || q.verdict === "wrong");
+      } catch {
+        currentHasOpenQna = false;
+      }
+
+      const keepHere = restartParam || redoPending || currentHasOpenQna;
       if (mounted && latestApproval?.status === "pending" && gateOnPending) {
         setPendingApproval(latestApproval);
       } else if (
