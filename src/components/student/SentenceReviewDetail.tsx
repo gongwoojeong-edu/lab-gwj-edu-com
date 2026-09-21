@@ -158,7 +158,12 @@ export const SentenceReviewDetail = ({
       )}
 
       {!hideQna && (
-        <TeachingQnaPanel studentUserId={userId} sentenceId={sentenceId} role="readonly" />
+        <TeachingQnaPanel
+          studentUserId={userId}
+          sentenceId={sentenceId}
+          /* 본인 기록을 보는 중이면 바로 답변할 수 있게 한다 (알림함/첨삭 보기) */
+          role={viewerId && viewerId === userId ? "student" : "readonly"}
+        />
       )}
     </div>
   );
