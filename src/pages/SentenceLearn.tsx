@@ -47,6 +47,7 @@ import { useViewMode } from "@/hooks/useViewMode";
 import { gradeAnalysis, rateLabel, type OwnerDiffEntry } from "@/lib/analysisGrading";
 import { fetchMyProfile, type StudentProfile } from "@/lib/studentProfile";
 import { fetchMyOverrideForSentence, skipSentenceWithTeacherPin } from "@/lib/studentPassageOverrides";
+import { fetchTeachingQuestions } from "@/lib/teachingQuestions";
 import { TeacherSkipButton } from "@/components/learning/TeacherSkipButton";
 import {
   resolveEarlierIncompleteInAssignment,
