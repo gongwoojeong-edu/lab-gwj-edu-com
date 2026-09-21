@@ -86,6 +86,8 @@ export const SentenceReviewDetail = ({
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const viewerId = user?.id ?? null;
 
   useEffect(() => {
     let alive = true;
