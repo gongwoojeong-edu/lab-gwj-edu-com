@@ -338,6 +338,31 @@ const SentenceLearn = () => {
             setLoading(false);
             return;
           }
+          // 답변을 마친 뒤 이미 PASS인 예전 문장으로 다시 들어온 경우에는
+          // 전체 학습 자료를 재로딩하지 않고 곧바로 다음 진도로 이동한다.
+          if (currentQuestions.length > 0) {
+            const currentProgress = await withLearnLoadTimeout(
+              readMyProg(found.id),
+              "첨삭 문답 진도 확인",
+            );
+            if (currentProgress?.status === "pass") {
+              const next = await withLearnLoadTimeout(
+                resolveNextAfterPass(found.id, assignmentIdParam),
+                "다음 진도 확인",
+              );
+              if (next.sentence && next.sentence.id !== found.id) {
+                const qs = next.assignmentId
+                  ? `?assignment=${encodeURIComponent(next.assignmentId)}`
+                  : "";
+                navigate(`/learn/sentence/${encodeURIComponent(next.sentence.id)}${qs}`, {
+                  replace: true,
+                });
+              } else {
+                navigate("/learn", { replace: true });
+              }
+              return;
+            }
+          }
         }
 
       // 특별과제: 앞 유닛/문장이 미완료면 그곳으로 강제 (1과-3을 먼저 여는 등 순서 이탈 방지)
