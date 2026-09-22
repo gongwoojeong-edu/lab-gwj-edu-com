@@ -26,7 +26,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
   const [previousText, setPreviousText] = useState<string | null>(null);
   const [showPrevious, setShowPrevious] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const safeEnglishSentence = stripKoreanFromEnglishSource(englishSentence);
 
@@ -43,14 +43,16 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
       return;
     }
     let alive = true;
-    setLoading(true);
+    // 이전 제출본 조회가 늦거나 실패해도 학생이 새 답안을 입력하는 작업은 막지 않는다.
+    setLoading(false);
     fetchTranslation(sentenceId)
       .then((prev) => {
         if (!alive) return;
         const t = (prev ?? "").trim();
         if (t) {
           setPreviousText(t);
-          setText(t);
+          // 조회 중 학생이 이미 입력했다면 그 내용을 덮어쓰지 않는다.
+          setText((current) => current.trim() || t);
           setShowPrevious(false);
         }
       })
@@ -128,7 +130,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
               : "문장의 의미를 한국어로 정확하게 적어주세요."
           }
           rows={3}
-          disabled={loading}
+          aria-label="한글해석 입력"
         />
         {submitted && !text.trim() && !loading && (
           <p className="text-[11px] text-amber-700 dark:text-amber-300 text-right">
