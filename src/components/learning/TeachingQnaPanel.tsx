@@ -142,7 +142,7 @@ export const TeachingQnaPanel = ({
         <div className="space-y-2">
           {rows.map((r) => {
             const draft = drafts[r.id] ?? "";
-            const canAnswer = role === "student" && !r.answer;
+            const canAnswer = role === "student" && !r.answered_at;
             const canRetry = role === "student" && r.verdict === "wrong";
             return (
               <div key={r.id} className="rounded-md border bg-card p-2 space-y-2">
@@ -152,16 +152,23 @@ export const TeachingQnaPanel = ({
                 </div>
 
                 {r.answer && (
-                  <div className="flex items-start gap-2">
-                    <div className="text-sm flex-1">
-                      <span className="text-[11px] font-bold text-muted-foreground mr-1.5">학생</span>
-                      <span className="whitespace-pre-wrap">{r.answer}</span>
+                  <div className="space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <div className="text-sm flex-1">
+                        <span className="text-[11px] font-bold text-muted-foreground mr-1.5">학생</span>
+                        <span className="whitespace-pre-wrap">{r.answer}</span>
+                      </div>
+                      {r.verdict === "correct" && (
+                        <span className="text-emerald-600 font-bold text-lg leading-none">⭕</span>
+                      )}
+                      {r.verdict === "wrong" && (
+                        <span className="text-rose-600 font-bold text-lg leading-none">❌</span>
+                      )}
                     </div>
-                    {r.verdict === "correct" && (
-                      <span className="text-emerald-600 font-bold text-lg leading-none">⭕</span>
-                    )}
-                    {r.verdict === "wrong" && (
-                      <span className="text-rose-600 font-bold text-lg leading-none">❌</span>
+                    {role === "student" && !r.verdict && (
+                      <div className="text-[11px] font-medium text-muted-foreground">
+                        답변 제출 완료 · 선생님 확인 중
+                      </div>
                     )}
                   </div>
                 )}
@@ -206,11 +213,12 @@ export const TeachingQnaPanel = ({
                       ))}
                     </div>
                   ) : (
-                    <div className="flex gap-1.5">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                       <Input
                         value={draft}
                         placeholder="답을 입력하세요"
-                        className="h-8 text-sm"
+                        aria-label="첨삭퀴즈 답변"
+                        className="h-10 min-w-0 text-sm"
                         disabled={busyId === r.id}
                         onChange={(e) => setDrafts((p) => ({ ...p, [r.id]: e.target.value }))}
                         onKeyDown={(e) => {
@@ -222,7 +230,7 @@ export const TeachingQnaPanel = ({
                       />
                       <Button
                         size="sm"
-                        className="h-8"
+                        className="h-10 w-full sm:w-auto"
                         disabled={busyId === r.id || !draft.trim()}
                         onClick={() => answer(r.id, draft)}
                       >

@@ -185,9 +185,25 @@ const SentenceLearn = () => {
   // C — 클라우드 hydrate 실패 시 학생에게 노출할 상태 (무음 실패 방지).
   const [hydrationError, setHydrationError] = useState<string | null>(null);
   const [qnaGateOnly, setQnaGateOnly] = useState(false);
-  const handleQnaOpenCountChange = useCallback((count: number) => {
-    if (count === 0) setHydrationReloadNonce((value) => value + 1);
-  }, []);
+  const handleQnaOpenCountChange = useCallback(async (count: number) => {
+    if (count !== 0 || !sentenceId) return;
+    try {
+      const next = await resolveNextAfterPass(sentenceId, assignmentIdParam);
+      if (next.sentence && next.sentence.id !== sentenceId) {
+        const qs = next.assignmentId
+          ? `?assignment=${encodeURIComponent(next.assignmentId)}`
+          : "";
+        navigate(`/learn/sentence/${encodeURIComponent(next.sentence.id)}${qs}`, {
+          replace: true,
+        });
+        return;
+      }
+      navigate("/learn", { replace: true });
+    } catch {
+      setQnaGateOnly(false);
+      setHydrationReloadNonce((value) => value + 1);
+    }
+  }, [assignmentIdParam, navigate, sentenceId]);
   const [hydrationReloadNonce, setHydrationReloadNonce] = useState(0);
   /** onAnalysisProgress 콜백 도착 횟수 — Index.tsx의 fetchMasterAnswers 비동기 race를 닫기 위한 카운터.
    * Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.
@@ -321,6 +337,31 @@ const SentenceLearn = () => {
             setQnaGateOnly(true);
             setLoading(false);
             return;
+          }
+          // 답변을 마친 뒤 이미 PASS인 예전 문장으로 다시 들어온 경우에는
+          // 전체 학습 자료를 재로딩하지 않고 곧바로 다음 진도로 이동한다.
+          if (currentQuestions.length > 0) {
+            const currentProgress = await withLearnLoadTimeout(
+              readMyProg(found.id),
+              "첨삭 문답 진도 확인",
+            );
+            if (currentProgress?.status === "pass") {
+              const next = await withLearnLoadTimeout(
+                resolveNextAfterPass(found.id, assignmentIdParam),
+                "다음 진도 확인",
+              );
+              if (next.sentence && next.sentence.id !== found.id) {
+                const qs = next.assignmentId
+                  ? `?assignment=${encodeURIComponent(next.assignmentId)}`
+                  : "";
+                navigate(`/learn/sentence/${encodeURIComponent(next.sentence.id)}${qs}`, {
+                  replace: true,
+                });
+              } else {
+                navigate("/learn", { replace: true });
+              }
+              return;
+            }
           }
         }
 
@@ -1111,15 +1152,6 @@ const SentenceLearn = () => {
         <Button variant="outline" size="sm" onClick={() => navigate("/learn")}>
           학습 홈으로
         </Button>
-        {myUserId && sentence?.id && (
-          <TeachingQnaPanel
-            studentUserId={myUserId}
-            sentenceId={sentence.id}
-            role="student"
-            hideWhenEmpty
-            className="w-full max-w-3xl text-left"
-          />
-        )}
       </div>
     );
   }
@@ -1144,6 +1176,15 @@ const SentenceLearn = () => {
             <h1 className="text-lg font-bold text-foreground">선생님 질문에 먼저 답해 주세요</h1>
             <p className="text-sm text-muted-foreground">답변을 제출하면 학습 진도를 계속할 수 있어요.</p>
           </div>
+          <Card className="border-border bg-card p-4">
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>영어 원문</span>
+              <span>{sentence.id}</span>
+            </div>
+            <p className="select-text whitespace-pre-wrap text-base font-semibold leading-relaxed text-foreground">
+              {sentence.english}
+            </p>
+          </Card>
           <TeachingQnaPanel
             studentUserId={myUserId}
             sentenceId={sentence.id}
