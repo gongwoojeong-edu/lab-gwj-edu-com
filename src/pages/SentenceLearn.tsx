@@ -1118,7 +1118,6 @@ const SentenceLearn = () => {
             role="student"
             hideWhenEmpty
             className="w-full max-w-3xl text-left"
-            onOpenCountChange={handleQnaOpenCountChange}
           />
         )}
       </div>
