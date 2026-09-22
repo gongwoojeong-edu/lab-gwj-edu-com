@@ -152,16 +152,23 @@ export const TeachingQnaPanel = ({
                 </div>
 
                 {r.answer && (
-                  <div className="flex items-start gap-2">
-                    <div className="text-sm flex-1">
-                      <span className="text-[11px] font-bold text-muted-foreground mr-1.5">학생</span>
-                      <span className="whitespace-pre-wrap">{r.answer}</span>
+                  <div className="space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <div className="text-sm flex-1">
+                        <span className="text-[11px] font-bold text-muted-foreground mr-1.5">학생</span>
+                        <span className="whitespace-pre-wrap">{r.answer}</span>
+                      </div>
+                      {r.verdict === "correct" && (
+                        <span className="text-emerald-600 font-bold text-lg leading-none">⭕</span>
+                      )}
+                      {r.verdict === "wrong" && (
+                        <span className="text-rose-600 font-bold text-lg leading-none">❌</span>
+                      )}
                     </div>
-                    {r.verdict === "correct" && (
-                      <span className="text-emerald-600 font-bold text-lg leading-none">⭕</span>
-                    )}
-                    {r.verdict === "wrong" && (
-                      <span className="text-rose-600 font-bold text-lg leading-none">❌</span>
+                    {role === "student" && !r.verdict && (
+                      <div className="text-[11px] font-medium text-muted-foreground">
+                        답변 제출 완료 · 선생님 확인 중
+                      </div>
                     )}
                   </div>
                 )}
