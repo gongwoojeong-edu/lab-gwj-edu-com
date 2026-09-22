@@ -8,14 +8,26 @@ import { SENTENCES, type Sentence, type SentenceToken, type WordAnswer } from "@
 import type { LevelCode } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
 
+/** 문장 앞에 붙는 한글 표기(예: [요약문], (요약), 【주제문】) — 원문을 지우지 않고 표기만 제거 */
+const KOREAN_TAG = /[[(【［]\s*[가-힣ㄱ-ㅎㅏ-ㅣ][^\])】］\n]*[\])】］]/g;
+
 export const stripKoreanFromEnglishSource = (value: string): string =>
   value
     .split(/\r?\n/)
-    .map((line) => line.replace(/[가-힣ㄱ-ㅎㅏ-ㅣ].*$/g, "").trim())
+    .map((line) => {
+      // 1) 한글 표기 태그 먼저 제거 → 뒤에 오는 영어 원문이 살아남는다.
+      const withoutTags = line.replace(KOREAN_TAG, " ");
+      // 2) 남은 한글(뒤에 붙은 한글 해석)은 그 지점부터 잘라낸다.
+      //    단, 잘라낸 결과에 영문이 하나도 없으면 원문 손실이므로 태그 제거본을 쓴다.
+      const cut = withoutTags.replace(/[가-힣ㄱ-ㅎㅏ-ㅣ].*$/g, "").trim();
+      if (cut) return cut;
+      return /[A-Za-z]/.test(withoutTags) ? withoutTags.trim() : "";
+    })
     .filter(Boolean)
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
+
 
 /**
  * 영문 본문을 클릭 가능한 analyzable 토큰으로 자동 분리.
