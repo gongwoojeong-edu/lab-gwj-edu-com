@@ -27,6 +27,8 @@ interface Props {
   className?: string;
   /** 질문이 하나도 없으면 아무것도 그리지 않는다 (학습화면 상시 노출용) */
   hideWhenEmpty?: boolean;
+  /** 미답변/오답 질문 수가 바뀔 때 알림 (학습화면 진도 잠금 해제용) */
+  onOpenCountChange?: (count: number) => void;
 }
 
 export const TeachingQnaPanel = ({
@@ -35,6 +37,7 @@ export const TeachingQnaPanel = ({
   role,
   className,
   hideWhenEmpty,
+  onOpenCountChange,
 }: Props) => {
   const [rows, setRows] = useState<TeachingQuestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,10 +49,15 @@ export const TeachingQnaPanel = ({
 
   const reload = useCallback(() => {
     fetchTeachingQuestions(studentUserId, sentenceId)
-      .then(setRows)
+      .then((nextRows) => {
+        setRows(nextRows);
+        onOpenCountChange?.(
+          nextRows.filter((row) => !row.answered_at || row.verdict === "wrong").length,
+        );
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [studentUserId, sentenceId]);
+  }, [studentUserId, sentenceId, onOpenCountChange]);
 
   useEffect(() => {
     setLoading(true);
