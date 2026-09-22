@@ -1111,15 +1111,6 @@ const SentenceLearn = () => {
         <Button variant="outline" size="sm" onClick={() => navigate("/learn")}>
           학습 홈으로
         </Button>
-        {myUserId && sentence?.id && (
-          <TeachingQnaPanel
-            studentUserId={myUserId}
-            sentenceId={sentence.id}
-            role="student"
-            hideWhenEmpty
-            className="w-full max-w-3xl text-left"
-          />
-        )}
       </div>
     );
   }
@@ -1144,6 +1135,15 @@ const SentenceLearn = () => {
             <h1 className="text-lg font-bold text-foreground">선생님 질문에 먼저 답해 주세요</h1>
             <p className="text-sm text-muted-foreground">답변을 제출하면 학습 진도를 계속할 수 있어요.</p>
           </div>
+          <Card className="border-border bg-card p-4">
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>영어 원문</span>
+              <span>{sentence.id}</span>
+            </div>
+            <p className="select-text whitespace-pre-wrap text-base font-semibold leading-relaxed text-foreground">
+              {sentence.english}
+            </p>
+          </Card>
           <TeachingQnaPanel
             studentUserId={myUserId}
             sentenceId={sentence.id}

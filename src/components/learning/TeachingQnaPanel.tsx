@@ -142,7 +142,7 @@ export const TeachingQnaPanel = ({
         <div className="space-y-2">
           {rows.map((r) => {
             const draft = drafts[r.id] ?? "";
-            const canAnswer = role === "student" && !r.answer;
+            const canAnswer = role === "student" && !r.answered_at;
             const canRetry = role === "student" && r.verdict === "wrong";
             return (
               <div key={r.id} className="rounded-md border bg-card p-2 space-y-2">
@@ -206,11 +206,12 @@ export const TeachingQnaPanel = ({
                       ))}
                     </div>
                   ) : (
-                    <div className="flex gap-1.5">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                       <Input
                         value={draft}
                         placeholder="답을 입력하세요"
-                        className="h-8 text-sm"
+                        aria-label="첨삭퀴즈 답변"
+                        className="h-10 min-w-0 text-sm"
                         disabled={busyId === r.id}
                         onChange={(e) => setDrafts((p) => ({ ...p, [r.id]: e.target.value }))}
                         onKeyDown={(e) => {
@@ -222,7 +223,7 @@ export const TeachingQnaPanel = ({
                       />
                       <Button
                         size="sm"
-                        className="h-8"
+                        className="h-10 w-full sm:w-auto"
                         disabled={busyId === r.id || !draft.trim()}
                         onClick={() => answer(r.id, draft)}
                       >
