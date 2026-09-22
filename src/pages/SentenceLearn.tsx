@@ -184,6 +184,10 @@ const SentenceLearn = () => {
   const [analysisMasterLoaded, setAnalysisMasterLoaded] = useState(false);
   // C — 클라우드 hydrate 실패 시 학생에게 노출할 상태 (무음 실패 방지).
   const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [qnaGateOnly, setQnaGateOnly] = useState(false);
+  const handleQnaOpenCountChange = useCallback((count: number) => {
+    if (count === 0) setHydrationReloadNonce((value) => value + 1);
+  }, []);
   const [hydrationReloadNonce, setHydrationReloadNonce] = useState(0);
   /** onAnalysisProgress 콜백 도착 횟수 — Index.tsx의 fetchMasterAnswers 비동기 race를 닫기 위한 카운터.
    * Index.tsx의 progress effect는 masterOwnerIds를 dep으로 가지므로 fetch 완료 후 반드시 한 번 더 호출됨.
@@ -265,6 +269,7 @@ const SentenceLearn = () => {
     (async () => {
       try {
         setLoading(true);
+        setQnaGateOnly(false);
         setLoadingStage("문장을 불러오는 중…");
         setHydrationError(null);
         // 현재 문장 1건(토큰 포함)과 사용자 정보를 병렬로 요청 — 직렬 대기 제거
@@ -302,6 +307,21 @@ const SentenceLearn = () => {
         if (!found) {
           setLoading(false);
           return;
+        }
+
+        const currentUserId = await getCurrentUserId();
+        // 첨삭 질문은 과제 순서/학습 기록보다 먼저 확인한다. 이미 통과한 문장의
+        // 질문에 답하러 직접 들어온 학생을 다른 문장으로 보내거나 로딩에 묶지 않는다.
+        if (currentUserId) {
+          const currentQuestions = await withLearnLoadTimeout(
+            fetchTeachingQuestions(currentUserId, found.id),
+            "첨삭 문답 불러오기",
+          );
+          if (currentQuestions.some((q) => !q.answered_at || q.verdict === "wrong")) {
+            setQnaGateOnly(true);
+            setLoading(false);
+            return;
+          }
         }
 
       // 특별과제: 앞 유닛/문장이 미완료면 그곳으로 강제 (1과-3을 먼저 여는 등 순서 이탈 방지)
@@ -345,7 +365,6 @@ const SentenceLearn = () => {
       }
 
       setLoadingStage("진행 상태를 확인하는 중…");
-      const currentUserId = await getCurrentUserId();
 
       const [prog, extraction, owners, prof, logs, attemptCnt, assignRes, overrideRes] = await withLearnLoadTimeout(
         Promise.all([
@@ -1092,6 +1111,16 @@ const SentenceLearn = () => {
         <Button variant="outline" size="sm" onClick={() => navigate("/learn")}>
           학습 홈으로
         </Button>
+        {myUserId && sentence?.id && (
+          <TeachingQnaPanel
+            studentUserId={myUserId}
+            sentenceId={sentence.id}
+            role="student"
+            hideWhenEmpty
+            className="w-full max-w-3xl text-left"
+            onOpenCountChange={handleQnaOpenCountChange}
+          />
+        )}
       </div>
     );
   }
@@ -1103,6 +1132,26 @@ const SentenceLearn = () => {
           <div className="text-xl font-bold text-foreground">Passage를 찾을 수 없어요</div>
           <Button onClick={() => navigate("/learn")}>학습 홈으로</Button>
         </Card>
+      </div>
+    );
+  }
+
+  if (qnaGateOnly && myUserId) {
+    return (
+      <div className="min-h-screen bg-background p-4 sm:p-6">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <Button variant="outline" size="sm" onClick={() => navigate("/learn")}>학습 홈으로</Button>
+          <div className="space-y-1">
+            <h1 className="text-lg font-bold text-foreground">선생님 질문에 먼저 답해 주세요</h1>
+            <p className="text-sm text-muted-foreground">답변을 제출하면 학습 진도를 계속할 수 있어요.</p>
+          </div>
+          <TeachingQnaPanel
+            studentUserId={myUserId}
+            sentenceId={sentence.id}
+            role="student"
+            onOpenCountChange={handleQnaOpenCountChange}
+          />
+        </div>
       </div>
     );
   }
