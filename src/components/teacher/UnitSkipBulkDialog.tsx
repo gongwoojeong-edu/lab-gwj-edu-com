@@ -35,6 +35,12 @@ interface Props {
   units: SkipUnitOption[];
   /** 처음 열 때 체크되어 있을 유닛 id */
   defaultSelectedIds?: string[];
+  /**
+   * 이 권(시리즈)에 학습이 지정된 학생만 보여줄지 여부.
+   * 전달하면 start_series_id 또는 (track_b 활성 시) track_b_series_id 가
+   * 이 값과 일치하는 학생만 목록에 표시한다.
+   */
+  seriesId?: string;
 }
 
 type StudentRow = { id: string; name: string; no: string; klass: string | null };
@@ -44,6 +50,7 @@ export const UnitSkipBulkDialog = ({
   onOpenChange,
   units,
   defaultSelectedIds,
+  seriesId,
 }: Props) => {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,12 +77,22 @@ export const UnitSkipBulkDialog = ({
       try {
         const { data, error } = await supabase
           .from("student_profiles")
-          .select("user_id, student_no, display_name, orbit_class_name")
+          .select(
+            "user_id, student_no, display_name, orbit_class_name, start_series_id, track_b_series_id, track_b_enabled",
+          )
           .eq("orbit_enrollment_active", true)
           .order("student_no");
         if (error) throw error;
         const rows: StudentRow[] = ((data ?? []) as Record<string, unknown>[])
           .filter((r) => !/^(gwj)?t\d+$/i.test(String(r.student_no ?? "").trim()))
+          .filter((r) => {
+            if (!seriesId) return true;
+            const trackA = String(r.start_series_id ?? "") === seriesId;
+            const trackB =
+              r.track_b_enabled === true &&
+              String(r.track_b_series_id ?? "") === seriesId;
+            return trackA || trackB;
+          })
           .map((r) => ({
             id: r.user_id as string,
             name: String(r.display_name ?? r.student_no ?? "").trim(),
@@ -222,7 +239,14 @@ export const UnitSkipBulkDialog = ({
 
           <div>
             <div className="flex items-center justify-between mb-1 gap-2">
-              <span className="text-xs font-bold">학생 선택 ({selectedStudents.size})</span>
+              <span className="text-xs font-bold flex items-center gap-1.5">
+                학생 선택 ({selectedStudents.size})
+                {seriesId && (
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    · 이 권에 지정된 학생만 ({students.length})
+                  </span>
+                )}
+              </span>
               <Input
                 placeholder="이름 / 번호 / 반 검색"
                 value={query}
@@ -249,7 +273,13 @@ export const UnitSkipBulkDialog = ({
                   불러오는 중…
                 </div>
               ) : filteredStudents.length === 0 ? (
-                <div className="p-3 text-xs text-muted-foreground">학생이 없습니다.</div>
+                <div className="p-3 text-xs text-muted-foreground">
+                  {seriesId && students.length === 0
+                    ? "이 권에 학습이 지정된 학생이 없습니다."
+                    : seriesId
+                      ? "검색 결과가 없습니다."
+                      : "학생이 없습니다."}
+                </div>
               ) : (
                 filteredStudents.map((s) => {
                   const cnt = skipCountFor(s.id);

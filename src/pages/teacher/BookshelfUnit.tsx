@@ -1960,6 +1960,7 @@ const BookshelfUnit = () => {
         defaultSelectedCodes={passages
           .filter((p) => selectedIds.has(p.id))
           .map((p) => p.code)}
+        seriesId={series?.id}
       />
     </TeacherLayout>
   );
