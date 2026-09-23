@@ -237,7 +237,14 @@ export const SentenceSkipBulkDialog = ({
 
           <div>
             <div className="flex items-center justify-between mb-1 gap-2">
-              <span className="text-xs font-bold">학생 선택 ({selectedStudents.size})</span>
+              <span className="text-xs font-bold flex items-center gap-1.5">
+                학생 선택 ({selectedStudents.size})
+                {seriesId && (
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    · 이 권에 지정된 학생만 ({students.length})
+                  </span>
+                )}
+              </span>
               <Input
                 placeholder="이름 / 번호 / 반 검색"
                 value={query}
