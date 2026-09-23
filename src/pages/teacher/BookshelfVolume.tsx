@@ -474,11 +474,47 @@ const BookshelfVolume = () => {
 
     setBulkPassageBusy(true);
     try {
+      // 합치기 전 각 문장의 추출 단어를 모아 둔다 (영문 변경 시 캐시가 삭제되므로)
+      const codes = selected.map((p) => p.code);
+      const { data: exRows } = await supabase
+        .from("sentence_word_extractions")
+        .select("sentence_id, words")
+        .in("sentence_id", codes);
+      const mergedWords: Array<Record<string, unknown>> = [];
+      const seen = new Set<string>();
+      for (const code of codes) {
+        const row = (exRows ?? []).find((r) => r.sentence_id === code);
+        const arr = Array.isArray(row?.words) ? (row!.words as Array<Record<string, unknown>>) : [];
+        for (const w of arr) {
+          const key = String(w?.word ?? "").trim().toLowerCase();
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          mergedWords.push(w);
+        }
+      }
+
       await updatePassage(keep.id, {
         english: mergedEnglish,
         korean: mergedKorean,
       });
+      if (mergedWords.length > 0) {
+        await supabase.from("sentence_word_extractions").upsert(
+          {
+            sentence_id: keep.code,
+            english: mergedEnglish,
+            words: mergedWords as unknown as never,
+            model: "merged",
+          },
+          { onConflict: "sentence_id" },
+        );
+      }
       await deletePassages(rest.map((p) => p.id));
+      if (rest.length > 0) {
+        await supabase
+          .from("sentence_word_extractions")
+          .delete()
+          .in("sentence_id", rest.map((p) => p.code));
+      }
       // 재정렬
       const remaining = unitPassages
         .filter((p) => p.id === keep.id || !passageSel.has(p.id))
