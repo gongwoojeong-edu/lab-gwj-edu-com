@@ -1644,6 +1644,7 @@ const BookshelfVolume = () => {
           label: `${u.unit_no}. ${u.title}`,
         }))}
         defaultSelectedIds={Array.from(selectedIds)}
+        seriesId={series?.id}
       />
 
 
