@@ -273,7 +273,13 @@ export const UnitSkipBulkDialog = ({
                   불러오는 중…
                 </div>
               ) : filteredStudents.length === 0 ? (
-                <div className="p-3 text-xs text-muted-foreground">학생이 없습니다.</div>
+                <div className="p-3 text-xs text-muted-foreground">
+                  {seriesId && students.length === 0
+                    ? "이 권에 학습이 지정된 학생이 없습니다."
+                    : seriesId
+                      ? "검색 결과가 없습니다."
+                      : "학생이 없습니다."}
+                </div>
               ) : (
                 filteredStudents.map((s) => {
                   const cnt = skipCountFor(s.id);
