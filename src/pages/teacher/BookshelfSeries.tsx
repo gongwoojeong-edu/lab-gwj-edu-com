@@ -53,6 +53,8 @@ import {
 import { useLevelLabels } from "@/hooks/useLevelLabels";
 import { MoveItemsDialog, type MoveTarget } from "@/components/teacher/MoveItemsDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
+import { UnitSkipBulkDialog, type SkipUnitOption } from "@/components/teacher/UnitSkipBulkDialog";
+import { SkipForward } from "lucide-react";
 import { swapListOrder } from "@/lib/bookshelfOrder";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -94,6 +96,36 @@ const BookshelfSeries = () => {
   const [moveOpen, setMoveOpen] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [allSeries, setAllSeries] = useState<Series[]>([]);
+
+  // 강(권) 스킵: 선택한 강의 모든 유닛을 유닛 스킵으로 지정
+  const [volSkipOpen, setVolSkipOpen] = useState(false);
+  const [volSkipUnits, setVolSkipUnits] = useState<SkipUnitOption[]>([]);
+  const openVolSkip = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const { data, error } = await supabase
+      .from("textbook_units")
+      .select("id, textbook_id, unit_no, title")
+      .in("textbook_id", ids)
+      .order("unit_no");
+    if (error) {
+      toast({ title: "유닛을 불러오지 못했습니다", description: error.message, variant: "destructive" });
+      return;
+    }
+    const volName = (tid: string) => textbooks.find((t) => t.id === tid)?.title ?? "";
+    const order = (tid: string) => textbooks.find((t) => t.id === tid)?.volume_no ?? 0;
+    const rows = [...(data ?? [])].sort(
+      (a, b) => order(a.textbook_id) - order(b.textbook_id) || a.unit_no - b.unit_no,
+    );
+    if (rows.length === 0) {
+      toast({ title: "선택한 강에 유닛이 없습니다", variant: "destructive" });
+      return;
+    }
+    setVolSkipUnits(
+      rows.map((u) => ({ id: u.id, label: `${volName(u.textbook_id)} · ${u.unit_no}. ${u.title}` })),
+    );
+    setVolSkipOpen(true);
+  };
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -347,6 +379,9 @@ const BookshelfSeries = () => {
                 <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}>
                   <ArrowRight className="size-4 mr-1" /> 다른 시리즈로 이동
                 </Button>
+                <Button variant="outline" size="sm" onClick={openVolSkip}>
+                  <SkipForward className="size-4 mr-1" /> 강 스킵 지정
+                </Button>
               </>
             )}
             <Button onClick={() => setCreateOpen(true)}>
@@ -541,6 +576,14 @@ const BookshelfSeries = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UnitSkipBulkDialog
+        open={volSkipOpen}
+        onOpenChange={setVolSkipOpen}
+        units={volSkipUnits}
+        defaultSelectedIds={volSkipUnits.map((u) => u.id)}
+        seriesId={series.id}
+      />
 
       <MoveItemsDialog
         open={moveOpen}
