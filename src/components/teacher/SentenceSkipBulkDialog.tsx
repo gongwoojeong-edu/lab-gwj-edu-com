@@ -35,6 +35,12 @@ interface Props {
   passages: SkipPassageOption[];
   /** 처음 열 때 체크되어 있을 지문 코드 */
   defaultSelectedCodes?: string[];
+  /**
+   * 이 권(시리즈)에 학습이 지정된 학생만 보여줄지 여부.
+   * 전달하면 start_series_id 또는 (track_b 활성 시) track_b_series_id 가
+   * 이 값과 일치하는 학생만 목록에 표시한다.
+   */
+  seriesId?: string;
 }
 
 type StudentRow = { id: string; name: string; no: string; klass: string | null };
@@ -44,6 +50,7 @@ export const SentenceSkipBulkDialog = ({
   onOpenChange,
   passages,
   defaultSelectedCodes,
+  seriesId,
 }: Props) => {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,12 +77,22 @@ export const SentenceSkipBulkDialog = ({
       try {
         const { data, error } = await supabase
           .from("student_profiles")
-          .select("user_id, student_no, display_name, orbit_class_name")
+          .select(
+            "user_id, student_no, display_name, orbit_class_name, start_series_id, track_b_series_id, track_b_enabled",
+          )
           .eq("orbit_enrollment_active", true)
           .order("student_no");
         if (error) throw error;
         const rows: StudentRow[] = ((data ?? []) as any[])
           .filter((r) => !/^(gwj)?t\d+$/i.test((r.student_no ?? "").trim()))
+          .filter((r) => {
+            if (!seriesId) return true;
+            const trackA = String(r.start_series_id ?? "") === seriesId;
+            const trackB =
+              r.track_b_enabled === true &&
+              String(r.track_b_series_id ?? "") === seriesId;
+            return trackA || trackB;
+          })
           .map((r) => ({
             id: r.user_id as string,
             name: (r.display_name ?? r.student_no ?? "").trim(),
