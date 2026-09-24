@@ -574,7 +574,7 @@ Deno.serve(async (req) => {
   // can iterate one sentence at a time. A passage that contains a single sentence
   // is stored as one row; multi-sentence passages produce N rows that share a
   // common base code with -1, -2, ... suffix.
-  const sentences = splitIntoSentences(p.passage);
+  let sentences = splitIntoSentences(p.passage);
   if (sentences.length === 0)
     return json({ ok: false, error: "passage에서 문장을 찾지 못했습니다" }, 400);
 
@@ -658,7 +658,18 @@ Deno.serve(async (req) => {
     }
   }
 
-  const koreanSentences = extractPayloadKoreanSentences(p, sentences.length);
+  let koreanSentences = extractPayloadKoreanSentences(p, sentences.length);
+  if (p.passage_input === "whole") {
+    const explicitKo = Array.isArray(p.sentences)
+      ? p.sentences.map((s) => String(s?.ko || s?.translation || s?.korean || "")
+          .replace(/^▶?\s*직독[·ㆍ]\s*의역\s*/i, "")
+          .replace(/\s+/g, " ")
+          .trim()).filter(Boolean)
+      : [];
+    const koJoined = (explicitKo.length ? explicitKo : koreanSentences).join("\n");
+    sentences = [sentences.join(" ")];
+    koreanSentences = [koJoined];
+  }
   const isMulti = sentences.length > 1;
   // 덮어쓰기 시 passage_no 도 기존 시작 번호를 유지
   const writeStartNo = existingFamily.length > 0
