@@ -1,0 +1,1 @@
+ALTER TABLE public.textbooks DROP CONSTRAINT IF EXISTS textbooks_level_unit_no_key;

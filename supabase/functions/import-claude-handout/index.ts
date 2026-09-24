@@ -514,14 +514,27 @@ Deno.serve(async (req) => {
         series_id: series!.id,
         level,
         volume_no: nextVolumeNo,
-        unit_no: unitNoExplicit ?? 1, // legacy column on textbooks
+        unit_no: nextVolumeNo, // legacy column — Unit 번호는 textbook_units에만
         title: volumeTitle,
         created_by: teacherId,
       })
       .select("id, volume_no")
       .single();
-    if (error) return json({ ok: false, error: `Textbook 생성 실패: ${error.message}` }, 500);
-    textbook = created as any;
+    if (error) {
+      // 23505: 동시 전송 등으로 이미 생성됨 → 같은 시리즈 범위에서 재조회
+      if ((error as { code?: string }).code === "23505") {
+        const { data: byTitle } = await admin
+          .from("textbooks").select("id, volume_no")
+          .eq("series_id", series!.id).eq("title", volumeTitle).limit(1);
+        const found = byTitle?.[0] ?? (await admin
+          .from("textbooks").select("id, volume_no")
+          .eq("series_id", series!.id).eq("volume_no", nextVolumeNo).limit(1)).data?.[0];
+        if (found) textbook = found as any;
+      }
+      if (!textbook) return json({ ok: false, error: `Textbook 생성 실패: ${error.message}` }, 500);
+    } else {
+      textbook = created as any;
+    }
   }
 
   // ===== 3) Unit resolution: (textbook + unit_title) → (textbook + unit_no) → create =====
