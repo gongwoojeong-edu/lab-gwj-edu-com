@@ -3,6 +3,20 @@
 // Authenticates via Bearer token (hashed in import_tokens table)
 // Auto-creates Series/Textbook(Volume)/Unit/Passage and stores HTML in analysis-materials bucket
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import "../_shared/splitEnglishSentences.js";
+
+type SharedSplit = {
+  splitEnglishSentences: (text: string) => string[];
+  allowsWholePassageInput?: (meta: Record<string, unknown>) => boolean;
+};
+
+function sharedSplit(): SharedSplit {
+  const api = (globalThis as { GWJSplit?: SharedSplit }).GWJSplit;
+  if (!api?.splitEnglishSentences) {
+    throw new Error("문장 분리 모듈(GWJSplit)을 불러오지 못했습니다");
+  }
+  return api;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,11 +93,8 @@ function splitIntoSentences(text: string): string[] {
     if (parts.length > 0) return parts;
   }
 
-  // [Step 4] 결정적 분리: .!? + 공백/줄바꿈, 또는 종결부호 없는 줄바꿈+다음 대문자
-  const parts = englishText
-    .split(/(?<=[.!?])(?:[ \t\f\v]+|\n+)|(?<![.!?])\n+(?=[A-Z"'(\[{0-9\u201C])/)
-    .map((s) => s.replace(/[ \t\f\v]+/g, " ").replace(/\n+/g, " ").trim())
-    .filter(Boolean);
+  // [Step 4] Syntax Studio와 같은 분리기 (약어·인용부호·말줄임)
+  const parts = sharedSplit().splitEnglishSentences(englishText);
 
   if (parts.length === 0) {
     const one = englishText.replace(/\s+/g, " ").trim();
@@ -273,6 +284,8 @@ interface Payload {
   unit_title?: string;       // e.g. "263모고32" — different per question to create separate units
   unit_no?: number;
   passage_no?: number;
+  /** sentence = 문장별 행(기본). whole = 유닛당 지문 1행(본문통합) */
+  passage_input?: "whole" | "sentence";
 }
 
 function validateStructure(s: unknown): string | null {
@@ -326,6 +339,9 @@ function validate(p: any): { ok: true; data: Payload } | { ok: false; error: str
   }
   if (p.sentences != null && !Array.isArray(p.sentences))
     return { ok: false, error: "sentences must be array" };
+  if (p.passage_input != null && p.passage_input !== "whole" && p.passage_input !== "sentence") {
+    return { ok: false, error: "passage_input must be whole or sentence" };
+  }
   for (const k of ["korean_sentences", "translations", "sentence_translations"]) {
     if (p[k] != null && !Array.isArray(p[k])) return { ok: false, error: `${k} must be array` };
     if (Array.isArray(p[k]) && p[k].some((v: unknown) => typeof v !== "string")) {
