@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,52 @@ export const TeacherApprovalDialog = ({
   const [resolved, setResolved] = useState<Record<string, boolean>>({});
   /** 원문 즉시 수정 */
   const [editingEnglish, setEditingEnglish] = useState(false);
+
+  /** 상단(원문·해답·학생해석)/하단(코칭) 분할 비율 — 분할선 드래그로 조절, 선생님 모드 로컬 저장 */
+  const SPLIT_KEY = "gwjt.approvalSplitRatio";
+  const [splitRatio, setSplitRatio] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem(SPLIT_KEY));
+      return v >= 0.2 && v <= 0.75 ? v : 0.45;
+    } catch {
+      return 0.45;
+    }
+  });
+  const splitContainerRef = useRef<HTMLDivElement | null>(null);
+  const splitDraggingRef = useRef(false);
+
+  const startSplitDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    splitDraggingRef.current = true;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
+  const onSplitDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!splitDraggingRef.current) return;
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    if (rect.height <= 0) return;
+    const ratio = (e.clientY - rect.top) / rect.height;
+    const clamped = Math.min(0.75, Math.max(0.2, ratio));
+    setSplitRatio(clamped);
+    try {
+      localStorage.setItem(SPLIT_KEY, String(clamped));
+    } catch {
+      /* ignore */
+    }
+  };
+  const endSplitDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    splitDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
   const [englishDraft, setEnglishDraft] = useState("");
   const [englishOverride, setEnglishOverride] = useState<string | null>(null);
   const [savingEnglish, setSavingEnglish] = useState(false);
@@ -561,8 +607,12 @@ export const TeacherApprovalDialog = ({
         </DialogHeader>
 
 
+        <div ref={splitContainerRef} className="flex-1 min-h-0 flex flex-col">
         {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
-          <div className="relative shrink-0 bg-background border-b border-border p-3 space-y-2 text-sm">
+          <div
+            className="relative shrink-0 bg-background border-b border-border p-3 space-y-2 text-sm overflow-y-auto min-h-0"
+            style={{ height: `${splitRatio * 100}%` }}
+          >
             {(shownKorean || editingKorean) && (
               <div className="flex items-start justify-between gap-2">
                 {editingKorean ? (
@@ -736,6 +786,22 @@ export const TeacherApprovalDialog = ({
           </div>
         )}
 
+        {(koreanAnswer || englishSentence || studentTranslation !== undefined) && (
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="상하 영역 크기 조절"
+            title="드래그해서 위아래 영역 크기 조절"
+            className="group shrink-0 h-2.5 cursor-row-resize flex items-center justify-center bg-background hover:bg-muted/60 touch-none select-none"
+            onPointerDown={startSplitDrag}
+            onPointerMove={onSplitDrag}
+            onPointerUp={endSplitDrag}
+            onPointerCancel={endSplitDrag}
+          >
+            <div className="h-1 w-10 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
+          </div>
+        )}
+
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1 p-3">
           {!skipPin && (
             <div className="space-y-2">
@@ -906,6 +972,7 @@ export const TeacherApprovalDialog = ({
               />
             )}
           </div>
+        </div>
         </div>
 
         <DialogFooter className="shrink-0 bg-background border-t border-border flex-wrap gap-2 sm:justify-between pt-3 pb-1">
