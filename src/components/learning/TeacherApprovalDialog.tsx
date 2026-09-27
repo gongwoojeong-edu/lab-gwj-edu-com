@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -164,6 +164,32 @@ export const TeacherApprovalDialog = ({
       /* ignore */
     }
   };
+
+  /** 코칭 중간 저장(임시저장) — 선생님 모드 로컬 저장. 승인/보류/삭제 완료 시 지운다 */
+  const DRAFT_KEY = `gwjt.approvalDraft.${approvalId}`;
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+
+  const saveDraft = (silent = false) => {
+    try {
+      const payload = { memo, praise, grade, savedAt: Date.now() };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+      setDraftSavedAt(payload.savedAt);
+      if (!silent) {
+        toast({ title: "임시저장했어요", description: "창을 닫아도 이어서 작성할 수 있습니다." });
+      }
+    } catch {
+      if (!silent) toast({ title: "임시저장에 실패했어요", variant: "destructive" });
+    }
+  };
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDraftSavedAt(null);
+  };
   const [englishDraft, setEnglishDraft] = useState("");
   const [englishOverride, setEnglishOverride] = useState<string | null>(null);
   const [savingEnglish, setSavingEnglish] = useState(false);
@@ -314,6 +340,20 @@ export const TeacherApprovalDialog = ({
     setGrade(null);
     setMemo(parseMemo(initialMemo));
     setPraise("");
+    setDraftSavedAt(null);
+    // 임시저장된 코칭 초안이 있으면 복원 — 초안이 가장 최근 작업 상태
+    try {
+      const raw = localStorage.getItem(`gwjt.approvalDraft.${approvalId}`);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d?.memo && typeof d.memo === "object") setMemo({ ...emptyMemo(), ...d.memo });
+        if (typeof d?.praise === "string") setPraise(d.praise);
+        if (d?.grade) setGrade(d.grade);
+        if (typeof d?.savedAt === "number") setDraftSavedAt(d.savedAt);
+      }
+    } catch {
+      /* ignore */
+    }
     setShowAnswer(false);
     setTeaching(false);
     if (skipPin) {
@@ -327,7 +367,7 @@ export const TeacherApprovalDialog = ({
     return () => {
       mounted = false;
     };
-  }, [open, skipPin, initialMemo]);
+  }, [open, skipPin, initialMemo, approvalId]);
 
   useEffect(() => {
     if (!open || initialSource !== undefined) return;
@@ -428,6 +468,15 @@ export const TeacherApprovalDialog = ({
     return () => clearTimeout(t);
   }, [memo, open, studentUserId]);
 
+  // ── 코칭 초안 자동 임시저장 (0.8초 디바운스) — 내용이 있을 때만 ──
+  useEffect(() => {
+    if (!open) return;
+    if (isMemoEmpty(memo) && !praise.trim() && !grade) return;
+    const t = setTimeout(() => saveDraft(true), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memo, praise, grade, open]);
+
   const endTeaching = async () => {
     if (!studentUserId) return;
     try {
@@ -481,6 +530,7 @@ export const TeacherApprovalDialog = ({
         resolvedFeedback,
       });
       await endTeaching();
+      clearDraft();
       toast({
         title: grade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[grade]}`,
         description:
@@ -513,6 +563,7 @@ export const TeacherApprovalDialog = ({
         memo: serializeMemo(memo) ?? "",
       });
       await endTeaching();
+      clearDraft();
       toast({
         title: "보류 처리했어요",
         description: "이 문장은 '보류' 탭에 남습니다. 나중에 자세히 첨삭 후 최종 승인하세요.",
@@ -532,6 +583,7 @@ export const TeacherApprovalDialog = ({
     try {
       await deleteApprovalRequest(approvalId);
       await endTeaching();
+      clearDraft();
       toast({
         title: "보류 항목을 삭제했어요",
         description: "학생의 진도 기록은 유지됩니다.",
