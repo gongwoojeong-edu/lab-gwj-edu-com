@@ -1032,6 +1032,19 @@ export const TeacherApprovalDialog = ({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               취소
             </Button>
+            <Button
+              variant="ghost"
+              onClick={() => saveDraft()}
+              disabled={saving}
+              title="작성 중인 평가 등급·코칭 메모·칭찬을 임시저장합니다. 창을 닫아도 유지됩니다."
+            >
+              <Save className="w-4 h-4 mr-1" /> 임시저장
+            </Button>
+            {draftSavedAt && (
+              <span className="self-center text-[11px] text-muted-foreground">
+                임시저장됨 {new Date(draftSavedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
             {studentUserId && (
               <Button
                 variant={teaching ? "secondary" : "outline"}
