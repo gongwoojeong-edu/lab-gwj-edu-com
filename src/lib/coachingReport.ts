@@ -77,7 +77,7 @@ const toPct = (v: number | null | undefined): number | null => {
 
 // 첨삭이 늦게 이뤄져도 "학생이 실제로 학습한 시점" 기준으로 리포트에 반영한다.
 // 예: 9월에 통과한 문장을 10월에 첨삭 → 9월 리포트에 포함.
-// 학습 시점은 sentence_progress.passed_at(최초 통과일)으로 판정하고,
+// 학습 시점은 sentence_progress.created_at(최초 학습일)으로 판정하고,
 // 통과 기록이 없으면 첨삭일(approved_at)로 대체한다.
 const LOOKBACK_DAYS = 120; // 첨삭 지연을 고려한 조회 범위
 
