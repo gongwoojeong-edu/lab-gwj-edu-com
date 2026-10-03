@@ -48,7 +48,7 @@ const StudentReport = () => {
     fetchCoachingReportSource(period)
       .then((src) => {
         if (!mounted) return;
-        setReport(buildStudentReport(user.id, src));
+        setReport(buildStudentReport(user.id, src, period));
         setError(null);
       })
       .catch((e) => mounted && setError(e?.message ?? "리포트를 불러오지 못했어요"))
