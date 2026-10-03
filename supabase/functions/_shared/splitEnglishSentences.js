@@ -137,10 +137,9 @@
       for (var c = 0; c < chunk.length; c++) parts.push(chunk[c]);
     }
 
-    if (parts.length <= 1 && trimmed.indexOf('\n') >= 0) {
-      var lines = trimmed.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
-      if (lines.length > 1) return lines;
-    }
+    // 줄바꿈만으로는 문장을 자르지 않는다.
+    // (한 문장이 여러 줄에 걸쳐 입력된 경우 조각으로 쪼개지는 문제 방지.
+    //  제목/날짜 분리는 splitBareHeadingLines 가 대문자 시작 줄만 잘라 이미 처리한다.)
     return parts.length ? parts : [trimmed];
   }
 
