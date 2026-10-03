@@ -151,7 +151,9 @@ export default function StudentNotifications() {
                         {grade && GRADE_LABEL[grade] && (
                           <Badge className={GRADE_BADGE_CLASS[grade]}>{GRADE_LABEL[grade]}</Badge>
                         )}
-                        <span className="font-semibold">{n.title}</span>
+                        <span className="font-semibold">
+                          {n.title.startsWith("첨삭리포트:") ? "첨삭 리포트" : n.title}
+                        </span>
                         {n.sentence_id && (
                           <span className="text-xs text-muted-foreground">[{n.sentence_id}]</span>
                         )}
@@ -160,6 +162,20 @@ export default function StudentNotifications() {
                         <p className="mt-2 text-sm whitespace-pre-wrap text-foreground/80 line-clamp-2">
                           {n.body}
                         </p>
+                      )}
+                      {n.title.startsWith("첨삭리포트:") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const [from, to] = n.title.replace("첨삭리포트:", "").split("~");
+                            navigate(`/student/report?from=${from}&to=${to}`);
+                          }}
+                        >
+                          리포트 보기
+                        </Button>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
