@@ -943,4 +943,18 @@ const handleRequest = async (req: Request): Promise<Response> => {
     learn_url: `/learn/sentence/${passage.code}`,
     uploads,
   });
+};
+
+// 최상위 안전망: 어느 단계에서든 예외가 새어 나가면 원인 메시지를 담은 JSON 500을 반환한다.
+// (기존에는 uncaught throw 가 빈 500 으로만 보여 실패 원인 파악이 불가능했음)
+Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (e) {
+    console.error("import-claude-handout uncaught:", e);
+    return json(
+      { ok: false, error: `서버 오류: ${e instanceof Error ? e.message : String(e)}` },
+      500,
+    );
+  }
 });
