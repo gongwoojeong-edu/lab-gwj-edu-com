@@ -153,12 +153,21 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
 
 export type CoachingReportSource = Awaited<ReturnType<typeof fetchCoachingReportSource>>;
 
-/** 학생 1명의 리포트 집계 */
+/** 학생 1명의 리포트 집계 — 첨삭은 학습일(최초 통과일) 기준으로 기간에 반영 */
 export const buildStudentReport = (
   userId: string,
   src: CoachingReportSource,
+  period: ReportPeriod,
 ): StudentCoachingReport => {
-  const approvals = src.approvals.filter((a) => a.user_id === userId);
+  const startIso = new Date(period.start + "T00:00:00").toISOString();
+  const endIso = new Date(period.end + "T23:59:59.999").toISOString();
+  const approvals = src.approvals.filter((a) => {
+    if (a.user_id !== userId) return false;
+    // 학습일이 있으면 학습일 기준, 없으면 첨삭일 기준으로 기간 판정
+    const learnedAt = src.firstPassAt.get(`${a.user_id}|${a.sentence_id}`);
+    const basis = learnedAt ?? a.approved_at ?? a.requested_at;
+    return basis >= startIso && basis <= endIso;
+  });
   const gradeCounts: Partial<Record<ApprovalGrade, number>> = {};
   const praises: string[] = [];
   const memos: ReportMemoItem[] = [];
