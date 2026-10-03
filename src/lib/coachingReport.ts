@@ -84,7 +84,7 @@ const LOOKBACK_DAYS = 120; // 첨삭 지연을 고려한 조회 범위
 interface ProgressRow {
   user_id: string;
   sentence_id: string;
-  passed_at: string | null;
+  created_at: string | null;
 }
 
 /** 기간 내 리포트 원천 데이터 일괄 조회 */
@@ -127,19 +127,18 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
   if (userIds.length && sentenceIds.length) {
     const { data } = await supabase
       .from("sentence_progress")
-      .select("user_id,sentence_id,passed_at")
+      .select("user_id,sentence_id,created_at")
       .in("user_id", userIds)
-      .in("sentence_id", sentenceIds)
-      .not("passed_at", "is", null);
+      .in("sentence_id", sentenceIds);
     progressRows = (data ?? []) as ProgressRow[];
   }
   // (user_id, sentence_id) → 최초 통과일
   const firstPassAt = new Map<string, string>();
   progressRows.forEach((p) => {
-    if (!p.passed_at) return;
+    if (!p.created_at) return;
     const key = `${p.user_id}|${p.sentence_id}`;
     const prev = firstPassAt.get(key);
-    if (!prev || p.passed_at < prev) firstPassAt.set(key, p.passed_at);
+    if (!prev || p.created_at < prev) firstPassAt.set(key, p.created_at);
   });
 
   return {
@@ -279,9 +278,11 @@ const startOfWeek = (d: Date) => {
   return x;
 };
 
-export type PeriodPreset = "this_week" | "last_week" | "this_month" | "last_month";
+export type PeriodPreset = "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month";
 
 export const PERIOD_PRESET_LABEL: Record<PeriodPreset, string> = {
+  today: "오늘",
+  yesterday: "어제",
   this_week: "이번 주",
   last_week: "지난 주",
   this_month: "이번 달",
@@ -290,6 +291,11 @@ export const PERIOD_PRESET_LABEL: Record<PeriodPreset, string> = {
 
 export const presetPeriod = (p: PeriodPreset): ReportPeriod => {
   const now = new Date();
+  if (p === "today" || p === "yesterday") {
+    const d = new Date(now);
+    if (p === "yesterday") d.setDate(d.getDate() - 1);
+    return { start: toInputDate(d), end: toInputDate(d) };
+  }
   if (p === "this_week" || p === "last_week") {
     const s = startOfWeek(now);
     if (p === "last_week") s.setDate(s.getDate() - 7);
@@ -305,6 +311,6 @@ export const presetPeriod = (p: PeriodPreset): ReportPeriod => {
 };
 
 export const periodLabel = (period: ReportPeriod): string =>
-  `${period.start} ~ ${period.end}`;
+  period.start === period.end ? period.start : `${period.start} ~ ${period.end}`;
 
 export { MEMO_FIELD_LABEL };
