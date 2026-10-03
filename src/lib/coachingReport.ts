@@ -119,8 +119,32 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
       .gte("created_at", startIso)
       .lte("created_at", endIso),
   ]);
+  // 승인된 문장들의 최초 통과일(학습일) 조회
+  const approvals = (ap.data ?? []) as ApprovalRow[];
+  const userIds = [...new Set(approvals.map((a) => a.user_id))];
+  const sentenceIds = [...new Set(approvals.map((a) => a.sentence_id))];
+  let progressRows: ProgressRow[] = [];
+  if (userIds.length && sentenceIds.length) {
+    const { data } = await supabase
+      .from("sentence_progress")
+      .select("user_id,sentence_id,passed_at")
+      .in("user_id", userIds)
+      .in("sentence_id", sentenceIds)
+      .not("passed_at", "is", null);
+    progressRows = (data ?? []) as ProgressRow[];
+  }
+  // (user_id, sentence_id) → 최초 통과일
+  const firstPassAt = new Map<string, string>();
+  progressRows.forEach((p) => {
+    if (!p.passed_at) return;
+    const key = `${p.user_id}|${p.sentence_id}`;
+    const prev = firstPassAt.get(key);
+    if (!prev || p.passed_at < prev) firstPassAt.set(key, p.passed_at);
+  });
+
   return {
-    approvals: (ap.data ?? []) as ApprovalRow[],
+    approvals,
+    firstPassAt,
     wordResults: (wr.data ?? []) as WordRow[],
     handouts: (ho.data ?? []) as HandoutRow[],
     reviewReqs: (rr.data ?? []) as ReviewRow[],
