@@ -373,7 +373,7 @@ function htmlDocument(title: string, bodyHtml: string): string {
 </head><body>${bodyHtml}</body></html>`;
 }
 
-Deno.serve(async (req) => {
+const handleRequest = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
