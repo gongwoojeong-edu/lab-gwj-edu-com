@@ -30,6 +30,8 @@ import PrintQueue from "./pages/teacher/PrintQueue.tsx";
 import LearningResults from "./pages/teacher/LearningResults.tsx";
 import LearningResultsCalendar from "./pages/teacher/LearningResultsCalendar.tsx";
 import EvaluationReports from "./pages/teacher/EvaluationReports.tsx";
+import CoachingReports from "./pages/teacher/CoachingReports.tsx";
+import StudentReport from "./pages/student/StudentReport.tsx";
 import StudentNotifications from "./pages/StudentNotifications.tsx";
 import Retests from "./pages/teacher/Retests.tsx";
 import RedoAudit from "./pages/teacher/RedoAudit.tsx";
@@ -303,6 +305,22 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <EvaluationReports />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/coaching-reports"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <CoachingReports />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/student/report"
+              element={
+                <RequireAuth requireRole="student">
+                  <StudentReport />
                 </RequireAuth>
               }
             />

@@ -147,7 +147,7 @@ const StudentReport = () => {
                         <b className="font-mono">{m.sentenceId}</b>
                         {m.grade && <> · {GRADE_LABEL[m.grade]}</>} · {fmtDate(m.at)}
                       </div>
-                      <StructuredMemoView raw={m.memo} fallback={memoToPlainText(m.memo)} />
+                      <StructuredMemoView memo={m.memo} />
                     </div>
                   ))}
                 </div>
