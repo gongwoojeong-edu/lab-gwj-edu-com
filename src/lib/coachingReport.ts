@@ -75,16 +75,31 @@ const toPct = (v: number | null | undefined): number | null => {
   return n <= 1 ? Math.round(n * 100) : Math.round(n);
 };
 
+// 첨삭이 늦게 이뤄져도 "학생이 실제로 학습한 시점" 기준으로 리포트에 반영한다.
+// 예: 9월에 통과한 문장을 10월에 첨삭 → 9월 리포트에 포함.
+// 학습 시점은 sentence_progress.passed_at(최초 통과일)으로 판정하고,
+// 통과 기록이 없으면 첨삭일(approved_at)로 대체한다.
+const LOOKBACK_DAYS = 120; // 첨삭 지연을 고려한 조회 범위
+
+interface ProgressRow {
+  user_id: string;
+  sentence_id: string;
+  passed_at: string | null;
+}
+
 /** 기간 내 리포트 원천 데이터 일괄 조회 */
 export const fetchCoachingReportSource = async (period: ReportPeriod) => {
   const startIso = new Date(period.start + "T00:00:00").toISOString();
   const endIso = new Date(period.end + "T23:59:59.999").toISOString();
+  // 첨삭일이 기간을 넘겨도 학습일이 기간 안이면 포함해야 하므로 넓게 조회
+  const lookbackStart = new Date(period.start + "T00:00:00");
+  lookbackStart.setDate(lookbackStart.getDate() - LOOKBACK_DAYS);
   const [ap, wr, ho, rr] = await Promise.all([
     supabase
       .from("sentence_approvals")
       .select("user_id,sentence_id,grade,memo,praise_text,approved_at,requested_at")
       .eq("status", "approved")
-      .gte("approved_at", startIso)
+      .gte("approved_at", lookbackStart.toISOString())
       .lte("approved_at", endIso)
       .order("approved_at", { ascending: true }),
     supabase
