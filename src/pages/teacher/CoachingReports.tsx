@@ -82,7 +82,7 @@ const CoachingReports = () => {
     if (!src) return [];
     return students
       .filter((s) => !excluded.has(s.user_id))
-      .map((s) => ({ student: s, report: buildStudentReport(s.user_id, src) }))
+      .map((s) => ({ student: s, report: buildStudentReport(s.user_id, src, period) }))
       .filter(
         ({ report }) =>
           report.passCount > 0 ||

@@ -75,16 +75,31 @@ const toPct = (v: number | null | undefined): number | null => {
   return n <= 1 ? Math.round(n * 100) : Math.round(n);
 };
 
+// 첨삭이 늦게 이뤄져도 "학생이 실제로 학습한 시점" 기준으로 리포트에 반영한다.
+// 예: 9월에 통과한 문장을 10월에 첨삭 → 9월 리포트에 포함.
+// 학습 시점은 sentence_progress.passed_at(최초 통과일)으로 판정하고,
+// 통과 기록이 없으면 첨삭일(approved_at)로 대체한다.
+const LOOKBACK_DAYS = 120; // 첨삭 지연을 고려한 조회 범위
+
+interface ProgressRow {
+  user_id: string;
+  sentence_id: string;
+  passed_at: string | null;
+}
+
 /** 기간 내 리포트 원천 데이터 일괄 조회 */
 export const fetchCoachingReportSource = async (period: ReportPeriod) => {
   const startIso = new Date(period.start + "T00:00:00").toISOString();
   const endIso = new Date(period.end + "T23:59:59.999").toISOString();
+  // 첨삭일이 기간을 넘겨도 학습일이 기간 안이면 포함해야 하므로 넓게 조회
+  const lookbackStart = new Date(period.start + "T00:00:00");
+  lookbackStart.setDate(lookbackStart.getDate() - LOOKBACK_DAYS);
   const [ap, wr, ho, rr] = await Promise.all([
     supabase
       .from("sentence_approvals")
       .select("user_id,sentence_id,grade,memo,praise_text,approved_at,requested_at")
       .eq("status", "approved")
-      .gte("approved_at", startIso)
+      .gte("approved_at", lookbackStart.toISOString())
       .lte("approved_at", endIso)
       .order("approved_at", { ascending: true }),
     supabase
@@ -104,8 +119,32 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
       .gte("created_at", startIso)
       .lte("created_at", endIso),
   ]);
+  // 승인된 문장들의 최초 통과일(학습일) 조회
+  const approvals = (ap.data ?? []) as ApprovalRow[];
+  const userIds = [...new Set(approvals.map((a) => a.user_id))];
+  const sentenceIds = [...new Set(approvals.map((a) => a.sentence_id))];
+  let progressRows: ProgressRow[] = [];
+  if (userIds.length && sentenceIds.length) {
+    const { data } = await supabase
+      .from("sentence_progress")
+      .select("user_id,sentence_id,passed_at")
+      .in("user_id", userIds)
+      .in("sentence_id", sentenceIds)
+      .not("passed_at", "is", null);
+    progressRows = (data ?? []) as ProgressRow[];
+  }
+  // (user_id, sentence_id) → 최초 통과일
+  const firstPassAt = new Map<string, string>();
+  progressRows.forEach((p) => {
+    if (!p.passed_at) return;
+    const key = `${p.user_id}|${p.sentence_id}`;
+    const prev = firstPassAt.get(key);
+    if (!prev || p.passed_at < prev) firstPassAt.set(key, p.passed_at);
+  });
+
   return {
-    approvals: (ap.data ?? []) as ApprovalRow[],
+    approvals,
+    firstPassAt,
     wordResults: (wr.data ?? []) as WordRow[],
     handouts: (ho.data ?? []) as HandoutRow[],
     reviewReqs: (rr.data ?? []) as ReviewRow[],
@@ -114,12 +153,21 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
 
 export type CoachingReportSource = Awaited<ReturnType<typeof fetchCoachingReportSource>>;
 
-/** 학생 1명의 리포트 집계 */
+/** 학생 1명의 리포트 집계 — 첨삭은 학습일(최초 통과일) 기준으로 기간에 반영 */
 export const buildStudentReport = (
   userId: string,
   src: CoachingReportSource,
+  period: ReportPeriod,
 ): StudentCoachingReport => {
-  const approvals = src.approvals.filter((a) => a.user_id === userId);
+  const startIso = new Date(period.start + "T00:00:00").toISOString();
+  const endIso = new Date(period.end + "T23:59:59.999").toISOString();
+  const approvals = src.approvals.filter((a) => {
+    if (a.user_id !== userId) return false;
+    // 학습일이 있으면 학습일 기준, 없으면 첨삭일 기준으로 기간 판정
+    const learnedAt = src.firstPassAt.get(`${a.user_id}|${a.sentence_id}`);
+    const basis = learnedAt ?? a.approved_at ?? a.requested_at;
+    return basis >= startIso && basis <= endIso;
+  });
   const gradeCounts: Partial<Record<ApprovalGrade, number>> = {};
   const praises: string[] = [];
   const memos: ReportMemoItem[] = [];
