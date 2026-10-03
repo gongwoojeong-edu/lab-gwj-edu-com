@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Loader2, ChevronLeft, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { GRADE_LABEL, GRADE_ORDER, type ApprovalGrade } from "@/lib/sentenceApprovals";
-import { memoToPlainText, MEMO_FIELD_KEYS, MEMO_FIELD_LABEL } from "@/lib/approvalMemo";
+import { MEMO_FIELD_KEYS, MEMO_FIELD_LABEL } from "@/lib/approvalMemo";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import {
   buildStudentReport,

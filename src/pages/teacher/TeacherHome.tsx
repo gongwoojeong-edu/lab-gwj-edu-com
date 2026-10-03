@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   Settings2,
   RefreshCcw,
+  FileText,
 } from "lucide-react";
 import { fetchActiveStudents, type StudentProfile } from "@/lib/studentProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +32,7 @@ const TILES = [
   { to: "/teacher/roster", title: "학생목록", desc: "재원생·선생님 계정", icon: Users },
   { to: "/teacher/students", title: "학습 설정", desc: "통과기준·PIN·시작 레벨", icon: Settings2 },
   { to: "/teacher/assignments", title: "과제출제", desc: "특별과제 발행", icon: ClipboardList },
+  { to: "/teacher/coaching-reports", title: "리포트 발송", desc: "주간·월간 첨삭 리포트", icon: FileText },
   {
     to: "/teacher/results",
     title: "학습결과",
