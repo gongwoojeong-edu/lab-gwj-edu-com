@@ -188,6 +188,14 @@ const SentenceLearn = () => {
   const handleQnaOpenCountChange = useCallback(async (count: number) => {
     if (count !== 0 || !sentenceId) return;
     try {
+      // 현재 문장이 아직 미완료(통과 전)라면 다음 문장으로 보내지 않고
+      // 게이트를 해제해 학습 화면으로 되돌린다. (답변 직후 진도가 건너뛰어지는 문제 방지)
+      const prog = await fetchSentenceProgress(sentenceId, assignmentIdParam);
+      if (prog?.status !== "pass") {
+        setQnaGateOnly(false);
+        setHydrationReloadNonce((value) => value + 1);
+        return;
+      }
       const next = await resolveNextAfterPass(sentenceId, assignmentIdParam);
       if (next.sentence && next.sentence.id !== sentenceId) {
         const qs = next.assignmentId
