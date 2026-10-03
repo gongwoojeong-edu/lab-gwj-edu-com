@@ -1589,3 +1589,86 @@ ${wordPage}
 `;
   return wrapDoc(`BookWorkbook ${p.bookTitle}`, body);
 };
+
+// ============================================================
+// 주간·월간 첨삭 리포트 인쇄 (학생 1명 = 1장)
+// ============================================================
+export interface CoachingReportPrintPayload {
+  studentName: string;
+  studentNo: string;
+  periodLabel: string;
+  passCount: number;
+  gradeSummary: string; // "매우잘함 3 · 잘함 5 ..."
+  praises: string[];
+  memos: { sentenceId: string; gradeLabel: string; atLabel: string; plainMemo: string }[];
+  redoCount: number;
+  memoFieldSummary: string; // "No skipping 2회 · ..."
+  wordAvg: number | null;
+  wordMin: number | null;
+  wordTests: number;
+  handouts: { testDate: string; sessionNo: number; wordHoScore: number | null; syntaxHoResult: string | null }[];
+}
+
+export const buildCoachingReportHtml = (p: CoachingReportPrintPayload): string => {
+  const gradeChips = p.gradeSummary
+    ? `<div class="cr-line"><b>등급 분포</b> · ${escapeHtml(p.gradeSummary)}</div>`
+    : "";
+  const praiseBlock = p.praises.length
+    ? `<div class="section"><div class="section-title">받은 칭찬</div>${p.praises
+        .map((t) => `<div class="cr-line">💪 ${escapeHtml(t)}</div>`)
+        .join("")}</div>`
+    : "";
+  const memoBlock = p.memos.length
+    ? `<div class="section"><div class="section-title">첨삭 메모 (${p.memos.length}건)</div>${p.memos
+        .map(
+          (m) => `<div class="cr-memo"><div class="cr-memo-head"><b>${escapeHtml(m.sentenceId)}</b> · ${escapeHtml(m.gradeLabel)} · ${escapeHtml(m.atLabel)}</div><div class="cr-memo-body">${escapeHtml(m.plainMemo).replace(/\n/g, "<br/>")}</div></div>`,
+        )
+        .join("")}</div>`
+    : "";
+  const wordLine =
+    p.wordAvg != null
+      ? `<div class="cr-line"><b>단어테스트</b> · 평균 ${p.wordAvg}% · 최저 ${p.wordMin}% · ${p.wordTests}회</div>`
+      : "";
+  const handoutBlock = p.handouts.length
+    ? `<div class="section"><div class="section-title">핸드아웃 성적</div>${p.handouts
+        .map(
+          (h) =>
+            `<div class="cr-line">${escapeHtml(h.testDate)} ${h.sessionNo}차시 · 단어HO ${h.wordHoScore ?? "-"} · 구문HO ${escapeHtml(h.syntaxHoResult ?? "-")}</div>`,
+        )
+        .join("")}</div>`
+    : "";
+  const weakLine =
+    p.redoCount > 0 || p.memoFieldSummary
+      ? `<div class="section"><div class="section-title">재학습 · 취약 유형</div>${
+          p.redoCount > 0 ? `<div class="cr-line"><b>재학습 지정</b> · ${p.redoCount}회</div>` : ""
+        }${p.memoFieldSummary ? `<div class="cr-line"><b>항목별 지적</b> · ${escapeHtml(p.memoFieldSummary)}</div>` : ""}</div>`
+      : "";
+
+  const body = `
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">GWJ EDU · COACHING REPORT</div>
+      <div class="title">첨삭 리포트 — ${escapeHtml(p.studentName)} ${escapeHtml(p.studentNo ? `(${p.studentNo})` : "")}</div>
+    </div>
+    <div class="meta">${escapeHtml(p.periodLabel)}</div>
+  </div>
+  <div class="section">
+    <div class="section-title">학습량 · 등급 요약</div>
+    <div class="cr-line"><b>통과 문장</b> · ${p.passCount}개</div>
+    ${gradeChips}
+    ${wordLine}
+  </div>
+  ${praiseBlock}
+  ${weakLine}
+  ${memoBlock}
+  ${handoutBlock}
+  <style>
+    .cr-line { font-size: 9.5pt; line-height: 1.6; margin: 0.5mm 0; }
+    .cr-memo { border: 0.4pt solid #bbb; border-radius: 2mm; padding: 1.5mm 2mm; margin: 1.2mm 0; page-break-inside: avoid; }
+    .cr-memo-head { font-size: 8.5pt; color: #333; margin-bottom: 0.8mm; }
+    .cr-memo-body { font-size: 9pt; line-height: 1.55; white-space: normal; }
+  </style>
+</div>`;
+  return wrapDoc(`첨삭리포트 ${p.studentName} ${p.periodLabel}`, body);
+};
