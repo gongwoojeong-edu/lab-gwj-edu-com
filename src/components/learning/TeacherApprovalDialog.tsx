@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil, Save } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil, Save, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -34,6 +34,7 @@ import {
 import { fetchPassageSource, fetchPassageByCode, updatePassage, updatePassageKorean, type PassageSource } from "@/lib/textbooks";
 import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
+import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/importantSentences";
 
 
 interface Props {
@@ -111,6 +112,38 @@ export const TeacherApprovalDialog = ({
   /** 선생님이 직접 적는 칭찬 한 줄 (excellent/good일 때만 노출) */
   const [praise, setPraise] = useState("");
   const [saving, setSaving] = useState(false);
+  const [important, setImportant] = useState(false);
+  const [importantLoading, setImportantLoading] = useState(true);
+  const [importantError, setImportantError] = useState(false);
+  const [importantReload, setImportantReload] = useState(0);
+
+  useEffect(() => {
+    if (!open || !skipPin || !studentUserId) return;
+    let alive = true;
+    setImportant(false);
+    setImportantLoading(true);
+    setImportantError(false);
+    fetchImportantSentenceIds(studentUserId, [sentenceId]).then((ids) => {
+      if (alive) setImportant(ids.has(sentenceId));
+    }).catch(() => {
+      if (!alive) return;
+      setImportantError(true);
+      toast({ title: "중요문장 표시를 불러오지 못했어요", variant: "destructive" });
+    }).finally(() => { if (alive) setImportantLoading(false); });
+    return () => { alive = false; };
+  }, [open, skipPin, studentUserId, sentenceId, importantReload]);
+
+  const toggleImportant = async () => {
+    if (!studentUserId || importantLoading || importantError) return;
+    setImportantLoading(true);
+    try {
+      await setImportantSentence(studentUserId, sentenceId, !important);
+      setImportant(!important);
+      toast({ title: important ? "중요문장 표시를 해제했어요" : "중요문장으로 저장했어요" });
+    } catch (e) {
+      toast({ title: "중요문장 저장 실패", description: e instanceof Error ? e.message : "다시 시도해 주세요", variant: "destructive" });
+    } finally { setImportantLoading(false); }
+  };
   const [showAnswer, setShowAnswer] = useState(false);
   const [teaching, setTeaching] = useState(false);
   const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
@@ -634,6 +667,19 @@ export const TeacherApprovalDialog = ({
           <DialogDescription>
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
+          {skipPin && studentUserId && (
+            <div className="flex items-center gap-2 mt-2">
+              <Button size="sm" variant={important ? "secondary" : "outline"}
+                aria-pressed={important} disabled={importantLoading || importantError || saving}
+                onClick={toggleImportant} title="이 학생의 워크북에 중요문장으로 표시">
+                <Star className={cn("size-4 mr-1", important && "fill-current text-primary")} /> 중요문장
+              </Button>
+              {importantError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">
+                표시를 불러오지 못했어요
+                <Button variant="ghost" size="sm" onClick={() => setImportantReload((n) => n + 1)}>다시 불러오기</Button>
+              </div>}
+            </div>
+          )}
           {source !== undefined && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
               <BookOpen className="w-3.5 h-3.5" />

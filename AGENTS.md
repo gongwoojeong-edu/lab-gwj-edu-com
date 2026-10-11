@@ -1,0 +1,2 @@
+# Architecture rules
+- Store student-specific important sentence designations in student_passage_overrides and read them through importantSentences.ts; this preserves flags across approval attempts and shares one source with workbook generation.
