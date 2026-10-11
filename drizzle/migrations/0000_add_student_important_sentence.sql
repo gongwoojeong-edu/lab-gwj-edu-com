@@ -1,0 +1,2 @@
+ALTER TABLE public.student_passage_overrides ADD COLUMN IF NOT EXISTS important_sentence boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.student_passage_overrides.important_sentence IS 'Teacher-designated important sentence for this student; displayed on syntax workbooks.';

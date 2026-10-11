@@ -1122,6 +1122,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          important_sentence: boolean
           sentence_id: string
           skip_pre: boolean
           skip_sentence: boolean
@@ -1133,6 +1134,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          important_sentence?: boolean
           sentence_id: string
           skip_pre?: boolean
           skip_sentence?: boolean
@@ -1144,6 +1146,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          important_sentence?: boolean
           sentence_id?: string
           skip_pre?: boolean
           skip_sentence?: boolean
