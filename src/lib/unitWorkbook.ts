@@ -36,6 +36,7 @@ import {
   type WordPayload,
 } from "./printTemplates";
 import { fetchPassagesByUnit, type Passage } from "./textbooks";
+import { fetchImportantSentenceIds } from "./importantSentences";
 
 const escapeHtml = (s: string): string =>
   s
@@ -195,6 +196,7 @@ const buildSyntaxUnit = async (
   answerKey = false,
   coachMap: Map<string, string> = new Map(),
   hideStudentTranslation = false,
+  importantIds: Set<string> = new Set(),
 ): Promise<string> => {
   const codes = passages.map((p) => p.code);
   const { data: trs } = await supabase
@@ -223,7 +225,7 @@ const buildSyntaxUnit = async (
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
-          <div class="lg-code">${escapeHtml(p.code)}</div>
+          <div class="lg-code">${escapeHtml(p.code)}${importantIds.has(p.code) ? " · ★ 중요문장" : ""}</div>
           <div class="lg-en">${escapeHtml(p.english ?? "")}</div>
         </div>
       </div>`)
@@ -478,7 +480,7 @@ const collectBookUnit = async (
     return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
   }
 
-  const [{ data: trs }, { data: apps }, { data: exts }, coachMap] = await Promise.all([
+  const [{ data: trs }, { data: apps }, { data: exts }, coachMap, importantIds] = await Promise.all([
     supabase
       .from("sentence_translations")
       .select("sentence_id, text, submitted_at")
@@ -496,6 +498,7 @@ const collectBookUnit = async (
       .select("sentence_id, words")
       .in("sentence_id", codes),
     fetchCoachFlags(studentId, codes),
+    fetchImportantSentenceIds(studentId, codes),
   ]);
 
   const words: Array<{ word: string; meaning: string }> = [];
@@ -529,6 +532,7 @@ const collectBookUnit = async (
     const memo = memoMap.get(p.code);
     items.push({
       passageCode: p.code,
+      important: importantIds.has(p.code),
       english: p.english ?? "",
       analysis: null,
       studentTranslation: transMap.get(p.code) ?? "",
@@ -643,13 +647,14 @@ const buildSyntaxPassage = async (
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
   const parts: string[] = [];
+  const importantIds = await fetchImportantSentenceIds(studentId, sentenceIds);
   for (const sid of sentenceIds) {
     try {
       const payload = await preloadHandoutPayload({
         sentenceId: sid,
         studentId,
       });
-      parts.push(buildHandoutPrintHtml(payload));
+      parts.push(buildHandoutPrintHtml({ ...payload, important: importantIds.has(sid) }));
     } catch (e) {
       if (e instanceof PrintPreloadError) {
         // 지문 데이터 자체가 없는 경우만 스킵 안내
@@ -825,7 +830,10 @@ export const buildUnitWorkbookHtmlFor = async (
   let html: string;
   switch (mode) {
     case "syntax_unit": {
-      const coachMap = await fetchCoachFlags(input.studentId, allCodes);
+      const [coachMap, importantIds] = await Promise.all([
+        fetchCoachFlags(input.studentId, allCodes),
+        fetchImportantSentenceIds(input.studentId, allCodes),
+      ]);
       html = await buildSyntaxUnit(
         allPassages,
         input.studentId,
@@ -833,6 +841,7 @@ export const buildUnitWorkbookHtmlFor = async (
         input.answerKey ?? false,
         coachMap,
         input.hideStudentTranslation ?? false,
+        importantIds,
       );
       break;
     }
