@@ -194,7 +194,7 @@ const fetchCoachFlags = async (
  * 선생님 평가 등급 조회 — code → 마지막 평가 등급.
  * 워크북 문장 코드 옆 배지에 사용 (매우잘함/잘함/보통/미흡/재학습/코칭).
  */
-const fetchGradeLabels = async (
+export const fetchGradeLabels = async (
   studentId: string,
   codes: string[],
 ): Promise<Map<string, ApprovalGrade>> => {
