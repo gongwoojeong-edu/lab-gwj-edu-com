@@ -6,18 +6,13 @@ import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 import { memoToPlainText } from "@/lib/approvalMemo";
 import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
+import { GRADE_LABEL, GRADE_ORDER, type ApprovalGrade } from "./gradeMeta";
 
-export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo" | "coach";
 export type ApprovalStatus = "pending" | "approved" | "held";
 
-export const GRADE_LABEL: Record<ApprovalGrade, string> = {
-  excellent: "매우잘함",
-  good: "잘함",
-  fair: "보통",
-  poor: "미흡",
-  redo: "재학습",
-  coach: "코칭",
-};
+// 등급 라벨/순서는 gradeMeta 가 단일 출처 (인쇄 워크북과 공유)
+export { GRADE_LABEL, GRADE_ORDER };
+export type { ApprovalGrade };
 
 export const GRADE_BADGE_CLASS: Record<ApprovalGrade, string> = {
   excellent: "bg-emerald-500 text-white border-emerald-600",
@@ -28,7 +23,6 @@ export const GRADE_BADGE_CLASS: Record<ApprovalGrade, string> = {
   coach: "bg-violet-500 text-white border-violet-600",
 };
 
-export const GRADE_ORDER: ApprovalGrade[] = ["excellent", "good", "fair", "poor", "coach", "redo"];
 
 export interface SentenceApproval {
   id: string;
