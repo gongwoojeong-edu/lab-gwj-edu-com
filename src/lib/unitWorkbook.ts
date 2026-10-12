@@ -37,6 +37,11 @@ import {
 } from "./printTemplates";
 import { fetchPassagesByUnit, type Passage } from "./textbooks";
 import { fetchImportantSentenceIds } from "./importantSentences";
+import {
+  gradeBadgeHtml,
+  isApprovalGrade,
+  type ApprovalGrade,
+} from "./gradeMeta";
 
 const escapeHtml = (s: string): string =>
   s
@@ -185,6 +190,29 @@ const fetchCoachFlags = async (
   return map;
 };
 
+/**
+ * 선생님 평가 등급 조회 — code → 마지막 평가 등급.
+ * 워크북 문장 코드 옆 배지에 사용 (매우잘함/잘함/보통/미흡/재학습/코칭).
+ */
+const fetchGradeLabels = async (
+  studentId: string,
+  codes: string[],
+): Promise<Map<string, ApprovalGrade>> => {
+  const map = new Map<string, ApprovalGrade>();
+  if (codes.length === 0) return map;
+  const { data } = await supabase
+    .from("sentence_progress")
+    .select("sentence_id, last_grade")
+    .eq("user_id", studentId)
+    .in("sentence_id", codes)
+    .not("last_grade", "is", null);
+  (data ?? []).forEach((r) => {
+    const g = (r as { last_grade?: string | null }).last_grade;
+    if (isApprovalGrade(g)) map.set(r.sentence_id as string, g);
+  });
+  return map;
+};
+
 // ============================================================
 // 1) 구문 · 유닛 통합 — [레거시] 영문 한 유닛 전체 + 학생 한글해석
 //    분석 채점본/구조도 페이지 없음 — 화면으로 첨삭하므로 인쇄에는 불필요
@@ -197,6 +225,7 @@ const buildSyntaxUnit = async (
   coachMap: Map<string, string> = new Map(),
   hideStudentTranslation = false,
   importantIds: Set<string> = new Set(),
+  gradeMap: Map<string, ApprovalGrade> = new Map(),
 ): Promise<string> => {
   const codes = passages.map((p) => p.code);
   const { data: trs } = await supabase
@@ -225,7 +254,7 @@ const buildSyntaxUnit = async (
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
-          <div class="lg-code">${escapeHtml(p.code)}${importantIds.has(p.code) ? " · ★ 중요문장" : ""}</div>
+          <div class="lg-code">${escapeHtml(p.code)}${importantIds.has(p.code) ? " · ★ 중요문장" : ""}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
           <div class="lg-en">${escapeHtml(p.english ?? "")}</div>
         </div>
       </div>`)
@@ -254,7 +283,7 @@ const buildSyntaxUnit = async (
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
-          <div class="lg-code">${escapeHtml(p.code)}</div>
+          <div class="lg-code">${escapeHtml(p.code)}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
           ${koHtml}
           ${coachHtml}
         </div>
@@ -480,7 +509,7 @@ const collectBookUnit = async (
     return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
   }
 
-  const [{ data: trs }, { data: apps }, { data: exts }, coachMap, importantIds] = await Promise.all([
+  const [{ data: trs }, { data: apps }, { data: exts }, coachMap, importantIds, gradeMap] = await Promise.all([
     supabase
       .from("sentence_translations")
       .select("sentence_id, text, submitted_at")
@@ -499,6 +528,7 @@ const collectBookUnit = async (
       .in("sentence_id", codes),
     fetchCoachFlags(studentId, codes),
     fetchImportantSentenceIds(studentId, codes),
+    fetchGradeLabels(studentId, codes),
   ]);
 
   const words: Array<{ word: string; meaning: string }> = [];
@@ -533,6 +563,7 @@ const collectBookUnit = async (
     items.push({
       passageCode: p.code,
       important: importantIds.has(p.code),
+      grade: gradeMap.get(p.code) ?? null,
       english: p.english ?? "",
       analysis: null,
       studentTranslation: transMap.get(p.code) ?? "",
@@ -647,14 +678,23 @@ const buildSyntaxPassage = async (
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
   const parts: string[] = [];
-  const importantIds = await fetchImportantSentenceIds(studentId, sentenceIds);
+  const [importantIds, gradeMap] = await Promise.all([
+    fetchImportantSentenceIds(studentId, sentenceIds),
+    fetchGradeLabels(studentId, sentenceIds),
+  ]);
   for (const sid of sentenceIds) {
     try {
       const payload = await preloadHandoutPayload({
         sentenceId: sid,
         studentId,
       });
-      parts.push(buildHandoutPrintHtml({ ...payload, important: importantIds.has(sid) }));
+      parts.push(
+        buildHandoutPrintHtml({
+          ...payload,
+          important: importantIds.has(sid),
+          grade: gradeMap.get(sid) ?? null,
+        }),
+      );
     } catch (e) {
       if (e instanceof PrintPreloadError) {
         // 지문 데이터 자체가 없는 경우만 스킵 안내
@@ -830,9 +870,10 @@ export const buildUnitWorkbookHtmlFor = async (
   let html: string;
   switch (mode) {
     case "syntax_unit": {
-      const [coachMap, importantIds] = await Promise.all([
+      const [coachMap, importantIds, gradeMap] = await Promise.all([
         fetchCoachFlags(input.studentId, allCodes),
         fetchImportantSentenceIds(input.studentId, allCodes),
+        fetchGradeLabels(input.studentId, allCodes),
       ]);
       html = await buildSyntaxUnit(
         allPassages,
@@ -842,6 +883,7 @@ export const buildUnitWorkbookHtmlFor = async (
         coachMap,
         input.hideStudentTranslation ?? false,
         importantIds,
+        gradeMap,
       );
       break;
     }
