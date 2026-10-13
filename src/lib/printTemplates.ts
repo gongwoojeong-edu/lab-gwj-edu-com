@@ -1415,22 +1415,32 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   </div>
 </div>`;
 
-  // ---------- ④ 전체 단어 정리 ----------
+  // ---------- ④ 전체 단어 정리 (테스트지 형식: 영단어 보고 뜻 쓰기 + 하단 정답지) ----------
   const words = p.words ?? [];
   const wordPage = words.length
     ? `
 <div class="page bk-page">
-  ${header("Vocabulary", `④ 선택유닛 전체 단어 정리 · ${p.bookTitle}`, `단어 ${words.length}개`)}
+  ${header("Vocabulary Test", `④ 선택유닛 전체 단어 테스트 · ${p.bookTitle}`, `단어 ${words.length}개`)}
   <div class="bk-wgrid">
     ${words
       .map(
         (w, i) => `<div class="bk-wrow">
           <span class="bk-wnum">${i + 1}</span>
           <span class="bk-wword">${escapeHtml(w.word)}</span>
-          <span class="bk-wmean">${escapeHtml(w.meaning ?? "")}</span>
+          <span class="bk-wblank"></span>
         </div>`,
       )
       .join("")}
+  </div>
+  <div class="bk-wkey">
+    <div class="bk-wkey-title">정답</div>
+    <div class="bk-wkey-grid">
+      ${words
+        .map(
+          (w, i) => `<span class="bk-wkey-item"><b>${i + 1}.</b> ${escapeHtml(w.meaning ?? "")}</span>`,
+        )
+        .join("")}
+    </div>
   </div>
 </div>`
     : "";
