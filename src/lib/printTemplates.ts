@@ -1415,22 +1415,32 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   </div>
 </div>`;
 
-  // ---------- ④ 전체 단어 정리 ----------
+  // ---------- ④ 전체 단어 정리 (테스트지 형식: 영단어 보고 뜻 쓰기 + 하단 정답지) ----------
   const words = p.words ?? [];
   const wordPage = words.length
     ? `
 <div class="page bk-page">
-  ${header("Vocabulary", `④ 선택유닛 전체 단어 정리 · ${p.bookTitle}`, `단어 ${words.length}개`)}
+  ${header("Vocabulary Test", `④ 선택유닛 전체 단어 테스트 · ${p.bookTitle}`, `단어 ${words.length}개`)}
   <div class="bk-wgrid">
     ${words
       .map(
         (w, i) => `<div class="bk-wrow">
           <span class="bk-wnum">${i + 1}</span>
           <span class="bk-wword">${escapeHtml(w.word)}</span>
-          <span class="bk-wmean">${escapeHtml(w.meaning ?? "")}</span>
+          <span class="bk-wblank"></span>
         </div>`,
       )
       .join("")}
+  </div>
+  <div class="bk-wkey">
+    <div class="bk-wkey-title">정답</div>
+    <div class="bk-wkey-grid">
+      ${words
+        .map(
+          (w, i) => `<span class="bk-wkey-item"><b>${i + 1}.</b> ${escapeHtml(w.meaning ?? "")}</span>`,
+        )
+        .join("")}
+    </div>
   </div>
 </div>`
     : "";
@@ -1541,6 +1551,17 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   .bk-wnum { color: #888; font-size: 6.5pt; min-width: 5mm; }
   .bk-wword { font-weight: 700; min-width: 26mm; }
   .bk-wmean { color: #333; flex: 1; }
+  /* 단어 테스트지: 뜻 쓰는 빈칸 + 하단 정답지 */
+  .bk-wblank { flex: 1; border-bottom: 0.5pt solid #000; height: 4mm; }
+  .bk-wkey {
+    margin-top: 2.5mm; border: 0.5pt dashed #999; padding: 1.5mm 2.5mm;
+  }
+  .bk-wkey-title { font-size: 7pt; font-weight: 800; color: #666; margin-bottom: 1mm; }
+  .bk-wkey-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4mm 3mm;
+    font-size: 6.5pt; color: #555; line-height: 1.35;
+  }
+  .bk-wkey-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 짧은 워크북: 원문과 해석을 같은 면에 이어 배치 */
   .bk-one-sheet .header { padding-top: 1mm; padding-bottom: 1.5mm; }
   .bk-one-sheet .bk-part-title {
