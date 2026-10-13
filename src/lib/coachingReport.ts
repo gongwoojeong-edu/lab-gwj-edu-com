@@ -94,6 +94,10 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
   // 첨삭일이 기간을 넘겨도 학습일이 기간 안이면 포함해야 하므로 넓게 조회
   const lookbackStart = new Date(period.start + "T00:00:00");
   lookbackStart.setDate(lookbackStart.getDate() - LOOKBACK_DAYS);
+  // 첨삭은 학습 이후에 이뤄지므로 기간 종료일 이후의 첨삭도 불러와야 한다.
+  // (9월 학습 → 10월 2일 첨삭 → 10월 3일 9월 리포트 발송 시 포함)
+  const lookforwardEnd = new Date(period.end + "T23:59:59.999");
+  lookforwardEnd.setDate(lookforwardEnd.getDate() + LOOKBACK_DAYS);
   const [ap, wr, ho, rr] = await Promise.all([
     supabase
       .from("sentence_approvals")
