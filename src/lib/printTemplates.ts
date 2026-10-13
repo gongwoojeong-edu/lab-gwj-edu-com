@@ -1551,6 +1551,17 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
   .bk-wnum { color: #888; font-size: 6.5pt; min-width: 5mm; }
   .bk-wword { font-weight: 700; min-width: 26mm; }
   .bk-wmean { color: #333; flex: 1; }
+  /* 단어 테스트지: 뜻 쓰는 빈칸 + 하단 정답지 */
+  .bk-wblank { flex: 1; border-bottom: 0.5pt solid #000; height: 4mm; }
+  .bk-wkey {
+    margin-top: 2.5mm; border: 0.5pt dashed #999; padding: 1.5mm 2.5mm;
+  }
+  .bk-wkey-title { font-size: 7pt; font-weight: 800; color: #666; margin-bottom: 1mm; }
+  .bk-wkey-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4mm 3mm;
+    font-size: 6.5pt; color: #555; line-height: 1.35;
+  }
+  .bk-wkey-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 짧은 워크북: 원문과 해석을 같은 면에 이어 배치 */
   .bk-one-sheet .header { padding-top: 1mm; padding-bottom: 1.5mm; }
   .bk-one-sheet .bk-part-title {
