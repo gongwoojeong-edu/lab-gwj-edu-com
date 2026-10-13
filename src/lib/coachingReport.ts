@@ -104,7 +104,7 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
       .select("user_id,sentence_id,grade,memo,praise_text,approved_at,requested_at")
       .eq("status", "approved")
       .gte("approved_at", lookbackStart.toISOString())
-      .lte("approved_at", endIso)
+      .lte("approved_at", lookforwardEnd.toISOString())
       .order("approved_at", { ascending: true }),
     supabase
       .from("word_test_results")
