@@ -996,11 +996,14 @@ const SentenceLearn = () => {
             analysis_match_rate: rateForSave,
           });
         } else {
+          // 이미 통과/미통과로 끝난 문장을 다시 열었을 때 "보류"로 되돌리면
+          // 진도 계산에서 미완료로 잡혀 같은 문장이 반복된다 → 완료 상태는 유지.
+          const keepFinal = previousStatus === "pass" || previousStatus === "fail";
           await writeMyProg(sid, {
             word_test_done: true,
             analysis_done: true,
             analysis_match_rate: null,
-            status: "hold",
+            ...(keepFinal ? {} : { status: "hold" as const }),
           });
         }
       } catch (e) {
