@@ -21,7 +21,7 @@ import { syncPendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/lib/textbooks";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Pencil, Save, X, BookOpen, Trash2, Search } from "lucide-react";
+import { Pencil, Save, X, BookOpen, Trash2, Search, Eye, EyeOff } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -187,6 +187,41 @@ const PendingApprovals = () => {
 
   const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
+
+  // 프로젝터 프레젠테이션 모드 — 한글해석(정답·학생해석) 가리기. 선생님 설정이라 localStorage에 유지.
+  const [hideKorean, setHideKorean] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("gwjt-approvals-hide-korean") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+
+  const toggleHideKorean = () => {
+    setHideKorean((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("gwjt-approvals-hide-korean", next ? "1" : "0");
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
+    setRevealedIds(new Set());
+  };
+  const revealRow = (id: string) =>
+    setRevealedIds((prev) => {
+      const n = new Set(prev);
+      n.add(id);
+      return n;
+    });
+  const concealRow = (id: string) =>
+    setRevealedIds((prev) => {
+      const n = new Set(prev);
+      n.delete(id);
+      return n;
+    });
 
   const deleteRows = async (ids: string[], label: string) => {
     if (ids.length === 0) return;
@@ -397,6 +432,15 @@ const PendingApprovals = () => {
                 원문 없는 항목 {orphanIds.length}건 삭제
               </Button>
             )}
+            <Button
+              variant={hideKorean ? "default" : "outline"}
+              size="sm"
+              onClick={toggleHideKorean}
+              title="프로젝터 프레젠테이션용 — 한글해석(정답·학생해석)을 가립니다. 항목을 클릭하면 잠깐 볼 수 있어요."
+            >
+              {hideKorean ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+              {hideKorean ? "해석 가림 중" : "해석 가리기"}
+            </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
               새로고침
@@ -582,6 +626,11 @@ const PendingApprovals = () => {
                         <Pencil className="w-3 h-3 mr-1" /> 수정
                       </Button>
                     )}
+                    {hideKorean && revealedIds.has(row.id) && editingId !== row.sentence_id && (
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => concealRow(row.id)}>
+                        <EyeOff className="w-3 h-3 mr-1" /> 가리기
+                      </Button>
+                    )}
                   </div>
                   {editingId === row.sentence_id ? (
                     <div className="space-y-2">
@@ -601,6 +650,14 @@ const PendingApprovals = () => {
                         </Button>
                       </div>
                     </div>
+                  ) : hideKorean && !revealedIds.has(row.id) && row.korean?.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => revealRow(row.id)}
+                      className="w-full text-left rounded-md border border-dashed border-primary/40 px-3 py-4 text-xs text-muted-foreground flex items-center gap-2 hover:bg-muted/40"
+                    >
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" /> 정답 가려짐 — 클릭하면 보임
+                    </button>
                   ) : row.korean?.trim() ? (
                     <div className="whitespace-pre-wrap leading-relaxed">{row.korean}</div>
                   ) : (
@@ -613,10 +670,27 @@ const PendingApprovals = () => {
                   )}
                 </div>
                 <div className="border rounded-md p-3 bg-card">
-                  <div className="text-[11px] text-muted-foreground mb-1">학생 한글해석</div>
-                  <div className="whitespace-pre-wrap leading-relaxed">
-                    {row.translation ?? "(제출된 해석을 찾을 수 없음)"}
+                  <div className="text-[11px] text-muted-foreground mb-1 flex items-center justify-between gap-2">
+                    <span>학생 한글해석</span>
+                    {hideKorean && revealedIds.has(row.id) && (
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => concealRow(row.id)}>
+                        <EyeOff className="w-3 h-3 mr-1" /> 가리기
+                      </Button>
+                    )}
                   </div>
+                  {hideKorean && !revealedIds.has(row.id) && row.translation ? (
+                    <button
+                      type="button"
+                      onClick={() => revealRow(row.id)}
+                      className="w-full text-left rounded-md border border-dashed border-muted-foreground/40 px-3 py-4 text-xs text-muted-foreground flex items-center gap-2 hover:bg-muted/40"
+                    >
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" /> 학생해석 가려짐 — 클릭하면 보임
+                    </button>
+                  ) : (
+                    <div className="whitespace-pre-wrap leading-relaxed">
+                      {row.translation ?? "(제출된 해석을 찾을 수 없음)"}
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
@@ -647,6 +721,7 @@ const PendingApprovals = () => {
             mode={target.status === "held" || tab === "held" ? "held" : "pending"}
             sourceInfo={target.source}
             skipPin
+            presentationMode={hideKorean}
 
             onApproved={() => {
               
