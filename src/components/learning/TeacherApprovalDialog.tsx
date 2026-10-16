@@ -257,7 +257,7 @@ export const TeacherApprovalDialog = ({
       setEditingKorean(false);
       setKoreanOverride(null);
     }
-  }, [open]);
+  }, [open, presentationMode]);
 
   const saveKorean = async () => {
     const next = koreanDraft.trim();
