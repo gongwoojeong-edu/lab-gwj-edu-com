@@ -53,6 +53,8 @@ interface Props {
   studentNo?: string | null;
   /** true 면 PIN 입력을 생략 (선생님 로그인 상태에서 사용) */
   skipPin?: boolean;
+  /** true 면 학생 한글해석을 가린 채로 시작 (프로젝터 프레젠테이션 모드) */
+  presentationMode?: boolean;
   /** 선생님이 학생 한글해석을 수정 저장했을 때 */
   onTranslationUpdated?: (text: string) => void;
   /** 재오픈 시 초기 메모값 (예: 이전 보류 메모) */
@@ -95,6 +97,7 @@ export const TeacherApprovalDialog = ({
   studentName,
   studentNo,
   skipPin = false,
+  presentationMode = false,
   onTranslationUpdated,
   initialMemo,
   mode = "pending",
@@ -145,6 +148,7 @@ export const TeacherApprovalDialog = ({
     } finally { setImportantLoading(false); }
   };
   const [showAnswer, setShowAnswer] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(!presentationMode);
   const [teaching, setTeaching] = useState(false);
   const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
   const [history, setHistory] = useState<PastFeedback[]>([]);
@@ -245,6 +249,7 @@ export const TeacherApprovalDialog = ({
 
   useEffect(() => {
     if (!open) {
+      setShowTranslation(!presentationMode);
       setEditingEnglish(false);
       setEnglishOverride(null);
       setEditingTranslation(false);
@@ -840,6 +845,16 @@ export const TeacherApprovalDialog = ({
                       <Pencil className="w-3 h-3" /> 수정
                     </button>
                   )}
+                  {presentationMode && !editingTranslation && showTranslation && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTranslation(false)}
+                      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted"
+                      title="다시 가리기"
+                    >
+                      <EyeOff className="w-3 h-3" /> 가리기
+                    </button>
+                  )}
                 </div>
                 {editingTranslation ? (
                   <div className="relative z-30 space-y-1.5">
@@ -864,6 +879,14 @@ export const TeacherApprovalDialog = ({
                       </Button>
                     </div>
                   </div>
+                ) : presentationMode && !showTranslation ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowTranslation(true)}
+                    className="w-full text-left rounded-md border border-dashed border-muted-foreground/40 px-2 py-2 text-[11px] text-muted-foreground flex items-center gap-1.5 hover:bg-muted/40"
+                  >
+                    <EyeOff className="w-3 h-3 shrink-0" /> 학생 한글해석 가려짐 — 클릭하면 보임
+                  </button>
                 ) : (
                   <div className="whitespace-pre-wrap">{shownTranslation}</div>
                 )}
