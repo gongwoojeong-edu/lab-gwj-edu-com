@@ -623,9 +623,10 @@ const PendingApprovals = () => {
                 </div>
                 <div className="border rounded-md p-3 bg-primary/5 border-primary/30">
                   <div className="text-[11px] text-primary mb-1 font-semibold flex items-center justify-between gap-2">
-                    <span>한글해석 정답</span>
-                    <span className="flex items-center gap-1">
-                      {editingId !== row.sentence_id && row.korean?.trim() && (
+                    {concealed ? null : <span>한글해석 정답</span>}
+                    <span className="flex items-center gap-1 ml-auto">
+                      {!concealed && editingId !== row.sentence_id && row.korean?.trim() && (
+
                         <Button
                           size="sm"
                           variant="ghost"
@@ -694,7 +695,9 @@ const PendingApprovals = () => {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
+
         </div>
 
         {target && (
