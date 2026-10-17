@@ -844,8 +844,8 @@ export const TeacherApprovalDialog = ({
                     </button>
                   )}
                   {presentationMode && (
-                    <span className="text-[10px] text-muted-foreground/60 select-none" title="프레젠테이션 모드">
-                      (프레젠테이션 모드 — 정답만 가려짐)
+                    <span aria-hidden="true" className="text-[10px] text-muted-foreground/40 select-none">
+                      ·
                     </span>
                   )}
                 </div>
