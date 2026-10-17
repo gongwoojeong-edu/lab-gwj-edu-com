@@ -513,8 +513,16 @@ const PendingApprovals = () => {
         )}
 
         <div className="space-y-3">
-          {(tab === "qna" ? [] : filteredRows).map((row) => (
+          {(tab === "qna" ? [] : filteredRows).map((row) => {
+            // 가림 모드: 이 행의 한글해석 정답이 현재 가려져 있는가
+            const concealed =
+              hideKorean &&
+              editingId !== row.sentence_id &&
+              !revealedIds.has(row.id) &&
+              !!row.korean?.trim();
+            return (
             <Card key={row.id} className="p-4 space-y-3">
+
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-sm flex-wrap">
                   <Badge>{row.student_no ?? "-"}</Badge>
