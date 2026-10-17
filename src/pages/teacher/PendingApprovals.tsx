@@ -188,7 +188,7 @@ const PendingApprovals = () => {
   const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
 
-  // 프로젝터 프레젠테이션 모드 — 한글해석(정답·학생해석) 가리기. 선생님 설정이라 localStorage에 유지.
+  // 프로젝터 프레젠테이션 모드 — 한글해석 정답만 가리기. 학생해석은 항상 표시. 선생님 설정이라 localStorage에 유지.
   const [hideKorean, setHideKorean] = useState<boolean>(() => {
     try {
       return localStorage.getItem("gwjt-approvals-hide-korean") === "1";
@@ -436,10 +436,10 @@ const PendingApprovals = () => {
               variant={hideKorean ? "default" : "outline"}
               size="sm"
               onClick={toggleHideKorean}
-              title="프로젝터 프레젠테이션용 — 한글해석(정답·학생해석)을 가립니다. 항목을 클릭하면 잠깐 볼 수 있어요."
+              title="프로젝터 프레젠테이션용 — 한글해석 정답을 가립니다. 눈 아이콘으로 보고 다시 가릴 수 있어요."
             >
               {hideKorean ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-              {hideKorean ? "해석 가림 중" : "해석 가리기"}
+              {hideKorean ? "정답 가림 중" : "정답 가리기"}
             </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
@@ -616,21 +616,36 @@ const PendingApprovals = () => {
                 <div className="border rounded-md p-3 bg-primary/5 border-primary/30">
                   <div className="text-[11px] text-primary mb-1 font-semibold flex items-center justify-between gap-2">
                     <span>한글해석 정답</span>
-                    {editingId !== row.sentence_id && row.korean?.trim() && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-2 text-[11px]"
-                        onClick={() => startEdit(row)}
-                      >
-                        <Pencil className="w-3 h-3 mr-1" /> 수정
-                      </Button>
-                    )}
-                    {hideKorean && revealedIds.has(row.id) && editingId !== row.sentence_id && (
-                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => concealRow(row.id)}>
-                        <EyeOff className="w-3 h-3 mr-1" /> 가리기
-                      </Button>
-                    )}
+                    <span className="flex items-center gap-1">
+                      {editingId !== row.sentence_id && row.korean?.trim() && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() => startEdit(row)}
+                        >
+                          <Pencil className="w-3 h-3 mr-1" /> 수정
+                        </Button>
+                      )}
+                      {hideKorean && editingId !== row.sentence_id && row.korean?.trim() && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          title={revealedIds.has(row.id) ? "정답 가리기" : "정답 보기"}
+                          aria-label={revealedIds.has(row.id) ? "정답 가리기" : "정답 보기"}
+                          onClick={() =>
+                            revealedIds.has(row.id) ? concealRow(row.id) : revealRow(row.id)
+                          }
+                        >
+                          {revealedIds.has(row.id) ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                      )}
+                    </span>
                   </div>
                   {editingId === row.sentence_id ? (
                     <div className="space-y-2">
@@ -651,13 +666,7 @@ const PendingApprovals = () => {
                       </div>
                     </div>
                   ) : hideKorean && !revealedIds.has(row.id) && row.korean?.trim() ? (
-                    <button
-                      type="button"
-                      onClick={() => revealRow(row.id)}
-                      className="w-full text-left rounded-md border border-dashed border-primary/40 px-3 py-4 text-xs text-muted-foreground flex items-center gap-2 hover:bg-muted/40"
-                    >
-                      <EyeOff className="w-3.5 h-3.5 shrink-0" /> 정답 가려짐 — 클릭하면 보임
-                    </button>
+                    <div aria-hidden="true" className="h-6" />
                   ) : row.korean?.trim() ? (
                     <div className="whitespace-pre-wrap leading-relaxed">{row.korean}</div>
                   ) : (
@@ -670,27 +679,10 @@ const PendingApprovals = () => {
                   )}
                 </div>
                 <div className="border rounded-md p-3 bg-card">
-                  <div className="text-[11px] text-muted-foreground mb-1 flex items-center justify-between gap-2">
-                    <span>학생 한글해석</span>
-                    {hideKorean && revealedIds.has(row.id) && (
-                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => concealRow(row.id)}>
-                        <EyeOff className="w-3 h-3 mr-1" /> 가리기
-                      </Button>
-                    )}
+                  <div className="text-[11px] text-muted-foreground mb-1">학생 한글해석</div>
+                  <div className="whitespace-pre-wrap leading-relaxed">
+                    {row.translation ?? "(제출된 해석을 찾을 수 없음)"}
                   </div>
-                  {hideKorean && !revealedIds.has(row.id) && row.translation ? (
-                    <button
-                      type="button"
-                      onClick={() => revealRow(row.id)}
-                      className="w-full text-left rounded-md border border-dashed border-muted-foreground/40 px-3 py-4 text-xs text-muted-foreground flex items-center gap-2 hover:bg-muted/40"
-                    >
-                      <EyeOff className="w-3.5 h-3.5 shrink-0" /> 학생해석 가려짐 — 클릭하면 보임
-                    </button>
-                  ) : (
-                    <div className="whitespace-pre-wrap leading-relaxed">
-                      {row.translation ?? "(제출된 해석을 찾을 수 없음)"}
-                    </div>
-                  )}
                 </div>
               </div>
             </Card>
