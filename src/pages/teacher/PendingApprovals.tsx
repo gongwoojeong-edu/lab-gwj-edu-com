@@ -188,7 +188,7 @@ const PendingApprovals = () => {
   const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
 
-  // 프로젝터 프레젠테이션 모드 — 한글해석(정답·학생해석) 가리기. 선생님 설정이라 localStorage에 유지.
+  // 프로젝터 프레젠테이션 모드 — 한글해석 정답만 가리기. 학생해석은 항상 표시. 선생님 설정이라 localStorage에 유지.
   const [hideKorean, setHideKorean] = useState<boolean>(() => {
     try {
       return localStorage.getItem("gwjt-approvals-hide-korean") === "1";
