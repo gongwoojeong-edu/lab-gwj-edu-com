@@ -435,12 +435,18 @@ const PendingApprovals = () => {
             <Button
               variant={hideKorean ? "default" : "outline"}
               size="sm"
+              className="h-9 w-9 p-0"
               onClick={toggleHideKorean}
-              title="프로젝터 프레젠테이션용 — 한글해석 정답을 가립니다. 눈 아이콘으로 보고 다시 가릴 수 있어요."
+              title={
+                hideKorean
+                  ? "한글해석 정답이 가려져 있어요 — 누르면 모두 보입니다"
+                  : "한글해석 정답 가리기"
+              }
+              aria-label={hideKorean ? "정답 가림 해제" : "한글해석 정답 가리기"}
             >
-              {hideKorean ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-              {hideKorean ? "정답 가림 중" : "정답 가리기"}
+              {hideKorean ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </Button>
+
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
               새로고침
