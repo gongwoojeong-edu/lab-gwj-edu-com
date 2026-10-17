@@ -843,11 +843,6 @@ export const TeacherApprovalDialog = ({
                       <Pencil className="w-3 h-3" /> 수정
                     </button>
                   )}
-                  {presentationMode && (
-                    <span aria-hidden="true" className="text-[10px] text-muted-foreground/40 select-none">
-                      ·
-                    </span>
-                  )}
                 </div>
                 {editingTranslation ? (
                   <div className="relative z-30 space-y-1.5">
