@@ -435,12 +435,18 @@ const PendingApprovals = () => {
             <Button
               variant={hideKorean ? "default" : "outline"}
               size="sm"
+              className="h-9 w-9 p-0"
               onClick={toggleHideKorean}
-              title="프로젝터 프레젠테이션용 — 한글해석 정답을 가립니다. 눈 아이콘으로 보고 다시 가릴 수 있어요."
+              title={
+                hideKorean
+                  ? "한글해석 정답이 가려져 있어요 — 누르면 모두 보입니다"
+                  : "한글해석 정답 가리기"
+              }
+              aria-label={hideKorean ? "정답 가림 해제" : "한글해석 정답 가리기"}
             >
-              {hideKorean ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-              {hideKorean ? "정답 가림 중" : "정답 가리기"}
+              {hideKorean ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </Button>
+
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={loading ? "w-4 h-4 mr-1 animate-spin" : "w-4 h-4 mr-1"} />
               새로고침
@@ -513,8 +519,16 @@ const PendingApprovals = () => {
         )}
 
         <div className="space-y-3">
-          {(tab === "qna" ? [] : filteredRows).map((row) => (
+          {(tab === "qna" ? [] : filteredRows).map((row) => {
+            // 가림 모드: 이 행의 한글해석 정답이 현재 가려져 있는가
+            const concealed =
+              hideKorean &&
+              editingId !== row.sentence_id &&
+              !revealedIds.has(row.id) &&
+              !!row.korean?.trim();
+            return (
             <Card key={row.id} className="p-4 space-y-3">
+
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-sm flex-wrap">
                   <Badge>{row.student_no ?? "-"}</Badge>
@@ -615,9 +629,10 @@ const PendingApprovals = () => {
                 </div>
                 <div className="border rounded-md p-3 bg-primary/5 border-primary/30">
                   <div className="text-[11px] text-primary mb-1 font-semibold flex items-center justify-between gap-2">
-                    <span>한글해석 정답</span>
-                    <span className="flex items-center gap-1">
-                      {editingId !== row.sentence_id && row.korean?.trim() && (
+                    {concealed ? null : <span>한글해석 정답</span>}
+                    <span className="flex items-center gap-1 ml-auto">
+                      {!concealed && editingId !== row.sentence_id && row.korean?.trim() && (
+
                         <Button
                           size="sm"
                           variant="ghost"
@@ -686,7 +701,9 @@ const PendingApprovals = () => {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
+
         </div>
 
         {target && (
