@@ -1,7 +1,7 @@
 // 임시 검증: 실제 백엔드 데이터로 워크북 HTML을 만들어 배지 규칙을 확인한다.
 // (확인 후 삭제 예정 — 영구 규칙 테스트는 gradeMeta.test.ts)
 import { beforeAll, describe, expect, it } from "vitest";
-import { readFileSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { supabase } from "@/integrations/supabase/client";
 import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
 
@@ -35,6 +35,8 @@ describe("워크북 배지 실데이터 검증", () => {
     "구문 유닛 워크북: 재학습 회차 표시 + 잘함 미표시",
     async () => {
       const { html } = await buildUnitWorkbookHtmlFor({ ...UNIT, studentId: PARK, mode: "syntax_unit" });
+      mkdirSync("/tmp/browser", { recursive: true });
+      writeFileSync("/tmp/browser/wb.html", html);
       const r = readout(html);
       console.log("syntax_unit", JSON.stringify(r));
       expect(r.rounds).toContain("재학습 2회");
