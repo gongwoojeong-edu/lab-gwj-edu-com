@@ -44,16 +44,45 @@ const PRINT_STYLE: Record<ApprovalGrade, string> = {
 };
 
 /**
+ * 인쇄(워크북·핸드아웃)에서 배지를 빼는 등급.
+ * "잘함"은 별도 표기 가치가 없다고 본 — 매우잘함/보통 이하만 남긴다.
+ * 화면 UI 배지는 이 규칙의 영향을 받지 않는다.
+ */
+export const PRINT_HIDDEN_GRADES: readonly ApprovalGrade[] = ["good"];
+
+/**
  * 인쇄 HTML용 등급 배지.
  * 클래스가 아니라 인라인 스타일 — 멀티 유닛 결합 시 <body> 만 추출해
  * 이어붙여도(doc 스타일 유실) 모양이 유지된다.
  */
 export const gradeBadgeHtml = (grade: string | null | undefined): string => {
   if (!isApprovalGrade(grade)) return "";
+  if (PRINT_HIDDEN_GRADES.includes(grade)) return "";
   return (
     `<span style="display:inline-block;font-size:6.5pt;font-weight:800;` +
     `border-radius:1mm;padding:0 1.2mm;margin-left:1.5mm;vertical-align:0.2mm;` +
     `-webkit-print-color-adjust:exact;print-color-adjust:exact;${PRINT_STYLE[grade]}">` +
     `${escapeHtml(GRADE_LABEL[grade])}</span>`
+  );
+};
+
+/**
+ * 인쇄 HTML용 재학습 회차 배지.
+ * sentence_approvals.attempt_no = 1 은 처음 학습(재학습 없음) → 배지 없음.
+ * attempt_no = 2 → "재학습 1회", 3 → "재학습 2회".
+ * 흑백 복습지에서도 남도록 먹색 칩.
+ */
+export const redoRoundBadgeHtml = (attemptNo: number | null | undefined): string => {
+  const rounds =
+    typeof attemptNo === "number" && Number.isFinite(attemptNo)
+      ? Math.floor(attemptNo) - 1
+      : 0;
+  if (rounds < 1) return "";
+  return (
+    `<span style="display:inline-block;font-size:6.5pt;font-weight:800;` +
+    `border-radius:1mm;padding:0 1.2mm;margin-left:1.5mm;vertical-align:0.2mm;` +
+    `-webkit-print-color-adjust:exact;print-color-adjust:exact;` +
+    `background:#ededed;border:0.4pt solid #444;color:#111;">` +
+    `재학습 ${rounds}회</span>`
   );
 };
