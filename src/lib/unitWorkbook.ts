@@ -40,6 +40,7 @@ import { fetchImportantSentenceIds } from "./importantSentences";
 import {
   gradeBadgeHtml,
   isApprovalGrade,
+  redoRoundBadgeHtml,
   type ApprovalGrade,
 } from "./gradeMeta";
 
@@ -209,6 +210,31 @@ export const fetchGradeLabels = async (
   (data ?? []).forEach((r) => {
     const g = (r as { last_grade?: string | null }).last_grade;
     if (isApprovalGrade(g)) map.set(r.sentence_id as string, g);
+  });
+  return map;
+};
+
+/**
+ * 재학습 회차 조회 — code → sentence_approvals 최신 attempt_no.
+ * attempt_no 1 = 처음 학습(재학습 없음), 2 이상 = 재학습.
+ * 회독(특별과제) 행은 같은 문장 코드를 쓰므로 회차 중 가장 큰 값만 남긴다.
+ */
+export const fetchApprovalRounds = async (
+  studentId: string,
+  codes: string[],
+): Promise<Map<string, number>> => {
+  const map = new Map<string, number>();
+  if (codes.length === 0) return map;
+  const { data } = await supabase
+    .from("sentence_approvals")
+    .select("sentence_id, attempt_no")
+    .eq("user_id", studentId)
+    .in("sentence_id", codes);
+  (data ?? []).forEach((r) => {
+    const sid = r.sentence_id as string;
+    const no = Number((r as { attempt_no?: number | null }).attempt_no ?? 0);
+    if (!Number.isFinite(no) || no < 1) return;
+    if (no > (map.get(sid) ?? 0)) map.set(sid, no);
   });
   return map;
 };
