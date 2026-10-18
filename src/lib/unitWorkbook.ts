@@ -252,6 +252,7 @@ const buildSyntaxUnit = async (
   hideStudentTranslation = false,
   importantIds: Set<string> = new Set(),
   gradeMap: Map<string, ApprovalGrade> = new Map(),
+  roundMap: Map<string, number> = new Map(),
 ): Promise<string> => {
   const codes = passages.map((p) => p.code);
   const { data: trs } = await supabase
@@ -280,7 +281,7 @@ const buildSyntaxUnit = async (
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
-          <div class="lg-code">${escapeHtml(p.code)}${importantIds.has(p.code) ? " · ★ 중요문장" : ""}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
+          <div class="lg-code">${escapeHtml(p.code)}${importantIds.has(p.code) ? " · ★ 중요문장" : ""}${redoRoundBadgeHtml(roundMap.get(p.code))}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
           <div class="lg-en">${escapeHtml(p.english ?? "")}</div>
         </div>
       </div>`)
@@ -309,7 +310,7 @@ const buildSyntaxUnit = async (
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
-          <div class="lg-code">${escapeHtml(p.code)}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
+          <div class="lg-code">${escapeHtml(p.code)}${redoRoundBadgeHtml(roundMap.get(p.code))}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
           ${koHtml}
           ${coachHtml}
         </div>
@@ -535,7 +536,7 @@ const collectBookUnit = async (
     return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
   }
 
-  const [{ data: trs }, { data: apps }, { data: exts }, coachMap, importantIds, gradeMap] = await Promise.all([
+  const [{ data: trs }, { data: apps }, { data: exts }, coachMap, importantIds, gradeMap, roundMap] = await Promise.all([
     supabase
       .from("sentence_translations")
       .select("sentence_id, text, submitted_at")
@@ -555,6 +556,7 @@ const collectBookUnit = async (
     fetchCoachFlags(studentId, codes),
     fetchImportantSentenceIds(studentId, codes),
     fetchGradeLabels(studentId, codes),
+    fetchApprovalRounds(studentId, codes),
   ]);
 
   const words: Array<{ word: string; meaning: string }> = [];
@@ -590,6 +592,7 @@ const collectBookUnit = async (
       passageCode: p.code,
       important: importantIds.has(p.code),
       grade: gradeMap.get(p.code) ?? null,
+      redoRound: roundMap.get(p.code) ?? null,
       english: p.english ?? "",
       analysis: null,
       studentTranslation: transMap.get(p.code) ?? "",
@@ -704,9 +707,10 @@ const buildSyntaxPassage = async (
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
   const parts: string[] = [];
-  const [importantIds, gradeMap] = await Promise.all([
+  const [importantIds, gradeMap, roundMap] = await Promise.all([
     fetchImportantSentenceIds(studentId, sentenceIds),
     fetchGradeLabels(studentId, sentenceIds),
+    fetchApprovalRounds(studentId, sentenceIds),
   ]);
   for (const sid of sentenceIds) {
     try {
@@ -719,6 +723,7 @@ const buildSyntaxPassage = async (
           ...payload,
           important: importantIds.has(sid),
           grade: gradeMap.get(sid) ?? null,
+          redoRound: roundMap.get(sid) ?? null,
         }),
       );
     } catch (e) {
@@ -896,10 +901,11 @@ export const buildUnitWorkbookHtmlFor = async (
   let html: string;
   switch (mode) {
     case "syntax_unit": {
-      const [coachMap, importantIds, gradeMap] = await Promise.all([
+      const [coachMap, importantIds, gradeMap, roundMap] = await Promise.all([
         fetchCoachFlags(input.studentId, allCodes),
         fetchImportantSentenceIds(input.studentId, allCodes),
         fetchGradeLabels(input.studentId, allCodes),
+        fetchApprovalRounds(input.studentId, allCodes),
       ]);
       html = await buildSyntaxUnit(
         allPassages,
@@ -910,6 +916,7 @@ export const buildUnitWorkbookHtmlFor = async (
         input.hideStudentTranslation ?? false,
         importantIds,
         gradeMap,
+        roundMap,
       );
       break;
     }
