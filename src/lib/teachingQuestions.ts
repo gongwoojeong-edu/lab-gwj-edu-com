@@ -100,12 +100,14 @@ export const fetchOpenQuestionsForStudent = async (
 ): Promise<TeachingQuestion[]> => {
   const uid = studentUserId ?? (await getCurrentUserId());
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("teaching_questions")
     .select("*")
     .eq("user_id", uid)
+    .or("answered_at.is.null,verdict.eq.wrong")
     .order("created_at", { ascending: true })
     .limit(200);
+  if (error) throw error;
   return ((data ?? []) as Record<string, unknown>[])
     .map(normalize)
     .filter((q) => !q.answered_at || q.verdict === "wrong");
@@ -152,8 +154,16 @@ export const subscribeTeachingQuestions = (
       },
       () => onChange(),
     )
-    .subscribe();
+    .subscribe((status) => {
+      // Catch inserts between the first fetch and subscription, and reconnects.
+      if (status === "SUBSCRIBED") onChange();
+    });
+  const refresh = () => onChange();
+  window.addEventListener("focus", refresh);
+  window.addEventListener("online", refresh);
   return () => {
+    window.removeEventListener("focus", refresh);
+    window.removeEventListener("online", refresh);
     supabase.removeChannel(channel);
   };
 };

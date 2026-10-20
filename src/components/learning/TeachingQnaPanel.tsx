@@ -46,16 +46,21 @@ export const TeachingQnaPanel = ({
   const [sending, setSending] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const reload = useCallback(() => {
     fetchTeachingQuestions(studentUserId, sentenceId)
       .then((nextRows) => {
+        setLoadError(false);
         setRows(nextRows);
         onOpenCountChange?.(
           nextRows.filter((row) => !row.answered_at || row.verdict === "wrong").length,
         );
       })
-      .catch(() => {})
+      .catch(() => {
+        setLoadError(true);
+        toast({ title: "첨삭 문답을 불러오지 못했어요", description: "다시 불러오기를 눌러 주세요.", variant: "destructive" });
+      })
       .finally(() => setLoading(false));
   }, [studentUserId, sentenceId, onOpenCountChange]);
 
@@ -118,7 +123,7 @@ export const TeachingQnaPanel = ({
     }
   };
 
-  if ((role === "readonly" || hideWhenEmpty) && !loading && rows.length === 0) return null;
+  if (!loadError && (role === "readonly" || hideWhenEmpty) && !loading && rows.length === 0) return null;
   if (hideWhenEmpty && loading) return null;
 
   return (
@@ -128,6 +133,12 @@ export const TeachingQnaPanel = ({
         {rows.length > 0 && <span className="text-muted-foreground font-normal">· {rows.length}문항</span>}
       </div>
 
+      {loadError && (
+        <div role="alert" className="flex items-center justify-between gap-2 text-sm text-destructive">
+          첨삭 문답을 불러오지 못했어요.
+          <Button size="sm" variant="outline" onClick={reload}>다시 불러오기</Button>
+        </div>
+      )}
       {loading ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…
