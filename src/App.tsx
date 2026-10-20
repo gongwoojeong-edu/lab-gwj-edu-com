@@ -53,6 +53,7 @@ import { HintSettingsProvider } from "./components/analyzer/HintSettingsContext"
 import { RequireAuth } from "./components/auth/RequireAuth";
 import { StaffProvider } from "./lib/staff-context";
 import { TeachingOverlay } from "./components/student/TeachingOverlay";
+import { TeachingQuestionAlert } from "./components/student/TeachingQuestionAlert";
 import RedoAlertBar from "./components/student/RedoAlertBar";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
         <BrowserRouter>
           <TeachingOverlay />
           <RedoAlertBar />
+          <TeachingQuestionAlert />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
