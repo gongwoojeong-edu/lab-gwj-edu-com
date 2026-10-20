@@ -8,13 +8,13 @@ import { fetchOpenQuestionsForStudent, subscribeTeachingQuestions, type Teaching
 
 /** Questions are delivered independently of the active teaching session/current sentence. */
 export function TeachingQuestionAlert() {
-  const { user, role } = useAuth();
+  const { user, roles } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<TeachingQuestion[]>([]);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
-  const uid = role === "student" ? user?.id : undefined;
+  const uid = roles.includes("student") && !roles.includes("teacher") && !roles.includes("admin") ? user?.id : undefined;
 
   useEffect(() => {
     setQuestions([]);
@@ -34,7 +34,7 @@ export function TeachingQuestionAlert() {
       } catch {
         if (!alive || request !== version) return;
         setError(true);
-        if (!failed) toast({ title: "添삭 질문을 불러오지 못했어요".replace("添", "첨"), description: "다시 불러오기를 눌러 주세요.", variant: "destructive" });
+        if (!failed) toast({ title: "첨삭 질문을 불러오지 못했어요", description: "다시 불러오기를 눌러 주세요.", variant: "destructive" });
         failed = true;
       }
     };
