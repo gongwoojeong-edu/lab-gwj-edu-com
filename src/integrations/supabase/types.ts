@@ -766,6 +766,7 @@ export type Database = {
           held_at: string | null
           held_by: string | null
           held_memo: string | null
+          held_teacher_id: string | null
           id: string
           memo: string | null
           praise_text: string | null
@@ -787,6 +788,7 @@ export type Database = {
           held_at?: string | null
           held_by?: string | null
           held_memo?: string | null
+          held_teacher_id?: string | null
           id?: string
           memo?: string | null
           praise_text?: string | null
@@ -808,6 +810,7 @@ export type Database = {
           held_at?: string | null
           held_by?: string | null
           held_memo?: string | null
+          held_teacher_id?: string | null
           id?: string
           memo?: string | null
           praise_text?: string | null
