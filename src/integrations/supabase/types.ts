@@ -1835,6 +1835,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      held_teacher_directory: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
       master_analysis_spots: {
         Args: { p_sentence_id: string }
         Returns: {
