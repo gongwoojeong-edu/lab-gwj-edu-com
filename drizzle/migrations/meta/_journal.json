@@ -15,6 +15,13 @@
       "when": 1792578022422,
       "tag": "0001_assign_held_approval_teacher",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792578150990,
+      "tag": "0002_guard_held_teacher_on_insert",
+      "breakpoints": true
     }
   ]
 }
