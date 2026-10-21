@@ -35,6 +35,8 @@ import { fetchPassageSource, fetchPassageByCode, updatePassage, updatePassageKor
 import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/importantSentences";
+import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 interface Props {
@@ -61,6 +63,7 @@ interface Props {
   initialMemo?: string;
   /** 다이얼로그 모드 — pending: 대기중 승인 / held: 보류함 최종 처리 */
   mode?: "pending" | "held";
+  initialHeldTeacherId?: string | null;
   /** 문장 출처(시리즈·권·유닛) — 미전달 시 내부에서 조회 */
   sourceInfo?: PassageSource | null;
   open: boolean;
@@ -101,6 +104,7 @@ export const TeacherApprovalDialog = ({
   onTranslationUpdated,
   initialMemo,
   mode = "pending",
+  initialHeldTeacherId,
   sourceInfo: initialSource,
   open,
   onOpenChange,
@@ -115,6 +119,30 @@ export const TeacherApprovalDialog = ({
   /** 선생님이 직접 적는 칭찬 한 줄 (excellent/good일 때만 노출) */
   const [praise, setPraise] = useState("");
   const [saving, setSaving] = useState(false);
+  const [heldTeachers, setHeldTeachers] = useState<HeldTeacher[]>([]);
+  const [heldTeacherId, setHeldTeacherId] = useState("");
+  const [teachersError, setTeachersError] = useState(false);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+  const [teachersReload, setTeachersReload] = useState(0);
+
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setTeachersLoading(true);
+    setTeachersError(false);
+    setHeldTeacherId("");
+    Promise.all([fetchHeldTeachers(), supabase.auth.getUser()]).then(([list, auth]) => {
+      if (!alive) return;
+      setHeldTeachers(list);
+      const preferred = initialHeldTeacherId || auth.data.user?.id;
+      setHeldTeacherId(list.some(t => t.id === preferred) ? preferred ?? "" : "");
+    }).catch(() => {
+      if (!alive) return;
+      setTeachersError(true);
+      toast({ title: "담당 선생님 목록을 불러오지 못했어요", variant: "destructive" });
+    }).finally(() => { if (alive) setTeachersLoading(false); });
+    return () => { alive = false; };
+  }, [open, approvalId, initialHeldTeacherId, teachersReload]);
   const [important, setImportant] = useState(false);
   const [importantLoading, setImportantLoading] = useState(true);
   const [importantError, setImportantError] = useState(false);
@@ -590,10 +618,15 @@ export const TeacherApprovalDialog = ({
 
   const hold = async () => {
     if (saving) return;
+    if (!heldTeacherId) {
+      toast({ title: "담당 선생님을 선택하세요", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       await holdApprovalRequest({
         approvalId,
+        heldTeacherId,
         studentUserId,
         sentenceId,
         memo: serializeMemo(memo) ?? "",
@@ -602,7 +635,7 @@ export const TeacherApprovalDialog = ({
       clearDraft();
       toast({
         title: "보류 처리했어요",
-        description: "이 문장은 '보류' 탭에 남습니다. 나중에 자세히 첨삭 후 최종 승인하세요.",
+        description: `${heldTeachers.find(t => t.id === heldTeacherId)?.name ?? "담당 선생님"} 보류함으로 보냈습니다.`,
       });
       onOpenChange(false);
       onApproved("fair"); // trigger list refresh in parent; grade unused since target closes
@@ -1052,6 +1085,16 @@ export const TeacherApprovalDialog = ({
           )}
 
           <div className="relative">
+            {!isHeldMode && <div className="flex items-center gap-2 flex-wrap mb-3">
+              <span className="text-sm font-medium">보류 담당 선생님</span>
+              <Select value={heldTeacherId} onValueChange={setHeldTeacherId} disabled={saving || teachersLoading || teachersError}>
+                <SelectTrigger className="w-48" aria-label="보류 담당 선생님"><SelectValue placeholder={teachersLoading ? "불러오는 중…" : "선생님 선택"} /></SelectTrigger>
+                <SelectContent>{heldTeachers.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+              </Select>
+              {teachersError && <div role="alert" className="flex items-center gap-2 text-sm text-destructive">선생님 목록을 불러오지 못했습니다.
+                <Button size="sm" variant="outline" onClick={() => setTeachersReload(n => n + 1)}>다시 불러오기</Button>
+              </div>}
+            </div>}
             <StructuredMemoInput value={memo} onChange={setMemo} disabled={saving} />
 
             {studentUserId && (
