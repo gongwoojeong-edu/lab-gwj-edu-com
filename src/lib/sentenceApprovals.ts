@@ -39,6 +39,7 @@ export interface SentenceApproval {
   updated_at: string;
   held_at?: string | null;
   held_by?: string | null;
+  held_teacher_id?: string | null;
   held_memo?: string | null;
   /** 회독(특별과제) 격리 키. null/미지정 = 레거시 진도 */
   assignment_id?: string | null;
@@ -399,10 +400,12 @@ export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
  *  (등급은 비워두고, 선생님이 나중에 최종 등급을 확정) */
 export const holdApprovalRequest = async (input: {
   approvalId: string;
+  heldTeacherId: string;
   studentUserId?: string;
   sentenceId?: string;
   memo?: string;
 }): Promise<void> => {
+  if (!input.heldTeacherId) throw new Error("담당 선생님을 선택하세요");
   const approverId = await getCurrentUserId();
   const nowIso = new Date().toISOString();
   const memoTrimmed = input.memo?.trim() || null;
@@ -422,6 +425,7 @@ export const holdApprovalRequest = async (input: {
       status: "held",
       held_at: nowIso,
       held_by: approverId,
+      held_teacher_id: input.heldTeacherId,
       held_memo: memoTrimmed,
     } as never)
     .eq("id", input.approvalId);

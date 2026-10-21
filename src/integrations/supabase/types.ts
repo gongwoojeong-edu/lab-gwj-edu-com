@@ -766,6 +766,7 @@ export type Database = {
           held_at: string | null
           held_by: string | null
           held_memo: string | null
+          held_teacher_id: string | null
           id: string
           memo: string | null
           praise_text: string | null
@@ -787,6 +788,7 @@ export type Database = {
           held_at?: string | null
           held_by?: string | null
           held_memo?: string | null
+          held_teacher_id?: string | null
           id?: string
           memo?: string | null
           praise_text?: string | null
@@ -808,6 +810,7 @@ export type Database = {
           held_at?: string | null
           held_by?: string | null
           held_memo?: string | null
+          held_teacher_id?: string | null
           id?: string
           memo?: string | null
           praise_text?: string | null
@@ -1831,6 +1834,13 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      held_teacher_directory: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+        }[]
       }
       master_analysis_spots: {
         Args: { p_sentence_id: string }

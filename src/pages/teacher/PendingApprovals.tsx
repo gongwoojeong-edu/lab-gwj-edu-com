@@ -23,6 +23,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Pencil, Save, X, BookOpen, Trash2, Search, Eye, EyeOff } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { fetchHeldTeachers, filterHeldByTeacher, type HeldTeacher } from "@/lib/heldTeachers";
+import { useStaff } from "@/lib/staff-context";
 
 
 import {
@@ -143,6 +146,21 @@ interface Row extends SentenceApproval {
 
 
 const PendingApprovals = () => {
+  const { effectiveTeacherAuthUserId } = useStaff();
+  const [heldTeachers, setHeldTeachers] = useState<HeldTeacher[]>([]);
+  const [heldFilter, setHeldFilter] = useState("mine");
+  const [teachersError, setTeachersError] = useState(false);
+  const [teachersReload, setTeachersReload] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    setTeachersError(false);
+    fetchHeldTeachers().then(list => { if (alive) setHeldTeachers(list); }).catch(() => {
+      if (!alive) return;
+      setTeachersError(true);
+      toast({ title: "보류함 선생님 목록을 불러오지 못했어요", variant: "destructive" });
+    });
+    return () => { alive = false; };
+  }, [teachersReload]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [target, setTarget] = useState<Row | null>(null);
@@ -389,18 +407,19 @@ const PendingApprovals = () => {
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
+    const scoped = tab === "held" ? filterHeldByTeacher(rows, heldFilter === "mine" ? effectiveTeacherAuthUserId ?? "" : heldFilter) : rows;
+    if (!q) return scoped;
+    return scoped.filter(
       (r) =>
         (r.display_name ?? "").toLowerCase().includes(q) ||
         (r.student_no ?? "").toLowerCase().includes(q) ||
         r.sentence_id.toLowerCase().includes(q),
     );
-  }, [rows, query]);
+  }, [rows, query, tab, heldFilter, effectiveTeacherAuthUserId]);
 
   const countLabel = useMemo(
-    () => `${rows.length}건 ${tab === "held" ? "보류" : "대기"}`,
-    [rows.length, tab],
+    () => `${filteredRows.length}건 ${tab === "held" ? "보류" : "대기"}`,
+    [filteredRows.length, tab],
   );
 
   return (
@@ -470,6 +489,20 @@ const PendingApprovals = () => {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+        {tab === "held" && <div className="flex gap-2 items-center flex-wrap">
+          <Select value={heldFilter} onValueChange={setHeldFilter}>
+            <SelectTrigger className="w-56" aria-label="선생님별 보류함"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mine">내 보류함</SelectItem>
+              <SelectItem value="all">전체 보류함</SelectItem>
+              <SelectItem value="unassigned">담당 미지정</SelectItem>
+              {heldTeachers.map(t => <SelectItem key={t.id} value={t.id}>{t.name} 보류함</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {teachersError && <div role="alert" className="flex items-center gap-2 text-sm text-destructive">선생님 목록을 불러오지 못했습니다.
+            <Button size="sm" variant="outline" onClick={() => setTeachersReload(n => n + 1)}>다시 불러오기</Button>
+          </div>}
+        </div>}
 
         {tab !== "qna" && (
           <div className="relative max-w-xs">
@@ -586,6 +619,7 @@ const PendingApprovals = () => {
                       )}
                     </Badge>
                   )}
+                  {row.status === "held" && <Badge variant="outline">담당: {heldTeachers.find(t => t.id === row.held_teacher_id)?.name ?? (row.held_teacher_id ? "선생님" : "미지정")}</Badge>}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -727,6 +761,7 @@ const PendingApprovals = () => {
               );
             }}
             initialMemo={target.held_memo ?? undefined}
+            initialHeldTeacherId={target.held_teacher_id}
             mode={target.status === "held" || tab === "held" ? "held" : "pending"}
             sourceInfo={target.source}
             skipPin

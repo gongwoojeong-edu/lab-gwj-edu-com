@@ -8,6 +8,27 @@
       "when": 1791711498471,
       "tag": "0000_add_student_important_sentence",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792578022422,
+      "tag": "0001_assign_held_approval_teacher",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792578150990,
+      "tag": "0002_guard_held_teacher_on_insert",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792578169629,
+      "tag": "0003_held_teacher_directory",
+      "breakpoints": true
     }
   ]
 }

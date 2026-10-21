@@ -56,6 +56,7 @@ import {
   PrintPreloadError,
 } from "@/lib/printPreload";
 import { errMsg } from "@/lib/errMsg";
+import { countLearningSentences } from "@/lib/learningSentenceCounts";
 import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
 import { ensureLogoDataUri } from "@/lib/printTemplates";
 import { fetchUnitBookLabels } from "@/lib/textbooks";
@@ -114,6 +115,8 @@ const fmtTime = (iso: string) =>
 const LearningResults = () => {
   const [date, setDate] = useState<string>(toIsoDate(new Date()));
   const [loading, setLoading] = useState(true);
+  const [sentenceCounts, setSentenceCounts] = useState<Record<string, { fresh: number; relearn: number }>>({});
+  const [countsError, setCountsError] = useState(false);
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
   // key: `${user_id}::${sentence_id}` → HandoutResult (문장별 분리)
   const [handoutMap, setHandoutMap] = useState<Record<string, HandoutResult>>({});
@@ -213,8 +216,8 @@ const LearningResults = () => {
   const refresh = async () => {
     setLoading(true);
     try {
-      const startIso = `${date}T00:00:00`;
-      const endIso = `${date}T23:59:59.999`;
+      const startIso = `${date}T00:00:00+09:00`;
+      const endIso = `${date}T23:59:59.999+09:00`;
 
       // 1) 모든 활동 소스에서 (user_id, sentence_id) 페어 수집
       const [
@@ -225,6 +228,7 @@ const LearningResults = () => {
         wordTestRes,
         wordPreRes,
         progressRes,
+        submissionsRes,
       ] = await Promise.all([
         supabase
           .from("print_requests")
@@ -235,7 +239,7 @@ const LearningResults = () => {
         supabase
           .from("sentence_attempt_logs")
           .select(
-            "user_id, sentence_id, word_test_score, word_test_passed, analysis_match_rate, analysis_passed, completed_at",
+            "user_id, sentence_id, attempt_no, attempt_source, word_test_score, word_test_passed, analysis_match_rate, analysis_passed, completed_at",
           )
           .gte("completed_at", startIso)
           .lte("completed_at", endIso),
@@ -267,7 +271,19 @@ const LearningResults = () => {
           )
           .gte("last_activity_at", startIso)
           .lte("last_activity_at", endIso),
+        supabase.from("sentence_approvals")
+          .select("user_id, sentence_id, attempt_no")
+          .gte("requested_at", startIso).lte("requested_at", endIso),
       ]);
+
+      const countFailure = attemptsRes.error || submissionsRes.error;
+      setCountsError(!!countFailure);
+      if (countFailure) {
+        setSentenceCounts({});
+        toast({ title: "학습 문장 수를 불러오지 못했어요", description: countFailure.message, variant: "destructive" });
+      } else {
+        setSentenceCounts(countLearningSentences([...(attemptsRes.data ?? []), ...(submissionsRes.data ?? [])]));
+      }
 
       const pairs = new Map<string, Set<string>>(); // userId → Set<sentenceId>
       // (userId::sentenceId) → 가장 최근 활동 timestamp (ms)
@@ -330,6 +346,7 @@ const LearningResults = () => {
         handled_at: string;
       }>;
       printedRows.forEach((r) => addPair(r.user_id, r.sentence_id, r.handled_at));
+      (submissionsRes.data ?? []).forEach(r => addPair(r.user_id, r.sentence_id));
       ((attemptsRes.data ?? []) as Array<{
         user_id: string;
         sentence_id: string;
@@ -1344,6 +1361,10 @@ const LearningResults = () => {
           </Card>
         ) : (
           <>
+            {countsError && <div role="alert" className="flex items-center gap-3 border border-destructive rounded-md p-3 text-destructive">
+              학습 문장 수를 불러오지 못했습니다.
+              <Button variant="outline" size="sm" onClick={refresh}>다시 불러오기</Button>
+            </div>}
             {/* 반 탭 — 선택한 반별로 학생 카드만 노출 */}
             {(classTabs.tabs.length > 0 || classTabs.noClassCount > 0) && (
               <div className="flex items-center gap-1.5 flex-wrap sticky top-0 z-10 bg-background/95 backdrop-blur py-2">
@@ -1409,6 +1430,8 @@ const LearningResults = () => {
                     <span className="text-xs text-muted-foreground ml-1">
                       · 활동 {sentenceIds.length}건
                     </span>
+                    <Badge variant="outline">새 학습 {countsError ? "—" : sentenceCounts[userId]?.fresh ?? 0}문장</Badge>
+                    <Badge variant="secondary">재학습 {countsError ? "—" : sentenceCounts[userId]?.relearn ?? 0}문장</Badge>
                     {sentenceIds.length === 0 && (
                       <Badge variant="secondary" className="text-[10px]">
                         오늘 등원 · 미학습
