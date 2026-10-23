@@ -36,6 +36,9 @@ import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/importantSentences";
 import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
+
+/** 마지막으로 지정한 보류 담당 선생님 (선생님 모드 gwjt* 키 규칙) */
+const LAST_HELD_TEACHER_KEY = "gwjt_last_held_teacher_id";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
@@ -134,7 +137,9 @@ export const TeacherApprovalDialog = ({
     Promise.all([fetchHeldTeachers(), supabase.auth.getUser()]).then(([list, auth]) => {
       if (!alive) return;
       setHeldTeachers(list);
-      const preferred = initialHeldTeacherId || auth.data.user?.id;
+      // 마지막으로 지정한 담당 선생님을 기억해 두었다가 기본값으로 사용
+      const last = localStorage.getItem(LAST_HELD_TEACHER_KEY) ?? "";
+      const preferred = initialHeldTeacherId || last || auth.data.user?.id;
       setHeldTeacherId(list.some(t => t.id === preferred) ? preferred ?? "" : "");
     }).catch(() => {
       if (!alive) return;
@@ -633,6 +638,7 @@ export const TeacherApprovalDialog = ({
       });
       await endTeaching();
       clearDraft();
+      localStorage.setItem(LAST_HELD_TEACHER_KEY, heldTeacherId);
       toast({
         title: "보류 처리했어요",
         description: `${heldTeachers.find(t => t.id === heldTeacherId)?.name ?? "담당 선생님"} 보류함으로 보냈습니다.`,
