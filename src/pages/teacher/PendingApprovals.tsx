@@ -39,6 +39,7 @@ import { MessageCircleQuestion, Check } from "lucide-react";
 const QnaInbox = ({ onCount }: { onCount: (n: number) => void }) => {
   const [rows, setRows] = useState<TeachingQuestion[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
+  const [english, setEnglish] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -49,6 +50,16 @@ const QnaInbox = ({ onCount }: { onCount: (n: number) => void }) => {
       setRows(list);
       onCount(list.length);
       const ids = Array.from(new Set(list.map((r) => r.user_id)));
+      const codes = Array.from(new Set(list.map((r) => r.sentence_id)));
+      if (codes.length) {
+        const { data: ps } = await supabase
+          .from("textbook_passages")
+          .select("code, english")
+          .in("code", codes);
+        const em: Record<string, string> = {};
+        ((ps ?? []) as { code: string; english: string }[]).forEach((p) => (em[p.code] = p.english));
+        setEnglish(em);
+      }
       if (ids.length) {
         const { data } = await supabase
           .from("student_profiles")
@@ -101,6 +112,10 @@ const QnaInbox = ({ onCount }: { onCount: (n: number) => void }) => {
             <span className="text-xs text-muted-foreground">
               {r.answered_at ? new Date(r.answered_at).toLocaleString("ko-KR") : ""}
             </span>
+          </div>
+          <div className="rounded-md bg-muted/50 px-3 py-2 text-sm leading-snug">
+            <div className="text-[11px] text-muted-foreground mb-0.5">원문</div>
+            {english[r.sentence_id] ?? "(원문을 불러올 수 없음)"}
           </div>
           <div className="text-sm">
             <span className="text-[11px] font-bold text-muted-foreground mr-1.5">선생님</span>
