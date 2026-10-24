@@ -129,6 +129,43 @@ export const TeacherApprovalDialog = ({
   const [teachersError, setTeachersError] = useState(false);
   const [teachersLoading, setTeachersLoading] = useState(false);
   const [teachersReload, setTeachersReload] = useState(0);
+  /** 관용어구 메모 (첨삭 중 그때그때 학생 뱅크에 누적) */
+  const [idiomExpr, setIdiomExpr] = useState("");
+  const [idiomMeaning, setIdiomMeaning] = useState("");
+  const [idiomSaving, setIdiomSaving] = useState(false);
+  const [idiomAdded, setIdiomAdded] = useState(0);
+
+  const saveIdiomMemo = async () => {
+    if (!studentUserId) return;
+    const expr = idiomExpr.trim();
+    const mean = idiomMeaning.trim();
+    if (!expr || !mean) {
+      toast({ title: "표현과 뜻을 모두 입력해 주세요.", variant: "destructive" });
+      return;
+    }
+    setIdiomSaving(true);
+    try {
+      await addIdiomToBank({
+        userId: studentUserId,
+        expression: expr,
+        meaning: mean,
+        sentenceId,
+        approvalId,
+      });
+      setIdiomExpr("");
+      setIdiomMeaning("");
+      setIdiomAdded((n) => n + 1);
+      toast({ title: "관용어구 뱅크에 저장했어요", description: expr });
+    } catch (e) {
+      toast({
+        title: "관용어구 저장 실패",
+        description: e instanceof Error ? e.message : "다시 시도해 주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIdiomSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
