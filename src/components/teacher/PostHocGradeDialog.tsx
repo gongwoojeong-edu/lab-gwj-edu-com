@@ -103,7 +103,7 @@ export const PostHocGradeDialog = ({
         <div className="space-y-2">
           <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
           <div className="grid grid-cols-5 gap-1.5">
-            {GRADE_ORDER.map((g) => {
+            {GRADE_ORDER.filter((g) => g !== "resolved").map((g) => {
               const selected = grade === g;
               return (
                 <button

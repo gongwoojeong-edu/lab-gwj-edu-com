@@ -31,6 +31,7 @@ import {
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
+import { effectiveApprovalGrade } from "@/lib/gradeMeta";
 import { fetchPassageSource, fetchPassageByCode, updatePassage, updatePassageKorean, type PassageSource } from "@/lib/textbooks";
 import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
@@ -1076,7 +1077,9 @@ export const TeacherApprovalDialog = ({
                       ? "예) 실력이 쑥쑥 자라요! 지금 흐름 좋아요"
                       : grade === "redo"
                         ? "예) 다시 — 한 번 더 써볼까요"
-                        : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
+                        : !grade && allCoachingResolved
+                          ? "예) 옳지 — 코칭 포인트 전부 반영했네요"
+                          : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
                 }
                 maxLength={80}
                 disabled={saving}
@@ -1297,14 +1300,19 @@ export const TeacherApprovalDialog = ({
               </Button>
             )}
           </div>
-          <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
+          <Button
+            onClick={submit}
+            disabled={saving || (!skipPin && pin.length < 4) || (!grade && !allCoachingResolved)}
+          >
             {saving
               ? "저장 중..."
               : grade === "redo"
                 ? "추가학습 요청 보내기"
-                : isHeldMode
-                  ? "완료 (최종승인)"
-                  : "승인하고 다음 문장으로"}
+                : !grade && allCoachingResolved
+                  ? "해결완료로 승인"
+                  : isHeldMode
+                    ? "완료 (최종승인)"
+                    : "승인하고 다음 문장으로"}
           </Button>
         </DialogFooter>
       </DialogContent>
