@@ -36,6 +36,7 @@ import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/importantSentences";
 import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
+import { pickRedoMent, isAutoRedoMent } from "@/lib/praisePhrases";
 
 /** 마지막으로 지정한 보류 담당 선생님 (선생님 모드 gwjt* 키 규칙) */
 const LAST_HELD_TEACHER_KEY = "gwjt_last_held_teacher_id";
@@ -184,6 +185,7 @@ export const TeacherApprovalDialog = ({
   const [teaching, setTeaching] = useState(false);
   const [source, setSource] = useState<PassageSource | null | undefined>(initialSource);
   const [history, setHistory] = useState<PastFeedback[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [resolved, setResolved] = useState<Record<string, boolean>>({});
   /** 원문 즉시 수정 */
   const [editingEnglish, setEditingEnglish] = useState(false);
@@ -369,6 +371,18 @@ export const TeacherApprovalDialog = ({
     [history, resolved],
   );
 
+  /** 재학습 회차 멘트 자동 삽입 — 선생님이 직접 입력한 칭찬은 건드리지 않는다 */
+  useEffect(() => {
+    if (!open || !historyLoaded || !grade) return;
+    const ment = pickRedoMent(redoCount, grade !== "redo");
+    if (ment) {
+      if (isAutoRedoMent(praise)) setPraise(ment);
+    } else if (praise.trim() && isAutoRedoMent(praise)) {
+      setPraise("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, historyLoaded, grade, redoCount]);
+
   const pullUnresolved = () => {
     const next = { ...memo };
     unresolved.forEach((h) => {
@@ -453,10 +467,14 @@ export const TeacherApprovalDialog = ({
   useEffect(() => {
     if (!open) return;
     let mounted = true;
+    setHistoryLoaded(false);
     (async () => {
       const uid =
         studentUserId ?? (await supabase.auth.getUser()).data.user?.id ?? null;
-      if (!uid) return;
+      if (!uid) {
+        setHistoryLoaded(true);
+        return;
+      }
       const { data } = await supabase
         .from("sentence_approvals")
         .select("id, attempt_no, grade, status, memo, held_memo, approved_at, held_at, requested_at, feedback_resolved")
@@ -481,6 +499,7 @@ export const TeacherApprovalDialog = ({
       const init: Record<string, boolean> = {};
       rows.forEach((r) => { if (r.resolved) init[r.id] = true; });
       setResolved(init);
+      setHistoryLoaded(true);
     })();
     return () => {
       mounted = false;
@@ -591,10 +610,8 @@ export const TeacherApprovalDialog = ({
         sentenceId,
         grade,
         memo: serializeMemo(memo) ?? "",
-        praise:
-          grade === "excellent" || grade === "good" || resolvedFeedback
-            ? praise
-            : undefined,
+        // 회차 멘트("다시"/"견뎌"/"옳지")와 직접 입력한 칭찬은 등급과 무관하게 전달한다
+        praise: praise.trim() ? praise : undefined,
         studentUserId,
         resolvedFeedback,
       });
@@ -986,11 +1003,18 @@ export const TeacherApprovalDialog = ({
 
           {(grade === "excellent" ||
             grade === "good" ||
+            grade === "redo" ||
+            redoCount > 0 ||
             history.some((h) => !!resolved[h.id])) && (
             <div className="space-y-1.5">
               <div className="text-xs font-semibold text-muted-foreground">
                 칭찬 한 줄 <span className="font-normal">(선택 · 비우면 자동 칭찬)</span>
               </div>
+              {(grade === "redo" || redoCount > 0) && (
+                <div className="text-[11px] text-muted-foreground">
+                  재학습 회차에 따라 "다시 · 견뎌 · 옳지"가 자동으로 채워집니다. 그대로 두시거나 자유롭게 바꿀 수 있어요.
+                </div>
+              )}
               <Input
                 value={praise}
                 onChange={(e) => setPraise(e.target.value.slice(0, 80))}
@@ -999,7 +1023,9 @@ export const TeacherApprovalDialog = ({
                     ? "예) 오늘 집중력 최고! 연결사 처리 완벽했어요"
                     : grade === "good"
                       ? "예) 실력이 쑥쑥 자라요! 지금 흐름 좋아요"
-                      : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
+                      : grade === "redo"
+                        ? "예) 다시 — 한 번 더 써볼까요"
+                        : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
                 }
                 maxLength={80}
                 disabled={saving}

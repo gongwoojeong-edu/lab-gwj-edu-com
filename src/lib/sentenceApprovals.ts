@@ -259,18 +259,23 @@ export const approveSentenceRequest = async (input: {
     : null;
 
   // excellent/good 칭찬 문구 (선생님 직접 칭찬 우선, 없으면 자동 랜덤)
-  const praiseLine = !isRedo && !isCoach
-    ? isComebackApproval
-      ? pickComebackPraise(praiseTrimmed)
-      : pickPraise(input.grade, praiseTrimmed)
-    : null;
+  // 재학습 지정(redo)에는 회차 멘트("다시"/"견뎌")가 칭찬 한 줄로 그대로 전달된다.
+  const praiseLine = isRedo
+    ? praiseTrimmed
+    : isCoach
+      ? null
+      : isComebackApproval
+        ? pickComebackPraise(praiseTrimmed)
+        : pickPraise(input.grade, praiseTrimmed);
 
   try {
     await createNotification({
       userId: targetUserId,
       kind: "evaluation",
       title: isRedo
-        ? "선생님 추가학습 요청 — 한 번 더 제출해주세요"
+        ? praiseLine
+          ? `${praiseLine} — 선생님 추가학습 요청`
+          : "선생님 추가학습 요청 — 한 번 더 제출해주세요"
         : isCoach
           ? "선생님 코칭 — 워크북에서 다시 써보세요"
           : congrats

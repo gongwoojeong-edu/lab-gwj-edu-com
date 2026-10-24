@@ -267,6 +267,8 @@ const SentenceLearn = () => {
   // 추가학습 요청 (선생님이 redo 등급으로 승인) — 기존 통과 기록은 유지하되 한 번 더 제출
   const [redoRequestedAt, setRedoRequestedAt] = useState<string | null>(null);
   const [redoMemo, setRedoMemo] = useState<string | null>(null);
+  /** 재학습 회차 멘트 ("다시"/"견뎌") — 승인에 저장된 칭찬 한 줄 */
+  const [redoMent, setRedoMent] = useState<string | null>(null);
 
   // 최근 선생님 평가 결과 배너 (redo 제외 모든 등급 — 학생이 코멘트를 확인한 뒤 다음 문장으로 이동)
   const [lastEvaluation, setLastEvaluation] = useState<{
@@ -839,6 +841,33 @@ const SentenceLearn = () => {
     }
   };
 
+  /** 재학습 배너용 회차 멘트 — 승인에 저장된 칭찬 한 줄("다시"/"견뎌")을 불러온다 */
+  useEffect(() => {
+    if (!redoRequestedAt || !myUserId || !sentence?.id) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("sentence_approvals")
+          .select("praise_text")
+          .eq("user_id", myUserId)
+          .eq("sentence_id", sentence.id)
+          .eq("grade", "redo")
+          .eq("status", "approved")
+          .order("approved_at", { ascending: false })
+          .limit(1);
+        if (!alive) return;
+        const row = data?.[0] as { praise_text?: string | null } | undefined;
+        setRedoMent(row?.praise_text?.trim() || null);
+      } catch {
+        /* 멘트가 없으면 기존 배너 문구만 표시한다 */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [redoRequestedAt, myUserId, sentence?.id]);
+
   const handleSkipToNext = async (fromSentenceId?: string) => {
     const sid = fromSentenceId ?? sentence?.id;
     if (!sid) {
@@ -890,10 +919,12 @@ const SentenceLearn = () => {
     setPendingApproval(null);
     const isHeld = approval.status === "held";
     if (!isHeld && approval.grade === "redo") {
+      const ment = approval.praise_text?.trim() || null;
       setRedoRequestedAt(new Date().toISOString());
       setRedoMemo(approval.memo);
+      setRedoMent(ment);
       toast({
-        title: "선생님 추가학습 요청",
+        title: ment ? `${ment} — 선생님 추가학습 요청` : "선생님 추가학습 요청",
         description: memoToPlainText(approval.memo) || "한 번 더 제출해 주세요.",
       });
       return;
@@ -916,6 +947,7 @@ const SentenceLearn = () => {
       if (isComeback) {
         setRedoRequestedAt(null);
         setRedoMemo(null);
+        setRedoMent(null);
       }
       if (!isHeld && approval.grade) {
         setLastEvaluation({
@@ -1314,6 +1346,11 @@ const SentenceLearn = () => {
               <RotateCcw className="w-6 h-6 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
               <div className="space-y-1">
                 <div className="text-base font-extrabold text-foreground">선생님 추가학습 요청</div>
+                {redoMent && (
+                  <div className="text-lg font-black text-violet-700 dark:text-violet-300">
+                    {redoMent}
+                  </div>
+                )}
                 <div className="text-sm text-muted-foreground">
                   {previousStatus === "pass"
                     ? "기존 통과 기록은 그대로 유지돼요. 한 번 더 한글 해석을 작성해 제출해 주세요."
