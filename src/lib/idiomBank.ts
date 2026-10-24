@@ -4,6 +4,7 @@
 // 주기적으로 정리지/테스트지로 출력하거나 앱 내 테스트를 부여한다.
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { getCurrentUserId } from "@/lib/authState";
 import { createNotification } from "@/lib/studentNotifications";
 
