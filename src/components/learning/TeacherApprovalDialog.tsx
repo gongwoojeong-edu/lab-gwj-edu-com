@@ -408,18 +408,22 @@ export const TeacherApprovalDialog = ({
     () => history.filter((h) => !resolved[h.id]),
     [history, resolved],
   );
+  /** 코칭 포인트(이전 첨삭)가 1건 이상 있고 모두 "해결됨"으로 체크된 상태 — 등급 없이 승인 가능 */
+  const allCoachingResolved = history.length > 0 && unresolved.length === 0;
 
   /** 재학습 회차 멘트 자동 삽입 — 선생님이 직접 입력한 칭찬은 건드리지 않는다 */
   useEffect(() => {
-    if (!open || !historyLoaded || !grade) return;
-    const ment = pickRedoMent(redoCount, grade !== "redo");
+    if (!open || !historyLoaded) return;
+    const eff = effectiveApprovalGrade(grade, allCoachingResolved);
+    if (!eff) return;
+    const ment = pickRedoMent(redoCount, eff !== "redo");
     if (ment) {
       if (isAutoRedoMent(praise)) setPraise(ment);
     } else if (praise.trim() && isAutoRedoMent(praise)) {
       setPraise("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, historyLoaded, grade, redoCount]);
+  }, [open, historyLoaded, grade, allCoachingResolved, redoCount]);
 
   const pullUnresolved = () => {
     const next = { ...memo };
@@ -614,7 +618,9 @@ export const TeacherApprovalDialog = ({
 
   const submit = async () => {
     if (saving) return;
-    if (!grade) {
+    // 코칭 포인트를 모두 해결 체크하면 등급 선택 없이 승인 가능 — "해결완료"로 기록
+    const effectiveGrade = effectiveApprovalGrade(grade, allCoachingResolved);
+    if (!effectiveGrade) {
       toast({ title: "평가 등급을 선택하세요", variant: "destructive" });
       return;
     }
