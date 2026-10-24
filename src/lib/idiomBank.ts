@@ -209,7 +209,7 @@ export const submitIdiomTest = async (
   assignment: IdiomTestAssignment,
   items: IdiomBankItem[],
   answers: Record<string, string>,
-): Promise<{ correct: number; total: number; score: number }> => {
+): Promise<{ correct: number; total: number; score: number; results: IdiomTestResultItem[] }> => {
   const results: IdiomTestResultItem[] = items.map((it) => {
     const given = (answers[it.id] ?? "").trim();
     return {
