@@ -6,7 +6,7 @@
 // 여기에만 정의한다.
 // ============================================================
 
-export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo" | "coach";
+export type ApprovalGrade = "excellent" | "good" | "fair" | "poor" | "redo" | "coach" | "resolved";
 
 export const GRADE_LABEL: Record<ApprovalGrade, string> = {
   excellent: "매우잘함",
@@ -15,6 +15,7 @@ export const GRADE_LABEL: Record<ApprovalGrade, string> = {
   poor: "미흡",
   redo: "재학습",
   coach: "코칭",
+  resolved: "해결완료",
 };
 
 export const GRADE_ORDER: ApprovalGrade[] = [
@@ -24,6 +25,8 @@ export const GRADE_ORDER: ApprovalGrade[] = [
   "poor",
   "coach",
   "redo",
+  // 코칭 포인트 모두 해결 시 등급 없이 승인될 때 자동 기록되는 등급 — 선택 버튼으로는 노출하지 않는다.
+  "resolved",
 ];
 
 /** DB에 stored된 값이 알려진 등급인지 (레거시/미발매 값 차단) */
@@ -41,6 +44,7 @@ const PRINT_STYLE: Record<ApprovalGrade, string> = {
   poor: "background:#fdeadd;border:0.4pt solid #c2620f;color:#8a4409;",
   redo: "background:#fde8ec;border:0.4pt solid #c2274a;color:#8f1a35;",
   coach: "background:#f3ecfd;border:0.4pt solid #7c3aed;color:#4c1d95;",
+  resolved: "background:#dcf5f0;border:0.4pt solid #0f766e;color:#134e4a;",
 };
 
 /**
@@ -86,3 +90,13 @@ export const redoRoundBadgeHtml = (attemptNo: number | null | undefined): string
     `재학습 ${rounds}회</span>`
   );
 };
+
+/**
+ * 승인 시 실제 기록될 등급.
+ * 코칭 포인트(이전 첨삭)가 모두 "해결됨"으로 체크되면 등급 선택 없이 승인할 수 있고,
+ * 그때는 "해결완료(resolved)"로 기록한다.
+ */
+export const effectiveApprovalGrade = (
+  grade: ApprovalGrade | null,
+  allCoachingResolved: boolean,
+): ApprovalGrade | null => grade ?? (allCoachingResolved ? "resolved" : null);

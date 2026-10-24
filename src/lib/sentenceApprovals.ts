@@ -21,6 +21,7 @@ export const GRADE_BADGE_CLASS: Record<ApprovalGrade, string> = {
   poor: "bg-orange-500 text-white border-orange-600",
   redo: "bg-rose-500 text-white border-rose-600",
   coach: "bg-violet-500 text-white border-violet-600",
+  resolved: "bg-teal-600 text-white border-teal-700",
 };
 
 
