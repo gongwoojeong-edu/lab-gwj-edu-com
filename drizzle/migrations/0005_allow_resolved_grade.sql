@@ -1,0 +1,2 @@
+ALTER TABLE public.sentence_approvals DROP CONSTRAINT sentence_approvals_grade_check;
+ALTER TABLE public.sentence_approvals ADD CONSTRAINT sentence_approvals_grade_check CHECK (grade = ANY (ARRAY['excellent','good','fair','poor','redo','coach','resolved']));
