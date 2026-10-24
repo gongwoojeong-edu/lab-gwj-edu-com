@@ -398,6 +398,14 @@ const App = () => (
                 </RequireAuth>
               }
             />
+            <Route
+              path="/teacher/idioms"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <IdiomBank />
+                </RequireAuth>
+              }
+            />
 
             <Route
               path="/teacher/integrations"

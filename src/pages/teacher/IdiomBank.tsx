@@ -128,7 +128,7 @@ const IdiomBankPage = () => {
       items: [...items].reverse().map((it) => ({ expression: it.expression, meaning: it.meaning })),
       mode,
     });
-    void launchPrintHtml(html, { title: "관용어구 출력" });
+    void launchPrintHtml(html, { jobKey: `idiom-${mode}-${student.user_id}` });
   };
 
   const assign = async () => {
