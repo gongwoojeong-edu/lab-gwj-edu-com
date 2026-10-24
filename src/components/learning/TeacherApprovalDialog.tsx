@@ -652,7 +652,7 @@ export const TeacherApprovalDialog = ({
       await approveSentenceRequest({
         approvalId,
         sentenceId,
-        grade,
+        grade: effectiveGrade,
         memo: serializeMemo(memo) ?? "",
         // 회차 멘트("다시"/"견뎌"/"옳지")와 직접 입력한 칭찬은 등급과 무관하게 전달한다
         praise: praise.trim() ? praise : undefined,
@@ -662,15 +662,17 @@ export const TeacherApprovalDialog = ({
       await endTeaching();
       clearDraft();
       toast({
-        title: grade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[grade]}`,
+        title: effectiveGrade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[effectiveGrade]}`,
         description:
-          grade === "redo"
+          effectiveGrade === "redo"
             ? "기존 통과 기록은 유지되며, 학생이 한 번 더 제출하게 됩니다."
-            : "다음 문장으로 진행합니다",
+            : effectiveGrade === "resolved"
+              ? "코칭 포인트 해결 — '해결완료'로 기록되었습니다"
+              : "다음 문장으로 진행합니다",
       });
 
       onOpenChange(false);
-      onApproved(grade);
+      onApproved(effectiveGrade);
     } catch (e: any) {
       toast({
         title: "승인 저장 실패",
@@ -1024,7 +1026,7 @@ export const TeacherApprovalDialog = ({
           <div className="space-y-2">
             <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
             <div className="grid grid-cols-5 gap-1.5">
-              {GRADE_ORDER.map((g) => {
+              {GRADE_ORDER.filter((g) => g !== "resolved").map((g) => {
                 const selected = grade === g;
                 return (
                   <button
@@ -1043,6 +1045,11 @@ export const TeacherApprovalDialog = ({
                 );
               })}
             </div>
+            {allCoachingResolved && !grade && (
+              <div className="text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+                코칭 포인트를 모두 해결 체크했습니다 — 등급 없이 승인하면 "해결완료"로 기록됩니다.
+              </div>
+            )}
           </div>
 
           {(grade === "excellent" ||
