@@ -31,6 +31,7 @@ import {
   GRADE_ORDER,
   type ApprovalGrade,
 } from "@/lib/sentenceApprovals";
+import { effectiveApprovalGrade } from "@/lib/gradeMeta";
 import { fetchPassageSource, fetchPassageByCode, updatePassage, updatePassageKorean, type PassageSource } from "@/lib/textbooks";
 import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
@@ -408,18 +409,22 @@ export const TeacherApprovalDialog = ({
     () => history.filter((h) => !resolved[h.id]),
     [history, resolved],
   );
+  /** 코칭 포인트(이전 첨삭)가 1건 이상 있고 모두 "해결됨"으로 체크된 상태 — 등급 없이 승인 가능 */
+  const allCoachingResolved = history.length > 0 && unresolved.length === 0;
 
   /** 재학습 회차 멘트 자동 삽입 — 선생님이 직접 입력한 칭찬은 건드리지 않는다 */
   useEffect(() => {
-    if (!open || !historyLoaded || !grade) return;
-    const ment = pickRedoMent(redoCount, grade !== "redo");
+    if (!open || !historyLoaded) return;
+    const eff = effectiveApprovalGrade(grade, allCoachingResolved);
+    if (!eff) return;
+    const ment = pickRedoMent(redoCount, eff !== "redo");
     if (ment) {
       if (isAutoRedoMent(praise)) setPraise(ment);
     } else if (praise.trim() && isAutoRedoMent(praise)) {
       setPraise("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, historyLoaded, grade, redoCount]);
+  }, [open, historyLoaded, grade, allCoachingResolved, redoCount]);
 
   const pullUnresolved = () => {
     const next = { ...memo };
@@ -614,7 +619,9 @@ export const TeacherApprovalDialog = ({
 
   const submit = async () => {
     if (saving) return;
-    if (!grade) {
+    // 코칭 포인트를 모두 해결 체크하면 등급 선택 없이 승인 가능 — "해결완료"로 기록
+    const effectiveGrade = effectiveApprovalGrade(grade, allCoachingResolved);
+    if (!effectiveGrade) {
       toast({ title: "평가 등급을 선택하세요", variant: "destructive" });
       return;
     }
@@ -646,7 +653,7 @@ export const TeacherApprovalDialog = ({
       await approveSentenceRequest({
         approvalId,
         sentenceId,
-        grade,
+        grade: effectiveGrade,
         memo: serializeMemo(memo) ?? "",
         // 회차 멘트("다시"/"견뎌"/"옳지")와 직접 입력한 칭찬은 등급과 무관하게 전달한다
         praise: praise.trim() ? praise : undefined,
@@ -656,15 +663,17 @@ export const TeacherApprovalDialog = ({
       await endTeaching();
       clearDraft();
       toast({
-        title: grade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[grade]}`,
+        title: effectiveGrade === "redo" ? "추가학습 요청을 보냈어요" : `승인 완료 — ${GRADE_LABEL[effectiveGrade]}`,
         description:
-          grade === "redo"
+          effectiveGrade === "redo"
             ? "기존 통과 기록은 유지되며, 학생이 한 번 더 제출하게 됩니다."
-            : "다음 문장으로 진행합니다",
+            : effectiveGrade === "resolved"
+              ? "코칭 포인트 해결 — '해결완료'로 기록되었습니다"
+              : "다음 문장으로 진행합니다",
       });
 
       onOpenChange(false);
-      onApproved(grade);
+      onApproved(effectiveGrade);
     } catch (e: any) {
       toast({
         title: "승인 저장 실패",
@@ -1018,7 +1027,7 @@ export const TeacherApprovalDialog = ({
           <div className="space-y-2">
             <div className="text-xs font-semibold text-muted-foreground">평가 등급</div>
             <div className="grid grid-cols-5 gap-1.5">
-              {GRADE_ORDER.map((g) => {
+              {GRADE_ORDER.filter((g) => g !== "resolved").map((g) => {
                 const selected = grade === g;
                 return (
                   <button
@@ -1037,6 +1046,11 @@ export const TeacherApprovalDialog = ({
                 );
               })}
             </div>
+            {allCoachingResolved && !grade && (
+              <div className="text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+                코칭 포인트를 모두 해결 체크했습니다 — 등급 없이 승인하면 "해결완료"로 기록됩니다.
+              </div>
+            )}
           </div>
 
           {(grade === "excellent" ||
@@ -1063,7 +1077,9 @@ export const TeacherApprovalDialog = ({
                       ? "예) 실력이 쑥쑥 자라요! 지금 흐름 좋아요"
                       : grade === "redo"
                         ? "예) 다시 — 한 번 더 써볼까요"
-                        : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
+                        : !grade && allCoachingResolved
+                          ? "예) 옳지 — 코칭 포인트 전부 반영했네요"
+                          : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
                 }
                 maxLength={80}
                 disabled={saving}
@@ -1284,14 +1300,19 @@ export const TeacherApprovalDialog = ({
               </Button>
             )}
           </div>
-          <Button onClick={submit} disabled={saving || (!skipPin && pin.length < 4) || !grade}>
+          <Button
+            onClick={submit}
+            disabled={saving || (!skipPin && pin.length < 4) || (!grade && !allCoachingResolved)}
+          >
             {saving
               ? "저장 중..."
               : grade === "redo"
                 ? "추가학습 요청 보내기"
-                : isHeldMode
-                  ? "완료 (최종승인)"
-                  : "승인하고 다음 문장으로"}
+                : !grade && allCoachingResolved
+                  ? "해결완료로 승인"
+                  : isHeldMode
+                    ? "완료 (최종승인)"
+                    : "승인하고 다음 문장으로"}
           </Button>
         </DialogFooter>
       </DialogContent>
