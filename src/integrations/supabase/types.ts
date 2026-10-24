@@ -214,6 +214,51 @@ export type Database = {
         }
         Relationships: []
       }
+      idiom_test_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          completed_at: string | null
+          correct: number | null
+          created_at: string
+          id: string
+          item_ids: Json
+          results: Json | null
+          score: number | null
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          completed_at?: string | null
+          correct?: number | null
+          created_at?: string
+          id?: string
+          item_ids: Json
+          results?: Json | null
+          score?: number | null
+          total: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          completed_at?: string | null
+          correct?: number | null
+          created_at?: string
+          id?: string
+          item_ids?: Json
+          results?: Json | null
+          score?: number | null
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       idioms: {
         Row: {
           created_at: string
@@ -1072,6 +1117,42 @@ export type Database = {
           sentence_id?: string
           updated_at?: string
           words?: Json
+        }
+        Relationships: []
+      }
+      student_idiom_bank: {
+        Row: {
+          approval_id: string | null
+          created_at: string
+          created_by: string | null
+          expression: string
+          id: string
+          meaning: string
+          sentence_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approval_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expression: string
+          id?: string
+          meaning: string
+          sentence_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approval_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expression?: string
+          id?: string
+          meaning?: string
+          sentence_id?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

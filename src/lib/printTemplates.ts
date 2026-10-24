@@ -1704,3 +1704,93 @@ export const buildCoachingReportHtml = (p: CoachingReportPrintPayload): string =
 </div>`;
   return wrapDoc(`첨삭리포트 ${p.studentName} ${p.periodLabel}`, body);
 };
+
+// ============================================================
+// 관용어구 뱅크 출력 — 학습용 정리지 / 테스트지(+정답지)
+// ============================================================
+export interface IdiomSheetPayload {
+  studentName: string;
+  studentNo?: string | null;
+  items: { expression: string; meaning: string }[];
+  /** study: 영어+뜻 나란히 / test: 영어만, 뜻은 빈칸 + 정답지 페이지 */
+  mode: "study" | "test";
+}
+
+export const buildIdiomSheetHtml = (p: IdiomSheetPayload): string => {
+  const stamp = nowStamp();
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? `(${escapeHtml(p.studentNo)})` : "";
+  const isTest = p.mode === "test";
+
+  const half = Math.ceil(p.items.length / 2);
+  const left = p.items.slice(0, half);
+  const right = p.items.slice(half);
+
+  const renderRow = (
+    it: { expression: string; meaning: string },
+    idx0: number,
+    blank: boolean,
+  ): string => {
+    const idx = idx0 + 1;
+    const ko = blank
+      ? `<div class="cell ko blank">______</div>`
+      : `<div class="cell ko">${escapeHtml(it.meaning || "—")}</div>`;
+    return `<div class="row"><div class="num">${idx}.</div><div class="cell en">${escapeHtml(it.expression)}</div>${ko}</div>`;
+  };
+
+  const grid = (blank: boolean) =>
+    p.items.length === 0
+      ? `<div class="empty">등록된 관용어구가 없습니다.</div>`
+      : `<div class="grid">
+          <div class="col">${left.map((it, i) => renderRow(it, i, blank)).join("")}</div>
+          <div class="col">${right.map((it, i) => renderRow(it, half + i, blank)).join("")}</div>
+        </div>`;
+
+  const headerBlock = (subtitle: string, extraMeta: string) => `
+  <div class="header">
+    <div>
+      <div class="eyebrow">Gongwoojeong · Idiom Bank</div>
+      <div class="title">관용어구 ${subtitle}</div>
+      <div class="meta">${p.items.length}개 표현</div>
+    </div>
+    <div class="meta" style="text-align:right">
+      <div>학생: <b>${sName}</b> ${sNo}</div>
+      <div>출력: ${stamp}</div>
+      ${extraMeta}
+    </div>
+  </div>`;
+
+  const mainPage = `
+<div class="page">
+  ${headerBlock(isTest ? "테스트지" : "정리지", isTest ? `<div>점수: ___ / ${p.items.length}</div>` : "")}
+  ${grid(isTest)}
+</div>`;
+
+  const answerPage = isTest
+    ? `
+<div class="page">
+  ${headerBlock("테스트 정답지", "")}
+  ${grid(false)}
+</div>`
+    : "";
+
+  const body = `
+<style>
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; padding: 4mm 5mm; }
+  .col { display: flex; flex-direction: column; }
+  .row {
+    display: grid; grid-template-columns: 7mm 1.2fr 1fr; gap: 2mm;
+    align-items: end; border-bottom: 0.5pt solid #000;
+    padding: 2mm 0; min-height: 9mm;
+  }
+  .num { font-size: 8pt; color: #444; text-align: right; padding-right: 1mm; }
+  .en { font-size: 10.5pt; font-weight: 600; }
+  .ko { font-size: 9.5pt; color: #333; }
+  .blank { color: transparent; }
+  .empty { padding: 24mm; text-align: center; font-size: 11pt; color: #555; }
+</style>
+${mainPage}
+${answerPage}
+`;
+  return wrapDoc(`관용어구 ${isTest ? "테스트지" : "정리지"} ${p.studentName}`, body);
+};

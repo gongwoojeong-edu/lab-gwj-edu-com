@@ -37,6 +37,7 @@ import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/importantSentences";
 import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
 import { pickRedoMent, isAutoRedoMent } from "@/lib/praisePhrases";
+import { addIdiomToBank } from "@/lib/idiomBank";
 
 /** 마지막으로 지정한 보류 담당 선생님 (선생님 모드 gwjt* 키 규칙) */
 const LAST_HELD_TEACHER_KEY = "gwjt_last_held_teacher_id";
@@ -128,6 +129,43 @@ export const TeacherApprovalDialog = ({
   const [teachersError, setTeachersError] = useState(false);
   const [teachersLoading, setTeachersLoading] = useState(false);
   const [teachersReload, setTeachersReload] = useState(0);
+  /** 관용어구 메모 (첨삭 중 그때그때 학생 뱅크에 누적) */
+  const [idiomExpr, setIdiomExpr] = useState("");
+  const [idiomMeaning, setIdiomMeaning] = useState("");
+  const [idiomSaving, setIdiomSaving] = useState(false);
+  const [idiomAdded, setIdiomAdded] = useState(0);
+
+  const saveIdiomMemo = async () => {
+    if (!studentUserId) return;
+    const expr = idiomExpr.trim();
+    const mean = idiomMeaning.trim();
+    if (!expr || !mean) {
+      toast({ title: "표현과 뜻을 모두 입력해 주세요.", variant: "destructive" });
+      return;
+    }
+    setIdiomSaving(true);
+    try {
+      await addIdiomToBank({
+        userId: studentUserId,
+        expression: expr,
+        meaning: mean,
+        sentenceId,
+        approvalId,
+      });
+      setIdiomExpr("");
+      setIdiomMeaning("");
+      setIdiomAdded((n) => n + 1);
+      toast({ title: "관용어구 뱅크에 저장했어요", description: expr });
+    } catch (e) {
+      toast({
+        title: "관용어구 저장 실패",
+        description: e instanceof Error ? e.message : "다시 시도해 주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIdiomSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -1030,6 +1068,50 @@ export const TeacherApprovalDialog = ({
                 maxLength={80}
                 disabled={saving}
               />
+            </div>
+          )}
+
+          {studentUserId && (
+            <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-3">
+              <div className="text-xs font-semibold text-muted-foreground">
+                관용어구 메모 <span className="font-normal">(외워야 할 표현 · 학생 뱅크에 누적)</span>
+                {idiomAdded > 0 && (
+                  <span className="ml-1 text-emerald-600 dark:text-emerald-400">· 이번 첨삭에서 {idiomAdded}개 저장됨</span>
+                )}
+              </div>
+              <div className="flex gap-1.5">
+                <Input
+                  value={idiomExpr}
+                  onChange={(e) => setIdiomExpr(e.target.value.slice(0, 120))}
+                  placeholder="표현 예) take part in"
+                  maxLength={120}
+                  disabled={idiomSaving}
+                  className="h-8 text-xs flex-1"
+                />
+                <Input
+                  value={idiomMeaning}
+                  onChange={(e) => setIdiomMeaning(e.target.value.slice(0, 120))}
+                  placeholder="뜻 예) ~에 참가하다"
+                  maxLength={120}
+                  disabled={idiomSaving}
+                  className="h-8 text-xs flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void saveIdiomMemo();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs shrink-0"
+                  disabled={idiomSaving || !idiomExpr.trim() || !idiomMeaning.trim()}
+                  onClick={() => void saveIdiomMemo()}
+                >
+                  {idiomSaving ? "저장 중…" : "뱅크에 추가"}
+                </Button>
+              </div>
             </div>
           )}
 

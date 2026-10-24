@@ -35,6 +35,7 @@ import {
   Plug,
   Settings2,
   FileText,
+  BookMarked,
   Bell,
   BellOff,
 } from "lucide-react";
@@ -230,6 +231,14 @@ const TeacherSidebarInner = () => {
                         {approvalCount}
                       </span>
                     )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/idioms" className={({ isActive }) => linkCls(isActive)}>
+                    <BookMarked className="size-4" />
+                    {!collapsed && <span>관용어구 뱅크</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

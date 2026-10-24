@@ -18,6 +18,7 @@ import TeacherHome from "./pages/teacher/TeacherHome.tsx";
 import StalledStudents from "./pages/teacher/StalledStudents.tsx";
 import PendingApprovals from "./pages/teacher/PendingApprovals.tsx";
 import Integrations from "./pages/teacher/Integrations.tsx";
+import IdiomBank from "./pages/teacher/IdiomBank.tsx";
 import Bookshelf from "./pages/teacher/Bookshelf.tsx";
 import BookshelfLevel from "./pages/teacher/BookshelfLevel.tsx";
 import BookshelfSeries from "./pages/teacher/BookshelfSeries.tsx";
@@ -55,6 +56,7 @@ import { StaffProvider } from "./lib/staff-context";
 import { TeachingOverlay } from "./components/student/TeachingOverlay";
 import { TeachingQuestionAlert } from "./components/student/TeachingQuestionAlert";
 import RedoAlertBar from "./components/student/RedoAlertBar";
+import IdiomTestBanner from "./components/student/IdiomTestBanner";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +70,7 @@ const App = () => (
         <BrowserRouter>
           <TeachingOverlay />
           <RedoAlertBar />
+          <IdiomTestBanner />
           <TeachingQuestionAlert />
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -395,6 +398,14 @@ const App = () => (
               element={
                 <RequireAuth requireRole="teacher">
                   <PendingApprovals />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/teacher/idioms"
+              element={
+                <RequireAuth requireRole="teacher">
+                  <IdiomBank />
                 </RequireAuth>
               }
             />
