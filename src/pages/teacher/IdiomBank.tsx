@@ -163,7 +163,7 @@ const IdiomBankPage = () => {
         <div>
           <h1 className="text-xl font-bold">관용어구 뱅크</h1>
           <p className="text-sm text-muted-foreground">
-            첨삭 중 메모해 둔 외워야 할 관용어구가 학생별로 쌓입니다. 정리지·테스트지로 출력하거나 앱 내 테스트를 부여하세요.
+            첨삭 중 메모해 둔 외워야 할 관용어구가 학생별로 쌓입니다. 워크북 인쇄 시 뒤쪽 부록(관용어구 모음)으로 자동 포함되고, 필요하면 정리지·테스트지를 따로 출력하거나 앱 내 테스트를 부여할 수 있습니다.
           </p>
         </div>
 
