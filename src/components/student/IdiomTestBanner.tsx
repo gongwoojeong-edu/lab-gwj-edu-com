@@ -34,7 +34,12 @@ export function IdiomTestBanner() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loadingItems, setLoadingItems] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ correct: number; total: number; score: number } | null>(null);
+  const [result, setResult] = useState<{
+    correct: number;
+    total: number;
+    score: number;
+    results: { id: string; expression: string; expected: string; given: string; correct: boolean }[];
+  } | null>(null);
 
   const check = useCallback(async () => {
     const a = await fetchMyPendingIdiomTest();

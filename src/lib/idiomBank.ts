@@ -234,5 +234,5 @@ export const submitIdiomTest = async (
     })
     .eq("id", assignment.id);
   if (error) throw error;
-  return { correct, total, score };
+  return { correct, total, score, results };
 };
