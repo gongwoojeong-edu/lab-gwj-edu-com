@@ -230,7 +230,7 @@ export const submitIdiomTest = async (
       completed_at: new Date().toISOString(),
       correct,
       score,
-      results,
+      results: results as unknown as Json,
       updated_at: new Date().toISOString(),
     })
     .eq("id", assignment.id);
