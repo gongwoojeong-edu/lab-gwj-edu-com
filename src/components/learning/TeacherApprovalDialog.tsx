@@ -1005,11 +1005,18 @@ export const TeacherApprovalDialog = ({
 
           {(grade === "excellent" ||
             grade === "good" ||
+            grade === "redo" ||
+            redoCount > 0 ||
             history.some((h) => !!resolved[h.id])) && (
             <div className="space-y-1.5">
               <div className="text-xs font-semibold text-muted-foreground">
                 칭찬 한 줄 <span className="font-normal">(선택 · 비우면 자동 칭찬)</span>
               </div>
+              {(grade === "redo" || redoCount > 0) && (
+                <div className="text-[11px] text-muted-foreground">
+                  재학습 회차에 따라 "다시 · 견뎌 · 옳지"가 자동으로 채워집니다. 그대로 두시거나 자유롭게 바꿀 수 있어요.
+                </div>
+              )}
               <Input
                 value={praise}
                 onChange={(e) => setPraise(e.target.value.slice(0, 80))}
@@ -1018,7 +1025,9 @@ export const TeacherApprovalDialog = ({
                     ? "예) 오늘 집중력 최고! 연결사 처리 완벽했어요"
                     : grade === "good"
                       ? "예) 실력이 쑥쑥 자라요! 지금 흐름 좋아요"
-                      : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
+                      : grade === "redo"
+                        ? "예) 다시 — 한 번 더 써볼까요"
+                        : "예) 끝까지 해냈어요! 지적 사항 해결 멋져요"
                 }
                 maxLength={80}
                 disabled={saving}
