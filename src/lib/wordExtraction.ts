@@ -115,7 +115,7 @@ export const extractedToEntries = (words: ExtractedWord[]): WordTestEntry[] =>
 export const runExtraction = async (
   sentenceId: string,
   english: string,
-): Promise<{ count: number; words: ExtractedWord[] } | { error: string; status?: number }> => {
+): Promise<{ count: number; words: ExtractedWord[]; changedSentenceIds?: string[] } | { error: string; status?: number }> => {
   const { data, error } = await supabase.functions.invoke("extract-sentence-words", {
     body: { sentenceId, english },
   });
@@ -124,7 +124,7 @@ export const runExtraction = async (
     const status = (error as { context?: { status?: number } }).context?.status;
     return { error: error.message ?? "extraction failed", status };
   }
-  return data as { count: number; words: ExtractedWord[] };
+  return data as { count: number; words: ExtractedWord[]; changedSentenceIds?: string[] };
 };
 
 /** Teacher/admin only — overwrite the words array for a sentence. */

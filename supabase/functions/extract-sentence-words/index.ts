@@ -1,7 +1,8 @@
 // Edge function: extract-sentence-words
-// Uses Lovable AI Gateway to extract 5-10 core PRE-learning words from a sentence.
+// Extracts grade-appropriate PRE-learning vocabulary, capped at 3 appearances per unit.
 // Only callable by teacher/admin.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { filterGradeVocabulary, gradeVocabularyGuide, limitUnitVocabulary, type VocabularyWord } from "./vocabularyPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,9 +22,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!;
-    const SUPABASE_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_ANON = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY");
+    const SUPABASE_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!SUPABASE_URL || !SUPABASE_ANON || !SUPABASE_SERVICE) return json({ error: "Server configuration missing" }, 500);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY missing" }, 500);
 
@@ -62,56 +64,22 @@ Deno.serve(async (req) => {
 
     // ===== 대상 학년(레벨) 판정 =====
     // 요청에 level이 없으면 문장 코드 → 교재(textbooks.level)에서 역추적한다.
+    const { data: passageRow, error: passageErr } = await admin
+      .from("textbook_passages")
+      .select("textbook_id, unit_id")
+      .eq("code", sentenceId)
+      .maybeSingle();
+    if (passageErr) return json({ error: passageErr.message }, 500);
     let level = String(body?.level ?? "").trim().toUpperCase();
-    if (!/^L\d{2}$/.test(level)) {
-      level = "";
-      const { data: passageRow } = await admin
-        .from("textbook_passages")
-        .select("textbook_id")
-        .eq("code", sentenceId)
-        .maybeSingle();
-      if (passageRow?.textbook_id) {
-        const { data: bookRow } = await admin
-          .from("textbooks")
-          .select("level")
-          .eq("id", passageRow.textbook_id)
-          .maybeSingle();
-        const lv = String(bookRow?.level ?? "").toUpperCase();
-        if (/^L\d{2}$/.test(lv)) level = lv;
-      }
+    if (passageRow?.textbook_id) {
+      const { data: bookRow, error: bookErr } = await admin.from("textbooks").select("level").eq("id", passageRow.textbook_id).maybeSingle();
+      if (bookErr) return json({ error: bookErr.message }, 500);
+      if (bookRow?.level) level = String(bookRow.level).toUpperCase();
     }
-    const levelNo = level ? Number(level.slice(1)) : 0;
+    if (!/^L\d{2}$/.test(level)) level = "";
 
     // 레벨대별 난이도 기준 — 쉬운 단어를 상위 레벨에서 걸러 낸다.
-    const levelGuide = (() => {
-      if (levelNo >= 8) {
-        return (
-          "TARGET LEARNERS: 고등 상위 (수능/모의고사 수준, 레벨 " + level + "). " +
-          "중학 기초 어휘(school, water, help, study, happy, important, people 등)와 초·중등 필수 800단어 수준은 절대 포함하지 마라. " +
-          "학술적/추상적 어휘, 다의어, 파생어, 관용 표현 위주로 3-8개만 고른다. " +
-          "고를 만한 어려운 단어가 3개 미만이면 있는 만큼만 반환하고 억지로 채우지 마라."
-        );
-      }
-      if (levelNo >= 5) {
-        return (
-          "TARGET LEARNERS: 중3~고1 (레벨 " + level + "). " +
-          "초등·중1 수준의 아주 쉬운 단어는 제외하고, 중상급 어휘와 문맥 의미가 달라지는 다의어 위주로 4-8개를 고른다."
-        );
-      }
-      if (levelNo >= 3) {
-        return (
-          "TARGET LEARNERS: 중1~중2 (레벨 " + level + "). " +
-          "교과서 필수 어휘 중심으로 5-9개를 고른다. 초등 저학년 수준 기초어(go, cat, big 등)는 제외한다."
-        );
-      }
-      if (levelNo >= 1) {
-        return (
-          "TARGET LEARNERS: 초등 고학년~중1 입문 (레벨 " + level + "). " +
-          "기초 어휘도 학습 대상이므로 5-10개를 폭넓게 고른다."
-        );
-      }
-      return "TARGET LEARNERS: 중·고등 일반. 5-10개의 핵심 어휘를 고른다.";
-    })();
+    const levelGuide = gradeVocabularyGuide(level);
 
     const model = "google/gemini-3-flash-preview";
 
@@ -243,7 +211,7 @@ Deno.serve(async (req) => {
       tailCount.set(tail, (tailCount.get(tail) ?? 0) + 1);
     }
 
-    const words = rawList
+    const sanitizedWords = rawList
       .map((w) => {
         let word = stripJunk(w.word);
         if (!word) return null;
@@ -270,7 +238,7 @@ Deno.serve(async (req) => {
       .filter((w, i, arr) => arr.findIndex((o) => o.word.toLowerCase() === w.word.toLowerCase()) === i);
 
     // 상위 레벨에서 "학습할 만큼 어려운 단어가 없음"은 정상 결과 → 빈 목록으로 저장한다.
-    if (words.length === 0 && levelNo < 8) return json({ error: "No words extracted" }, 422);
+    const words = filterGradeVocabulary(sanitizedWords, level);
 
 
     const { error: upErr } = await admin
@@ -281,7 +249,35 @@ Deno.serve(async (req) => {
       );
     if (upErr) return json({ error: upErr.message }, 500);
 
-    return json({ ok: true, count: words.length, words, level: level || null });
+    let resultWords = words;
+    const changedSentenceIds: string[] = [];
+    if (passageRow?.unit_id) {
+      const { data: siblings, error: siblingsErr } = await admin.from("textbook_passages")
+        .select("code, passage_no").eq("unit_id", passageRow.unit_id).order("passage_no").order("code");
+      if (siblingsErr) return json({ error: siblingsErr.message }, 500);
+      const codes = (siblings ?? []).map(p => p.code);
+      if (codes.length) {
+        const { data: cached, error: cacheErr } = await admin.from("sentence_word_extractions")
+          .select("sentence_id, words").in("sentence_id", codes);
+        if (cacheErr) return json({ error: cacheErr.message }, 500);
+        const byCode = new Map((cached ?? []).map(r => [r.sentence_id, r]));
+        const ordered = codes.flatMap(code => {
+          const row = byCode.get(code);
+          return row ? [{ sentence_id: code, words: (Array.isArray(row.words) ? row.words : []) as VocabularyWord[] }] : [];
+        });
+        const limited = limitUnitVocabulary(ordered);
+        for (const row of limited) {
+          if (row.sentence_id === sentenceId) resultWords = row.words;
+          const original = byCode.get(row.sentence_id);
+          if (JSON.stringify(original?.words) === JSON.stringify(row.words)) continue;
+          const { error: limitErr } = await admin.from("sentence_word_extractions")
+            .update({ words: row.words, reviewed_at: null, reviewed_by: null }).eq("sentence_id", row.sentence_id);
+          if (limitErr) return json({ error: limitErr.message }, 500);
+          changedSentenceIds.push(row.sentence_id);
+        }
+      }
+    }
+    return json({ ok: true, count: resultWords.length, words: resultWords, level: level || null, changedSentenceIds });
   } catch (e) {
     console.error("extract-sentence-words error", e);
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
