@@ -35,6 +35,7 @@ import {
   Plug,
   Settings2,
   FileText,
+  BookMarked,
   Bell,
   BellOff,
 } from "lucide-react";
