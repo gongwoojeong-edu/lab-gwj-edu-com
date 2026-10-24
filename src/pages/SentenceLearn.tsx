@@ -845,23 +845,24 @@ const SentenceLearn = () => {
   useEffect(() => {
     if (!redoRequestedAt || !myUserId || !sentence?.id) return;
     let alive = true;
-    supabase
-      .from("sentence_approvals")
-      .select("praise_text")
-      .eq("user_id", myUserId)
-      .eq("sentence_id", sentence.id)
-      .eq("grade", "redo")
-      .eq("status", "approved")
-      .order("approved_at", { ascending: false })
-      .limit(1)
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("sentence_approvals")
+          .select("praise_text")
+          .eq("user_id", myUserId)
+          .eq("sentence_id", sentence.id)
+          .eq("grade", "redo")
+          .eq("status", "approved")
+          .order("approved_at", { ascending: false })
+          .limit(1);
         if (!alive) return;
         const row = data?.[0] as { praise_text?: string | null } | undefined;
         setRedoMent(row?.praise_text?.trim() || null);
-      })
-      .catch(() => {
+      } catch {
         /* 멘트가 없으면 기존 배너 문구만 표시한다 */
-      });
+      }
+    })();
     return () => {
       alive = false;
     };
