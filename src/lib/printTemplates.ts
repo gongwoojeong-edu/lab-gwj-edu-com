@@ -1794,3 +1794,48 @@ ${answerPage}
 `;
   return wrapDoc(`관용어구 ${isTest ? "테스트지" : "정리지"} ${p.studentName}`, body);
 };
+
+// ============================================================
+// 관용어구 부록 — 워크본 문서 뒤쪽에 붙이는 섹션 (단독 문서가 아님)
+// ============================================================
+export interface IdiomAppendixPayload {
+  studentName: string;
+  studentNo?: string | null;
+  items: { expression: string; meaning: string }[];
+}
+
+export const buildIdiomAppendixSection = (p: IdiomAppendixPayload): string => {
+  const half = Math.ceil(p.items.length / 2);
+  const left = p.items.slice(0, half);
+  const right = p.items.slice(half);
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? ` (${escapeHtml(p.studentNo)})` : "";
+
+  const row = (it: { expression: string; meaning: string }, idx0: number): string =>
+    `<div class="iapx-row"><div class="iapx-num">${idx0 + 1}.</div><div class="iapx-en">${escapeHtml(it.expression)}</div><div class="iapx-ko">${escapeHtml(it.meaning || "—")}</div></div>`;
+
+  const col = (list: typeof left, offset: number) => list.map((it, i) => row(it, offset + i)).join("");
+
+  return `
+<section class="iapx" style="page-break-before: always; break-before: page;">
+  <style>
+    .iapx { font-family: inherit; }
+    .iapx-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.2pt solid #000; padding: 2mm 5mm 1.5mm; }
+    .iapx-title { font-size: 13pt; font-weight: 800; letter-spacing: 0.5px; }
+    .iapx-meta { font-size: 9pt; color: #333; }
+    .iapx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 5mm; padding: 3mm 5mm; }
+    .iapx-row { display: grid; grid-template-columns: 6mm 1.2fr 1fr; gap: 2mm; align-items: end; border-bottom: 0.5pt solid #999; padding: 1.6mm 0; min-height: 8mm; }
+    .iapx-num { font-size: 8pt; color: #555; text-align: right; padding-right: 1mm; }
+    .iapx-en { font-size: 10pt; font-weight: 600; word-break: break-word; }
+    .iapx-ko { font-size: 9pt; color: #333; word-break: keep-all; }
+  </style>
+  <div class="iapx-head">
+    <div class="iapx-title">부록 · 관용어구 모음</div>
+    <div class="iapx-meta">${sName}${sNo} · ${p.items.length}개 표현</div>
+  </div>
+  <div class="iapx-grid">
+    <div>${col(left, 0)}</div>
+    <div>${col(right, half)}</div>
+  </div>
+</section>`;
+};
