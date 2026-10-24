@@ -70,6 +70,7 @@ const App = () => (
         <BrowserRouter>
           <TeachingOverlay />
           <RedoAlertBar />
+          <IdiomTestBanner />
           <TeachingQuestionAlert />
           <Routes>
             <Route path="/login" element={<Login />} />
