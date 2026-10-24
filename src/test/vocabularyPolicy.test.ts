@@ -24,7 +24,7 @@ describe("유닛별 최대 3회 반복", () => {
     expect(limitUnitVocabulary(rows).map(r => r.words.length)).toEqual([1, 1, 1, 0]);
     expect(limitUnitVocabulary([{ sentence_id: "other", words: [word("post")] }])[0].words).toHaveLength(1);
   });
-  it("재추출은 기존行を置換した集合で数え、同じ文を二重計上しない", () => {
+  it("재추출할 때 같은 문장을 두 번 세지 않는다", () => {
     const rows = [0, 1, 2].map(i => ({ sentence_id: String(i), words: [word("post")] }));
     expect(limitUnitVocabulary(limitUnitVocabulary(rows))).toEqual(rows);
     expect(vocabularyKey(word("to post", "POST"))).toBe("post");

@@ -1,5 +1,5 @@
 // Edge function: extract-sentence-words
-// Uses Lovable AI Gateway to extract 5-10 core PRE-learning words from a sentence.
+// Extracts grade-appropriate PRE-learning vocabulary, capped at 3 appearances per unit.
 // Only callable by teacher/admin.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { filterGradeVocabulary, gradeVocabularyGuide, limitUnitVocabulary, type VocabularyWord } from "./vocabularyPolicy.ts";
@@ -76,24 +76,7 @@ Deno.serve(async (req) => {
       if (bookErr) return json({ error: bookErr.message }, 500);
       if (bookRow?.level) level = String(bookRow.level).toUpperCase();
     }
-    if (!/^L\d{2}$/.test(level)) {
-      level = "";
-      const { data: passageRow } = await admin
-        .from("textbook_passages")
-        .select("textbook_id")
-        .eq("code", sentenceId)
-        .maybeSingle();
-      if (passageRow?.textbook_id) {
-        const { data: bookRow } = await admin
-          .from("textbooks")
-          .select("level")
-          .eq("id", passageRow.textbook_id)
-          .maybeSingle();
-        const lv = String(bookRow?.level ?? "").toUpperCase();
-        if (/^L\d{2}$/.test(lv)) level = lv;
-      }
-    }
-    const levelNo = level ? Number(level.slice(1)) : 0;
+    if (!/^L\d{2}$/.test(level)) level = "";
 
     // 레벨대별 난이도 기준 — 쉬운 단어를 상위 레벨에서 걸러 낸다.
     const levelGuide = gradeVocabularyGuide(level);

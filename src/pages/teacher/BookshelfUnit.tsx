@@ -561,6 +561,26 @@ const BookshelfUnit = () => {
       setExtractedMap((prev) => ({ ...prev, [p.code]: res.count }));
       setHoverWordsMap((prev) => ({ ...prev, [p.code]: res.words }));
       setReviewedMap((prev) => ({ ...prev, [p.code]: false }));
+      const changed = (res.changedSentenceIds ?? []).filter(code => code !== p.code);
+      if (changed.length) {
+        const { data, error } = await supabase.from("sentence_word_extractions")
+          .select("sentence_id, words, reviewed_at").in("sentence_id", changed);
+        if (error) throw error;
+        const counts: Record<string, number> = {};
+        const lists: Record<string, ExtractedWord[]> = {};
+        const reviews: Record<string, boolean> = {};
+        for (const row of data ?? []) {
+          const words = (Array.isArray(row.words) ? row.words : []) as unknown as ExtractedWord[];
+          counts[row.sentence_id] = words.length;
+          lists[row.sentence_id] = words;
+          reviews[row.sentence_id] = !!row.reviewed_at;
+        }
+        setExtractedMap(prev => ({ ...prev, ...counts }));
+        setHoverWordsMap(prev => ({ ...prev, ...lists }));
+        setReviewedMap(prev => ({ ...prev, ...reviews }));
+      }
+    } catch (error) {
+      toast({ title: "단어 목록 갱신 실패", description: errMsg(error), variant: "destructive" });
     } finally {
       setExtractingCode(null);
     }
@@ -1560,7 +1580,7 @@ const BookshelfUnit = () => {
                   passages.map((p, idx) => {
                     const ready = p.analysis_status === "ready";
                     const wordCount = extractedMap[p.code] ?? 0;
-                    const hasExtracted = wordCount > 0;
+                    const hasExtracted = extractedMap[p.code] !== undefined;
                     const isReviewed = !!reviewedMap[p.code];
                     const checked = selectedIds.has(p.id);
                     return (
