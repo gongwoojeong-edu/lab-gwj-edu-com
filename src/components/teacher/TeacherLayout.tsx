@@ -235,6 +235,14 @@ const TeacherSidebarInner = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
+                  <NavLink to="/teacher/idioms" className={({ isActive }) => linkCls(isActive)}>
+                    <BookMarked className="size-4" />
+                    {!collapsed && <span>관용어구 뱅크</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
                   <NavLink to="/teacher/inbox" className={({ isActive }) => linkCls(isActive)}>
                     <Inbox className="size-4" />
                     {!collapsed && <span>요청확인</span>}

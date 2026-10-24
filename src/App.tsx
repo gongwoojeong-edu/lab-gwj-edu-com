@@ -18,6 +18,7 @@ import TeacherHome from "./pages/teacher/TeacherHome.tsx";
 import StalledStudents from "./pages/teacher/StalledStudents.tsx";
 import PendingApprovals from "./pages/teacher/PendingApprovals.tsx";
 import Integrations from "./pages/teacher/Integrations.tsx";
+import IdiomBank from "./pages/teacher/IdiomBank.tsx";
 import Bookshelf from "./pages/teacher/Bookshelf.tsx";
 import BookshelfLevel from "./pages/teacher/BookshelfLevel.tsx";
 import BookshelfSeries from "./pages/teacher/BookshelfSeries.tsx";
