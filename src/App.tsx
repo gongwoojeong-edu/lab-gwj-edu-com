@@ -56,6 +56,7 @@ import { StaffProvider } from "./lib/staff-context";
 import { TeachingOverlay } from "./components/student/TeachingOverlay";
 import { TeachingQuestionAlert } from "./components/student/TeachingQuestionAlert";
 import RedoAlertBar from "./components/student/RedoAlertBar";
+import IdiomTestBanner from "./components/student/IdiomTestBanner";
 
 const queryClient = new QueryClient();
 
