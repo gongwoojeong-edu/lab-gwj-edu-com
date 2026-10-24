@@ -7,6 +7,7 @@ import {
   PRINT_HIDDEN_GRADES,
   gradeBadgeHtml,
   redoRoundBadgeHtml,
+  effectiveApprovalGrade,
 } from "@/lib/gradeMeta";
 import { fetchApprovalRounds, fetchGradeLabels } from "@/lib/unitWorkbook";
 
