@@ -267,6 +267,8 @@ const SentenceLearn = () => {
   // 추가학습 요청 (선생님이 redo 등급으로 승인) — 기존 통과 기록은 유지하되 한 번 더 제출
   const [redoRequestedAt, setRedoRequestedAt] = useState<string | null>(null);
   const [redoMemo, setRedoMemo] = useState<string | null>(null);
+  /** 재학습 회차 멘트 ("다시"/"견뎌") — 승인에 저장된 칭찬 한 줄 */
+  const [redoMent, setRedoMent] = useState<string | null>(null);
 
   // 최근 선생님 평가 결과 배너 (redo 제외 모든 등급 — 학생이 코멘트를 확인한 뒤 다음 문장으로 이동)
   const [lastEvaluation, setLastEvaluation] = useState<{

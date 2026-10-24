@@ -62,3 +62,36 @@ export const pickComebackPraise = (praiseText?: string | null): string => {
   if (custom) return custom;
   return pickRandom(COMEBACK_PRAISE);
 };
+
+// ============================================================
+// 재학습 회차 멘트 — 승인창 '칭찬 한 줄'에 회차에 따라 자동 삽입된다.
+//   재학습 1회차 지정 "다시" / 2회차부터 "견뎌" / 재학습 끝내고 통과 "옳지"
+// ============================================================
+
+/** 재학습을 처음 지정할 때 */
+export const REDO_MENT_FIRST = "다시";
+/** 두 번째 이후 재학습을 지정할 때 */
+export const REDO_MENT_SECOND = "견뎌";
+/** 재학습 이력이 있는 문장을 통과시켰을 때 */
+export const REDO_MENT_SUCCESS = "옳지";
+
+/** 자동 삽입되는 멘트 목록 — 선생님이 직접 입력한 문구와 구분한다 */
+export const REDO_MENTS: string[] = [REDO_MENT_FIRST, REDO_MENT_SECOND, REDO_MENT_SUCCESS];
+
+/**
+ * 재학습 회차에 따른 자동 멘트.
+ * @param redoCount 이 문장의 재학습 지정 횟수 (승인 이력 기준)
+ * @param willPass  true = 통과 승인, false = 재학습(redo) 지정
+ */
+export const pickRedoMent = (redoCount: number, willPass: boolean): string | null => {
+  if (willPass) return redoCount > 0 ? REDO_MENT_SUCCESS : null;
+  return redoCount <= 0 ? REDO_MENT_FIRST : REDO_MENT_SECOND;
+};
+
+/** 비어 있거나 자동 멘트인지 — 직접 입력한 칭찬은 덮어쓰지 않는다 */
+export const isAutoRedoMent = (text: string | null | undefined): boolean => {
+  const t = text?.trim();
+  if (!t) return true;
+  return REDO_MENTS.includes(t);
+};
+
