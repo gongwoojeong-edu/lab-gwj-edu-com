@@ -28,6 +28,7 @@ import {
 } from "./approvalMemo";
 import {
   buildBookCombinedWorkbookHtml,
+  buildIdiomAppendixSection,
   buildHandoutPrintHtml,
   buildWordPrintHtml,
   buildWordUnitCompactPrintHtml,
@@ -35,6 +36,7 @@ import {
   type BookCombinedUnit,
   type WordPayload,
 } from "./printTemplates";
+import { fetchIdiomBank } from "./idiomBank";
 import { fetchPassagesByUnit, type Passage } from "./textbooks";
 import { fetchImportantSentenceIds } from "./importantSentences";
 import {
@@ -59,6 +61,33 @@ function normalizePassageCodeKey(code: string): string {
 
 function normalizeEnglishKey(english: string | null | undefined): string {
   return (english ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/** 워크북 문서 마지막에 학생 관용어구 부록을 붙인다 (뱅크가 비면 그대로 반환) */
+async function appendIdiomAppendix(html: string, studentId: string): Promise<string> {
+  try {
+    const [items, { data: sp }] = await Promise.all([
+      fetchIdiomBank(studentId),
+      supabase
+        .from("student_profiles")
+        .select("display_name, student_no")
+        .eq("user_id", studentId)
+        .maybeSingle(),
+    ]);
+    if (!items || items.length === 0) return html;
+    const section = buildIdiomAppendixSection({
+      studentName: (sp?.display_name as string | null) ?? "",
+      studentNo: (sp?.student_no as string | null) ?? null,
+      items: [...items].reverse().map((it) => ({
+        expression: it.expression,
+        meaning: it.meaning,
+      })),
+    });
+    return html.replace(/<\/body>/i, () => `${section}</body>`);
+  } catch {
+    // 부록 조회 실패가 워크북 인쇄 자체를 막지 않도록 한다
+    return html;
+  }
 }
 
 /**
@@ -858,6 +887,8 @@ export interface BuildUnitWorkbookInput {
   disableCorrection?: boolean;
   /** 학생해석 텍스트 빼고 빈칸으로 출력 (코칭 메모는 유지) */
   hideStudentTranslation?: boolean;
+  /** 워크본 뒤쪽에 학생 관용어구 부록 붙이기 (기본 true) */
+  includeIdiomAppendix?: boolean;
 }
 
 /**
@@ -944,6 +975,11 @@ export const buildUnitWorkbookHtmlFor = async (
       break;
   }
 
+  // 워크본 뒤쪽에 학생 관용어구 부록 붙이기 (뱅크가 비면 그대로)
+  if (input.includeIdiomAppendix !== false) {
+    html = await appendIdiomAppendix(html, input.studentId);
+  }
+
   return { html, completedCount: targetCodes.length, mode };
 };
 
@@ -980,7 +1016,8 @@ export const buildMultiUnitWorkbookHtml = async (
       disableCorrection: input.disableCorrection,
       hideStudentTranslation: input.hideStudentTranslation,
     });
-    return { html: r.html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
+    const html = await appendIdiomAppendix(r.html, input.studentId);
+    return { html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
   }
 
   const parts: Array<{ htmlDoc: string; passages: number; title: string }> = [];
@@ -996,6 +1033,8 @@ export const buildMultiUnitWorkbookHtml = async (
         paperSize: input.paperSize,
         answerKey: input.answerKey,
         hideStudentTranslation: input.hideStudentTranslation,
+        // 부록은 결합 문서 마지막에 한 번만 붙인다
+        includeIdiomAppendix: false,
       });
       parts.push({ htmlDoc: r.html, passages: r.completedCount, title: u.unitTitle });
     } catch {
@@ -1033,6 +1072,7 @@ export const buildMultiUnitWorkbookHtml = async (
 </style>
 </head><body>${bodies}</body></html>`;
 
+  const withAppendix = await appendIdiomAppendix(html, input.studentId);
   const totalPassages = parts.reduce((s, p) => s + p.passages, 0);
-  return { html, unitCount: parts.length, passageCount: totalPassages, mode };
+  return { html: withAppendix, unitCount: parts.length, passageCount: totalPassages, mode };
 };
