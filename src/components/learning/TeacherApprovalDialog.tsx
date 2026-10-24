@@ -1071,6 +1071,50 @@ export const TeacherApprovalDialog = ({
             </div>
           )}
 
+          {studentUserId && (
+            <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-3">
+              <div className="text-xs font-semibold text-muted-foreground">
+                관용어구 메모 <span className="font-normal">(외워야 할 표현 · 학생 뱅크에 누적)</span>
+                {idiomAdded > 0 && (
+                  <span className="ml-1 text-emerald-600 dark:text-emerald-400">· 이번 첨삭에서 {idiomAdded}개 저장됨</span>
+                )}
+              </div>
+              <div className="flex gap-1.5">
+                <Input
+                  value={idiomExpr}
+                  onChange={(e) => setIdiomExpr(e.target.value.slice(0, 120))}
+                  placeholder="표현 예) take part in"
+                  maxLength={120}
+                  disabled={idiomSaving}
+                  className="h-8 text-xs flex-1"
+                />
+                <Input
+                  value={idiomMeaning}
+                  onChange={(e) => setIdiomMeaning(e.target.value.slice(0, 120))}
+                  placeholder="뜻 예) ~에 참가하다"
+                  maxLength={120}
+                  disabled={idiomSaving}
+                  className="h-8 text-xs flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void saveIdiomMemo();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs shrink-0"
+                  disabled={idiomSaving || !idiomExpr.trim() || !idiomMeaning.trim()}
+                  onClick={() => void saveIdiomMemo()}
+                >
+                  {idiomSaving ? "저장 중…" : "뱅크에 추가"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {history.length > 0 && (
             <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
