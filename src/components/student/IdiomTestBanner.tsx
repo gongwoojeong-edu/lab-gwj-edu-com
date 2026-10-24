@@ -144,22 +144,20 @@ export function IdiomTestBanner() {
                 </div>
               </div>
               <div className="divide-y">
-                {items.map((it, i) => {
-                  const given = (answers[it.id] ?? "").trim();
-                  const ok = given.length > 0 && undefined; // 표시용 재채점 대신 결과에서 찾기
-                  void ok;
-                  return (
-                    <div key={it.id} className="py-2 text-sm">
-                      <div className="font-semibold">
-                        {i + 1}. {it.expression}
-                      </div>
-                      <div className="text-muted-foreground">
-                        정답: {it.meaning}
-                        {given && <> · 내 답: {given}</>}
-                      </div>
+                {result.results.map((r, i) => (
+                  <div key={r.id} className="py-2 text-sm">
+                    <div className="font-semibold">
+                      {i + 1}. {r.expression}{" "}
+                      <span className={r.correct ? "text-emerald-600" : "text-rose-600"}>
+                        {r.correct ? "정답" : "오답"}
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="text-muted-foreground">
+                      정답: {r.expected}
+                      {r.given && <> · 내 답: {r.given}</>}
+                    </div>
+                  </div>
+                ))}
               </div>
               <Button className="w-full" onClick={() => setOpen(false)}>
                 닫기
