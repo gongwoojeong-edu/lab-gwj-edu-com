@@ -610,10 +610,8 @@ export const TeacherApprovalDialog = ({
         sentenceId,
         grade,
         memo: serializeMemo(memo) ?? "",
-        praise:
-          grade === "excellent" || grade === "good" || resolvedFeedback
-            ? praise
-            : undefined,
+        // 회차 멘트("다시"/"견뎌"/"옳지")와 직접 입력한 칭찬은 등급과 무관하게 전달한다
+        praise: praise.trim() ? praise : undefined,
         studentUserId,
         resolvedFeedback,
       });
