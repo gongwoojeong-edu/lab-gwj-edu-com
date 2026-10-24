@@ -28,6 +28,7 @@ import {
 } from "./approvalMemo";
 import {
   buildBookCombinedWorkbookHtml,
+  buildIdiomAppendixSection,
   buildHandoutPrintHtml,
   buildWordPrintHtml,
   buildWordUnitCompactPrintHtml,
@@ -35,6 +36,7 @@ import {
   type BookCombinedUnit,
   type WordPayload,
 } from "./printTemplates";
+import { fetchIdiomBank } from "./idiomBank";
 import { fetchPassagesByUnit, type Passage } from "./textbooks";
 import { fetchImportantSentenceIds } from "./importantSentences";
 import {
