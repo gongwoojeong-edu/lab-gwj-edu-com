@@ -37,6 +37,7 @@ import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/importantSentences";
 import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
 import { pickRedoMent, isAutoRedoMent } from "@/lib/praisePhrases";
+import { addIdiomToBank } from "@/lib/idiomBank";
 
 /** 마지막으로 지정한 보류 담당 선생님 (선생님 모드 gwjt* 키 규칙) */
 const LAST_HELD_TEACHER_KEY = "gwjt_last_held_teacher_id";
