@@ -1344,7 +1344,7 @@ const SentenceLearn = () => {
           <Card className="p-5 space-y-3 border-2 border-violet-500/40 bg-violet-50/40 dark:bg-violet-500/5">
             <div className="flex items-start gap-3">
               <RotateCcw className="w-6 h-6 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
-              <div className="space-y-1">
+              <div className="min-w-0 flex-1 space-y-1">
                 <div className="text-base font-extrabold text-foreground">선생님 추가학습 요청</div>
                 {redoMent && (
                   <div className="text-lg font-black text-violet-700 dark:text-violet-300">

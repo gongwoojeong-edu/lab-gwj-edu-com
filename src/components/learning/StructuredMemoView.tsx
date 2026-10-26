@@ -27,17 +27,17 @@ export const StructuredMemoView = ({
   }
   const keys = MEMO_FIELD_KEYS.filter((k) => showEmpty || parsed[k].trim());
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("min-w-0 space-y-3", className)}>
       {keys.map((k) => {
         const empty = !parsed[k].trim();
         return (
-          <div key={k} className={cn("text-sm", empty && "opacity-40")}>
-            <span className="text-[11px] font-bold text-muted-foreground mr-1.5">
+          <div key={k} className={cn("min-w-0 space-y-1 text-sm", empty && "opacity-40")}>
+            <div className="text-xs font-bold leading-relaxed text-muted-foreground break-words">
               {MEMO_FIELD_LABEL[k]}
-            </span>
-            <span className="whitespace-pre-wrap align-middle">
+            </div>
+            <div className="whitespace-pre-wrap break-words leading-relaxed text-foreground [overflow-wrap:anywhere]">
               {empty ? "—" : parsed[k].trim()}
-            </span>
+            </div>
           </div>
         );
       })}
