@@ -1,5 +1,6 @@
 # Architecture rules
 - Keep Orbit learner eligibility in sync-orbit-english/eligibilityPolicy.ts and use it for both import and active-account cleanup; teacher-test enrollment exemptions must not grant staff privileges.
+- Import explicitly designated mock-teaching staff through the trusted active Orbit staff path and create their learner profiles insert-only; synchronization must preserve learning settings and keep active staff learner profiles out of student cleanup.
 - Keep automatic vocabulary difficulty and lemma-based per-unit repetition policy in extract-sentence-words/vocabularyPolicy.ts; resolve grade from the stored textbook and enforce limits in passage order so manual and import-triggered extraction share the same policy.
 - Keep held coaching assignee in sentence_approvals.held_teacher_id independently of held_by; teacher inboxes filter the assignee without changing existing staff access or student progression.
 - Scope pending approvals and the held box to the viewer: non-admin teachers see only their own students (student_profiles.teacher_id, unassigned students stay visible to all) and only their own held box; admins see everything. Apply the same scoping in PendingApprovals.tsx and usePendingApprovalsCount.ts so list and sidebar badge never disagree.
