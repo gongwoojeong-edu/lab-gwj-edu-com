@@ -47,15 +47,45 @@ const refresh = async () => {
   try {
     const list = await fetchPendingApprovals();
     if (gen !== fetchGen) return; // 더 최신 요청이 있으면 폐기
-    const nextIds = new Set(list.map((r) => r.id));
+    // 담당 학생 스코핑 — 관리자는 전체, 선생님은 자기 담당 학생만 (승인 대기 화면과 동일 기준)
+    let scoped = list;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user && list.length > 0) {
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+      const isAdmin = (roleRows ?? []).some((r: { role: string }) => r.role === "admin");
+      if (!isAdmin) {
+        const ids = Array.from(new Set(list.map((r) => r.user_id)));
+        const { data: profs } = await supabase
+          .from("student_profiles")
+          .select("user_id, teacher_id")
+          .in("user_id", ids);
+        const teacherOf = new Map(
+          ((profs ?? []) as { user_id: string; teacher_id: string | null }[]).map((p) => [
+            p.user_id,
+            p.teacher_id,
+          ]),
+        );
+        scoped = list.filter((r) => {
+          const t = teacherOf.get(r.user_id);
+          return t == null || t === user.id;
+        });
+      }
+    }
+    if (gen !== fetchGen) return;
+    const nextIds = new Set(scoped.map((r) => r.id));
     if (prevIds !== null) {
-      const added = list.filter((r) => !prevIds!.has(r.id));
+      const added = scoped.filter((r) => !prevIds!.has(r.id));
       if (added.length > 0) {
         void announce(added.map((r) => ({ user_id: r.user_id, sentence_id: r.sentence_id })));
       }
     }
     prevIds = nextIds;
-    count = list.length;
+    count = scoped.length;
     emit();
   } catch {
     if (gen !== fetchGen) return;

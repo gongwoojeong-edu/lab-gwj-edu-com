@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchHeldTeachers, filterHeldByTeacher, type HeldTeacher } from "@/lib/heldTeachers";
 import { useStaff } from "@/lib/staff-context";
+import { useAuth } from "@/hooks/useAuth";
 
 
 import {
@@ -162,6 +163,9 @@ interface Row extends SentenceApproval {
 
 const PendingApprovals = () => {
   const { effectiveTeacherAuthUserId } = useStaff();
+  const { roles } = useAuth();
+  // 관리자만 전체 열람. 선생님은 자기 담당 학생(teacher_id) 것만 본다.
+  const isAdmin = roles.includes("admin");
   const [heldTeachers, setHeldTeachers] = useState<HeldTeacher[]>([]);
   const [heldFilter, setHeldFilter] = useState("mine");
   const [teachersError, setTeachersError] = useState(false);
@@ -279,11 +283,46 @@ const PendingApprovals = () => {
     }
     setLoading(true);
     try {
-      const [list, otherList] = await Promise.all([
+      const [rawList, rawOtherList] = await Promise.all([
         fetchApprovalsByStatus(tab),
         fetchApprovalsByStatus(tab === "pending" ? "held" : "pending"),
       ]);
-      // update counters + 사이드바/헤더 배지와 즉시 동기화
+
+      // 담당 학생 스코핑 — 관리자는 전체, 선생님은 자기 담당 학생만.
+      // (담당 미지정 학생은 모든 선생님에게 보이도록 둔다)
+      const allUserIds: string[] = Array.from(
+        new Set([...rawList, ...rawOtherList].map((r) => r.user_id)),
+      );
+      const { data: scopeProfiles } = allUserIds.length
+        ? await supabase
+            .from("student_profiles")
+            .select("user_id, teacher_id")
+            .in("user_id", allUserIds)
+        : { data: [] as any[] };
+      const teacherOf = new Map(
+        ((scopeProfiles ?? []) as { user_id: string; teacher_id: string | null }[]).map(
+          (p) => [p.user_id, p.teacher_id],
+        ),
+      );
+      const myId = effectiveTeacherAuthUserId ?? "";
+      const scopeRows = <T extends { user_id: string; held_teacher_id?: string | null }>(
+        rowsIn: T[],
+        status: ApprovalStatus,
+      ): T[] => {
+        if (isAdmin) return rowsIn;
+        if (status === "held") {
+          // 보류함은 보류 담당 선생님 기준 — 내 보류함만
+          return rowsIn.filter((r) => r.held_teacher_id === myId);
+        }
+        return rowsIn.filter((r) => {
+          const t = teacherOf.get(r.user_id);
+          return t == null || t === myId;
+        });
+      };
+      const list = scopeRows(rawList, tab);
+      const otherList = scopeRows(rawOtherList, tab === "pending" ? "held" : "pending");
+
+      // update counters + 사이드바/헤더 배지와 즉시 동기화 (스코핑 후 건수)
       if (tab === "pending") {
         setPendingCount(list.length);
         setHeldCount(otherList.length);
@@ -402,7 +441,7 @@ const PendingApprovals = () => {
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, isAdmin, effectiveTeacherAuthUserId]);
 
   useEffect(() => {
     load();
@@ -422,7 +461,11 @@ const PendingApprovals = () => {
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const scoped = tab === "held" ? filterHeldByTeacher(rows, heldFilter === "mine" ? effectiveTeacherAuthUserId ?? "" : heldFilter) : rows;
+    // 보류함: 관리자는 드롭다운으로 범위 선택, 선생님은 load 단계에서 이미 내 보류함만 스코핑됨
+    const scoped =
+      tab === "held" && isAdmin
+        ? filterHeldByTeacher(rows, heldFilter === "mine" ? effectiveTeacherAuthUserId ?? "" : heldFilter)
+        : rows;
     if (!q) return scoped;
     return scoped.filter(
       (r) =>
@@ -430,7 +473,7 @@ const PendingApprovals = () => {
         (r.student_no ?? "").toLowerCase().includes(q) ||
         r.sentence_id.toLowerCase().includes(q),
     );
-  }, [rows, query, tab, heldFilter, effectiveTeacherAuthUserId]);
+  }, [rows, query, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
 
   const countLabel = useMemo(
     () => `${filteredRows.length}건 ${tab === "held" ? "보류" : "대기"}`,
@@ -504,7 +547,7 @@ const PendingApprovals = () => {
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        {tab === "held" && <div className="flex gap-2 items-center flex-wrap">
+        {tab === "held" && isAdmin && <div className="flex gap-2 items-center flex-wrap">
           <Select value={heldFilter} onValueChange={setHeldFilter}>
             <SelectTrigger className="w-56" aria-label="선생님별 보류함"><SelectValue /></SelectTrigger>
             <SelectContent>
