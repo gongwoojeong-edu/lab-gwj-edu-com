@@ -547,7 +547,7 @@ const PendingApprovals = () => {
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        {tab === "held" && <div className="flex gap-2 items-center flex-wrap">
+        {tab === "held" && isAdmin && <div className="flex gap-2 items-center flex-wrap">
           <Select value={heldFilter} onValueChange={setHeldFilter}>
             <SelectTrigger className="w-56" aria-label="선생님별 보류함"><SelectValue /></SelectTrigger>
             <SelectContent>
