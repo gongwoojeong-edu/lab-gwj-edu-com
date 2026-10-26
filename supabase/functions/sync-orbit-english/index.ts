@@ -2,7 +2,7 @@
 // Platform Orbit(odyyafiexhebzoodeejl) → lab student_profiles / auth / staff cache
 // 영어과 학생·선생님·반만 동기화, 로그인 정책 동일 (gwj#### / gwjt### + default password)
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.50.0";
-import { isEnglishSyncEligible } from "./eligibilityPolicy.ts";
+import { isEnglishSyncEligible, isMockTeachingStaff, isStaffSyncEligible } from "./eligibilityPolicy.ts";
 
 const ORBIT_PROJECT_REF = "odyyafiexhebzoodeejl";
 
@@ -757,9 +757,7 @@ Deno.serve(async (req) => {
 
     if (staffErr) throw new Error(staffErr.message);
 
-    const englishStaff = ((orbitStaff ?? []) as OrbitStaff[]).filter((s) =>
-      (s.subjects ?? []).includes("영어"),
-    );
+    const englishStaff = ((orbitStaff ?? []) as OrbitStaff[]).filter(isStaffSyncEligible);
 
     const staffIdToLabAuth = new Map<string, string>();
     const validStaffIds: string[] = [];
@@ -774,7 +772,7 @@ Deno.serve(async (req) => {
       staffIdToLabAuth.set(st.id, labAuthId);
       validStaffIds.push(st.id);
 
-      await labSb.from("orbit_staff_cache").upsert({
+      const { error: cacheError } = await labSb.from("orbit_staff_cache").upsert({
         id: st.id,
         name: st.name,
         rank: st.rank,
@@ -787,6 +785,22 @@ Deno.serve(async (req) => {
         auth_user_id: labAuthId,
         synced_at: new Date().toISOString(),
       });
+      if (cacheError) throw new Error(cacheError.message);
+
+      if (isMockTeachingStaff(loginId)) {
+        // Profile creation is insert-only: never reset progress, teacher, or settings.
+        const { error: profileError } = await labSb.from("student_profiles").upsert({
+          user_id: labAuthId,
+          student_no: loginId,
+          display_name: st.name,
+          orbit_enrollment_active: true,
+        }, { onConflict: "user_id", ignoreDuplicates: true });
+        if (profileError) throw new Error(profileError.message);
+        const { error: activeError } = await labSb.from("student_profiles")
+          .update({ orbit_enrollment_active: true })
+          .eq("user_id", labAuthId);
+        if (activeError) throw new Error(activeError.message);
+      }
 
       stats.teachersSynced += 1;
     }
@@ -889,6 +903,11 @@ Deno.serve(async (req) => {
     if (osErr) throw new Error(osErr.message);
 
     const orbitActiveHakbuns = new Set<string>();
+    for (const staff of englishStaff) {
+      if (isMockTeachingStaff(staff.employee_no)) {
+        orbitActiveHakbuns.add(String(staff.employee_no).trim().toLowerCase());
+      }
+    }
     for (const row of (orbitStudents ?? []) as OrbitStudent[]) {
       const hakbun = String(row.hakbun ?? "").trim().toLowerCase();
       if (!hakbun || !/^gwjt?\d{3,4}$/.test(hakbun)) continue;
