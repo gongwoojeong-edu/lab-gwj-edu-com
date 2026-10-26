@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchHeldTeachers, filterHeldByTeacher, type HeldTeacher } from "@/lib/heldTeachers";
 import { useStaff } from "@/lib/staff-context";
+import { useAuth } from "@/hooks/useAuth";
 
 
 import {
