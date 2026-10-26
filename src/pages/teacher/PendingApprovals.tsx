@@ -461,7 +461,11 @@ const PendingApprovals = () => {
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const scoped = tab === "held" ? filterHeldByTeacher(rows, heldFilter === "mine" ? effectiveTeacherAuthUserId ?? "" : heldFilter) : rows;
+    // 보류함: 관리자는 드롭다운으로 범위 선택, 선생님은 load 단계에서 이미 내 보류함만 스코핑됨
+    const scoped =
+      tab === "held" && isAdmin
+        ? filterHeldByTeacher(rows, heldFilter === "mine" ? effectiveTeacherAuthUserId ?? "" : heldFilter)
+        : rows;
     if (!q) return scoped;
     return scoped.filter(
       (r) =>
@@ -469,7 +473,7 @@ const PendingApprovals = () => {
         (r.student_no ?? "").toLowerCase().includes(q) ||
         r.sentence_id.toLowerCase().includes(q),
     );
-  }, [rows, query, tab, heldFilter, effectiveTeacherAuthUserId]);
+  }, [rows, query, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
 
   const countLabel = useMemo(
     () => `${filteredRows.length}건 ${tab === "held" ? "보류" : "대기"}`,
