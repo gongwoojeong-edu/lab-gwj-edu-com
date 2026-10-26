@@ -441,7 +441,7 @@ const PendingApprovals = () => {
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, isAdmin, effectiveTeacherAuthUserId]);
 
   useEffect(() => {
     load();
