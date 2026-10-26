@@ -899,7 +899,7 @@ Deno.serve(async (req) => {
     const orbitActiveHakbuns = new Set<string>();
     for (const row of (orbitStudents ?? []) as OrbitStudent[]) {
       const hakbun = String(row.hakbun ?? "").trim().toLowerCase();
-      if (!hakbun || !/^gwj\d{4}$/.test(hakbun)) continue;
+      if (!hakbun || !/^gwjt?\d{3,4}$/.test(hakbun)) continue;
       if (!isEngEligible(row, englishStudentIds)) continue;
       if (!coalesceStatus(row.status)) continue;
       orbitActiveHakbuns.add(hakbun);
@@ -907,7 +907,7 @@ Deno.serve(async (req) => {
 
     for (const row of (orbitStudents ?? []) as OrbitStudent[]) {
       const hakbun = String(row.hakbun ?? "").trim().toLowerCase();
-      if (!hakbun || !/^gwj\d{4}$/.test(hakbun)) {
+      if (!hakbun || !/^gwjt?\d{3,4}$/.test(hakbun)) {
         stats.studentsSkipped += 1;
         continue;
       }
