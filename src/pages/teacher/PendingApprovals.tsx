@@ -283,11 +283,46 @@ const PendingApprovals = () => {
     }
     setLoading(true);
     try {
-      const [list, otherList] = await Promise.all([
+      const [rawList, rawOtherList] = await Promise.all([
         fetchApprovalsByStatus(tab),
         fetchApprovalsByStatus(tab === "pending" ? "held" : "pending"),
       ]);
-      // update counters + 사이드바/헤더 배지와 즉시 동기화
+
+      // 담당 학생 스코핑 — 관리자는 전체, 선생님은 자기 담당 학생만.
+      // (담당 미지정 학생은 모든 선생님에게 보이도록 둔다)
+      const allUserIds: string[] = Array.from(
+        new Set([...rawList, ...rawOtherList].map((r) => r.user_id)),
+      );
+      const { data: scopeProfiles } = allUserIds.length
+        ? await supabase
+            .from("student_profiles")
+            .select("user_id, teacher_id")
+            .in("user_id", allUserIds)
+        : { data: [] as any[] };
+      const teacherOf = new Map(
+        ((scopeProfiles ?? []) as { user_id: string; teacher_id: string | null }[]).map(
+          (p) => [p.user_id, p.teacher_id],
+        ),
+      );
+      const myId = effectiveTeacherAuthUserId ?? "";
+      const scopeRows = <T extends { user_id: string; held_teacher_id?: string | null }>(
+        rowsIn: T[],
+        status: ApprovalStatus,
+      ): T[] => {
+        if (isAdmin) return rowsIn;
+        if (status === "held") {
+          // 보류함은 보류 담당 선생님 기준 — 내 보류함만
+          return rowsIn.filter((r) => r.held_teacher_id === myId);
+        }
+        return rowsIn.filter((r) => {
+          const t = teacherOf.get(r.user_id);
+          return t == null || t === myId;
+        });
+      };
+      const list = scopeRows(rawList, tab);
+      const otherList = scopeRows(rawOtherList, tab === "pending" ? "held" : "pending");
+
+      // update counters + 사이드바/헤더 배지와 즉시 동기화 (스코핑 후 건수)
       if (tab === "pending") {
         setPendingCount(list.length);
         setHeldCount(otherList.length);
