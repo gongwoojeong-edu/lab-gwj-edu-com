@@ -2,6 +2,7 @@
 // Platform Orbit(odyyafiexhebzoodeejl) → lab student_profiles / auth / staff cache
 // 영어과 학생·선생님·반만 동기화, 로그인 정책 동일 (gwj#### / gwjt### + default password)
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.50.0";
+import { isEnglishSyncEligible } from "./eligibilityPolicy.ts";
 
 const ORBIT_PROJECT_REF = "odyyafiexhebzoodeejl";
 
@@ -474,15 +475,6 @@ async function loadEnglishStudentIds(sb: SupabaseClient): Promise<Set<string>> {
   return ids;
 }
 
-function isEngEligible(
-  st: Pick<OrbitStudent, "id" | "subjects">,
-  englishIds: Set<string>,
-): boolean {
-  const subs = st.subjects ?? [];
-  if (subs.includes("영어")) return true;
-  return englishIds.has(st.id);
-}
-
 async function resolveEnglishTeacherStaffId(
   orbitSb: SupabaseClient,
   studentId: string,
@@ -900,7 +892,7 @@ Deno.serve(async (req) => {
     for (const row of (orbitStudents ?? []) as OrbitStudent[]) {
       const hakbun = String(row.hakbun ?? "").trim().toLowerCase();
       if (!hakbun || !/^gwjt?\d{3,4}$/.test(hakbun)) continue;
-      if (!isEngEligible(row, englishStudentIds)) continue;
+      if (!isEnglishSyncEligible(row, englishStudentIds)) continue;
       if (!coalesceStatus(row.status)) continue;
       orbitActiveHakbuns.add(hakbun);
     }
@@ -912,7 +904,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (!isEngEligible(row, englishStudentIds)) {
+      if (!isEnglishSyncEligible(row, englishStudentIds)) {
         if (await deactivateOrbitStudentByHakbun(labSb, hakbun)) stats.deactivated += 1;
         stats.studentsExcluded += 1;
         continue;
