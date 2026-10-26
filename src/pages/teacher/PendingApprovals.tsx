@@ -163,6 +163,9 @@ interface Row extends SentenceApproval {
 
 const PendingApprovals = () => {
   const { effectiveTeacherAuthUserId } = useStaff();
+  const { roles } = useAuth();
+  // 관리자만 전체 열람. 선생님은 자기 담당 학생(teacher_id) 것만 본다.
+  const isAdmin = roles.includes("admin");
   const [heldTeachers, setHeldTeachers] = useState<HeldTeacher[]>([]);
   const [heldFilter, setHeldFilter] = useState("mine");
   const [teachersError, setTeachersError] = useState(false);
