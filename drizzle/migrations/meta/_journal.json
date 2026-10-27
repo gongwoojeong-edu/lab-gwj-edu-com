@@ -43,6 +43,13 @@
       "when": 1792846381731,
       "tag": "0005_allow_resolved_grade",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793095125752,
+      "tag": "0006_create_student_unknown_words",
+      "breakpoints": true
     }
   ]
 }

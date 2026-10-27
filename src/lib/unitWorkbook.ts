@@ -29,6 +29,7 @@ import {
 import {
   buildBookCombinedWorkbookHtml,
   buildIdiomAppendixSection,
+  buildDictionaryActivitySection,
   buildHandoutPrintHtml,
   buildWordPrintHtml,
   buildWordUnitCompactPrintHtml,
@@ -37,6 +38,7 @@ import {
   type WordPayload,
 } from "./printTemplates";
 import { fetchIdiomBank } from "./idiomBank";
+import { dedupeWords, listUnknownWords } from "./unknownWords";
 import { fetchPassagesByUnit, type Passage } from "./textbooks";
 import { fetchImportantSentenceIds } from "./importantSentences";
 import {
@@ -83,6 +85,32 @@ async function appendIdiomAppendix(html: string, studentId: string): Promise<str
         meaning: it.meaning,
       })),
     });
+    return html.replace(/<\/body>/i, () => `${section}</body>`);
+  } catch {
+    // 부록 조회 실패가 워크북 인쇄 자체를 막지 않도록 한다
+    return html;
+  }
+}
+
+/** 워크북 문서 맨 뒤에 학생 "모르는 단어" 사전활동 부록을 붙인다 (없으면 그대로 반환) */
+async function appendDictionaryAppendix(html: string, studentId: string): Promise<string> {
+  try {
+    const [items, { data: sp }] = await Promise.all([
+      listUnknownWords(studentId),
+      supabase
+        .from("student_profiles")
+        .select("display_name, student_no")
+        .eq("user_id", studentId)
+        .maybeSingle(),
+    ]);
+    const words = dedupeWords((items ?? []).map((it) => it.word));
+    if (words.length === 0) return html;
+    const section = buildDictionaryActivitySection({
+      studentName: (sp?.display_name as string | null) ?? "",
+      studentNo: (sp?.student_no as string | null) ?? null,
+      words,
+    });
+    if (!section) return html;
     return html.replace(/<\/body>/i, () => `${section}</body>`);
   } catch {
     // 부록 조회 실패가 워크북 인쇄 자체를 막지 않도록 한다
@@ -889,6 +917,8 @@ export interface BuildUnitWorkbookInput {
   hideStudentTranslation?: boolean;
   /** 워크본 뒤쪽에 학생 관용어구 부록 붙이기 (기본 true) */
   includeIdiomAppendix?: boolean;
+  /** 워크북 맨 뒤에 모르는 단어 사전활동 부록 붙이기 (기본 true) */
+  includeDictionaryAppendix?: boolean;
 }
 
 /**
@@ -979,6 +1009,10 @@ export const buildUnitWorkbookHtmlFor = async (
   if (input.includeIdiomAppendix !== false) {
     html = await appendIdiomAppendix(html, input.studentId);
   }
+  // 맨 뒤에 모르는 단어 사전활동 부록 (없으면 그대로)
+  if (input.includeDictionaryAppendix !== false) {
+    html = await appendDictionaryAppendix(html, input.studentId);
+  }
 
   return { html, completedCount: targetCodes.length, mode };
 };
@@ -996,6 +1030,8 @@ export interface BuildMultiUnitWorkbookInput {
   disableCorrection?: boolean;
   /** 학생해석 텍스트 빼고 빈칸으로 출력 (코칭 메모는 유지) */
   hideStudentTranslation?: boolean;
+  /** 워크북 맨 뒤에 모르는 단어 사전활동 부록 붙이기 (기본 true) */
+  includeDictionaryAppendix?: boolean;
 }
 
 /**
@@ -1016,7 +1052,10 @@ export const buildMultiUnitWorkbookHtml = async (
       disableCorrection: input.disableCorrection,
       hideStudentTranslation: input.hideStudentTranslation,
     });
-    const html = await appendIdiomAppendix(r.html, input.studentId);
+    let html = await appendIdiomAppendix(r.html, input.studentId);
+    if (input.includeDictionaryAppendix !== false) {
+      html = await appendDictionaryAppendix(html, input.studentId);
+    }
     return { html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
   }
 
@@ -1035,6 +1074,7 @@ export const buildMultiUnitWorkbookHtml = async (
         hideStudentTranslation: input.hideStudentTranslation,
         // 부록은 결합 문서 마지막에 한 번만 붙인다
         includeIdiomAppendix: false,
+        includeDictionaryAppendix: false,
       });
       parts.push({ htmlDoc: r.html, passages: r.completedCount, title: u.unitTitle });
     } catch {
@@ -1072,7 +1112,10 @@ export const buildMultiUnitWorkbookHtml = async (
 </style>
 </head><body>${bodies}</body></html>`;
 
-  const withAppendix = await appendIdiomAppendix(html, input.studentId);
+  let withAppendix = await appendIdiomAppendix(html, input.studentId);
+  if (input.includeDictionaryAppendix !== false) {
+    withAppendix = await appendDictionaryAppendix(withAppendix, input.studentId);
+  }
   const totalPassages = parts.reduce((s, p) => s + p.passages, 0);
   return { html: withAppendix, unitCount: parts.length, passageCount: totalPassages, mode };
 };

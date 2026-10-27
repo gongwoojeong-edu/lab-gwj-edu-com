@@ -1410,6 +1410,30 @@ export type Database = {
           },
         ]
       }
+      student_unknown_words: {
+        Row: {
+          created_at: string
+          id: string
+          sentence_id: string | null
+          user_id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sentence_id?: string | null
+          user_id: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sentence_id?: string | null
+          user_id?: string
+          word?: string
+        }
+        Relationships: []
+      }
       teaching_questions: {
         Row: {
           answer: string | null
