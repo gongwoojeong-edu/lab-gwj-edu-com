@@ -92,6 +92,32 @@ async function appendIdiomAppendix(html: string, studentId: string): Promise<str
   }
 }
 
+/** 워크북 문서 맨 뒤에 학생 "모르는 단어" 사전활동 부록을 붙인다 (없으면 그대로 반환) */
+async function appendDictionaryAppendix(html: string, studentId: string): Promise<string> {
+  try {
+    const [items, { data: sp }] = await Promise.all([
+      listUnknownWords(studentId),
+      supabase
+        .from("student_profiles")
+        .select("display_name, student_no")
+        .eq("user_id", studentId)
+        .maybeSingle(),
+    ]);
+    const words = dedupeWords((items ?? []).map((it) => it.word));
+    if (words.length === 0) return html;
+    const section = buildDictionaryActivitySection({
+      studentName: (sp?.display_name as string | null) ?? "",
+      studentNo: (sp?.student_no as string | null) ?? null,
+      words,
+    });
+    if (!section) return html;
+    return html.replace(/<\/body>/i, () => `${section}</body>`);
+  } catch {
+    // 부록 조회 실패가 워크북 인쇄 자체를 막지 않도록 한다
+    return html;
+  }
+}
+
 /**
  * 워크북 인쇄용 — passage_no 순서 유지, 중복 행 제거 (앞쪽만).
  * - 동일 영문 (re-import / alt 중복)
@@ -891,6 +917,8 @@ export interface BuildUnitWorkbookInput {
   hideStudentTranslation?: boolean;
   /** 워크본 뒤쪽에 학생 관용어구 부록 붙이기 (기본 true) */
   includeIdiomAppendix?: boolean;
+  /** 워크북 맨 뒤에 모르는 단어 사전활동 부록 붙이기 (기본 true) */
+  includeDictionaryAppendix?: boolean;
 }
 
 /**
