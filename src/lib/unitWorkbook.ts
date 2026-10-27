@@ -1009,6 +1009,10 @@ export const buildUnitWorkbookHtmlFor = async (
   if (input.includeIdiomAppendix !== false) {
     html = await appendIdiomAppendix(html, input.studentId);
   }
+  // 맨 뒤에 모르는 단어 사전활동 부록 (없으면 그대로)
+  if (input.includeDictionaryAppendix !== false) {
+    html = await appendDictionaryAppendix(html, input.studentId);
+  }
 
   return { html, completedCount: targetCodes.length, mode };
 };
@@ -1046,7 +1050,10 @@ export const buildMultiUnitWorkbookHtml = async (
       disableCorrection: input.disableCorrection,
       hideStudentTranslation: input.hideStudentTranslation,
     });
-    const html = await appendIdiomAppendix(r.html, input.studentId);
+    let html = await appendIdiomAppendix(r.html, input.studentId);
+    if (input.includeDictionaryAppendix !== false) {
+      html = await appendDictionaryAppendix(html, input.studentId);
+    }
     return { html, unitCount: r.unitCount, passageCount: r.passageCount, mode };
   }
 
