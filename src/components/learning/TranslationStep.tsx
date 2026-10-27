@@ -6,6 +6,7 @@ import { Check, Eye, EyeOff } from "lucide-react";
 import { fetchTranslation, upsertTranslation } from "@/integrations/supabase/storage";
 import { toast } from "@/hooks/use-toast";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
+import { UnknownWordActivity } from "@/components/learning/UnknownWordActivity";
 
 interface Props {
   sentenceId: string;
@@ -93,6 +94,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
         <div className="text-xs text-muted-foreground">원문</div>
         <div className="text-base font-medium leading-relaxed">{safeEnglishSentence}</div>
       </div>
+      <UnknownWordActivity key={sentenceId} sentenceId={sentenceId} englishSentence={safeEnglishSentence} />
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <label className="text-sm font-semibold">정독 기준 한글 해석</label>
