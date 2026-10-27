@@ -29,6 +29,7 @@ import {
 import {
   buildBookCombinedWorkbookHtml,
   buildIdiomAppendixSection,
+  buildDictionaryActivitySection,
   buildHandoutPrintHtml,
   buildWordPrintHtml,
   buildWordUnitCompactPrintHtml,
@@ -37,6 +38,7 @@ import {
   type WordPayload,
 } from "./printTemplates";
 import { fetchIdiomBank } from "./idiomBank";
+import { dedupeWords, listUnknownWords } from "./unknownWords";
 import { fetchPassagesByUnit, type Passage } from "./textbooks";
 import { fetchImportantSentenceIds } from "./importantSentences";
 import {
