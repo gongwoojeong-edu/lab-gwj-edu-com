@@ -1030,6 +1030,8 @@ export interface BuildMultiUnitWorkbookInput {
   disableCorrection?: boolean;
   /** 학생해석 텍스트 빼고 빈칸으로 출력 (코칭 메모는 유지) */
   hideStudentTranslation?: boolean;
+  /** 워크북 맨 뒤에 모르는 단어 사전활동 부록 붙이기 (기본 true) */
+  includeDictionaryAppendix?: boolean;
 }
 
 /**
@@ -1072,6 +1074,7 @@ export const buildMultiUnitWorkbookHtml = async (
         hideStudentTranslation: input.hideStudentTranslation,
         // 부록은 결합 문서 마지막에 한 번만 붙인다
         includeIdiomAppendix: false,
+        includeDictionaryAppendix: false,
       });
       parts.push({ htmlDoc: r.html, passages: r.completedCount, title: u.unitTitle });
     } catch {
@@ -1109,7 +1112,10 @@ export const buildMultiUnitWorkbookHtml = async (
 </style>
 </head><body>${bodies}</body></html>`;
 
-  const withAppendix = await appendIdiomAppendix(html, input.studentId);
+  let withAppendix = await appendIdiomAppendix(html, input.studentId);
+  if (input.includeDictionaryAppendix !== false) {
+    withAppendix = await appendDictionaryAppendix(withAppendix, input.studentId);
+  }
   const totalPassages = parts.reduce((s, p) => s + p.passages, 0);
   return { html: withAppendix, unitCount: parts.length, passageCount: totalPassages, mode };
 };
