@@ -1839,3 +1839,63 @@ export const buildIdiomAppendixSection = (p: IdiomAppendixPayload): string => {
   </div>
 </section>`;
 };
+
+// ============================================================
+// 사전활동 부록 — 학생이 고른 "모르는 단어"를 워크북 맨 뒤에 붙인다.
+// 뜻·품사는 빈칸: 학생이 사전에서 찾아 쓰고 암기하는 활동지.
+// ============================================================
+export interface DictionaryActivityPayload {
+  studentName: string;
+  studentNo?: string | null;
+  words: string[];
+}
+
+export const buildDictionaryActivitySection = (p: DictionaryActivityPayload): string => {
+  if (p.words.length === 0) return "";
+  const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
+  const sNo = p.studentNo ? ` (${escapeHtml(p.studentNo)})` : "";
+
+  const rows = p.words
+    .map(
+      (word, i) => `
+      <tr>
+        <td class="dapx-num">${i + 1}</td>
+        <td class="dapx-word">${escapeHtml(word)}</td>
+        <td></td><td></td><td></td>
+      </tr>`,
+    )
+    .join("");
+
+  return `
+<section class="dapx" style="page-break-before: always; break-before: page;">
+  <style>
+    .dapx { font-family: inherit; }
+    .dapx-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.2pt solid #000; padding: 2mm 5mm 1.5mm; }
+    .dapx-title { font-size: 13pt; font-weight: 800; letter-spacing: 0.5px; }
+    .dapx-meta { font-size: 9pt; color: #333; }
+    .dapx-guide { font-size: 9pt; color: #333; padding: 2mm 5mm 0; }
+    .dapx table { width: calc(100% - 10mm); margin: 2mm 5mm; border-collapse: collapse; table-layout: fixed; }
+    .dapx th, .dapx td { border: 0.6pt solid #666; padding: 1.6mm 2mm; height: 9mm; overflow-wrap: anywhere; font-size: 10pt; }
+    .dapx th { font-size: 9pt; background: #f0f0f0; }
+    .dapx thead { display: table-header-group; }
+    .dapx tr { break-inside: avoid; }
+    .dapx-num { text-align: center; color: #555; font-size: 8pt; }
+    .dapx-word { font-weight: 700; }
+  </style>
+  <div class="dapx-head">
+    <div class="dapx-title">부록 · 사전활동 (모르는 단어)</div>
+    <div class="dapx-meta">${sName}${sNo} · ${p.words.length}개 단어</div>
+  </div>
+  <p class="dapx-guide">사전에서 뜻과 품사를 찾아 쓰고, 암기한 뒤 ✓ 하세요.</p>
+  <table>
+    <colgroup>
+      <col style="width:8%"><col style="width:26%"><col style="width:38%"><col style="width:16%"><col style="width:12%">
+    </colgroup>
+    <thead>
+      <tr><th>번호</th><th>단어</th><th>뜻</th><th>품사</th><th>암기 ✓</th></tr>
+    </thead>
+    <tbody>${rows}
+    </tbody>
+  </table>
+</section>`;
+};
