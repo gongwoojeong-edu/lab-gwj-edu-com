@@ -356,13 +356,26 @@ const PendingApprovals = () => {
           .from("textbook_passages")
           .select("code, english, korean, unit_id, passage_no")
           .in("code", sentenceIds),
-        supabase
-          .from("sentence_translations")
-          .select("user_id, sentence_id, text, submitted_at")
-          .in("user_id", userIds)
-          .in("sentence_id", sentenceIds)
-          // 최신 제출이 먼저 오도록 — 아래 tMap에서 첫 항목(=마지막 제출)만 채택
-          .order("submitted_at", { ascending: false }),
+        // 서버 1회 응답 한도(1000행)에 잘리지 않도록 페이지 단위로 모두 조회
+        (async () => {
+          const all: any[] = [];
+          const PAGE = 1000;
+          for (let from = 0; ; from += PAGE) {
+            const { data, error } = await supabase
+              .from("sentence_translations")
+              .select("user_id, sentence_id, text, submitted_at")
+              .in("user_id", userIds)
+              .in("sentence_id", sentenceIds)
+              // 최신 제출이 먼저 오도록 — 아래 tMap에서 첫 항목(=마지막 제출)만 채택
+              .order("submitted_at", { ascending: false })
+              .order("id", { ascending: true })
+              .range(from, from + PAGE - 1);
+            if (error) return { data: all, error };
+            all.push(...(data ?? []));
+            if (!data || data.length < PAGE) break;
+          }
+          return { data: all, error: null };
+        })(),
         // 제출/첨삭 횟수 집계용 이력
         supabase
           .from("sentence_approvals")
