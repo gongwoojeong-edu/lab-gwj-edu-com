@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchHeldTeachers, filterHeldByTeacher, type HeldTeacher } from "@/lib/heldTeachers";
 import { useStaff } from "@/lib/staff-context";
+import { fetchAllPages, fetchInChunks } from "@/lib/paginatedQuery";
 import { useAuth } from "@/hooks/useAuth";
 
 
@@ -182,6 +183,7 @@ const PendingApprovals = () => {
   }, [teachersReload]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [target, setTarget] = useState<Row | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -293,12 +295,9 @@ const PendingApprovals = () => {
       const allUserIds: string[] = Array.from(
         new Set([...rawList, ...rawOtherList].map((r) => r.user_id)),
       );
-      const { data: scopeProfiles } = allUserIds.length
-        ? await supabase
-            .from("student_profiles")
-            .select("user_id, teacher_id")
-            .in("user_id", allUserIds)
-        : { data: [] as any[] };
+      const scopeProfiles = await fetchInChunks(allUserIds, ids => fetchAllPages((from, to) =>
+        supabase.from("student_profiles").select("user_id, teacher_id")
+          .in("user_id", ids).order("user_id").range(from, to)));
       const teacherOf = new Map(
         ((scopeProfiles ?? []) as { user_id: string; teacher_id: string | null }[]).map(
           (p) => [p.user_id, p.teacher_id],
@@ -334,59 +333,33 @@ const PendingApprovals = () => {
       }
       if (list.length === 0) {
         setRows([]);
+        setLoadError(null);
         return;
       }
       const userIds: string[] = Array.from(new Set(list.map((r) => r.user_id)));
       const sentenceIds: string[] = Array.from(new Set(list.map((r) => r.sentence_id)));
 
-      const [
-        { data: profiles },
-        { data: passages },
-        { data: translations },
-        { data: history },
-        { data: units },
-        { data: textbooks },
-        { data: seriesList },
-      ] = await Promise.all([
-        supabase
-          .from("student_profiles")
-          .select("user_id, student_no, display_name")
-          .in("user_id", userIds),
-        supabase
-          .from("textbook_passages")
-          .select("code, english, korean, unit_id, passage_no")
-          .in("code", sentenceIds),
-        // 서버 1회 응답 한도(1000행)에 잘리지 않도록 페이지 단위로 모두 조회
-        (async () => {
-          const all: any[] = [];
-          const PAGE = 1000;
-          for (let from = 0; ; from += PAGE) {
-            const { data, error } = await supabase
-              .from("sentence_translations")
-              .select("user_id, sentence_id, text, submitted_at")
-              .in("user_id", userIds)
-              .in("sentence_id", sentenceIds)
-              // 최신 제출이 먼저 오도록 — 아래 tMap에서 첫 항목(=마지막 제출)만 채택
-              .order("submitted_at", { ascending: false })
-              .order("id", { ascending: true })
-              .range(from, from + PAGE - 1);
-            if (error) return { data: all, error };
-            all.push(...(data ?? []));
-            if (!data || data.length < PAGE) break;
-          }
-          return { data: all, error: null };
-        })(),
-        // 제출/첨삭 횟수 집계용 이력
-        supabase
-          .from("sentence_approvals")
-          .select("user_id, sentence_id, attempt_no, memo, held_memo")
-          .in("user_id", userIds)
-          .in("sentence_id", sentenceIds),
-        supabase.from("textbook_units").select("id, textbook_id, unit_no, title"),
-        supabase.from("textbooks").select("id, series_id, volume_no, title"),
-        supabase.from("textbook_series").select("id, level, series_no, title"),
+      const [profiles, passages, translations, history, units, textbooks, seriesList] = await Promise.all([
+        fetchInChunks(userIds, ids => fetchAllPages((from, to) => supabase
+          .from("student_profiles").select("user_id, student_no, display_name")
+          .in("user_id", ids).order("user_id").range(from, to))),
+        fetchInChunks(sentenceIds, ids => fetchAllPages((from, to) => supabase
+          .from("textbook_passages").select("code, english, korean, unit_id, passage_no")
+          .in("code", ids).order("id").range(from, to))),
+        fetchInChunks(userIds, users => fetchInChunks(sentenceIds, codes => fetchAllPages((from, to) => supabase
+          .from("sentence_translations").select("user_id, sentence_id, text, submitted_at")
+          .in("user_id", users).in("sentence_id", codes)
+          .order("submitted_at", { ascending: false }).order("id").range(from, to)))),
+        fetchInChunks(userIds, users => fetchInChunks(sentenceIds, codes => fetchAllPages((from, to) => supabase
+          .from("sentence_approvals").select("user_id, sentence_id, attempt_no, memo, held_memo")
+          .in("user_id", users).in("sentence_id", codes).order("id").range(from, to)))),
+        fetchAllPages((from, to) => supabase.from("textbook_units")
+          .select("id, textbook_id, unit_no, title").order("id").range(from, to)),
+        fetchAllPages((from, to) => supabase.from("textbooks")
+          .select("id, series_id, volume_no, title").order("id").range(from, to)),
+        fetchAllPages((from, to) => supabase.from("textbook_series")
+          .select("id, level, series_no, title").order("id").range(from, to)),
       ]);
-
 
       const pMap = new Map(
         (profiles ?? []).map((p: any) => [p.user_id, p]),
@@ -444,8 +417,10 @@ const PendingApprovals = () => {
       }));
 
       setRows(merged);
+      setLoadError(null);
 
     } catch (e: any) {
+      setLoadError(e?.message ?? String(e));
       toast({
         title: "승인 대기 목록 불러오기 실패",
         description: e?.message ?? String(e),
@@ -544,6 +519,10 @@ const PendingApprovals = () => {
           </div>
         </div>
 
+        {loadError && <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
+          목록을 모두 불러오지 못했습니다. 이전 표시를 유지하고 있습니다.
+          <Button size="sm" variant="outline" disabled={loading} onClick={load}>다시 불러오기</Button>
+        </div>}
         <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus | "qna")}>
           <TabsList>
             <TabsTrigger value="pending" className="gap-2">
