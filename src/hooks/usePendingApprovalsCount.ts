@@ -11,6 +11,8 @@ import {
   unitLabelFromSentenceId,
 } from "@/lib/approvalChime";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages, fetchInChunks } from "@/lib/paginatedQuery";
+import { toast } from "@/hooks/use-toast";
 
 type Listener = () => void;
 
@@ -60,10 +62,9 @@ const refresh = async () => {
       const isAdmin = (roleRows ?? []).some((r: { role: string }) => r.role === "admin");
       if (!isAdmin) {
         const ids = Array.from(new Set(list.map((r) => r.user_id)));
-        const { data: profs } = await supabase
-          .from("student_profiles")
-          .select("user_id, teacher_id")
-          .in("user_id", ids);
+        const profs = await fetchInChunks(ids, users => fetchAllPages((from, to) => supabase
+          .from("student_profiles").select("user_id, teacher_id")
+          .in("user_id", users).order("user_id").range(from, to)));
         const teacherOf = new Map(
           ((profs ?? []) as { user_id: string; teacher_id: string | null }[]).map((p) => [
             p.user_id,
@@ -79,7 +80,8 @@ const refresh = async () => {
     if (gen !== fetchGen) return;
     const nextIds = new Set(scoped.map((r) => r.id));
     if (prevIds !== null) {
-      const added = scoped.filter((r) => !prevIds!.has(r.id));
+      const previous = prevIds;
+      const added = scoped.filter((r) => !previous.has(r.id));
       if (added.length > 0) {
         void announce(added.map((r) => ({ user_id: r.user_id, sentence_id: r.sentence_id })));
       }
@@ -89,8 +91,8 @@ const refresh = async () => {
     emit();
   } catch {
     if (gen !== fetchGen) return;
-    count = 0;
-    emit();
+    toast({ title: "승인 대기 숫자를 새로 불러오지 못했습니다",
+      description: "기존 숫자를 유지합니다. 승인 대기 화면에서 새로고침해 주세요.", variant: "destructive" });
   }
 };
 

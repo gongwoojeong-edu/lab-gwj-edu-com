@@ -7,6 +7,7 @@ import { createNotification } from "@/lib/studentNotifications";
 import { memoToPlainText } from "@/lib/approvalMemo";
 import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
 import { GRADE_LABEL, GRADE_ORDER, type ApprovalGrade } from "./gradeMeta";
+import { fetchAllPages } from "./paginatedQuery";
 
 export type ApprovalStatus = "pending" | "approved" | "held";
 
@@ -387,13 +388,14 @@ export async function resolveContinueSentenceId(
 export const fetchApprovalsByStatus = async (
   status: ApprovalStatus = "pending",
 ): Promise<SentenceApproval[]> => {
-  const { data, error } = await supabase
+  const rows = await fetchAllPages((from, to) => supabase
     .from("sentence_approvals")
     .select("*")
     .eq("status", status)
-    .order(status === "held" ? "held_at" : "requested_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as SentenceApproval[];
+    .order(status === "held" ? "held_at" : "requested_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, to));
+  return rows as SentenceApproval[];
 };
 
 /** 선생님 대시보드: pending 상태 전체 목록 (호환용) */
