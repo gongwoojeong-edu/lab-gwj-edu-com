@@ -1,5 +1,10 @@
 # Roadmap
 
+## 승인 대기 누적 자료 누락 방지
+- [ ] 승인 대기·보류 목록 및 숫자 전체 조회
+- [ ] 해석·원문·출처·제출/첨삭 횟수 전체 조회 및 실패 표시
+- [ ] 1000건 초과 회귀 테스트 및 실제 승인 화면 확인
+
 ## 관용어구 뱅크 (완료)
 - [x] DB: student_idiom_bank + idiom_test_assignments 테이블 (RLS/GRANT)
 - [x] lib/idiomBank.ts: 등록·조회·수정·삭제·테스트 부여·채점
