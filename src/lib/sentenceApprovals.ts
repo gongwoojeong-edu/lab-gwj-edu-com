@@ -388,13 +388,14 @@ export async function resolveContinueSentenceId(
 export const fetchApprovalsByStatus = async (
   status: ApprovalStatus = "pending",
 ): Promise<SentenceApproval[]> => {
-  return fetchAllPages<SentenceApproval>((from, to) => supabase
+  const rows = await fetchAllPages((from, to) => supabase
     .from("sentence_approvals")
     .select("*")
     .eq("status", status)
     .order(status === "held" ? "held_at" : "requested_at", { ascending: false })
     .order("id", { ascending: true })
     .range(from, to));
+  return rows as SentenceApproval[];
 };
 
 /** 선생님 대시보드: pending 상태 전체 목록 (호환용) */
