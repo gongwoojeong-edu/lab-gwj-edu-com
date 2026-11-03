@@ -222,15 +222,11 @@ const ADV_FORMS: { key: AdvForm; circle: string; label: string }[] = [
 
 // LAYER 02: 기타 종류
 const ETC_KINDS: { key: EtcKind; label: string }[] = [
-  { key: "비교", label: "비교" },
-  { key: "의문문", label: "의문문" },
-  { key: "감탄문", label: "감탄문" },
-  { key: "명령문", label: "명령문" },
+  // 어법테이블 간소화: 접속 + 특수구문만
   { key: "접속", label: "접속" },
+  { key: "비교", label: "비교" },
   { key: "가정법", label: "가정법" },
   { key: "도치/생략/동격", label: "도치/생략/동격" },
-  { key: "삽입", label: "삽입" },
-  { key: "부연", label: "부연" },
 ];
 
 // ============================================================
@@ -285,18 +281,10 @@ const FORM_BONUS_ROLES_BY_ELEMENT: Partial<
 
 const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
   "to V": [
-    "toV(주어)", "toV(목적어)", "toV(보어)", "toV의 의미상주어",
-    "의문사(to V)",
-    "부정형",
-    "수동형",
-    "완료형",
-    "진행형",
-    "원형부정사",
-    "대부정사",
+    "toV(주어)", "toV(목적어)", "toV(보어)", "의문사(to V)",
   ],
   "V-ing": [
-    "동명사(주어)", "동명사(목적어)", "동명사(보어)", "동명사의 의미상주어",
-    "부정형", "수동형", "완료형",
+    "동명사(주어)", "동명사(목적어)", "동명사(보어)",
   ],
   // 명사절 — 5개 form × 3개 SVOC role(주어/목적어/보어) = 15 평탄 버튼
   // 라벨 자체가 부배지로 그대로 노출됨 (열 순서 유지)
@@ -314,7 +302,7 @@ const FORM_ONLY_ROLES: Partial<Record<NounForm, RoleOption[]>> = {
 // ============================================================
 const ADJ_ROLES_BY_FORM: Record<AdjForm, RoleOption[]> = {
   "형용사": ["형용사", "a주격보어", "a목적격보어", "a명사수식"],
-  "to V": ["to 명사뒤수식", "be to부정사"],
+  "to V": ["to 명사뒤수식"],
   "V-ing/PP": [
     { header: "ing", items: ["명사앞수식", "명사뒤수식", "주격보어", "목적격보어"] },
     { header: "pp", items: ["명사앞수식", "명사뒤수식", "주격보어", "목적격보어"] },
@@ -322,7 +310,7 @@ const ADJ_ROLES_BY_FORM: Record<AdjForm, RoleOption[]> = {
   "접SV": [
     {
       header: "관대",
-      items: ["주격", "목적격", "소유격", "전+RP", "계속적", "N of which", "N of whom"],
+      items: ["주격", "목적격", "소유격", "전+RP", "계속적"],
     },
     {
       header: "관부",
@@ -345,9 +333,9 @@ const ADJ_FORM_SKIPS_ELEMENT: Partial<Record<AdjForm, "C" | "M">> = {
 // ============================================================
 const ADV_ROLES_BY_FORM: Record<AdvForm, RoleOption[]> = {
   "부사": ["부사"],
-  "to V": ["목적", "감정의원인", "판단의근거", "조건", "결과", "형용사수식"],
-  "ing/pp": ["분사구문", "완료", "부정", "독립", "with N 형부"],
-  "접SV": ["시간", "장소", "이유", "조건", "양보", "결과", "양태", "비교"],
+  "to V": ["목적", "감정의원인", "판단의근거", "결과"],
+  "ing/pp": ["분사구문"],
+  "접SV": ["시간", "이유", "조건", "양보", "결과", "목적"],
   "전N": ["부사 전치사구"],
 };
 
