@@ -520,7 +520,7 @@ export interface PassageSource {
   unitNo: number | null;
   passageNo: number | null;
   code: string;
-  keyGrammar: string[];
+  keyGrammar?: string[];
 }
 
 /** 문장 코드로부터 책장 계층(시리즈·권·유닛·지문) 정보를 조회한다. */
