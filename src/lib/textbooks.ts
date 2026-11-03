@@ -1058,3 +1058,22 @@ export const fetchPassagesByTextbook = async (textbookId: string): Promise<Passa
   if (error) throw error;
   return (data ?? []).map((r) => mapPassageRow(r as Record<string, unknown>));
 };
+
+/** 유닛 id 목록 → 해당 과(권)들의 주요어법(중복 제거, 순서 유지) */
+export const fetchKeyGrammarForUnits = async (unitIds: string[]): Promise<string[]> => {
+  const ids = Array.from(new Set(unitIds.filter(Boolean)));
+  if (ids.length === 0) return [];
+  const { data: units } = await supabase.from("textbook_units").select("id, textbook_id").in("id", ids);
+  const tbIds = Array.from(new Set((units ?? []).map((u) => u.textbook_id as string)));
+  if (tbIds.length === 0) return [];
+  const { data: tbs } = await supabase.from("textbooks").select("id, key_grammar").in("id", tbIds);
+  const out: string[] = [];
+  tbIds.forEach((id) => {
+    const tb = (tbs ?? []).find((t) => t.id === id) as { key_grammar?: string[] | null } | undefined;
+    (tb?.key_grammar ?? []).forEach((g) => {
+      const v = (g ?? "").trim();
+      if (v && !out.includes(v)) out.push(v);
+    });
+  });
+  return out;
+};

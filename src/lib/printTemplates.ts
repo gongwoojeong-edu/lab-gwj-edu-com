@@ -1278,6 +1278,16 @@ const renderKoDiff = (
     .join(" ");
 };
 
+/** 워크북 앞면 상단 — 과별 주요어법 안내(형광펜 지도용) */
+export const keyGrammarBannerHtml = (list?: string[]): string => {
+  const items = (list ?? []).map((g) => g.trim()).filter(Boolean);
+  if (items.length === 0) return "";
+  const chips = items
+    .map((g, i) => `<span style="display:inline-block;margin-right:4mm;"><b>${i + 1}.</b> ${escapeHtml(g)}</span>`)
+    .join("");
+  return `<div style="border:1.5px solid #000;border-radius:2mm;padding:1.6mm 3mm;margin:0 0 2.5mm;font-size:10pt;"><b style="margin-right:3mm;">★ 이 과의 주요어법</b>${chips}<span style="color:#555;font-size:8.5pt;">— 본문에서 해당 문장에 형광펜 표시 후 정리하세요</span></div>`;
+};
+
 export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string => {
   const stamp = nowStamp();
   const sName = p.studentName ? escapeHtml(p.studentName) : "_______";
@@ -1587,6 +1597,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
 ${useOneSheetForSourceAndTranslation
   ? `<div class="page bk-page bk-one-sheet">
   ${header("Book Workbook", `원문 · 한글 해석 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
+  ${keyGrammarBannerHtml(p.keyGrammar)}
   <div class="bk-part-title">① 선택유닛 전체 원문</div>
   ${sourceSections || '<div class="bk-muted">(지문 없음)</div>'}
   <div class="bk-part-title">② ${hideKo ? "한글 해석 다시 쓰기" : disableCorrection ? "선택유닛 전체 학생해석" : "선택유닛 전체 학생해석 (첨삭)"}</div>
@@ -1599,6 +1610,7 @@ ${useOneSheetForSourceAndTranslation
 </div>`
   : `<div class="page bk-page">
   ${header("Book Workbook", `① 선택유닛 전체 원문 · ${p.bookTitle}`, `유닛 ${p.units.length}개 · 지문 ${allItems.length}건`)}
+  ${keyGrammarBannerHtml(p.keyGrammar)}
   ${sourceSections || '<div class="bk-muted">(지문 없음)</div>'}
 </div>
 
