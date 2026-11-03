@@ -1682,6 +1682,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          key_grammar: string[]
           level: string
           series_id: string
           title: string
@@ -1694,6 +1695,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          key_grammar?: string[]
           level: string
           series_id: string
           title: string
@@ -1706,6 +1708,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          key_grammar?: string[]
           level?: string
           series_id?: string
           title?: string
@@ -1950,6 +1953,7 @@ export type Database = {
       master_analysis_spots: {
         Args: { p_sentence_id: string }
         Returns: {
+          core: boolean
           owner_id: string
           required: boolean
         }[]
