@@ -37,6 +37,8 @@ export interface Textbook {
   unit_no: number;
   title: string;
   description: string | null;
+  /** 과별 주요어법(수동 등록, 보통 2개) — 워크북 앞면·학생 화면에 표시 */
+  key_grammar: string[];
   created_at: string;
   updated_at: string;
 }
@@ -167,6 +169,7 @@ const mapTextbookRow = (row: Record<string, unknown>, level?: LevelCode): Textbo
     unit_no: volumeNo, // 호환 별칭
     title: row.title as string,
     description: (row.description as string | null) ?? null,
+    key_grammar: ((row.key_grammar as string[] | null) ?? []).filter((g) => !!g?.trim()),
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   };
@@ -224,9 +227,10 @@ export const createTextbook = async (input: {
 
 export const updateTextbook = async (
   id: string,
-  patch: { title?: string; volume_no?: number; description?: string | null },
+  patch: { title?: string; volume_no?: number; description?: string | null; key_grammar?: string[] },
 ): Promise<void> => {
   const updatePayload: {
+    key_grammar?: string[];
     title?: string;
     description?: string | null;
     volume_no?: number;
@@ -234,6 +238,8 @@ export const updateTextbook = async (
   } = {};
   if (patch.title !== undefined) updatePayload.title = patch.title;
   if (patch.description !== undefined) updatePayload.description = patch.description;
+  if (patch.key_grammar !== undefined)
+    updatePayload.key_grammar = patch.key_grammar.map((g) => g.trim()).filter(Boolean);
   if (patch.volume_no !== undefined) {
     updatePayload.volume_no = patch.volume_no;
     updatePayload.unit_no = patch.volume_no;
@@ -514,6 +520,7 @@ export interface PassageSource {
   unitNo: number | null;
   passageNo: number | null;
   code: string;
+  keyGrammar?: string[];
 }
 
 /** 문장 코드로부터 책장 계층(시리즈·권·유닛·지문) 정보를 조회한다. */
@@ -541,12 +548,13 @@ export const fetchPassageSource = async (code: string): Promise<PassageSource | 
       unitNo: passage.passage_no ?? null,
       passageNo: passage.passage_no ?? null,
       code: passage.code as string,
+      keyGrammar: [],
     };
   }
 
   const { data: textbook } = await supabase
     .from("textbooks")
-    .select("series_id, volume_no, title")
+    .select("series_id, volume_no, title, key_grammar")
     .eq("id", unit.textbook_id)
     .maybeSingle();
 
@@ -570,6 +578,7 @@ export const fetchPassageSource = async (code: string): Promise<PassageSource | 
     unitNo: (unit?.unit_no as number) ?? null,
     passageNo: (passage.passage_no as number) ?? null,
     code: passage.code as string,
+    keyGrammar: (((textbook as { key_grammar?: string[] } | null)?.key_grammar) ?? []).filter(Boolean),
   };
 };
 
@@ -1048,4 +1057,23 @@ export const fetchPassagesByTextbook = async (textbookId: string): Promise<Passa
     .order("passage_no");
   if (error) throw error;
   return (data ?? []).map((r) => mapPassageRow(r as Record<string, unknown>));
+};
+
+/** 유닛 id 목록 → 해당 과(권)들의 주요어법(중복 제거, 순서 유지) */
+export const fetchKeyGrammarForUnits = async (unitIds: string[]): Promise<string[]> => {
+  const ids = Array.from(new Set(unitIds.filter(Boolean)));
+  if (ids.length === 0) return [];
+  const { data: units } = await supabase.from("textbook_units").select("id, textbook_id").in("id", ids);
+  const tbIds = Array.from(new Set((units ?? []).map((u) => u.textbook_id as string)));
+  if (tbIds.length === 0) return [];
+  const { data: tbs } = await supabase.from("textbooks").select("id, key_grammar").in("id", tbIds);
+  const out: string[] = [];
+  tbIds.forEach((id) => {
+    const tb = (tbs ?? []).find((t) => t.id === id) as { key_grammar?: string[] | null } | undefined;
+    (tb?.key_grammar ?? []).forEach((g) => {
+      const v = (g ?? "").trim();
+      if (v && !out.includes(v)) out.push(v);
+    });
+  });
+  return out;
 };

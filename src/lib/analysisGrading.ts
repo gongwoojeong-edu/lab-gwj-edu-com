@@ -160,15 +160,16 @@ export const fetchMasterAnswers = async (
  */
 export const fetchMasterSpots = async (
   sentenceId: string,
-): Promise<{ ownerIds: string[]; requiredIds: string[] }> => {
+): Promise<{ ownerIds: string[]; requiredIds: string[]; coreIds: string[] }> => {
   const { data, error } = await supabase.rpc("master_analysis_spots", {
     p_sentence_id: sentenceId,
   });
-  if (error || !data) return { ownerIds: [], requiredIds: [] };
-  const rows = data as { owner_id: string; required: boolean }[];
+  if (error || !data) return { ownerIds: [], requiredIds: [], coreIds: [] };
+  const rows = data as { owner_id: string; required: boolean; core?: boolean }[];
   return {
     ownerIds: rows.map((r) => r.owner_id),
     requiredIds: rows.filter((r) => r.required).map((r) => r.owner_id),
+    coreIds: rows.filter((r) => r.core).map((r) => r.owner_id),
   };
 };
 

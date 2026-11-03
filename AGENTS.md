@@ -9,3 +9,5 @@
 - Store student-specific important sentence designations in student_passage_overrides and read them through importantSentences.ts; this preserves flags across approval attempts and shares one source with workbook generation.
 - Keep teacher evaluation grade labels/colors in src/lib/gradeMeta.ts (a pure module with no DB or auth imports); on-screen badges and print templates both read from it, so a printed workbook can never show a grade wording the app doesn't use.
 - Use paginatedQuery.ts for unbounded approval queue reads and chunk large IN filters; stable ordering and propagated errors prevent truncated queues, counts, and missing student translations.
+- Keep the student analysis shading rule (verb/verbal/conjunction/special construction + teacher-required) in src/lib/analysisCore.ts mirrored by master_analysis_spots.core; shading and grading stay separate so narrowing hints never changes pass criteria.
+- Store per-textbook key grammar in textbooks.key_grammar and read it via fetchKeyGrammarForUnits/fetchPassageSource so workbook front pages and the student header share one source.

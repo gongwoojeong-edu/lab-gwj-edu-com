@@ -696,6 +696,8 @@ const Index = ({
   const [masterOwnerIds, setMasterOwnerIds] = useState<Set<string>>(new Set());
   // 마스터키에서 선생님이 "필수 분석"으로 명시 지정한 owner_id 집합
   const [masterRequiredIds, setMasterRequiredIds] = useState<Set<string>>(new Set());
+  // 음영 대상: 동사·준동사·접속사·특수구문(핵심) — null 이면 규칙 정보 없음(전체 음영)
+  const [masterCoreIds, setMasterCoreIds] = useState<Set<string> | null>(null);
   const [masterHydrated, setMasterHydrated] = useState(false);
 
   // ===== 학습 흐름 (Cloud) =====
@@ -1262,17 +1264,20 @@ const Index = ({
       const spots = await fetchMasterSpots(sentence.id).catch(() => ({
         ownerIds: [] as string[],
         requiredIds: [] as string[],
+        coreIds: [] as string[],
       }));
       if (cancelled) return;
       if (spots.ownerIds.length > 0) {
         setMasterOwnerIds(new Set(spots.ownerIds));
         setMasterRequiredIds(new Set(spots.requiredIds));
+        setMasterCoreIds(new Set(spots.coreIds));
         setMasterHydrated(true);
         return;
       }
       // 2) 폴백: 직접 읽기(교사·원장 화면)
       const m = await fetchMasterAnswers(sentence.id).catch(() => ({}));
       if (cancelled) return;
+      const { isCoreAnalysisSpot } = await import("@/lib/analysisCore");
       setMasterOwnerIds(new Set(Object.keys(m)));
       setMasterRequiredIds(
         new Set(
@@ -1280,6 +1285,9 @@ const Index = ({
             .filter(([, v]) => (v as { required?: boolean } | null)?.required === true)
             .map(([ownerId]) => ownerId),
         ),
+      );
+      setMasterCoreIds(
+        new Set(Object.entries(m).filter(([, v]) => isCoreAnalysisSpot(v)).map(([o]) => o)),
       );
       setMasterHydrated(true);
     });
@@ -3102,7 +3110,11 @@ const Index = ({
               const completedIndices = ownerId ? completedSelectionMap[ownerId] ?? [] : [];
               const isCompleted = completedIndices.includes(idx) && !!wp?.completed;
               const isMasterGuideHere =
-                showMasterGuide && masterOwnersHere.length > 0 && !isCompleted;
+                showMasterGuide &&
+                !isCompleted &&
+                masterOwnersHere.some(
+                  (o) => !masterCoreIds || masterCoreIds.has(o) || masterRequiredIds.has(o),
+                );
               const selStart = completedIndices[0];
               const selEnd = completedIndices[completedIndices.length - 1];
               const isFirstOfSelection = isCompleted && idx === selStart;

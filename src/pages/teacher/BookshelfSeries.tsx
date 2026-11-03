@@ -85,6 +85,7 @@ const BookshelfSeries = () => {
   const [editVol, setEditVol] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editGrammar, setEditGrammar] = useState<[string, string]>(["", ""]);
   const [savingEdit, setSavingEdit] = useState(false);
 
   // delete
@@ -250,6 +251,7 @@ const BookshelfSeries = () => {
     setEditVol(String(t.volume_no));
     setEditTitle(t.title);
     setEditDesc(t.description ?? "");
+    setEditGrammar([t.key_grammar?.[0] ?? "", t.key_grammar?.[1] ?? ""]);
   };
 
   const handleSaveEdit = async () => {
@@ -269,6 +271,7 @@ const BookshelfSeries = () => {
         volume_no: vol,
         title: editTitle.trim(),
         description: editDesc.trim() || null,
+        key_grammar: editGrammar,
       });
       toast({ title: "권 정보가 수정되었습니다" });
       setEditTarget(null);
@@ -541,6 +544,21 @@ const BookshelfSeries = () => {
                 value={editDesc}
                 onChange={(e) => setEditDesc(e.target.value)}
               />
+            </div>
+            <div>
+              <Label>주요어법 (최대 2개 · 워크북 앞면과 학생 화면에 표시)</Label>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {[0, 1].map((i) => (
+                  <Input
+                    key={i}
+                    placeholder={i === 0 ? "예: 관계대명사 what" : "예: 가주어 it"}
+                    value={editGrammar[i]}
+                    onChange={(e) =>
+                      setEditGrammar((g) => (i === 0 ? [e.target.value, g[1]] : [g[0], e.target.value]))
+                    }
+                  />
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -136,10 +136,13 @@ const SentenceLearn = () => {
   const [sentence, setSentence] = useState<Sentence | null>(null);
   /** 출처 라벨: "동아이병민 5과 · U1 본문1" */
   const [sourceLabel, setSourceLabel] = useState<string | null>(null);
+  /** 이 과의 주요어법(선생님이 수동 등록) */
+  const [keyGrammar, setKeyGrammar] = useState<string[]>([]);
 
   useEffect(() => {
     if (!sentence?.id) {
       setSourceLabel(null);
+      setKeyGrammar([]);
       return;
     }
     let alive = true;
@@ -151,6 +154,7 @@ const SentenceLearn = () => {
           publisher && s.volumeNo != null ? `${publisher} ${s.volumeNo}과` : publisher;
         const unit = s.unitTitle ? `U${s.unitNo ?? ""} ${s.unitTitle}`.trim() : null;
         setSourceLabel([book, unit].filter(Boolean).join(" · ") || null);
+        setKeyGrammar(s.keyGrammar ?? []);
       })
       .catch(() => setSourceLabel(null));
     return () => {
@@ -1256,6 +1260,11 @@ const SentenceLearn = () => {
                   </span>
                 )}
                 {levelDisplay(sentence.level)} · {sentence.id}
+                {keyGrammar.length > 0 && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-accent text-accent-foreground text-[10px] font-bold">
+                    주요어법: {keyGrammar.join(" · ")}
+                  </span>
+                )}
 
                 {skippedSentence && (
                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
