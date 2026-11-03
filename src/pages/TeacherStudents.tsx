@@ -496,7 +496,9 @@ const TeacherStudents = () => {
 
   const sorted = useMemo(() => {
     let list = [...students];
-    if (!showWithdrawn) list = list.filter((s) => s.enrollmentActive !== false);
+    // 검색어가 있으면 반 미등록(퇴원·원장·선생님 계정 등)도 함께 찾는다.
+    const hasQuery = search.trim().length > 0;
+    if (!showWithdrawn && !hasQuery) list = list.filter((s) => s.enrollmentActive !== false);
     if (isViewingAsOther && effectiveTeacherAuthUserId) {
       list = list.filter((s) => {
         if (!s.userId) return false;
