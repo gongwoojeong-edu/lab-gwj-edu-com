@@ -1197,6 +1197,8 @@ export interface BookCombinedUnit {
 }
 export interface BookCombinedPayload {
   bookTitle: string;
+  /** 과별 주요어법 — 앞면 상단 표시 */
+  keyGrammar?: string[];
   studentName: string | null;
   studentNo: string | null;
   units: BookCombinedUnit[];

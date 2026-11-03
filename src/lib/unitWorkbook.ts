@@ -36,10 +36,11 @@ import {
   type BookCombinedItem,
   type BookCombinedUnit,
   type WordPayload,
+  keyGrammarBannerHtml,
 } from "./printTemplates";
 import { fetchIdiomBank } from "./idiomBank";
 import { dedupeWords, listUnknownWords } from "./unknownWords";
-import { fetchPassagesByUnit, type Passage } from "./textbooks";
+import { fetchKeyGrammarForUnits, fetchPassagesByUnit, type Passage } from "./textbooks";
 import { fetchImportantSentenceIds } from "./importantSentences";
 import {
   gradeBadgeHtml,
