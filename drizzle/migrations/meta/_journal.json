@@ -78,6 +78,13 @@
       "when": 1794016962031,
       "tag": "0010_class_review_attendance",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794021098044,
+      "tag": "0011_merge_passages_with_student_translations",
+      "breakpoints": true
     }
   ]
 }

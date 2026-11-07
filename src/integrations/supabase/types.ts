@@ -2008,6 +2008,10 @@ export type Database = {
           required: boolean
         }[]
       }
+      merge_passages_with_translations: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
       next_session_no: {
         Args: { p_test_date: string; p_user_id: string }
         Returns: number
