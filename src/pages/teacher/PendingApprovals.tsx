@@ -451,13 +451,32 @@ const PendingApprovals = () => {
     [rows],
   );
 
+  // 현재 목록에 등장하는 책(시리즈) 목록 — 드롭다운 옵션
+  const seriesOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach((r) => {
+      const s = r.source;
+      if (!s?.seriesTitle) return;
+      const key = `${s.level ?? ""}::${s.seriesTitle}`;
+      if (!map.has(key)) map.set(key, [s.level, s.seriesTitle].filter(Boolean).join(" "));
+    });
+    return Array.from(map.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     // 보류함: 관리자는 드롭다운으로 범위 선택, 선생님은 load 단계에서 이미 내 보류함만 스코핑됨
-    const scoped =
+    let scoped =
       tab === "held" && isAdmin
         ? filterHeldByTeacher(rows, heldFilter === "mine" ? effectiveTeacherAuthUserId ?? "" : heldFilter)
         : rows;
+    if (seriesFilter !== "all") {
+      scoped = scoped.filter(
+        (r) => r.source?.seriesTitle && `${r.source.level ?? ""}::${r.source.seriesTitle}` === seriesFilter,
+      );
+    }
     if (!q) return scoped;
     return scoped.filter(
       (r) =>
@@ -465,7 +484,7 @@ const PendingApprovals = () => {
         (r.student_no ?? "").toLowerCase().includes(q) ||
         r.sentence_id.toLowerCase().includes(q),
     );
-  }, [rows, query, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
+  }, [rows, query, seriesFilter, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
 
   const countLabel = useMemo(
     () => `${filteredRows.length}건 ${tab === "held" ? "보류" : "대기"}`,
