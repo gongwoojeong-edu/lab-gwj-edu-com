@@ -25,6 +25,7 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
   const [volumeFilter, setVolumeFilter] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [projecting, setProjecting] = useState(false);
+  const [acting, setActing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(false);
@@ -51,8 +52,11 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
   const allChecked = visible.length > 0 && visible.every(g => selected.has(g.sentenceId));
 
   const act = async (fn: () => Promise<void>, ok: string) => {
+    if (acting) return;
+    setActing(true);
     try { await fn(); toast({ title: ok }); await load(); }
-    catch { toast({ title: "처리하지 못했어요", variant: "destructive" }); }
+    catch (e) { toast({ title: "처리하지 못했어요", description: e instanceof Error ? e.message : (e as { message?: string })?.message, variant: "destructive" }); }
+    finally { setActing(false); }
   };
   const ids = chosen.flatMap(g => g.itemIds);
 
@@ -97,9 +101,9 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
         </label>
         <Button size="sm" disabled={!chosen.length} onClick={() => setProjecting(true)}><Presentation className="size-4 mr-1" /> 프로젝터로 보기</Button>
         {status === "open"
-          ? <Button size="sm" variant="outline" disabled={!chosen.length} onClick={() => act(() => setClassReviewStatus(ids, "done"), "수업 완료로 옮겼어요")}><CheckCircle2 className="size-4 mr-1" /> 수업 완료</Button>
-          : <Button size="sm" variant="outline" disabled={!chosen.length} onClick={() => act(() => setClassReviewStatus(ids, "open"), "수업 예정으로 되돌렸어요")}><RotateCcw className="size-4 mr-1" /> 되돌리기</Button>}
-        <Button size="sm" variant="ghost" disabled={!chosen.length} onClick={() => act(() => removeClassReview(ids), "자료함에서 뺐어요")}><Trash2 className="size-4 mr-1" /> 빼기</Button>
+          ? <Button size="sm" variant="outline" disabled={!chosen.length || acting} onClick={() => act(() => setClassReviewStatus(ids, "done"), "수업 완료 — 코칭 표시와 재학습 요청을 보냈어요")}><CheckCircle2 className="size-4 mr-1" /> 수업 완료</Button>
+          : <Button size="sm" variant="outline" disabled={!chosen.length || acting} onClick={() => act(() => setClassReviewStatus(ids, "open"), "수업 예정으로 되돌렸어요")}><RotateCcw className="size-4 mr-1" /> 되돌리기</Button>}
+        <Button size="sm" variant="ghost" disabled={!chosen.length || acting} onClick={() => act(() => removeClassReview(ids), "자료함에서 뺐어요")}><Trash2 className="size-4 mr-1" /> 빼기</Button>
       </div>
 
       {loading && !groups.length && <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>}
@@ -154,7 +158,7 @@ function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; o
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="닫기"><X className="size-5" /></Button>
       </div>
       <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-8 px-6 md:px-12 py-8">
-        <p className="text-4xl md:text-5xl font-semibold leading-[2.8] py-8 break-words">{g.english}</p>
+        <p className="class-review-original text-4xl md:text-5xl font-semibold py-8 break-words">{g.english}</p>
         {showKo && g.korean && <p className="text-2xl md:text-3xl text-muted-foreground leading-relaxed">{g.korean}</p>}
         {g.students.length > 0 && <div className="space-y-3 border-t border-border pt-6">
           {g.students.map(st => <div key={st.userId} className="text-2xl leading-relaxed">

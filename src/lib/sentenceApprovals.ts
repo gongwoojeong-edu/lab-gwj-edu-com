@@ -315,6 +315,16 @@ export async function applyApprovalToMyProgress(
   const memoTrimmed = (isHeld ? approval.held_memo : approval.memo)?.trim() || null;
   const assignmentId = approval.assignment_id ?? fallbackAssignmentId ?? null;
 
+  // 수업 완료 코칭은 통과가 아닌 재제출 요청이다. 기존 코칭 승인은 그대로 유지한다.
+  if (!isHeld && approval.grade === "coach") {
+    let q = supabase.from("sentence_progress").select("redo_requested_at")
+      .eq("user_id", userId).eq("sentence_id", approval.sentence_id);
+    q = assignmentId ? q.eq("assignment_id", assignmentId) : q.is("assignment_id", null);
+    const { data, error } = await q.maybeSingle();
+    if (error) throw error;
+    if (data?.redo_requested_at) return;
+  }
+
   if (isRedo) {
     await upsertSentenceProgress(approval.sentence_id, {
       last_grade: approval.grade,
