@@ -4,6 +4,10 @@
 @tailwind components;
 @tailwind utilities;
 
+p.class-review-original {
+  line-height: 2.8;
+}
+
 /* 공우정바른학원 — Sentence Analyzer Design System
    Dark Violet identity, glassmorphism, modern edu-tech
    All colors MUST be HSL.

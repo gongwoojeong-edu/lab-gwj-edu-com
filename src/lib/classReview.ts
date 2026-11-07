@@ -78,9 +78,14 @@ export async function removeClassReview(ids: string[]) {
 
 export async function setClassReviewStatus(ids: string[], status: "open" | "done") {
   if (!ids.length) return;
+  if (status === "done") {
+    const { error } = await supabase.rpc("complete_class_review_coaching", { p_ids: [...new Set(ids)] });
+    if (error) throw error;
+    return;
+  }
   await fetchInChunks(ids, async (chunk) => {
     const { error } = await supabase.from("class_review_items")
-      .update({ status, done_at: status === "done" ? new Date().toISOString() : null }).in("id", chunk);
+      .update({ status, done_at: null }).in("id", chunk);
     if (error) throw error;
     return [];
   });
