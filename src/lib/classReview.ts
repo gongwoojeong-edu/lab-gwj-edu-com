@@ -91,6 +91,24 @@ export async function setClassReviewStatus(ids: string[], status: "open" | "done
   });
 }
 
+export interface ClassReviewStudent { user_id: string; display_name: string | null; student_no: string }
+
+export async function fetchClassReviewStudents(viewerId: string, isAdmin: boolean) {
+  return fetchAllPages<ClassReviewStudent>((from, to) => {
+    let q = supabase.from("student_profiles").select("user_id, display_name, student_no");
+    if (!isAdmin) q = q.or(`teacher_id.eq.${viewerId},teacher_id.is.null`);
+    return q.order("student_no").order("user_id").range(from, to) as never;
+  });
+}
+
+export async function completeClassReviewAttendance(ids: string[], studentIds: string[]) {
+  if (!ids.length || !studentIds.length) throw new Error("수업 문장과 참여 학생을 선택해 주세요");
+  const { error } = await supabase.rpc("complete_class_review_attendance", {
+    p_ids: [...new Set(ids)], p_student_ids: [...new Set(studentIds)],
+  });
+  if (error) throw error;
+}
+
 export async function fetchClassReviewGroups(status: "open" | "done"): Promise<ClassReviewGroup[]> {
   const rows = await fetchAllPages<ClassReviewRow>((from, to) =>
     supabase.from("class_review_items").select("id, sentence_id, user_id, approval_id, teacher_id, note, status, created_at, done_at")
