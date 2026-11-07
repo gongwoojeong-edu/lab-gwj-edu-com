@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import type { HeldTeacher } from "@/lib/heldTeachers";
-import { fetchClassReviewGroups, removeClassReview, setClassReviewStatus, type ClassReviewGroup } from "@/lib/classReview";
+import { completeClassReviewAttendance, fetchClassReviewStudents, fetchClassReviewGroups, removeClassReview, setClassReviewStatus, type ClassReviewGroup, type ClassReviewStudent } from "@/lib/classReview";
 
 interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[] }
 
@@ -26,6 +28,12 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [projecting, setProjecting] = useState(false);
   const [acting, setActing] = useState(false);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [students, setStudents] = useState<ClassReviewStudent[]>([]);
+  const [attendees, setAttendees] = useState<Set<string>>(new Set());
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentsError, setStudentsError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(false);
@@ -59,6 +67,29 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
     finally { setActing(false); }
   };
   const ids = chosen.flatMap(g => g.itemIds);
+  const loadStudents = async () => {
+    if (!viewerId) return;
+    setStudentsLoading(true); setStudentsError(false);
+    try { setStudents(await fetchClassReviewStudents(viewerId, isAdmin)); }
+    catch { setStudentsError(true); toast({ title: "학생 목록을 불러오지 못했어요", variant: "destructive" }); }
+    finally { setStudentsLoading(false); }
+  };
+  const openAttendance = () => {
+    setAttendees(new Set(chosen.flatMap(g => g.studentIds)));
+    setStudentSearch(""); setAttendanceOpen(true); void loadStudents();
+  };
+  const matchingStudents = students.filter(st => `${st.display_name ?? ""} ${st.student_no}`.toLowerCase().includes(studentSearch.trim().toLowerCase()));
+  const finishClass = async () => {
+    if (acting) return;
+    setActing(true);
+    try {
+      await completeClassReviewAttendance(ids, [...attendees]);
+      setAttendanceOpen(false);
+      toast({ title: `수업 완료 — 참여 학생 ${attendees.size}명에게 코칭 재학습을 보냈어요` });
+      await load();
+    } catch (e) { toast({ title: "수업 완료 실패", description: (e as { message?: string })?.message, variant: "destructive" }); }
+    finally { setActing(false); }
+  };
 
   return (
     <div className="space-y-3">
@@ -101,7 +132,7 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
         </label>
         <Button size="sm" disabled={!chosen.length} onClick={() => setProjecting(true)}><Presentation className="size-4 mr-1" /> 프로젝터로 보기</Button>
         {status === "open"
-          ? <Button size="sm" variant="outline" disabled={!chosen.length || acting} onClick={() => act(() => setClassReviewStatus(ids, "done"), "수업 완료 — 코칭 표시와 재학습 요청을 보냈어요")}><CheckCircle2 className="size-4 mr-1" /> 수업 완료</Button>
+          ? <Button size="sm" variant="outline" disabled={!chosen.length || acting} onClick={openAttendance}><CheckCircle2 className="size-4 mr-1" /> 수업 완료</Button>
           : <Button size="sm" variant="outline" disabled={!chosen.length || acting} onClick={() => act(() => setClassReviewStatus(ids, "open"), "수업 예정으로 되돌렸어요")}><RotateCcw className="size-4 mr-1" /> 되돌리기</Button>}
         <Button size="sm" variant="ghost" disabled={!chosen.length || acting} onClick={() => act(() => removeClassReview(ids), "자료함에서 뺐어요")}><Trash2 className="size-4 mr-1" /> 빼기</Button>
       </div>
@@ -128,6 +159,23 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
       </div>
 
       {projecting && <ClassReviewProjector items={chosen} onClose={() => setProjecting(false)} />}
+      <Dialog open={attendanceOpen} onOpenChange={v => { if (!acting) setAttendanceOpen(v); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>수업 참여 학생 · {chosen.length}문장</DialogTitle></DialogHeader>
+          <Input aria-label="참여 학생 검색" placeholder="학생 이름 또는 학번 검색" value={studentSearch} onChange={e => setStudentSearch(e.target.value)} />
+          <div className="flex flex-wrap gap-1 text-sm">
+            {students.filter(st => attendees.has(st.user_id)).map(st => <Badge key={st.user_id} variant="secondary">{st.display_name || st.student_no}</Badge>)}
+          </div>
+          {studentsError && <div role="alert" className="text-destructive">학생 목록을 불러오지 못했습니다. <Button variant="outline" size="sm" onClick={loadStudents}>다시 불러오기</Button></div>}
+          <div className="max-h-72 overflow-y-auto space-y-1">
+            {studentsLoading ? <p className="text-muted-foreground">불러오는 중...</p> : matchingStudents.map(st => <label key={st.user_id} className="flex items-center gap-3 py-2">
+              <Checkbox aria-label={`${st.display_name || st.student_no} 참여`} checked={attendees.has(st.user_id)} onCheckedChange={checked => setAttendees(prev => { const next = new Set(prev); checked ? next.add(st.user_id) : next.delete(st.user_id); return next; })} />
+              <span>{st.display_name || st.student_no}</span><span className="text-sm text-muted-foreground">{st.student_no}</span>
+            </label>)}
+          </div>
+          <DialogFooter><Button variant="outline" disabled={acting} onClick={() => setAttendanceOpen(false)}>취소</Button><Button disabled={acting || studentsLoading || studentsError || !attendees.size} onClick={finishClass}><CheckCircle2 className="size-4 mr-1" />{acting ? "처리 중..." : `수업 완료 · ${attendees.size}명`}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
