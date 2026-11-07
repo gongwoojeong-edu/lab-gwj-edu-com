@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages, fetchInChunks } from "@/lib/paginatedQuery";
+import { isReviewScopeAssigned, type ReviewScope, type ReviewTarget } from "@/lib/classReviewEligibility";
 
 export interface ClassReviewRow {
   id: string;
@@ -93,12 +94,50 @@ export async function setClassReviewStatus(ids: string[], status: "open" | "done
 
 export interface ClassReviewStudent { user_id: string; display_name: string | null; student_no: string }
 
-export async function fetchClassReviewStudents(viewerId: string, isAdmin: boolean) {
-  return fetchAllPages<ClassReviewStudent>((from, to) => {
-    let q = supabase.from("student_profiles").select("user_id, display_name, student_no");
+export async function fetchClassReviewStudents(viewerId: string, isAdmin: boolean, sentenceIds: string[]) {
+  if (!sentenceIds.length) return [];
+  const profiles = await fetchAllPages<ClassReviewStudent & ReviewScope>((from, to) => {
+    let q = supabase.from("student_profiles").select("user_id, display_name, student_no, start_series_id, start_volume_id, start_unit_id, track_b_enabled, track_b_series_id, track_b_volume_id, track_b_unit_id").eq("orbit_enrollment_active", true);
     if (!isAdmin) q = q.or(`teacher_id.eq.${viewerId},teacher_id.is.null`);
     return q.order("student_no").order("user_id").range(from, to) as never;
   });
+  const passages = await fetchInChunks(sentenceIds, chunk => fetchAllPages<{ code: string; unit_id: string }>((from, to) =>
+    supabase.from("textbook_passages").select("code,unit_id").in("code", chunk).order("id").range(from, to) as never));
+  const unitIds = [...new Set(passages.map(p => p.unit_id))];
+  const startIds = profiles.flatMap(p => [p.start_unit_id, p.track_b_unit_id]).filter((id): id is string => !!id);
+  const units = await fetchInChunks([...new Set([...unitIds, ...startIds])], async chunk => {
+    const { data, error } = await supabase.from("textbook_units").select("id,unit_no,textbook_id").in("id", chunk);
+    if (error) throw error; return data ?? [];
+  });
+  const books = await fetchInChunks([...new Set(units.map(u => u.textbook_id))], async chunk => {
+    const { data, error } = await supabase.from("textbooks").select("id,series_id").in("id", chunk);
+    if (error) throw error; return data ?? [];
+  });
+  // 책장 워크북과 동일하게 해당 유닛 배정 또는 학습 기록도 포함한다.
+  const [assignments, progress] = await Promise.all([
+    fetchInChunks(unitIds, chunk => fetchAllPages<{ student_id: string | null; unit_id: string | null }>((from, to) =>
+      supabase.from("assignments").select("student_id,unit_id").in("unit_id", chunk).order("id").range(from, to) as never)),
+    fetchInChunks(unitIds, async chunk => {
+      const codes = await fetchAllPages<{ code: string }>((from, to) => supabase.from("textbook_passages").select("code").in("unit_id", chunk).order("id").range(from, to) as never);
+      return fetchInChunks(codes.map(p => p.code), c => fetchAllPages<{ user_id: string | null; sentence_id: string }>((from, to) => supabase.from("sentence_progress").select("user_id,sentence_id").in("sentence_id", c).order("id").range(from, to) as never));
+    }),
+  ]);
+  const progressCodes = [...new Set(progress.map(p => p.sentence_id))];
+  const progressPassages = await fetchInChunks(progressCodes, async chunk => {
+    const { data, error } = await supabase.from("textbook_passages").select("code,unit_id").in("code", chunk);
+    if (error) throw error; return data ?? [];
+  });
+  const codeUnits = new Map(progressPassages.map(p => [p.code, p.unit_id]));
+  const assigned = new Set(assignments.map(a => `${a.student_id}|${a.unit_id}`));
+  progress.forEach(p => assigned.add(`${p.user_id}|${codeUnits.get(p.sentence_id)}`));
+  const unitMap = new Map(units.map(u => [u.id, u]));
+  const bookMap = new Map(books.map(b => [b.id, b]));
+  const targets: ReviewTarget[] = passages.flatMap(p => {
+    const u = unitMap.get(p.unit_id); const b = u ? bookMap.get(u.textbook_id) : undefined;
+    return u && b ? [{ sentenceId: p.code, unitId: u.id, unitNo: u.unit_no, bookId: b.id, seriesId: b.series_id }] : [];
+  });
+  if (targets.length !== new Set(sentenceIds).size) throw new Error("문장의 학습 범위를 찾을 수 없습니다");
+  return profiles.filter(p => targets.every(target => assigned.has(`${p.user_id}|${target.unitId}`) || isReviewScopeAssigned(p, target, unitMap)));
 }
 
 export async function completeClassReviewAttendance(ids: string[], studentIds: string[]) {

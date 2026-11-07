@@ -70,7 +70,11 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
   const loadStudents = async () => {
     if (!viewerId) return;
     setStudentsLoading(true); setStudentsError(false);
-    try { setStudents(await fetchClassReviewStudents(viewerId, isAdmin)); }
+    try {
+      const eligible = await fetchClassReviewStudents(viewerId, isAdmin, chosen.map(g => g.sentenceId));
+      setStudents(eligible);
+      setAttendees(prev => new Set([...prev].filter(id => eligible.some(st => st.user_id === id))));
+    }
     catch { setStudentsError(true); toast({ title: "학생 목록을 불러오지 못했어요", variant: "destructive" }); }
     finally { setStudentsLoading(false); }
   };
@@ -168,6 +172,7 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
           </div>
           {studentsError && <div role="alert" className="text-destructive">학생 목록을 불러오지 못했습니다. <Button variant="outline" size="sm" onClick={loadStudents}>다시 불러오기</Button></div>}
           <div className="max-h-72 overflow-y-auto space-y-1">
+            {!studentsLoading && !studentsError && !matchingStudents.length && <p className="text-muted-foreground">해당 문장에 학습 지정된 학생이 없습니다.</p>}
             {studentsLoading ? <p className="text-muted-foreground">불러오는 중...</p> : matchingStudents.map(st => <label key={st.user_id} className="flex items-center gap-3 py-2">
               <Checkbox aria-label={`${st.display_name || st.student_no} 참여`} checked={attendees.has(st.user_id)} onCheckedChange={checked => setAttendees(prev => { const next = new Set(prev); checked ? next.add(st.user_id) : next.delete(st.user_id); return next; })} />
               <span>{st.display_name || st.student_no}</span><span className="text-sm text-muted-foreground">{st.student_no}</span>
