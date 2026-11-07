@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -118,6 +118,7 @@ const withLearnLoadTimeout = async <T,>(promise: PromiseLike<T>, label: string):
 const SentenceLearn = () => {
   const { sentenceId } = useParams<{ sentenceId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [skippedSentence, setSkippedSentence] = useState(false);
   const { roles } = useAuth();
   const { setMode } = useViewMode();
@@ -127,7 +128,7 @@ const SentenceLearn = () => {
   const assignmentIdParam = useMemo(() => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("assignment") || null;
-  }, [sentenceId]);
+  }, [sentenceId, location.search]);
   const readMyProg = (sid: string) => fetchSentenceProgress(sid, assignmentIdParam);
   const writeMyProg = (
     sid: string,
@@ -645,7 +646,7 @@ const SentenceLearn = () => {
     return () => {
       mounted = false;
     };
-  }, [sentenceId, hydrationReloadNonce]);
+  }, [sentenceId, hydrationReloadNonce, location.key]);
 
   // 학생: 본인 요청의 상태 변화(승인/거절/취소) 실시간 수신
   useEffect(() => {
@@ -687,7 +688,26 @@ const SentenceLearn = () => {
           return;
         }
         if (row.status === "approved" || row.status === "held") {
-          void advanceAfterApproval(row);
+          // Class coaching writes a resubmission request in the same transaction.
+          // Read it before treating this coach approval as ordinary completion.
+          void (async () => {
+            if (row.status === "approved" && row.grade === "coach") {
+              try {
+                const progress = await fetchSentenceProgress(row.sentence_id, assignmentIdParam);
+                if (cancelled) return;
+                if (progress?.redo_requested_at) {
+                  setHydrationReloadNonce((value) => value + 1);
+                  return;
+                }
+              } catch (e) {
+                if (cancelled) return;
+                setHydrationError("재학습 요청을 불러오지 못했습니다. 다시 불러오기를 눌러 주세요.");
+                toast({ title: "재학습 요청 확인 실패", description: String(e), variant: "destructive" });
+                return;
+              }
+            }
+            if (!cancelled) await advanceAfterApproval(row);
+          })();
         }
       }, assignmentIdParam);
       if (cancelled) unsub();
