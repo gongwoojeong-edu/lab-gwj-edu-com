@@ -626,7 +626,7 @@ const PendingApprovals = () => {
 
         {tab !== "qna" && tab !== "class" && !loading && filteredRows.length === 0 && rows.length > 0 && (
           <Card className="p-8 text-center text-muted-foreground">
-            “{query}”에 해당하는 항목이 없어요.
+            {query ? `“${query}”에 해당하는 항목이 없어요.` : "선택한 책에 해당하는 항목이 없어요."}
           </Card>
         )}
 
