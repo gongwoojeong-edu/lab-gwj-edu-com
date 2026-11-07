@@ -1962,6 +1962,10 @@ export type Database = {
           weekly_active_students: number
         }[]
       }
+      complete_class_review_attendance: {
+        Args: { p_ids: string[]; p_student_ids: string[] }
+        Returns: number
+      }
       complete_class_review_coaching: {
         Args: { p_ids: string[] }
         Returns: number
