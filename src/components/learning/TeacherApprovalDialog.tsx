@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil, Save, Star } from "lucide-react";
+import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil, Save, Star, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -36,6 +36,7 @@ import { fetchPassageSource, fetchPassageByCode, updatePassage, updatePassageKor
 import { upsertTranslationFor } from "@/integrations/supabase/storage";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/importantSentences";
+import { fetchTopicSentenceIds, setTopicSentence } from "@/lib/topicSentences";
 import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
 import { pickRedoMent, isAutoRedoMent } from "@/lib/praisePhrases";
 import { addIdiomToBank } from "@/lib/idiomBank";
@@ -193,6 +194,38 @@ export const TeacherApprovalDialog = ({
   const [importantLoading, setImportantLoading] = useState(true);
   const [importantError, setImportantError] = useState(false);
   const [importantReload, setImportantReload] = useState(0);
+  const [topic, setTopic] = useState(false);
+  const [topicLoading, setTopicLoading] = useState(true);
+  const [topicError, setTopicError] = useState(false);
+  const [topicReload, setTopicReload] = useState(0);
+
+  useEffect(() => {
+    if (!open || !skipPin || !studentUserId) return;
+    let alive = true;
+    setTopic(false);
+    setTopicLoading(true);
+    setTopicError(false);
+    fetchTopicSentenceIds(studentUserId, [sentenceId]).then((ids) => {
+      if (alive) setTopic(ids.has(sentenceId));
+    }).catch(() => {
+      if (!alive) return;
+      setTopicError(true);
+      toast({ title: "주제문 표시를 불러오지 못했어요", variant: "destructive" });
+    }).finally(() => { if (alive) setTopicLoading(false); });
+    return () => { alive = false; };
+  }, [open, skipPin, studentUserId, sentenceId, topicReload]);
+
+  const toggleTopic = async () => {
+    if (!studentUserId || topicLoading || topicError) return;
+    setTopicLoading(true);
+    try {
+      await setTopicSentence(studentUserId, sentenceId, !topic);
+      setTopic(!topic);
+      toast({ title: topic ? "주제문 표시를 해제했어요" : "주제문으로 저장했어요" });
+    } catch (e) {
+      toast({ title: "주제문 저장 실패", description: e instanceof Error ? e.message : "다시 시도해 주세요", variant: "destructive" });
+    } finally { setTopicLoading(false); }
+  };
 
   useEffect(() => {
     if (!open || !skipPin || !studentUserId) return;
@@ -775,13 +808,22 @@ export const TeacherApprovalDialog = ({
             한글해석을 확인하고 평가 등급과 메모를 입력해 주세요.
           </DialogDescription>
           {skipPin && studentUserId && (
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-2 mt-2">
               <Button size="sm" variant={important ? "secondary" : "outline"}
                 aria-pressed={important} disabled={importantLoading || importantError || saving}
                 onClick={toggleImportant} title="이 학생의 워크북에 중요문장으로 표시">
                 <Star className={cn("size-4 mr-1", important && "fill-current text-primary")} /> 중요문장
               </Button>
               <ClassReviewToggle sentenceId={sentenceId} userId={studentUserId} approvalId={approvalId} teachers={heldTeachers} />
+              <Button size="sm" variant={topic ? "secondary" : "outline"}
+                aria-pressed={topic} disabled={topicLoading || topicError || saving}
+                onClick={toggleTopic} title="이 학생의 워크북에 주제문으로 표시">
+                <Flag className={cn("size-4 mr-1", topic && "fill-current text-primary")} /> 주제문
+              </Button>
+              {topicError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">
+                주제문 표시를 불러오지 못했어요
+                <Button variant="ghost" size="sm" onClick={() => setTopicReload((n) => n + 1)}>다시 불러오기</Button>
+              </div>}
               {importantError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">
                 표시를 불러오지 못했어요
                 <Button variant="ghost" size="sm" onClick={() => setImportantReload((n) => n + 1)}>다시 불러오기</Button>
