@@ -22,6 +22,8 @@ import { updatePassageKorean, fetchPassageSource, type PassageSource } from "@/l
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Pencil, Save, X, BookOpen, Trash2, Search, Eye, EyeOff } from "lucide-react";
+import { ClassReviewBox } from "@/components/teacher/ClassReviewBox";
+import { Presentation } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchHeldTeachers, filterHeldByTeacher, type HeldTeacher } from "@/lib/heldTeachers";
@@ -188,7 +190,7 @@ const PendingApprovals = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<ApprovalStatus | "qna">("pending");
+  const [tab, setTab] = useState<ApprovalStatus | "qna" | "class">("pending");
   const [qnaCount, setQnaCount] = useState(0);
   const [heldCount, setHeldCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -279,7 +281,7 @@ const PendingApprovals = () => {
   };
 
   const load = useCallback(async () => {
-    if (tab === "qna") {
+    if (tab === "qna" || tab === "class") {
       setLoading(false);
       return;
     }
@@ -523,7 +525,7 @@ const PendingApprovals = () => {
           목록을 모두 불러오지 못했습니다. 이전 표시를 유지하고 있습니다.
           <Button size="sm" variant="outline" disabled={loading} onClick={load}>다시 불러오기</Button>
         </div>}
-        <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus | "qna")}>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as ApprovalStatus | "qna" | "class")}>
           <TabsList>
             <TabsTrigger value="pending" className="gap-2">
               대기
@@ -532,6 +534,9 @@ const PendingApprovals = () => {
             <TabsTrigger value="held" className="gap-2">
               <PauseCircle className="w-3.5 h-3.5" /> 보류
               <Badge variant="secondary" className="h-5 px-1.5">{heldCount}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="class" className="gap-2">
+              <Presentation className="w-3.5 h-3.5" /> 수업 자료함
             </TabsTrigger>
             <TabsTrigger value="qna" className="gap-2">
               <MessageCircleQuestion className="w-3.5 h-3.5" /> 문답
@@ -554,7 +559,7 @@ const PendingApprovals = () => {
           </div>}
         </div>}
 
-        {tab !== "qna" && (
+        {tab !== "qna" && tab !== "class" && (
           <div className="relative max-w-xs">
             <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
             <Input
@@ -568,7 +573,9 @@ const PendingApprovals = () => {
 
 
         <p className="text-sm text-muted-foreground">
-          {tab === "qna"
+          {tab === "class"
+            ? "다음 수업에서 함께 볼 문장입니다. 시리즈로 골라 체크한 뒤 [프로젝터로 보기]를 누르세요."
+            : tab === "qna"
             ? "승인창에서 보낸 질문에 학생이 답한 내용입니다. 학생은 답하기 전에는 다음 문장으로 넘어가지 못합니다."
             : tab === "held"
             ? "지금 판정하지 않고 보류해둔 문장입니다. 카드의 [승인하기]를 눌러 상세한 첨삭 메모와 함께 최종 평가를 남기세요."
@@ -576,18 +583,19 @@ const PendingApprovals = () => {
         </p>
 
         {tab === "qna" && <QnaInbox onCount={setQnaCount} />}
+        {tab === "class" && <ClassReviewBox isAdmin={isAdmin} viewerId={effectiveTeacherAuthUserId ?? null} teachers={heldTeachers} />}
 
-        {tab !== "qna" && loading && rows.length === 0 && (
+        {tab !== "qna" && tab !== "class" && loading && rows.length === 0 && (
           <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>
         )}
 
-        {tab !== "qna" && !loading && filteredRows.length === 0 && rows.length > 0 && (
+        {tab !== "qna" && tab !== "class" && !loading && filteredRows.length === 0 && rows.length > 0 && (
           <Card className="p-8 text-center text-muted-foreground">
             “{query}”에 해당하는 항목이 없어요.
           </Card>
         )}
 
-        {tab !== "qna" && !loading && rows.length === 0 && (
+        {tab !== "qna" && tab !== "class" && !loading && rows.length === 0 && (
           <Card className="p-10 text-center text-muted-foreground flex flex-col items-center gap-2">
             <Inbox className="w-8 h-8" />
             <div className="font-semibold">
@@ -602,7 +610,7 @@ const PendingApprovals = () => {
         )}
 
         <div className="space-y-3">
-          {(tab === "qna" ? [] : filteredRows).map((row) => {
+          {(tab === "qna" || tab === "class" ? [] : filteredRows).map((row) => {
             // 가림 모드: 이 행의 한글해석 정답이 현재 가려져 있는가
             const concealed =
               hideKorean &&

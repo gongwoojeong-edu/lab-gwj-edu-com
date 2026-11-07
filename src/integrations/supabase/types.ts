@@ -172,6 +172,48 @@ export type Database = {
         }
         Relationships: []
       }
+      class_review_items: {
+        Row: {
+          approval_id: string | null
+          created_at: string
+          created_by: string
+          done_at: string | null
+          id: string
+          note: string | null
+          sentence_id: string
+          status: string
+          teacher_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approval_id?: string | null
+          created_at?: string
+          created_by?: string
+          done_at?: string | null
+          id?: string
+          note?: string | null
+          sentence_id: string
+          status?: string
+          teacher_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approval_id?: string | null
+          created_at?: string
+          created_by?: string
+          done_at?: string | null
+          id?: string
+          note?: string | null
+          sentence_id?: string
+          status?: string
+          teacher_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       handout_results: {
         Row: {
           created_at: string

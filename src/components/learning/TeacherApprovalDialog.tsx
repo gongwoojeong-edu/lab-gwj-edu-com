@@ -39,6 +39,7 @@ import { fetchImportantSentenceIds, setImportantSentence } from "@/lib/important
 import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
 import { pickRedoMent, isAutoRedoMent } from "@/lib/praisePhrases";
 import { addIdiomToBank } from "@/lib/idiomBank";
+import { ClassReviewToggle } from "@/components/learning/ClassReviewToggle";
 
 /** 마지막으로 지정한 보류 담당 선생님 (선생님 모드 gwjt* 키 규칙) */
 const LAST_HELD_TEACHER_KEY = "gwjt_last_held_teacher_id";
@@ -780,6 +781,7 @@ export const TeacherApprovalDialog = ({
                 onClick={toggleImportant} title="이 학생의 워크북에 중요문장으로 표시">
                 <Star className={cn("size-4 mr-1", important && "fill-current text-primary")} /> 중요문장
               </Button>
+              <ClassReviewToggle sentenceId={sentenceId} userId={studentUserId} approvalId={approvalId} teachers={heldTeachers} />
               {importantError && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">
                 표시를 불러오지 못했어요
                 <Button variant="ghost" size="sm" onClick={() => setImportantReload((n) => n + 1)}>다시 불러오기</Button>

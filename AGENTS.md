@@ -11,3 +11,4 @@
 - Use paginatedQuery.ts for unbounded approval queue reads and chunk large IN filters; stable ordering and propagated errors prevent truncated queues, counts, and missing student translations.
 - Keep the student analysis shading rule (verb/verbal/conjunction/special construction + teacher-required) in src/lib/analysisCore.ts mirrored by master_analysis_spots.core; shading and grading stay separate so narrowing hints never changes pass criteria.
 - Store per-textbook key grammar in textbooks.key_grammar and read it via fetchKeyGrammarForUnits/fetchPassageSource so workbook front pages and the student header share one source.
+- Keep class-review (수업 자료함) marks in class_review_items, independent of approval status and student progression; read and group through src/lib/classReview.ts so the approval dialog toggle and the inbox tab share one source.
