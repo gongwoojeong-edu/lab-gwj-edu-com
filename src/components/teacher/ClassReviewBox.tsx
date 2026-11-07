@@ -113,7 +113,7 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <span>{sourceLabel(g)}</span>
-                <Badge variant="secondary">학생 {g.studentIds.length}명</Badge>
+                <Badge variant="secondary">학생 {g.studentIds.length}명 · {g.students.map(st => st.name).join(", ")}</Badge>
                 {g.teacherIds.map(t => <Badge key={t} variant="outline">{teachers.find(x => x.id === t)?.name ?? "선생님"}</Badge>)}
               </div>
               <p className="font-medium">{g.english}</p>
@@ -156,6 +156,12 @@ function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; o
       <div className="flex-1 overflow-auto flex flex-col justify-center gap-8 px-12 py-8">
         <p className="text-4xl md:text-5xl font-semibold leading-relaxed">{g.english}</p>
         {showKo && g.korean && <p className="text-2xl md:text-3xl text-muted-foreground leading-relaxed">{g.korean}</p>}
+        {g.students.length > 0 && <div className="space-y-3 border-t border-border pt-6">
+          {g.students.map(st => <div key={st.userId} className="text-2xl leading-relaxed">
+            <span className="font-semibold text-primary mr-3">{st.name}</span>
+            <span>{st.translation ?? "(제출한 해석 없음)"}</span>
+          </div>)}
+        </div>}
         {g.notes.length > 0 && <div className="space-y-1">{g.notes.map(n => <p key={n} className="text-2xl text-primary">· {n}</p>)}</div>}
       </div>
       <div className="flex justify-between px-6 py-4 border-t border-border">
