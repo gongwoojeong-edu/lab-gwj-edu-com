@@ -63,21 +63,23 @@ export const fetchMyNotifications = async (
 export const fetchMyUnreadNotifications = async (): Promise<StudentNotification[]> => {
   const uid = await getCurrentUserId();
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("student_notifications")
     .select("*")
     .eq("user_id", uid)
     .neq("kind", "teaching")
     .is("read_at", null)
     .order("created_at", { ascending: false });
+  if (error) throw error;
   return (data ?? []) as StudentNotification[];
 };
 
 export const markNotificationRead = async (id: string): Promise<void> => {
-  await supabase
+  const { error } = await supabase
     .from("student_notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("id", id);
+  if (error) throw error;
 };
 
 export const markAllNotificationsRead = async (): Promise<void> => {
@@ -108,8 +110,15 @@ export const subscribeMyNotifications = (
       },
       () => onChange(),
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") onChange();
+    });
+  const refresh = () => onChange();
+  window.addEventListener("focus", refresh);
+  window.addEventListener("online", refresh);
   return () => {
+    window.removeEventListener("focus", refresh);
+    window.removeEventListener("online", refresh);
     supabase.removeChannel(channel);
   };
 };
