@@ -1,12 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
-vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
-import { groupBySentence, scopeClassReview } from "@/lib/classReview";
+const rpc = vi.hoisted(() => vi.fn());
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc } }));
+import { groupBySentence, scopeClassReview, setClassReviewStatus } from "@/lib/classReview";
 
 const rows = [
   { teacher_id: "t1", created_by: "t1" },
   { teacher_id: "t2", created_by: "t1" },
   { teacher_id: "t2", created_by: "t2" },
 ];
+
+describe("수업 완료 코칭 재학습", () => {
+  it("선택한 모든 학생 항목을 중복 없이 원자적 코칭 재학습 처리에 전달한다", async () => {
+    rpc.mockResolvedValueOnce({ data: 2, error: null });
+    await setClassReviewStatus(["student-item-1", "student-item-2", "student-item-1"], "done");
+    expect(rpc).toHaveBeenLastCalledWith("complete_class_review_coaching", { p_ids: ["student-item-1", "student-item-2"] });
+  });
+  it("코칭 재학습 실패를 완료 성공으로 처리하지 않는다", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: new Error("새 제출이 있습니다") });
+    await expect(setClassReviewStatus(["student-item-1"], "done")).rejects.toThrow("새 제출이 있습니다");
+  });
+});
 
 describe("수업 자료함 열람 범위", () => {
   it("선생님은 본인 담당만 본다", () => {
