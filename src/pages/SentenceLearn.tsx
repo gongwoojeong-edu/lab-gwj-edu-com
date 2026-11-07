@@ -128,7 +128,7 @@ const SentenceLearn = () => {
   const assignmentIdParam = useMemo(() => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("assignment") || null;
-  }, [sentenceId]);
+  }, [sentenceId, location.search]);
   const readMyProg = (sid: string) => fetchSentenceProgress(sid, assignmentIdParam);
   const writeMyProg = (
     sid: string,
