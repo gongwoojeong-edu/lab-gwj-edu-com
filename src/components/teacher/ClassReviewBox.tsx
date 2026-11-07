@@ -148,13 +148,13 @@ function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; o
       <div className="flex items-center gap-3 px-6 py-3 border-b border-border">
         <span className="text-muted-foreground">{sourceLabel(g)}</span>
         <span className="ml-auto text-muted-foreground">{i + 1} / {items.length}</span>
-        <Button variant="outline" size="sm" onClick={() => setShowKo(v => !v)}>
-          {showKo ? <EyeOff className="size-4 mr-1" /> : <Eye className="size-4 mr-1" />} 해석 {showKo ? "가리기" : "보기"}
+        <Button variant="outline" size="icon" aria-label={showKo ? "해석 가리기" : "해석 보기"} title={showKo ? "해석 가리기" : "해석 보기"} onClick={() => setShowKo(v => !v)}>
+          {showKo ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
         </Button>
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="닫기"><X className="size-5" /></Button>
       </div>
-      <div className="flex-1 overflow-auto flex flex-col justify-center gap-8 px-12 py-8">
-        <p className="text-4xl md:text-5xl font-semibold leading-relaxed">{g.english}</p>
+      <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-8 px-6 md:px-12 py-8">
+        <p className="text-4xl md:text-5xl font-semibold leading-[2.8] py-8 break-words">{g.english}</p>
         {showKo && g.korean && <p className="text-2xl md:text-3xl text-muted-foreground leading-relaxed">{g.korean}</p>}
         {g.students.length > 0 && <div className="space-y-3 border-t border-border pt-6">
           {g.students.map(st => <div key={st.userId} className="text-2xl leading-relaxed">
