@@ -814,7 +814,7 @@ export const TeacherApprovalDialog = ({
                 onClick={toggleImportant} title="이 학생의 워크북에 중요문장으로 표시">
                 <Star className={cn("size-4 mr-1", important && "fill-current text-primary")} /> 중요문장
               </Button>
-              <ClassReviewToggle sentenceId={sentenceId} userId={studentUserId} approvalId={approvalId} teachers={heldTeachers} />
+              <ClassReviewToggle sentenceId={sentenceId} userId={studentUserId} approvalId={approvalId} teachers={heldTeachers} onSaved={() => onOpenChange(false)} />
               <Button size="sm" variant={topic ? "secondary" : "outline"}
                 aria-pressed={topic} disabled={topicLoading || topicError || saving}
                 onClick={toggleTopic} title="이 학생의 워크북에 주제문으로 표시">
