@@ -228,6 +228,8 @@ const PendingApprovals = () => {
 
   const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
+  // 책(시리즈)별 필터 — "level::seriesTitle" 키, "all"은 전체
+  const [seriesFilter, setSeriesFilter] = useState("all");
 
   // 프로젝터 프레젠테이션 모드 — 한글해석 정답만 가리기. 학생해석은 항상 표시. 선생님 설정이라 localStorage에 유지.
   const [hideKorean, setHideKorean] = useState<boolean>(() => {
@@ -449,13 +451,32 @@ const PendingApprovals = () => {
     [rows],
   );
 
+  // 현재 목록에 등장하는 책(시리즈) 목록 — 드롭다운 옵션
+  const seriesOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach((r) => {
+      const s = r.source;
+      if (!s?.seriesTitle) return;
+      const key = `${s.level ?? ""}::${s.seriesTitle}`;
+      if (!map.has(key)) map.set(key, [s.level, s.seriesTitle].filter(Boolean).join(" "));
+    });
+    return Array.from(map.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     // 보류함: 관리자는 드롭다운으로 범위 선택, 선생님은 load 단계에서 이미 내 보류함만 스코핑됨
-    const scoped =
+    let scoped =
       tab === "held" && isAdmin
         ? filterHeldByTeacher(rows, heldFilter === "mine" ? effectiveTeacherAuthUserId ?? "" : heldFilter)
         : rows;
+    if (seriesFilter !== "all") {
+      scoped = scoped.filter(
+        (r) => r.source?.seriesTitle && `${r.source.level ?? ""}::${r.source.seriesTitle}` === seriesFilter,
+      );
+    }
     if (!q) return scoped;
     return scoped.filter(
       (r) =>
@@ -463,7 +484,7 @@ const PendingApprovals = () => {
         (r.student_no ?? "").toLowerCase().includes(q) ||
         r.sentence_id.toLowerCase().includes(q),
     );
-  }, [rows, query, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
+  }, [rows, query, seriesFilter, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
 
   const countLabel = useMemo(
     () => `${filteredRows.length}건 ${tab === "held" ? "보류" : "대기"}`,
@@ -560,14 +581,28 @@ const PendingApprovals = () => {
         </div>}
 
         {tab !== "qna" && tab !== "class" && (
-          <div className="relative max-w-xs">
-            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="학생 이름 · 번호 · 문장코드 검색"
-              className="pl-9"
-            />
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative max-w-xs">
+              <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="학생 이름 · 번호 · 문장코드 검색"
+                className="pl-9"
+              />
+            </div>
+            <Select value={seriesFilter} onValueChange={setSeriesFilter}>
+              <SelectTrigger className="w-64" aria-label="책별로 보기">
+                <BookOpen className="w-4 h-4 mr-1.5 text-muted-foreground" />
+                <SelectValue placeholder="책별로 보기" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">모든 책</SelectItem>
+                {seriesOptions.map((o) => (
+                  <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -591,7 +626,7 @@ const PendingApprovals = () => {
 
         {tab !== "qna" && tab !== "class" && !loading && filteredRows.length === 0 && rows.length > 0 && (
           <Card className="p-8 text-center text-muted-foreground">
-            “{query}”에 해당하는 항목이 없어요.
+            {query ? `“${query}”에 해당하는 항목이 없어요.` : "선택한 책에 해당하는 항목이 없어요."}
           </Card>
         )}
 
