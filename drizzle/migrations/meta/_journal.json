@@ -85,6 +85,13 @@
       "when": 1794021098044,
       "tag": "0011_merge_passages_with_student_translations",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794021693421,
+      "tag": "0012_add_topic_sentence_flag",
+      "breakpoints": true
     }
   ]
 }

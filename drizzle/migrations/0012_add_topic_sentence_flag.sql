@@ -1,0 +1,2 @@
+ALTER TABLE public.student_passage_overrides ADD COLUMN IF NOT EXISTS topic_sentence boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.student_passage_overrides.topic_sentence IS 'Teacher-designated topic sentence for this student; independent of importance, skipping and approval.';
