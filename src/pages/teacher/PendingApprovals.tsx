@@ -581,14 +581,28 @@ const PendingApprovals = () => {
         </div>}
 
         {tab !== "qna" && tab !== "class" && (
-          <div className="relative max-w-xs">
-            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="학생 이름 · 번호 · 문장코드 검색"
-              className="pl-9"
-            />
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative max-w-xs">
+              <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="학생 이름 · 번호 · 문장코드 검색"
+                className="pl-9"
+              />
+            </div>
+            <Select value={seriesFilter} onValueChange={setSeriesFilter}>
+              <SelectTrigger className="w-64" aria-label="책별로 보기">
+                <BookOpen className="w-4 h-4 mr-1.5 text-muted-foreground" />
+                <SelectValue placeholder="책별로 보기" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">모든 책</SelectItem>
+                {seriesOptions.map((o) => (
+                  <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
