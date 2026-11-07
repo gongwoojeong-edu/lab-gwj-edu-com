@@ -11,10 +11,10 @@ import { addClassReview, fetchClassReviewForApproval, removeClassReview } from "
 
 const LAST_KEY = "gwjt_last_class_review_teacher_id";
 
-interface Props { sentenceId: string; userId: string; approvalId?: string | null; teachers: HeldTeacher[] }
+interface Props { sentenceId: string; userId: string; approvalId?: string | null; teachers: HeldTeacher[]; onSaved?: () => void }
 
 /** 승인창 "수업" 버튼 — 다음 수업 때 함께 볼 문장으로 담당 선생님 수업 자료함에 담는다. 승인·보류와 별개. */
-export function ClassReviewToggle({ sentenceId, userId, approvalId, teachers }: Props) {
+export function ClassReviewToggle({ sentenceId, userId, approvalId, teachers, onSaved }: Props) {
   const [items, setItems] = useState<{ id: string; teacher_id: string | null; note: string | null }[]>([]);
   const [error, setError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -49,7 +49,7 @@ export function ClassReviewToggle({ sentenceId, userId, approvalId, teachers }: 
       await addClassReview({ sentenceId, userId, approvalId, teacherId, note });
       localStorage.setItem(LAST_KEY, teacherId);
       toast({ title: `${teachers.find(t => t.id === teacherId)?.name ?? "선생님"} 수업 자료함에 담았어요` });
-      setOpen(false); setNote(""); setReload(n => n + 1);
+      setOpen(false); setNote(""); setReload(n => n + 1); onSaved?.();
     } catch (e) {
       toast({ title: "수업 자료함에 담지 못했어요", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally { setSaving(false); }
