@@ -28,6 +28,7 @@ export interface ClassReviewGroup {
   unitTitle: string | null;
   passageNo: number | null;
   latestAt: string;
+  students: { userId: string; name: string; translation: string | null }[];
 }
 
 /** 선생님은 본인 담당(또는 본인이 표시한) 항목만, 관리자는 전체. */
@@ -112,6 +113,21 @@ export async function fetchClassReviewGroups(status: "open" | "done"): Promise<C
     if (error) throw error;
     return data ?? [];
   });
+  const userIds = groups.flatMap(g => g.studentIds);
+  const profiles = await fetchInChunks(userIds, async (chunk) => {
+    const { data, error } = await supabase.from("student_profiles").select("user_id, display_name, student_no").in("user_id", chunk);
+    if (error) throw error;
+    return data ?? [];
+  });
+  const translations = await fetchInChunks(codes, async (chunk) => {
+    const { data, error } = await supabase.from("sentence_translations").select("user_id, sentence_id, text, submitted_at")
+      .in("sentence_id", chunk).in("user_id", [...new Set(userIds)]).order("submitted_at", { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  });
+  const nameMap = new Map(profiles.map(p => [p.user_id, p.display_name || p.student_no]));
+  const trMap = new Map<string, string>();
+  for (const t of translations) { const k = `${t.sentence_id}|${t.user_id}`; if (!trMap.has(k)) trMap.set(k, t.text); }
   const pMap = new Map(passages.map(p => [p.code, p]));
   const uMap = new Map(units.map(u => [u.id, u]));
   const bMap = new Map(books.map(b => [b.id, b]));
@@ -129,6 +145,7 @@ export async function fetchClassReviewGroups(status: "open" | "done"): Promise<C
       unitNo: u?.unit_no ?? null, unitTitle: u?.title ?? null,
       textbookTitle: b?.title ?? null, volumeNo: b?.volume_no ?? null,
       seriesTitle: s?.title ?? null,
+      students: g.studentIds.map(id => ({ userId: id, name: nameMap.get(id) ?? "학생", translation: trMap.get(`${g.sentenceId}|${id}`) ?? null })),
     };
   }).sort((a, b) =>
     (a.seriesTitle ?? "").localeCompare(b.seriesTitle ?? "") || (a.volumeNo ?? 0) - (b.volumeNo ?? 0)
