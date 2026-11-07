@@ -1253,6 +1253,7 @@ export type Database = {
           skip_pre: boolean
           skip_sentence: boolean
           task_mode: Database["public"]["Enums"]["passage_task_mode"] | null
+          topic_sentence: boolean
           updated_at: string
           user_id: string
         }
@@ -1265,6 +1266,7 @@ export type Database = {
           skip_pre?: boolean
           skip_sentence?: boolean
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
+          topic_sentence?: boolean
           updated_at?: string
           user_id: string
         }
@@ -1277,6 +1279,7 @@ export type Database = {
           skip_pre?: boolean
           skip_sentence?: boolean
           task_mode?: Database["public"]["Enums"]["passage_task_mode"] | null
+          topic_sentence?: boolean
           updated_at?: string
           user_id?: string
         }

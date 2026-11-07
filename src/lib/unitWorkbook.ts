@@ -42,6 +42,7 @@ import { fetchIdiomBank } from "./idiomBank";
 import { dedupeWords, listUnknownWords } from "./unknownWords";
 import { fetchKeyGrammarForUnits, fetchPassagesByUnit, type Passage } from "./textbooks";
 import { fetchImportantSentenceIds } from "./importantSentences";
+import { fetchTopicSentenceIds } from "./topicSentences";
 import {
   gradeBadgeHtml,
   isApprovalGrade,
@@ -313,6 +314,7 @@ const buildSyntaxUnit = async (
   importantIds: Set<string> = new Set(),
   gradeMap: Map<string, ApprovalGrade> = new Map(),
   roundMap: Map<string, number> = new Map(),
+  topicIds: Set<string> = new Set(),
 ): Promise<string> => {
   const codes = passages.map((p) => p.code);
   const { data: trs } = await supabase
@@ -341,7 +343,7 @@ const buildSyntaxUnit = async (
       <div class="lg-row">
         <div class="lg-num">${i + 1}.</div>
         <div class="lg-body">
-          <div class="lg-code">${escapeHtml(p.code)}${importantIds.has(p.code) ? " · ★ 중요문장" : ""}${redoRoundBadgeHtml(roundMap.get(p.code))}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
+          <div class="lg-code">${escapeHtml(p.code)}${importantIds.has(p.code) ? " · ★ 중요문장" : ""}${topicIds.has(p.code) ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(roundMap.get(p.code))}${gradeBadgeHtml(gradeMap.get(p.code))}</div>
           <div class="lg-en">${escapeHtml(p.english ?? "")}</div>
         </div>
       </div>`)
@@ -597,7 +599,7 @@ const collectBookUnit = async (
     return { unitTitle: u.unitTitle, unitCode: u.unitCode, items: [] };
   }
 
-  const [{ data: trs }, { data: apps }, { data: exts }, coachMap, importantIds, gradeMap, roundMap] = await Promise.all([
+  const [{ data: trs }, { data: apps }, { data: exts }, coachMap, importantIds, gradeMap, roundMap, topicIds] = await Promise.all([
     supabase
       .from("sentence_translations")
       .select("sentence_id, text, submitted_at")
@@ -618,6 +620,7 @@ const collectBookUnit = async (
     fetchImportantSentenceIds(studentId, codes),
     fetchGradeLabels(studentId, codes),
     fetchApprovalRounds(studentId, codes),
+    fetchTopicSentenceIds(studentId, codes),
   ]);
 
   const words: Array<{ word: string; meaning: string }> = [];
@@ -652,6 +655,7 @@ const collectBookUnit = async (
     items.push({
       passageCode: p.code,
       important: importantIds.has(p.code),
+      topicSentence: topicIds.has(p.code),
       grade: gradeMap.get(p.code) ?? null,
       redoRound: roundMap.get(p.code) ?? null,
       english: p.english ?? "",
@@ -769,10 +773,11 @@ const buildSyntaxPassage = async (
   ctx: UnitWorkbookContext,
 ): Promise<string> => {
   const parts: string[] = [];
-  const [importantIds, gradeMap, roundMap] = await Promise.all([
+  const [importantIds, gradeMap, roundMap, topicIds] = await Promise.all([
     fetchImportantSentenceIds(studentId, sentenceIds),
     fetchGradeLabels(studentId, sentenceIds),
     fetchApprovalRounds(studentId, sentenceIds),
+    fetchTopicSentenceIds(studentId, sentenceIds),
   ]);
   for (const sid of sentenceIds) {
     try {
@@ -784,6 +789,7 @@ const buildSyntaxPassage = async (
         buildHandoutPrintHtml({
           ...payload,
           important: importantIds.has(sid),
+          topicSentence: topicIds.has(sid),
           grade: gradeMap.get(sid) ?? null,
           redoRound: roundMap.get(sid) ?? null,
         }),
@@ -968,11 +974,12 @@ export const buildUnitWorkbookHtmlFor = async (
   let html: string;
   switch (mode) {
     case "syntax_unit": {
-      const [coachMap, importantIds, gradeMap, roundMap] = await Promise.all([
+      const [coachMap, importantIds, gradeMap, roundMap, topicIds] = await Promise.all([
         fetchCoachFlags(input.studentId, allCodes),
         fetchImportantSentenceIds(input.studentId, allCodes),
         fetchGradeLabels(input.studentId, allCodes),
         fetchApprovalRounds(input.studentId, allCodes),
+        fetchTopicSentenceIds(input.studentId, allCodes),
       ]);
       html = await buildSyntaxUnit(
         allPassages,
@@ -984,6 +991,7 @@ export const buildUnitWorkbookHtmlFor = async (
         importantIds,
         gradeMap,
         roundMap,
+        topicIds,
       );
       break;
     }
