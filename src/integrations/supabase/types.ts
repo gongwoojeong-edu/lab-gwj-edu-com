@@ -1962,6 +1962,10 @@ export type Database = {
           weekly_active_students: number
         }[]
       }
+      complete_class_review_coaching: {
+        Args: { p_ids: string[] }
+        Returns: number
+      }
       fn_delete_annotation: { Args: { p_id: string }; Returns: undefined }
       fn_restore_annotation: { Args: { p_id: string }; Returns: undefined }
       fn_save_annotation: {

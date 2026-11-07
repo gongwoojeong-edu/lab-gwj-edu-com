@@ -64,6 +64,13 @@
       "when": 1794013518149,
       "tag": "0008_class_review_items",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794016419893,
+      "tag": "0009_complete_class_review_coaching",
+      "breakpoints": true
     }
   ]
 }
