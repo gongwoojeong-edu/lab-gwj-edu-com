@@ -1,4 +1,5 @@
 # Architecture rules
+- Merge bookshelf passages through merge_passages_with_translations in one transaction; concatenate each learner's current translations in passage order and retain historical submissions so partial saves cannot delete source text.
 - Keep Orbit learner eligibility in sync-orbit-english/eligibilityPolicy.ts and use it for both import and active-account cleanup; teacher-test enrollment exemptions must not grant staff privileges.
 - Import explicitly designated mock-teaching staff through the trusted active Orbit staff path and create their learner profiles insert-only; synchronization must preserve learning settings and keep active staff learner profiles out of student cleanup.
 - Keep automatic vocabulary difficulty and lemma-based per-unit repetition policy in extract-sentence-words/vocabularyPolicy.ts; resolve grade from the stored textbook and enforce limits in passage order so manual and import-triggered extraction share the same policy.
