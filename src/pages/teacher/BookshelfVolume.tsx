@@ -80,6 +80,7 @@ import { MergeUnitsDialog } from "@/components/teacher/MergeUnitsDialog";
 import { UnitSkipBulkDialog } from "@/components/teacher/UnitSkipBulkDialog";
 import { ReorderButtons } from "@/components/teacher/ReorderButtons";
 import { swapListOrder } from "@/lib/bookshelfOrder";
+import { mergePassagesWithTranslations } from "@/lib/mergePassages";
 import { cn } from "@/lib/utils";
 import { errMsg } from "@/lib/errMsg";
 import { hydrateSentencesFromDb } from "@/lib/sentenceSource";
@@ -462,66 +463,12 @@ const BookshelfVolume = () => {
       .filter((p) => passageSel.has(p.id))
       .sort((a, b) => a.passage_no - b.passage_no);
     if (selected.length < 2) return;
-    const [keep, ...rest] = selected;
-    const mergedEnglish = selected
-      .map((p) => p.english.trim())
-      .filter(Boolean)
-      .join(" ");
-    const koreanParts = selected
-      .map((p) => (p.korean ?? "").trim())
-      .filter(Boolean);
-    const mergedKorean = koreanParts.length > 0 ? koreanParts.join(" ") : null;
+    const keep = selected[0];
+    if (!keep) return;
 
     setBulkPassageBusy(true);
     try {
-      // 합치기 전 각 문장의 추출 단어를 모아 둔다 (영문 변경 시 캐시가 삭제되므로)
-      const codes = selected.map((p) => p.code);
-      const { data: exRows } = await supabase
-        .from("sentence_word_extractions")
-        .select("sentence_id, words")
-        .in("sentence_id", codes);
-      const mergedWords: Array<Record<string, unknown>> = [];
-      const seen = new Set<string>();
-      for (const code of codes) {
-        const row = (exRows ?? []).find((r) => r.sentence_id === code);
-        const arr = Array.isArray(row?.words) ? (row!.words as Array<Record<string, unknown>>) : [];
-        for (const w of arr) {
-          const key = String(w?.word ?? "").trim().toLowerCase();
-          if (!key || seen.has(key)) continue;
-          seen.add(key);
-          mergedWords.push(w);
-        }
-      }
-
-      await updatePassage(keep.id, {
-        english: mergedEnglish,
-        korean: mergedKorean,
-      });
-      if (mergedWords.length > 0) {
-        await supabase.from("sentence_word_extractions").upsert(
-          {
-            sentence_id: keep.code,
-            english: mergedEnglish,
-            words: mergedWords as unknown as never,
-            model: "merged",
-          },
-          { onConflict: "sentence_id" },
-        );
-      }
-      await deletePassages(rest.map((p) => p.id));
-      if (rest.length > 0) {
-        await supabase
-          .from("sentence_word_extractions")
-          .delete()
-          .in("sentence_id", rest.map((p) => p.code));
-      }
-      // 재정렬
-      const remaining = unitPassages
-        .filter((p) => p.id === keep.id || !passageSel.has(p.id))
-        .sort((a, b) => a.passage_no - b.passage_no);
-      if (remaining.length > 0) {
-        await reorderPassagesInUnit(remaining.map((p) => p.id));
-      }
+      await mergePassagesWithTranslations(selected.map((p) => p.id));
       if (passagesUnit) {
         const refreshed = await fetchPassagesByUnit(passagesUnit.id);
         setUnitPassages(refreshed);
@@ -530,7 +477,7 @@ const BookshelfVolume = () => {
       await hydrateSentencesFromDb(true);
       toast({
         title: `${selected.length}개 문장을 1개로 합쳤어요`,
-        description: `${keep.code} 에 이어붙였고, 나머지 ${rest.length}개는 삭제했어요.`,
+        description: `${keep.code}에 학생별 해석과 추출 단어도 함께 합쳤어요.`,
       });
       setMergeConfirmOpen(false);
     } catch (e) {
@@ -1508,8 +1455,8 @@ const BookshelfVolume = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>선택한 {passageSel.size}개 문장을 하나로 합칠까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              가장 앞 번호 문장에 이어붙이고, 나머지는 삭제됩니다. 분석/단어추출 캐시는 자동으로 정리되고,
-              나머지 문장의 학생 학습 기록은 함께 사라집니다.
+              가장 앞 번호 문장에 이어붙이고, 나머지 본문은 삭제됩니다. 학생별 기존 해석과 추출 단어도
+              문장 순서대로 함께 합칩니다. 기존 제출 이력은 보존되며 분석은 다시 설정해야 합니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
