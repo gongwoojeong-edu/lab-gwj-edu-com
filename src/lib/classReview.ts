@@ -56,6 +56,35 @@ export function groupBySentence(rows: ClassReviewRow[]) {
   return [...map.values()];
 }
 
+export interface OpenClassReviewMark { approval_id: string | null; sentence_id: string; user_id: string; created_at: string }
+
+/** 수업으로 지정된 제출은 승인 대기에서 빼고 수업 자료함에서만 다룬다.
+ *  지정 이후의 새 제출(다른 승인 행)은 다시 승인 대기에 보인다. */
+export function excludeClassQueued<T extends { id: string; sentence_id: string; user_id: string; requested_at: string }>(
+  approvals: T[], marks: OpenClassReviewMark[],
+): T[] {
+  if (!marks.length) return approvals;
+  const byApproval = new Set(marks.filter(m => m.approval_id).map(m => m.approval_id as string));
+  const legacy = new Map<string, string>();
+  for (const m of marks) {
+    if (m.approval_id) continue;
+    const key = `${m.user_id}|${m.sentence_id}`;
+    const prev = legacy.get(key);
+    if (!prev || m.created_at > prev) legacy.set(key, m.created_at);
+  }
+  return approvals.filter(a => {
+    if (byApproval.has(a.id)) return false;
+    const markedAt = legacy.get(`${a.user_id}|${a.sentence_id}`);
+    return !(markedAt && a.requested_at <= markedAt);
+  });
+}
+
+/** 담당과 무관하게 열린 수업 지정 전체 — 다른 선생님 수업함에 담긴 제출도 승인 대기에서 빠지도록 */
+export async function fetchOpenClassReviewMarks(): Promise<OpenClassReviewMark[]> {
+  return fetchAllPages<OpenClassReviewMark>((from, to) =>
+    supabase.rpc("class_queued_approval_marks").order("approval_id").order("user_id").order("sentence_id").range(from, to) as never);
+}
+
 export async function fetchClassReviewForApproval(sentenceId: string, userId: string) {
   const { data, error } = await supabase.from("class_review_items")
     .select("id, teacher_id, note, status").eq("sentence_id", sentenceId).eq("user_id", userId).eq("status", "open");

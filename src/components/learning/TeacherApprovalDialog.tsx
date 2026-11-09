@@ -77,6 +77,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApproved: (grade: ApprovalGrade) => void;
+  /** "수업"으로 담은 직후 — 승인 대기 목록에서 빼기 위해 호출 */
+  onClassQueued?: () => void;
 }
 
 
@@ -117,6 +119,7 @@ export const TeacherApprovalDialog = ({
   open,
   onOpenChange,
   onApproved,
+  onClassQueued,
 }: Props) => {
 
 
@@ -814,7 +817,7 @@ export const TeacherApprovalDialog = ({
                 onClick={toggleImportant} title="이 학생의 워크북에 중요문장으로 표시">
                 <Star className={cn("size-4 mr-1", important && "fill-current text-primary")} /> 중요문장
               </Button>
-              <ClassReviewToggle sentenceId={sentenceId} userId={studentUserId} approvalId={approvalId} teachers={heldTeachers} onSaved={() => onOpenChange(false)} />
+              <ClassReviewToggle sentenceId={sentenceId} userId={studentUserId} approvalId={approvalId} teachers={heldTeachers} onSaved={() => { onOpenChange(false); onClassQueued?.(); }} />
               <Button size="sm" variant={topic ? "secondary" : "outline"}
                 aria-pressed={topic} disabled={topicLoading || topicError || saving}
                 onClick={toggleTopic} title="이 학생의 워크북에 주제문으로 표시">

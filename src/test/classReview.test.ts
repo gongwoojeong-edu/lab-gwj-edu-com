@@ -50,3 +50,17 @@ describe("같은 문장 묶기", () => {
     expect(g.find(x => x.sentenceId === "s1")?.studentIds).toHaveLength(2);
   });
 });
+
+describe("수업 지정 제출은 승인 대기에서 빠진다", () => {
+  const a = (id: string, requested_at = "2026-11-09T01:00:00Z") => ({ id, sentence_id: "s1", user_id: "u1", requested_at });
+  it("수업으로 담은 제출은 승인 대기에서 사라진다", async () => {
+    const { excludeClassQueued } = await import("@/lib/classReview");
+    const marks = [{ approval_id: "ap1", sentence_id: "s1", user_id: "u1", created_at: "2026-11-09T02:00:00Z" }];
+    expect(excludeClassQueued([a("ap1"), a("ap2")], marks).map(r => r.id)).toEqual(["ap2"]);
+  });
+  it("수업 지정 이후 새로 제출한 것은 다시 보인다", async () => {
+    const { excludeClassQueued } = await import("@/lib/classReview");
+    const marks = [{ approval_id: null, sentence_id: "s1", user_id: "u1", created_at: "2026-11-09T02:00:00Z" }];
+    expect(excludeClassQueued([a("old"), a("new", "2026-11-09T03:00:00Z")], marks).map(r => r.id)).toEqual(["new"]);
+  });
+});
