@@ -3,13 +3,12 @@
 // 즉시 상단 바로 안내하고, 해당 문장으로 바로 이동시킨다.
 // (알림함에 들어가지 않아도 바로 보이게 하기 위한 전역 배너)
 // ============================================================
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStudentNotifications } from "@/hooks/useStudentNotifications";
-import { markNotificationRead } from "@/lib/studentNotifications";
-import { isRedoNotification, redoNotificationPath } from "@/lib/redoNotifications";
+import { redoNotificationPath } from "@/lib/redoNotifications";
 import { toast } from "@/hooks/use-toast";
 
 export function RedoAlertBar() {
