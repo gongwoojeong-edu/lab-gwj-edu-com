@@ -865,6 +865,12 @@ const PendingApprovals = () => {
               setTarget(null);
               load();
             }}
+            onClassQueued={() => {
+              const queuedId = target.id;
+              if (tab === "pending") setRows((prev) => prev.filter((r) => r.id !== queuedId));
+              setTarget(null);
+              void load();
+            }}
           />
         )}
       </div>
