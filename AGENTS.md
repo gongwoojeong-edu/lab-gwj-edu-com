@@ -17,3 +17,4 @@
 - Deliver class-coaching resubmission through the global redo notification banner, preserve its approval assignment when opening it, and refresh same-sentence navigation; live coach approvals must read active progress requests before advancing.
 - Filter class attendance candidates by every selected sentence's learning scope (both decks), unit assignments or unit learning history, matching workbook eligibility without using approval decisions.
 - Classify student redo notifications in studentInbox.ts from evidence, not read_at: a later submission marks them done, an active redo flag keeps the newest one current; badge, banner and inbox share this so "read" never hides unfinished re-learning.
+- The teacher redo audit (redoAudit.ts) lists redos with the same open rule (flag set, no later submission) and cancels by clearing the flag on every row for that student/sentence plus marking its redo notifications read, so teacher list and student inbox never disagree.
