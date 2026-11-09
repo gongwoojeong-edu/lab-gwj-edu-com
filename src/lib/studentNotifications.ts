@@ -116,9 +116,12 @@ export const subscribeMyNotifications = (
   const refresh = () => onChange();
   window.addEventListener("focus", refresh);
   window.addEventListener("online", refresh);
+  // 학생이 문장을 제출하면 재학습 알림 완료 여부를 바로 다시 계산한다.
+  window.addEventListener("gwj:notifications-refresh", refresh);
   return () => {
     window.removeEventListener("focus", refresh);
     window.removeEventListener("online", refresh);
+    window.removeEventListener("gwj:notifications-refresh", refresh);
     supabase.removeChannel(channel);
   };
 };
