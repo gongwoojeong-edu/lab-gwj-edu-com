@@ -11,10 +11,10 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  fetchMyNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   subscribeMyNotifications,
@@ -22,6 +22,9 @@ import {
 } from "@/lib/studentNotifications";
 import { GRADE_BADGE_CLASS, GRADE_LABEL, type ApprovalGrade } from "@/lib/sentenceApprovals";
 import { SentenceReviewDetail } from "@/components/student/SentenceReviewDetail";
+import { fetchMyInboxWithStatus, isCurrentNotification, type RedoStatus } from "@/lib/studentInbox";
+import { redoNotificationPath } from "@/lib/redoNotifications";
+import { toast } from "@/hooks/use-toast";
 
 const fmt = (iso: string) => {
   const d = new Date(iso);
@@ -35,13 +38,28 @@ export default function StudentNotifications() {
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<"current" | "past">("current");
+  const [redoStatus, setRedoStatus] = useState<Map<string, RedoStatus>>(new Map());
 
   const reload = async () => {
     setLoading(true);
     try {
-      setRows(await fetchMyNotifications(200));
+      const inbox = await fetchMyInboxWithStatus(200);
+      setRows(inbox.rows);
+      setRedoStatus(inbox.status);
+    } catch (e) {
+      toast({ title: "알림을 불러오지 못했어요", description: "잠시 후 다시 열어 주세요.", variant: "destructive" });
+      console.warn("[StudentNotifications] load failed", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** 재학습 대기 알림 → 해당 문장 재학습으로 바로 이동 (읽음 처리는 실제 재제출 때 자동) */
+  const onRedo = async (n: StudentNotification) => {
+    try {
+      navigate(await redoNotificationPath(n));
+    } catch (e) {
+      toast({ title: "재학습을 열지 못했어요", description: String(e), variant: "destructive" });
     }
   };
 
@@ -70,10 +88,12 @@ export default function StudentNotifications() {
     await markAllNotificationsRead();
   };
 
-  const currentRows = rows.filter((r) => !r.read_at);
-  const pastRows = rows.filter((r) => r.read_at);
+  const currentRows = rows.filter((r) => isCurrentNotification(r, redoStatus));
+  const pastRows = rows.filter((r) => !isCurrentNotification(r, redoStatus));
   const visible = tab === "current" ? currentRows : pastRows;
   const unreadCount = currentRows.length;
+  // '모두 확인'은 일반 알림만 정리한다. 재학습은 다시 제출해야 사라진다.
+  const confirmableCount = currentRows.filter((r) => !r.read_at && redoStatus.get(r.id) !== "pending").length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -90,7 +110,7 @@ export default function StudentNotifications() {
               )}
             </h1>
           </div>
-          {unreadCount > 0 && (
+          {confirmableCount > 0 && (
             <Button size="sm" variant="outline" onClick={onMarkAll}>
               <CheckCheck className="w-4 h-4 mr-1" /> 모두 확인
             </Button>
@@ -128,11 +148,13 @@ export default function StudentNotifications() {
               const grade = n.grade as ApprovalGrade | null;
               const expandable = !!n.sentence_id;
               const open = openId === n.id;
+              const rs = redoStatus.get(n.id);
+              const isCurrent = isCurrentNotification(n, redoStatus);
               return (
                 <Card
                   key={n.id}
                   className={`p-4 transition ${
-                    n.read_at ? "opacity-70" : "border-l-4 border-l-primary bg-primary/5"
+                    isCurrent ? "border-l-4 border-l-primary bg-primary/5" : "opacity-70"
                   }`}
                 >
                   <div
@@ -147,7 +169,15 @@ export default function StudentNotifications() {
                           ) : (
                             <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                           ))}
-                        {!n.read_at && <Badge className="bg-rose-500 text-white">NEW</Badge>}
+                        {!n.read_at && rs !== "pending" && <Badge className="bg-rose-500 text-white">NEW</Badge>}
+                        {rs === "pending" && (
+                          <Badge variant="destructive">재학습 해야 함</Badge>
+                        )}
+                        {rs === "done" && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Check className="w-3 h-3" /> 재학습 완료
+                          </Badge>
+                        )}
                         {grade && GRADE_LABEL[grade] && (
                           <Badge className={GRADE_BADGE_CLASS[grade]}>{GRADE_LABEL[grade]}</Badge>
                         )}
@@ -180,7 +210,17 @@ export default function StudentNotifications() {
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       <span className="text-xs text-muted-foreground">{fmt(n.created_at)}</span>
-                      {!n.read_at && (
+                      {rs === "pending" ? (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onRedo(n);
+                          }}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-1" /> 재학습 하기
+                        </Button>
+                      ) : !n.read_at && rs !== "done" ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -191,7 +231,7 @@ export default function StudentNotifications() {
                         >
                           <Check className="w-4 h-4 mr-1" /> 확인
                         </Button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
