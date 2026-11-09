@@ -130,17 +130,24 @@ export const fetchRedoAudit = async (): Promise<RedoAuditRow[]> => {
   const unitById = new Map(units.map((u) => [u.id, u]));
   const bookById = new Map(books.map((b) => [b.id, b]));
   const seriesById = new Map(series.map((s) => [s.id, s]));
-  const passageByCode = new Map<string, { unit_id: string | null; english: string }>();
+  // 문장 코드는 교재 사이에 겹칠 수 있어 해당하는 교재를 모두 보여준다.
+  const passagesByCode = new Map<string, { unit_id: string | null; english: string }[]>();
   passages.forEach((p) => {
-    if (!passageByCode.has(p.code)) passageByCode.set(p.code, p);
+    const arr = passagesByCode.get(p.code) ?? [];
+    arr.push(p);
+    passagesByCode.set(p.code, arr);
   });
+  const passageByCode = new Map([...passagesByCode].map(([c, arr]) => [c, arr[0]]));
   const labelOf = (code: string) => {
-    const p = passageByCode.get(code);
-    const u = p?.unit_id ? unitById.get(p.unit_id) : undefined;
-    const b = u ? bookById.get(u.textbook_id) : undefined;
-    const s = b ? seriesById.get(b.series_id) : undefined;
-    if (!u || !b) return "미등록 교재";
-    return [s?.title, b.title, u.title].filter(Boolean).join(" · ");
+    const labels = new Set<string>();
+    for (const p of passagesByCode.get(code) ?? []) {
+      const u = p.unit_id ? unitById.get(p.unit_id) : undefined;
+      const b = u ? bookById.get(u.textbook_id) : undefined;
+      if (!u || !b) continue;
+      const s = seriesById.get(b.series_id);
+      labels.add([s?.title, b.title, u.title].filter(Boolean).join(" · "));
+    }
+    return labels.size ? [...labels].join(" / ") : "미등록 교재";
   };
 
   const scopeCache = new Map<string, Set<string> | null>();
