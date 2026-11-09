@@ -79,10 +79,10 @@ export function excludeClassQueued<T extends { id: string; sentence_id: string; 
   });
 }
 
+/** 담당과 무관하게 열린 수업 지정 전체 — 다른 선생님 수업함에 담긴 제출도 승인 대기에서 빠지도록 */
 export async function fetchOpenClassReviewMarks(): Promise<OpenClassReviewMark[]> {
   return fetchAllPages<OpenClassReviewMark>((from, to) =>
-    supabase.from("class_review_items").select("approval_id, sentence_id, user_id, created_at")
-      .eq("status", "open").order("id").range(from, to) as never);
+    supabase.rpc("class_queued_approval_marks").order("approval_id").order("user_id").order("sentence_id").range(from, to) as never);
 }
 
 export async function fetchClassReviewForApproval(sentenceId: string, userId: string) {
