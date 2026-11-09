@@ -8,6 +8,7 @@ import { memoToPlainText } from "@/lib/approvalMemo";
 import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
 import { GRADE_LABEL, GRADE_ORDER, type ApprovalGrade } from "./gradeMeta";
 import { fetchAllPages } from "./paginatedQuery";
+import { requestNotificationsRefresh } from "./studentInbox";
 
 export type ApprovalStatus = "pending" | "approved" | "held";
 
