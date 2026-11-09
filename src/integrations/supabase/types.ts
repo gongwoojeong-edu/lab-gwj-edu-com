@@ -1965,6 +1965,15 @@ export type Database = {
           weekly_active_students: number
         }[]
       }
+      class_queued_approval_marks: {
+        Args: never
+        Returns: {
+          approval_id: string
+          created_at: string
+          sentence_id: string
+          user_id: string
+        }[]
+      }
       complete_class_review_attendance: {
         Args: { p_ids: string[]; p_student_ids: string[] }
         Returns: number
