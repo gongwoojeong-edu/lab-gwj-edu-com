@@ -1,10 +1,13 @@
 // ============================================================
-// redoAudit — 남아 있는 "재학습 요청"을 학생 진도 범위와 대조한다.
-//   · 현재 메인덱/서브덱 범위 밖 요청은 학생 화면에 절대 뜨지 않으므로
-//     선생님이 확인하고 해제하거나 진도를 조정할 수 있게 목록으로 보여준다.
+// redoAudit — 학생에게 남아 있는 "재학습 요청"을 선생님이 보고 골라 취소한다.
+//   · 학생 알림함과 같은 기준: 재학습 잠금(redo_requested_at)이 걸려 있고
+//     요청 이후 같은 문장을 다시 제출하지 않았으면 '남아 있는 재학습'.
+//   · 취소하면 잠금을 끄고 해당 재학습 알림을 읽음 처리한다 (제출·첨삭 기록은 보존).
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import { buildBookIndex, scopedCodesFor } from "@/lib/progressScope";
+import { fetchAllPages, fetchInChunks } from "@/lib/paginatedQuery";
+import { memoToPlainText } from "@/lib/approvalMemo";
 
 export interface RedoAuditRow {
   userId: string;
@@ -13,87 +16,139 @@ export interface RedoAuditRow {
   sentenceId: string;
   requestedAt: string;
   memo: string | null;
-  status: string | null;
-  /** 요청 문장이 속한 교재 표시 */
+  /** 원문 앞부분 */
+  englishPreview: string;
+  /** 요청 문장이 속한 시리즈 · 권 · 유닛 */
   bookLabel: string;
-  /** 학생 현재 진도 범위 안이면 true (= 학생 화면에 뜬다) */
+  /** 학생 현재 진도 범위 안이면 true */
   inScope: boolean;
-  /** 학생 현재 메인덱 교재 표시 */
-  currentBookLabel: string;
+  /** 특별과제 안의 재학습이면 true */
+  fromAssignment: boolean;
 }
 
 const ts = (v: string | null | undefined) => (v ? new Date(v).getTime() : 0);
 
+/** 순수 규칙: 요청 이후 같은 문장을 다시 제출하지 않았으면 아직 남아 있는 재학습이다. */
+export const isOpenRedo = (requestedAt: string, latestSubmitAt: string | null | undefined) =>
+  ts(latestSubmitAt) <= ts(requestedAt);
+
+type Prog = {
+  user_id: string | null;
+  sentence_id: string;
+  assignment_id: string | null;
+  redo_requested_at: string;
+  last_redo_memo: string | null;
+};
+type Prof = {
+  user_id: string;
+  student_no: string;
+  display_name: string | null;
+  start_series_id: string | null;
+  start_volume_id: string | null;
+  start_unit_id: string | null;
+  track_b_enabled: boolean | null;
+  track_b_series_id: string | null;
+  track_b_volume_id: string | null;
+  track_b_unit_id: string | null;
+  orbit_enrollment_active: boolean | null;
+};
+
 export const fetchRedoAudit = async (): Promise<RedoAuditRow[]> => {
-  const [{ data: progData }, { data: profData }, idx] = await Promise.all([
-    supabase
-      .from("sentence_progress")
-      .select(
-        "user_id, sentence_id, redo_requested_at, last_redo_memo, status, passed_at, updated_at",
-      )
-      .not("redo_requested_at", "is", null)
-      .is("assignment_id", null)
-      .order("redo_requested_at", { ascending: true })
-      .limit(2000),
-    supabase
-      .from("student_profiles")
-      .select(
-        "user_id, student_no, display_name, start_series_id, start_volume_id, start_unit_id, track_b_enabled, track_b_series_id, track_b_volume_id, track_b_unit_id, orbit_enrollment_active",
-      ),
+  const [progRows, profRows, idx] = await Promise.all([
+    fetchAllPages<Prog>((from, to) =>
+      supabase
+        .from("sentence_progress")
+        .select("user_id, sentence_id, assignment_id, redo_requested_at, last_redo_memo")
+        .not("redo_requested_at", "is", null)
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAllPages<Prof>((from, to) =>
+      supabase
+        .from("student_profiles")
+        .select(
+          "user_id, student_no, display_name, start_series_id, start_volume_id, start_unit_id, track_b_enabled, track_b_series_id, track_b_volume_id, track_b_unit_id, orbit_enrollment_active",
+        )
+        .order("user_id")
+        .range(from, to),
+    ),
     buildBookIndex(),
   ]);
 
-  type Prog = {
-    user_id: string | null;
-    sentence_id: string;
-    redo_requested_at: string;
-    last_redo_memo: string | null;
-    status: string | null;
-    passed_at: string | null;
-    updated_at: string | null;
-  };
-  type Prof = {
-    user_id: string;
-    student_no: string;
-    display_name: string | null;
-    start_series_id: string | null;
-    start_volume_id: string | null;
-    start_unit_id: string | null;
-    track_b_enabled: boolean | null;
-    track_b_series_id: string | null;
-    track_b_volume_id: string | null;
-    track_b_unit_id: string | null;
-    orbit_enrollment_active: boolean | null;
-  };
-
   const profiles = new Map<string, Prof>();
-  ((profData ?? []) as Prof[]).forEach((p) => profiles.set(p.user_id, p));
+  profRows.forEach((p) => profiles.set(p.user_id, p));
 
-  // 재학습 요청 이후 이미 다시 통과한 문장은 해제된 것으로 본다 (학생 화면 로직과 동일).
-  const pending = ((progData ?? []) as Prog[]).filter((r) => {
+  const flagged = progRows.filter((r) => {
     if (!r.user_id) return false;
     const prof = profiles.get(r.user_id);
-    if (!prof || prof.orbit_enrollment_active === false) return false;
-    if (r.status === "pass") {
-      const requested = ts(r.redo_requested_at);
-      if (ts(r.passed_at) >= requested || ts(r.updated_at) >= requested) return false;
-    }
-    return true;
+    return !!prof && prof.orbit_enrollment_active !== false;
   });
-  if (pending.length === 0) return [];
+  if (flagged.length === 0) return [];
 
-  // 교재 라벨 매핑
-  const { data: bookRows } = await supabase.from("textbooks").select("id, level, title");
-  const bookLabel = new Map<string, string>();
-  ((bookRows ?? []) as { id: string; level: string; title: string }[]).forEach((b) =>
-    bookLabel.set(b.id, `${b.level} ${b.title}`),
-  );
-  const textbookOfCode = new Map<string, string>();
-  idx.codesByUnit.forEach((codes, unitId) => {
-    const unit = idx.unitsById.get(unitId);
-    if (!unit) return;
-    codes.forEach((c) => textbookOfCode.set(c, unit.textbook_id));
+  const userIds = [...new Set(flagged.map((r) => r.user_id as string))];
+  const sentenceIds = [...new Set(flagged.map((r) => r.sentence_id))];
+
+  const [submissions, passages, units, books, series] = await Promise.all([
+    fetchInChunks(sentenceIds, (ids) =>
+      fetchAllPages<{ user_id: string; sentence_id: string; requested_at: string }>((from, to) =>
+        supabase
+          .from("sentence_approvals")
+          .select("user_id, sentence_id, requested_at")
+          .in("sentence_id", ids)
+          .in("user_id", userIds)
+          .order("id")
+          .range(from, to),
+      ),
+    ),
+    fetchInChunks(sentenceIds, (ids) =>
+      fetchAllPages<{ code: string; unit_id: string | null; english: string }>((from, to) =>
+        supabase
+          .from("textbook_passages")
+          .select("code, unit_id, english")
+          .in("code", ids)
+          .order("id")
+          .range(from, to),
+      ),
+    ),
+    fetchAllPages<{ id: string; title: string; textbook_id: string }>((from, to) =>
+      supabase.from("textbook_units").select("id, title, textbook_id").order("id").range(from, to),
+    ),
+    fetchAllPages<{ id: string; title: string; series_id: string }>((from, to) =>
+      supabase.from("textbooks").select("id, title, series_id").order("id").range(from, to),
+    ),
+    fetchAllPages<{ id: string; title: string }>((from, to) =>
+      supabase.from("textbook_series").select("id, title").order("id").range(from, to),
+    ),
+  ]);
+
+  const latestSubmit = new Map<string, string>();
+  submissions.forEach((s) => {
+    const k = `${s.user_id}|${s.sentence_id}`;
+    if (ts(s.requested_at) > ts(latestSubmit.get(k))) latestSubmit.set(k, s.requested_at);
   });
+
+  const unitById = new Map(units.map((u) => [u.id, u]));
+  const bookById = new Map(books.map((b) => [b.id, b]));
+  const seriesById = new Map(series.map((s) => [s.id, s]));
+  // 문장 코드는 교재 사이에 겹칠 수 있어 해당하는 교재를 모두 보여준다.
+  const passagesByCode = new Map<string, { unit_id: string | null; english: string }[]>();
+  passages.forEach((p) => {
+    const arr = passagesByCode.get(p.code) ?? [];
+    arr.push(p);
+    passagesByCode.set(p.code, arr);
+  });
+  const passageByCode = new Map([...passagesByCode].map(([c, arr]) => [c, arr[0]]));
+  const labelOf = (code: string) => {
+    const labels = new Set<string>();
+    for (const p of passagesByCode.get(code) ?? []) {
+      const u = p.unit_id ? unitById.get(p.unit_id) : undefined;
+      const b = u ? bookById.get(u.textbook_id) : undefined;
+      if (!u || !b) continue;
+      const s = seriesById.get(b.series_id);
+      labels.add([s?.title, b.title, u.title].filter(Boolean).join(" · "));
+    }
+    return labels.size ? [...labels].join(" / ") : "미등록 교재";
+  };
 
   const scopeCache = new Map<string, Set<string> | null>();
   const scopeOf = (prof: Prof): Set<string> | null => {
@@ -113,45 +168,65 @@ export const fetchRedoAudit = async (): Promise<RedoAuditRow[]> => {
           start_unit_id: prof.track_b_unit_id,
         })
       : [];
-    // 둘 다 미지정(null)이면 범위 제한 없음 → 전부 범위 안으로 본다.
-    const set = a == null && (b == null || prof.track_b_enabled !== true)
-      ? null
-      : new Set([...(a ?? []), ...(b ?? [])]);
+    const set =
+      a == null && (b == null || prof.track_b_enabled !== true)
+        ? null
+        : new Set([...(a ?? []), ...(b ?? [])]);
     scopeCache.set(prof.user_id, set);
     return set;
   };
 
-  return pending.map((r) => {
-    const prof = profiles.get(r.user_id as string) as Prof;
+  // 같은 학생·문장에 일반/특별과제 행이 둘 다 있으면 최근 요청 하나로 합친다.
+  const merged = new Map<string, RedoAuditRow>();
+  for (const r of flagged) {
+    const userId = r.user_id as string;
+    const key = `${userId}|${r.sentence_id}`;
+    if (!isOpenRedo(r.redo_requested_at, latestSubmit.get(key))) continue;
+    const prev = merged.get(key);
+    if (prev && ts(prev.requestedAt) >= ts(r.redo_requested_at)) continue;
+    const prof = profiles.get(userId) as Prof;
     const scope = scopeOf(prof);
-    const tb = textbookOfCode.get(r.sentence_id) ?? null;
-    return {
-      userId: prof.user_id,
+    const english = passageByCode.get(r.sentence_id)?.english ?? "";
+    merged.set(key, {
+      userId,
       studentNo: prof.student_no,
       studentName: prof.display_name ?? prof.student_no,
       sentenceId: r.sentence_id,
       requestedAt: r.redo_requested_at,
-      memo: r.last_redo_memo,
-      status: r.status,
-      bookLabel: tb ? (bookLabel.get(tb) ?? "미등록 교재") : "미등록 교재",
+      memo: r.last_redo_memo ? memoToPlainText(r.last_redo_memo) || null : null,
+      englishPreview: english.length > 90 ? `${english.slice(0, 90)}…` : english,
+      bookLabel: labelOf(r.sentence_id),
       inScope: scope == null ? true : scope.has(r.sentence_id),
-      currentBookLabel: prof.start_volume_id
-        ? (bookLabel.get(prof.start_volume_id) ?? "-")
-        : "범위 미지정",
-    };
-  });
+      fromAssignment: !!r.assignment_id,
+    });
+  }
+
+  return [...merged.values()].sort(
+    (a, b) =>
+      a.studentName.localeCompare(b.studentName, "ko") || ts(b.requestedAt) - ts(a.requestedAt),
+  );
 };
 
-/** 재학습 요청 해제 (기록은 남기고 플래그만 끈다) */
+/** 재학습 요청 취소: 잠금을 끄고 학생 알림함의 해당 재학습 알림을 정리한다 (기록은 보존). */
 export const clearRedoRequests = async (
   rows: { userId: string; sentenceId: string }[],
 ): Promise<void> => {
+  const nowIso = new Date().toISOString();
   for (const r of rows) {
-    await supabase
+    const { error } = await supabase
       .from("sentence_progress")
       .update({ redo_requested_at: null } as never)
       .eq("user_id", r.userId)
       .eq("sentence_id", r.sentenceId)
-      .is("assignment_id", null);
+      .not("redo_requested_at", "is", null);
+    if (error) throw error;
+    const { error: nErr } = await supabase
+      .from("student_notifications")
+      .update({ read_at: nowIso })
+      .eq("user_id", r.userId)
+      .eq("sentence_id", r.sentenceId)
+      .is("read_at", null)
+      .or("grade.in.(redo,coach),title.ilike.*재학습*,title.ilike.*추가학습*");
+    if (nErr) throw nErr;
   }
 };
