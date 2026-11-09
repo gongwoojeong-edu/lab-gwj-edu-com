@@ -9,6 +9,7 @@ import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
 import { GRADE_LABEL, GRADE_ORDER, type ApprovalGrade } from "./gradeMeta";
 import { fetchAllPages } from "./paginatedQuery";
 import { requestNotificationsRefresh } from "./studentInbox";
+import { excludeClassQueued, fetchOpenClassReviewMarks } from "./classReview";
 
 export type ApprovalStatus = "pending" | "approved" | "held";
 
@@ -411,7 +412,10 @@ export const fetchApprovalsByStatus = async (
     .order(status === "held" ? "held_at" : "requested_at", { ascending: false })
     .order("id", { ascending: true })
     .range(from, to));
-  return rows as SentenceApproval[];
+  if (status !== "pending") return rows as SentenceApproval[];
+  // 수업으로 지정된 제출은 승인 대기에서 빼고 수업 자료함에서만 보인다 (목록·배지 공통).
+  const marks = await fetchOpenClassReviewMarks();
+  return excludeClassQueued(rows as SentenceApproval[], marks);
 };
 
 /** 선생님 대시보드: pending 상태 전체 목록 (호환용) */
