@@ -8,6 +8,7 @@ import { memoToPlainText } from "@/lib/approvalMemo";
 import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
 import { GRADE_LABEL, GRADE_ORDER, type ApprovalGrade } from "./gradeMeta";
 import { fetchAllPages } from "./paginatedQuery";
+import { requestNotificationsRefresh } from "./studentInbox";
 
 export type ApprovalStatus = "pending" | "approved" | "held";
 
@@ -85,7 +86,10 @@ export const createApprovalRequest = async (
   if (!userId) throw new Error("로그인이 필요합니다");
 
   const latest = await fetchLatestApproval(sentenceId, userId, assignmentId ?? null);
-  if (latest && (latest.status === "pending" || latest.status === "held")) return latest;
+  if (latest && (latest.status === "pending" || latest.status === "held")) {
+    requestNotificationsRefresh();
+    return latest;
+  }
 
   const nextAttempt = (latest?.attempt_no ?? 0) + 1;
   const payload: Record<string, unknown> = {
@@ -115,6 +119,8 @@ export const createApprovalRequest = async (
   else clearQ = clearQ.is("assignment_id", null);
   const { error: clearErr } = await clearQ;
   if (clearErr) console.warn("[createApprovalRequest] redo flag clear failed", clearErr);
+  // 재제출 완료 → 알림함의 재학습 알림을 '완료'로 다시 계산
+  requestNotificationsRefresh();
 
   return data as SentenceApproval;
 

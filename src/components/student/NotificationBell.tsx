@@ -39,11 +39,11 @@ export default function NotificationBell() {
 
   // 신규 미확인(이전 세션에서 못본 것)만 강제 모달로 표시
   useEffect(() => {
-    if (count === 0) return;
+    if (unread.length === 0) return;
     const seen = getSeenIds();
     const fresh = unread.filter((n) => !seen.has(n.id));
     if (fresh.length > 0) setPopup(fresh);
-  }, [unread, count]);
+  }, [unread]);
 
   const onDismiss = async () => {
     const seen = getSeenIds();

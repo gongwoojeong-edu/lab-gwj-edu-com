@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { subscribeMyNotifications, fetchMyUnreadNotifications, type StudentNotification } from "@/lib/studentNotifications";
+import { subscribeMyNotifications, type StudentNotification } from "@/lib/studentNotifications";
+import { fetchMyActiveInbox } from "@/lib/studentInbox";
 import { toast } from "@/hooks/use-toast";
 
 export function useStudentNotifications() {
   const { user } = useAuth();
+  /** 현재 알림 — 재학습은 다시 제출할 때까지 포함 */
+  const [active, setActive] = useState<StudentNotification[]>([]);
+  /** 아직 읽지 않은 새 알림 (도착 팝업용) */
   const [unread, setUnread] = useState<StudentNotification[]>([]);
+  /** 아직 다시 제출하지 않은 재학습 알림 */
+  const [pendingRedos, setPendingRedos] = useState<StudentNotification[]>([]);
   const [error, setError] = useState(false);
   const activeUser = useRef(user?.id);
   activeUser.current = user?.id;
@@ -16,9 +22,11 @@ export function useStudentNotifications() {
     if (!uid) return;
     const version = ++requestVersion.current;
     try {
-      const rows = await fetchMyUnreadNotifications();
+      const inbox = await fetchMyActiveInbox();
       if (activeUser.current !== uid || version !== requestVersion.current) return;
-      setUnread(rows);
+      setActive(inbox.active);
+      setUnread(inbox.unread);
+      setPendingRedos(inbox.pendingRedos);
       setError(false);
       failed.current = false;
     } catch {
@@ -30,7 +38,9 @@ export function useStudentNotifications() {
   }, [user?.id]);
 
   useEffect(() => {
+    setActive([]);
     setUnread([]);
+    setPendingRedos([]);
     setError(false);
     failed.current = false;
     if (!user?.id) return;
@@ -39,5 +49,5 @@ export function useStudentNotifications() {
     return () => { requestVersion.current++; stop(); };
   }, [user?.id, reload]);
 
-  return { unread, count: unread.length, reload, error };
+  return { active, unread, pendingRedos, count: active.length, reload, error };
 }

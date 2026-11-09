@@ -3,33 +3,36 @@
 // 즉시 상단 바로 안내하고, 해당 문장으로 바로 이동시킨다.
 // (알림함에 들어가지 않아도 바로 보이게 하기 위한 전역 배너)
 // ============================================================
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStudentNotifications } from "@/hooks/useStudentNotifications";
-import { markNotificationRead } from "@/lib/studentNotifications";
-import { isRedoNotification, redoNotificationPath } from "@/lib/redoNotifications";
+import { redoNotificationPath } from "@/lib/redoNotifications";
 import { toast } from "@/hooks/use-toast";
 
 export function RedoAlertBar() {
-  const { unread, reload, error } = useStudentNotifications();
+  const { pendingRedos, reload, error } = useStudentNotifications();
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const onSentencePath = (sentenceId: string | null) => {
+    if (!sentenceId) return false;
+    try {
+      return decodeURIComponent(pathname) === `/learn/sentence/${sentenceId}`;
+    } catch {
+      return false;
+    }
+  };
 
+  // 재학습 알림은 다시 제출할 때까지 남는다. 이미 그 문장을 학습 중이면 배너는 띄우지 않는다.
   const redos = useMemo(
-    () => unread.filter((n) => isRedoNotification(n) && !dismissed.includes(n.id)),
-    [unread, dismissed],
+    () => pendingRedos.filter((n) => !dismissed.includes(n.id) && !onSentencePath(n.sentence_id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingRedos, dismissed, pathname],
   );
   const current = redos[0];
-
-  // 라우트가 바뀌어도 배너는 유지 — 학생이 확인/이동할 때까지 노출
-  useEffect(() => {
-    if (!current) return;
-    // 이미 해당 문장 학습 화면에 있으면 바는 필요 없음
-  }, [current, pathname]);
 
   if (!current && !error) return null;
   if (pathname.startsWith("/teacher")) return null;
@@ -38,9 +41,8 @@ export function RedoAlertBar() {
     if (!current || error) { void reload(); return; }
     try {
       const path = await redoNotificationPath(current);
-      await markNotificationRead(current.id);
+      // 읽음 처리하지 않는다 — 실제로 다시 제출해야 알림함에서 '재학습 완료'로 넘어간다.
       setDismissed((prev) => [...prev, current.id]);
-      void reload();
       navigate(path);
     } catch (e) {
       toast({ title: "재학습을 열지 못했어요", description: String(e), variant: "destructive" });
