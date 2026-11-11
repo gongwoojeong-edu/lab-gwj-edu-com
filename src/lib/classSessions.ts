@@ -4,7 +4,7 @@
 // ============================================================
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages, fetchInChunks } from "@/lib/paginatedQuery";
-import type { ClassSession } from "@/lib/classSessionMeta";
+import { summarizeClassSessions, type ClassSession } from "@/lib/classSessionMeta";
 export * from "@/lib/classSessionMeta";
 
 const COLS = "user_id,sentence_id,approval_id,teacher_id,held_at";
@@ -28,3 +28,8 @@ export async function fetchClassSessionsInPeriod(startIso: string, endIso: strin
       .order("held_at").order("id").range(from, to) as never);
 }
 
+
+/** 워크북용: 문장별 수업 요약 */
+export async function fetchClassSessionMap(userId: string, sentenceIds: string[]) {
+  return summarizeClassSessions(await fetchClassSessions(userId, sentenceIds));
+}
