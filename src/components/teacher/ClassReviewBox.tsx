@@ -18,7 +18,7 @@ const sourceLabel = (g: ClassReviewGroup) =>
   [g.seriesTitle, g.volumeNo != null ? `${g.volumeNo}과` : null, g.unitNo != null ? `${g.unitNo}번 유닛` : null, g.passageNo != null ? `${g.passageNo}번` : null]
     .filter(Boolean).join(" · ") || g.sentenceId;
 
-export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
+export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange }: Props) {
   const [status, setStatus] = useState<"open" | "done">("open");
   const [groups, setGroups] = useState<ClassReviewGroup[]>([]);
   const [loading, setLoading] = useState(true);
