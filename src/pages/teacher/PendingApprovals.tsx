@@ -435,9 +435,16 @@ const PendingApprovals = () => {
     }
   }, [tab, isAdmin, effectiveTeacherAuthUserId]);
 
+  // 프로젝터 수업 중에는 실시간 새로고침을 멈춘다 (판서가 끊기지 않도록)
+  const projectorOpenRef = useRef(false);
+  const handleProjectingChange = useCallback((open: boolean) => {
+    projectorOpenRef.current = open;
+    if (!open) void load(); // 닫힐 때 한 번 최신 상태로 따라잡기
+  }, [load]);
+
   useEffect(() => {
     load();
-    const unsub = subscribeAllApprovals(() => load());
+    const unsub = subscribeAllApprovals(() => { if (!projectorOpenRef.current) load(); });
     return () => unsub();
   }, [load]);
 

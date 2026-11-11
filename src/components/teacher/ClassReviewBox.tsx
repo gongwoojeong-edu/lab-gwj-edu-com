@@ -44,6 +44,12 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange
   }, [status]);
   useEffect(() => { load(); }, [load]);
 
+  // 프로젝터가 열려 있는 동안 부모 화면의 실시간 새로고침을 멈추도록 알림
+  useEffect(() => {
+    onProjectingChange?.(projecting);
+    return () => { if (projecting) onProjectingChange?.(false); };
+  }, [projecting, onProjectingChange]);
+
   const byTeacher = useMemo(() => {
     if (!isAdmin || teacherFilter === "all") return groups;
     const id = teacherFilter === "mine" ? viewerId : teacherFilter;
