@@ -105,8 +105,11 @@ export const useAnnotation = ({
       setSaveState("error");
       return;
     }
-    pending.current = null;
-    setSaveState("idle");
+    // 저장 도중 다른 문장의 새 필기가 대기열에 들어왔으면 지우지 않는다
+    if (pending.current === payload) {
+      pending.current = null;
+      setSaveState("idle");
+    }
   }, [canEdit, sentenceId, studentId, scope]);
 
   const scheduleSave = useCallback(
@@ -122,11 +125,16 @@ export const useAnnotation = ({
     [canEdit, flush],
   );
 
+  // 문장 이동·화면 닫기 직전에 대기 중인 필기를 즉시 저장 (이전 문장 기준 flush)
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current);
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+        if (pending.current) void flush();
+      }
     },
-    [],
+    [flush],
   );
 
   // 미저장분 이탈 경고
