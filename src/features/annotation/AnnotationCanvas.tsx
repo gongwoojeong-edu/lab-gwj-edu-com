@@ -6,6 +6,7 @@
 // ============================================================
 import { useCallback, useEffect, useRef } from "react";
 import { drawStrokes, clamp01, eraseAtPoint, pixelDistance } from "./strokeMath";
+import { acceptsPointer, preemptsActive } from "./pointerPolicy";
 import {
   LASER_COLOR,
   LASER_FADE_MS,
@@ -37,6 +38,8 @@ interface Props {
   laserRemote?: { x: number; y: number; seq: number } | null;
   onLaserPoint?: (x: number, y: number) => void;
   onPreview?: (next: Strokes) => void;
+  /** 애플펜슬 입력이 처음 감지되면 호출 */
+  onPenDetected?: () => void;
   onCommit?: (next: Strokes, aspect: number) => void;
 }
 
@@ -54,8 +57,11 @@ export const AnnotationCanvas = ({
   laserRemote = null,
   onLaserPoint,
   onPreview,
+  onPenDetected,
   onCommit,
 }: Props) => {
+  /** 지금 획을 그리고 있는 포인터 — 다른 손가락·손바닥 입력은 무시 */
+  const activeRef = useRef<{ id: number; type: string } | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sizeRef = useRef({ w: 0, h: 0 });
@@ -228,14 +234,27 @@ export const AnnotationCanvas = ({
   };
 
   const accepts = (e: React.PointerEvent) =>
-    e.pointerType === "pen" ||
-    ((allowMouse || laser) && e.pointerType === "mouse") ||
-    (allowMouse && e.pointerType === "touch");
+    acceptsPointer({ pointerType: e.pointerType, width: e.width, height: e.height }, { allowMouse, laser });
+
+  const isActive = (e: React.PointerEvent) => activeRef.current?.id === e.pointerId;
 
   const interactive = enabled || laser;
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!interactive || !accepts(e)) return;
+    if (!interactive) return;
+    if (e.pointerType === "pen") onPenDetected?.();
+    if (!accepts(e)) return;
+    const active = activeRef.current;
+    if (active && active.id !== e.pointerId) {
+      if (!preemptsActive(active.type, e.pointerType)) return; // 그리는 중 다른 손 → 무시
+      // 손가락 획 도중 펜이 닿음 → 손가락 획은 버리고 펜으로 새로 시작
+      drawingRef.current = null;
+      if (erasingRef.current) {
+        erasingRef.current = null;
+        onPreview?.(strokesRef.current);
+      }
+    }
+    activeRef.current = { id: e.pointerId, type: e.pointerType };
     e.preventDefault();
     const pt = toPoint(e);
 
@@ -267,6 +286,7 @@ export const AnnotationCanvas = ({
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isActive(e)) return;
     if (eraser && erasingRef.current) {
       if (e.buttons === 0) return;
       e.preventDefault();
@@ -306,6 +326,8 @@ export const AnnotationCanvas = ({
   };
 
   const finish = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isActive(e)) return; // 손바닥을 떼어도 펜 획이 끊기지 않게
+    activeRef.current = null;
     if (eraser && erasingRef.current) {
       const next = erasingRef.current;
       erasingRef.current = null;
