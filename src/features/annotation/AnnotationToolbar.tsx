@@ -256,10 +256,10 @@ export const AnnotationToolbar = ({
             variant={allowMouse ? "secondary" : "ghost"}
             className="h-8 gap-1 px-2 text-xs"
             onClick={() => onChange({ allowMouse: !allowMouse })}
-            title="마우스로도 그리기"
+            title="펜 없이 마우스나 손가락으로도 그리기"
           >
             <MousePointer2 className="w-3.5 h-3.5" />
-            마우스
+            마우스·손
           </Button>
         )}
       </>

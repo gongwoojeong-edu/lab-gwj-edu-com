@@ -23,6 +23,8 @@ interface Props {
   toolbarPortalTarget?: HTMLElement | null;
   /** 저장 scope — 한 문장 카드에 레이어를 여러 개 띄울 때 구분 */
   scope?: "teacher" | "student" | "memo";
+  /** 수업 화면(프로젝터·전자칠판)용 — 마우스·손가락 필기를 기본으로 켜고 전환 버튼을 항상 표시 */
+  classroom?: boolean;
 }
 
 const isTouchDevice = () =>
@@ -37,6 +39,7 @@ export const AnnotationLayer = ({
   toolbarClassName,
   toolbarPortalTarget = null,
   scope = "teacher",
+  classroom = false,
 }: Props) => {
   const ann = useAnnotation({ sentenceId, studentId, scope, canEdit });
   const [tool, setTool] = useState<ToolbarState>({
@@ -46,12 +49,12 @@ export const AnnotationLayer = ({
     color: 1,
     width: "thin",
     visible: true,
-    allowMouse: false,
+    allowMouse: classroom,
   });
   const [laserRemote, setLaserRemote] = useState<{ x: number; y: number; seq: number } | null>(null);
   const laserSeqRef = useRef(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const showMouseToggle = useMemo(() => !isTouchDevice(), []);
+  const showMouseToggle = useMemo(() => classroom || !isTouchDevice(), [classroom]);
 
   // 실시간 중계
   useEffect(() => {
