@@ -12,13 +12,13 @@ import type { HeldTeacher } from "@/lib/heldTeachers";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { completeClassReviewAttendance, fetchClassReviewStudents, fetchClassReviewGroups, removeClassReview, setClassReviewStatus, type ClassReviewGroup, type ClassReviewStudent } from "@/lib/classReview";
 
-interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[] }
+interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[]; onProjectingChange?: (open: boolean) => void }
 
 const sourceLabel = (g: ClassReviewGroup) =>
   [g.seriesTitle, g.volumeNo != null ? `${g.volumeNo}과` : null, g.unitNo != null ? `${g.unitNo}번 유닛` : null, g.passageNo != null ? `${g.passageNo}번` : null]
     .filter(Boolean).join(" · ") || g.sentenceId;
 
-export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
+export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange }: Props) {
   const [status, setStatus] = useState<"open" | "done">("open");
   const [groups, setGroups] = useState<ClassReviewGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +43,12 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
     finally { setLoading(false); }
   }, [status]);
   useEffect(() => { load(); }, [load]);
+
+  // 프로젝터가 열려 있는 동안 부모 화면의 실시간 새로고침을 멈추도록 알림
+  useEffect(() => {
+    onProjectingChange?.(projecting);
+    return () => { if (projecting) onProjectingChange?.(false); };
+  }, [projecting, onProjectingChange]);
 
   const byTeacher = useMemo(() => {
     if (!isAdmin || teacherFilter === "all") return groups;
