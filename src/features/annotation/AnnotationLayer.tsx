@@ -10,6 +10,7 @@ import { AnnotationCanvas } from "./AnnotationCanvas";
 import { AnnotationToolbar, type ToolbarState } from "./AnnotationToolbar";
 import { useAnnotation } from "./useAnnotation";
 import type { Strokes } from "./types";
+import { hasSeenPen, markPenSeen } from "./pointerPolicy";
 
 interface Props {
   sentenceId: string;
@@ -49,8 +50,17 @@ export const AnnotationLayer = ({
     color: 1,
     width: "thin",
     visible: true,
-    allowMouse: classroom,
+    // 이 기기에서 애플펜슬을 쓴 적이 있으면 손가락 필기는 꺼 둔다 (손바닥 닿음 방지)
+    allowMouse: classroom && !hasSeenPen(),
   });
+  const penSeenRef = useRef(hasSeenPen());
+  const handlePenDetected = () => {
+    if (penSeenRef.current) return;
+    penSeenRef.current = true;
+    markPenSeen();
+    // 처음 펜을 쓰면 손가락 필기를 자동으로 끈다 — 필요하면 '마우스·손' 으로 다시 켤 수 있음
+    setTool((t) => (t.allowMouse ? { ...t, allowMouse: false } : t));
+  };
   const [laserRemote, setLaserRemote] = useState<{ x: number; y: number; seq: number } | null>(null);
   const laserSeqRef = useRef(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -146,6 +156,7 @@ export const AnnotationLayer = ({
         onLaserPoint={handleLaserPoint}
         extraBottomPx={extraBottomPx}
         onPreview={ann.setPreview}
+        onPenDetected={handlePenDetected}
         onCommit={handleCommit}
       />
     </>
