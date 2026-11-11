@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { classSessionsReportText } from "@/lib/classSessionMeta";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

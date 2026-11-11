@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { classSessionsReportText } from "@/lib/classSessionMeta";
 import { useSearchParams, Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Loader2, ChevronLeft, FileText } from "lucide-react";
