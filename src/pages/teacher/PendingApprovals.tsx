@@ -625,7 +625,7 @@ const PendingApprovals = () => {
         </p>
 
         {tab === "qna" && <QnaInbox onCount={setQnaCount} />}
-        {tab === "class" && <ClassReviewBox isAdmin={isAdmin} viewerId={effectiveTeacherAuthUserId ?? null} teachers={heldTeachers} />}
+        {tab === "class" && <ClassReviewBox isAdmin={isAdmin} viewerId={effectiveTeacherAuthUserId ?? null} teachers={heldTeachers} onProjectingChange={handleProjectingChange} />}
 
         {tab !== "qna" && tab !== "class" && loading && rows.length === 0 && (
           <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>
