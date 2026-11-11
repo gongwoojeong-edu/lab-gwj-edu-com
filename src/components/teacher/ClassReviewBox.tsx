@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import type { HeldTeacher } from "@/lib/heldTeachers";
+import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { completeClassReviewAttendance, fetchClassReviewStudents, fetchClassReviewGroups, removeClassReview, setClassReviewStatus, type ClassReviewGroup, type ClassReviewStudent } from "@/lib/classReview";
 
 interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[] }
@@ -188,6 +189,7 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers }: Props) {
 function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; onClose: () => void }) {
   const [i, setI] = useState(0);
   const [showKo, setShowKo] = useState(false);
+  const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
   const g = items[i];
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -203,14 +205,16 @@ function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; o
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       <div className="flex items-center gap-3 px-6 py-3 border-b border-border">
-        <span className="text-muted-foreground">{sourceLabel(g)}</span>
-        <span className="ml-auto text-muted-foreground">{i + 1} / {items.length}</span>
+        <span className="text-muted-foreground shrink-0">{sourceLabel(g)}</span>
+        <div ref={setToolbarEl} className="flex-1 min-w-0 flex justify-center" />
+        <span className="text-muted-foreground shrink-0">{i + 1} / {items.length}</span>
         <Button variant="outline" size="icon" aria-label={showKo ? "해석 가리기" : "해석 보기"} title={showKo ? "해석 가리기" : "해석 보기"} onClick={() => setShowKo(v => !v)}>
           {showKo ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
         </Button>
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="닫기"><X className="size-5" /></Button>
       </div>
-      <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-8 px-6 md:px-12 py-8">
+      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="relative min-h-full flex flex-col gap-8 px-6 md:px-12 py-8 pb-40">
         <p className="class-review-original text-4xl md:text-5xl font-semibold py-8 break-words">{g.english}</p>
         {showKo && g.korean && <p className="text-2xl md:text-3xl text-muted-foreground leading-relaxed">{g.korean}</p>}
         {g.students.length > 0 && <div className="space-y-3 border-t border-border pt-6">
@@ -220,6 +224,17 @@ function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; o
           </div>)}
         </div>}
         {g.notes.length > 0 && <div className="space-y-1">{g.notes.map(n => <p key={n} className="text-2xl text-primary">· {n}</p>)}</div>}
+        {/* 수업 판서 — 문장별 공용 칠판(학생 지정 없음), 문장 이동해도 도구 상태 유지 */}
+        <AnnotationLayer
+          sentenceId={g.sentenceId}
+          studentId={null}
+          canEdit
+          classroom
+          extraBottomPx={0}
+          toolbarClassName="relative z-30 flex flex-wrap items-center gap-1"
+          toolbarPortalTarget={toolbarEl}
+        />
+      </div>
       </div>
       <div className="flex justify-between px-6 py-4 border-t border-border">
         <Button variant="outline" size="lg" disabled={i === 0} onClick={() => { setI(i - 1); setShowKo(false); }}><ChevronLeft className="size-5 mr-1" /> 이전</Button>
