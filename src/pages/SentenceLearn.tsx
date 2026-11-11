@@ -74,7 +74,8 @@ import {
   type SentenceApproval,
 } from "@/lib/sentenceApprovals";
 import { ApprovalWaitingPanel } from "@/components/learning/ApprovalWaitingPanel";
-import { Eye, Hourglass, ShieldCheck, HelpCircle } from "lucide-react";
+import { Eye, Hourglass, ShieldCheck, HelpCircle, GraduationCap } from "lucide-react";
+import { fetchClassSessions, summarizeClassSessions, classDateLabel, type ClassSessionSummary } from "@/lib/classSessions";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -274,6 +275,24 @@ const SentenceLearn = () => {
   const [redoMemo, setRedoMemo] = useState<string | null>(null);
   /** 재학습 회차 멘트 ("다시"/"견뎌") — 승인에 저장된 칭찬 한 줄 */
   const [redoMent, setRedoMent] = useState<string | null>(null);
+  /** 이 문장을 수업에서 다룬 기록 — 수업 후 재학습할 때 안내 */
+  const [classSession, setClassSession] = useState<ClassSessionSummary | null>(null);
+  const [classSessionError, setClassSessionError] = useState(false);
+  const [classSessionReload, setClassSessionReload] = useState(0);
+  useEffect(() => {
+    const sid = sentence?.id;
+    if (!sid || !myUserId || !redoRequestedAt) { setClassSession(null); return; }
+    let alive = true;
+    setClassSessionError(false);
+    fetchClassSessions(myUserId, [sid]).then((rows) => {
+      if (alive) setClassSession(summarizeClassSessions(rows).get(sid) ?? null);
+    }).catch(() => {
+      if (!alive) return;
+      setClassSessionError(true);
+      toast({ title: "수업 기록을 불러오지 못했어요", variant: "destructive" });
+    });
+    return () => { alive = false; };
+  }, [sentence?.id, myUserId, redoRequestedAt, classSessionReload]);
 
   // 최근 선생님 평가 결과 배너 (redo 제외 모든 등급 — 학생이 코멘트를 확인한 뒤 다음 문장으로 이동)
   const [lastEvaluation, setLastEvaluation] = useState<{
@@ -1375,6 +1394,19 @@ const SentenceLearn = () => {
               <RotateCcw className="w-6 h-6 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="text-base font-extrabold text-foreground">선생님 추가학습 요청</div>
+                {classSession && (
+                  <div className="inline-flex items-center gap-1.5 text-sm font-bold text-primary bg-primary/10 border border-primary/30 rounded-md px-2 py-0.5">
+                    <GraduationCap className="w-4 h-4" />
+                    {classDateLabel(classSession.lastAt)} 수업에서 함께 다룬 문장이에요
+                    {classSession.count > 1 ? ` (수업 ${classSession.count}회)` : ""}
+                  </div>
+                )}
+                {classSessionError && (
+                  <div role="alert" className="flex items-center gap-2 text-xs text-destructive">
+                    수업 기록을 불러오지 못했어요
+                    <Button variant="ghost" size="sm" onClick={() => setClassSessionReload((n) => n + 1)}>다시 불러오기</Button>
+                  </div>
+                )}
                 {redoMent && (
                   <div className="text-lg font-black text-violet-700 dark:text-violet-300">
                     {redoMent}
