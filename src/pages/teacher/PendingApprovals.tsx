@@ -1,7 +1,7 @@
 // ============================================================
 // PendingApprovals — 선생님 화면: 한글해석 승인 대기 목록
 // ============================================================
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

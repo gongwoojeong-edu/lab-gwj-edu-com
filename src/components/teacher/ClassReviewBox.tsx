@@ -12,7 +12,7 @@ import type { HeldTeacher } from "@/lib/heldTeachers";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
 import { completeClassReviewAttendance, fetchClassReviewStudents, fetchClassReviewGroups, removeClassReview, setClassReviewStatus, type ClassReviewGroup, type ClassReviewStudent } from "@/lib/classReview";
 
-interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[] }
+interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[]; onProjectingChange?: (open: boolean) => void }
 
 const sourceLabel = (g: ClassReviewGroup) =>
   [g.seriesTitle, g.volumeNo != null ? `${g.volumeNo}과` : null, g.unitNo != null ? `${g.unitNo}번 유닛` : null, g.passageNo != null ? `${g.passageNo}번` : null]
