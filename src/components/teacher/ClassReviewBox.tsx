@@ -231,7 +231,7 @@ function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; o
           canEdit
           classroom
           extraBottomPx={0}
-          toolbarClassName="relative z-30 flex flex-wrap items-center gap-1"
+          toolbarClassName="relative z-30 flex flex-nowrap items-center gap-1 overflow-x-auto max-w-full"
           toolbarPortalTarget={toolbarEl}
         />
       </div>
