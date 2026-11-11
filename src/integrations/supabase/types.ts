@@ -214,6 +214,36 @@ export type Database = {
         }
         Relationships: []
       }
+      class_session_attendance: {
+        Row: {
+          approval_id: string | null
+          created_at: string
+          held_at: string
+          id: string
+          sentence_id: string
+          teacher_id: string | null
+          user_id: string
+        }
+        Insert: {
+          approval_id?: string | null
+          created_at?: string
+          held_at?: string
+          id?: string
+          sentence_id: string
+          teacher_id?: string | null
+          user_id: string
+        }
+        Update: {
+          approval_id?: string | null
+          created_at?: string
+          held_at?: string
+          id?: string
+          sentence_id?: string
+          teacher_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       handout_results: {
         Row: {
           created_at: string

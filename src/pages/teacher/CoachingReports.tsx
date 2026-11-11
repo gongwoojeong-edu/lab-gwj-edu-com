@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { classSessionsReportText } from "@/lib/classSessionMeta";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,8 @@ const CoachingReports = () => {
           report.passCount > 0 ||
           report.wordTests > 0 ||
           report.handouts.length > 0 ||
-          report.redoCount > 0,
+          report.redoCount > 0 ||
+          report.classSessions.length > 0,
       );
   }, [src, students, excluded]);
 
@@ -141,6 +143,7 @@ const CoachingReports = () => {
         plainMemo: memoToPlainText(m.memo),
       })),
       redoCount: report.redoCount,
+      classSummary: classSessionsReportText(report.classSessions),
       memoFieldSummary: memoFieldSummaryText(report),
       wordAvg: report.wordAvg,
       wordMin: report.wordMin,
@@ -287,6 +290,11 @@ const CoachingReports = () => {
                     {report.redoCount > 0 && (
                       <div className="text-amber-600 dark:text-amber-400">
                         재학습 지정 {report.redoCount}회
+                      </div>
+                    )}
+                    {report.classSessions.length > 0 && (
+                      <div className="text-primary">
+                        {classSessionsReportText(report.classSessions)}
                       </div>
                     )}
                     {memoFieldSummaryText(report) && (

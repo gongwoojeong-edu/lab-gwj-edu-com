@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { classSessionsReportText } from "@/lib/classSessionMeta";
 import { useSearchParams, Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Loader2, ChevronLeft, FileText } from "lucide-react";
@@ -123,11 +124,15 @@ const StudentReport = () => {
             )}
 
             {(report.redoCount > 0 ||
+              report.classSessions.length > 0 ||
               MEMO_FIELD_KEYS.some((k) => report.memoFieldCounts[k] > 0)) && (
               <Card className="p-4 space-y-1.5">
                 <h2 className="font-bold">재학습 · 집중 포인트</h2>
                 {report.redoCount > 0 && (
                   <div className="text-sm">재학습 지정 {report.redoCount}회</div>
+                )}
+                {report.classSessions.length > 0 && (
+                  <div className="text-sm text-primary">{classSessionsReportText(report.classSessions)}</div>
                 )}
                 {MEMO_FIELD_KEYS.filter((k) => report.memoFieldCounts[k] > 0).map((k) => (
                   <div key={k} className="text-sm text-muted-foreground">

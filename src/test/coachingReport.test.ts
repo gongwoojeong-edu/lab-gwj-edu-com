@@ -9,6 +9,7 @@ const baseSource = (overrides: Partial<CoachingReportSource> = {}): CoachingRepo
   wordResults: [],
   handouts: [],
   reviewReqs: [],
+  classSessions: [],
   ...overrides,
 });
 

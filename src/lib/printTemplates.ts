@@ -12,6 +12,7 @@
 import type { ClozeSegment } from "./handoutCloze";
 import type { CompareDetailRow, FlatWordUnit } from "./analysisCompare";
 import { gradeBadgeHtml, redoRoundBadgeHtml } from "./gradeMeta";
+import { classSessionBadgeHtml, type ClassSessionSummary } from "./classSessionMeta";
 // 인쇄 iframe(about:blank)에서도 무조건 잡히도록 base64 data URI로 인라인
 import gwjLogoUrl from "@/assets/gwj-edu-logo.png";
 
@@ -171,6 +172,8 @@ export interface HandoutPayload {
   grade?: string | null;
   /** 재학습 회차 (sentence_approvals.attempt_no) — 2 이상만 "재학습 N회" 배지 */
   redoRound?: number | null;
+  /** 수업에서 다룬 기록 (횟수·최근 날짜) */
+  classSession?: ClassSessionSummary | null;
   english: string;
   segments: ClozeSegment[] | null;
   structureHint: string | null;
@@ -228,7 +231,7 @@ export const buildHandoutPrintHtml = (p: HandoutPayload): string => {
     <div>
       <div class="eyebrow">Gongwoojeong · Hand-out</div>
       <div class="title">공우정바른학원 · 영어 학습지</div>
-      <div class="meta">${escapeHtml(p.passageCode)}${p.important ? " · ★ 중요문장" : ""}${p.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(p.redoRound)}${gradeBadgeHtml(p.grade)}${hintLine}</div>
+      <div class="meta">${escapeHtml(p.passageCode)}${p.important ? " · ★ 중요문장" : ""}${p.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(p.redoRound)}${classSessionBadgeHtml(p.classSession)}${gradeBadgeHtml(p.grade)}${hintLine}</div>
       <div class="meta">학생: ${sName} ${sNo}</div>
     </div>
     <div class="meta" style="text-align:right">
@@ -251,7 +254,7 @@ export const buildHandoutPrintHtml = (p: HandoutPayload): string => {
     <div>
       <div class="eyebrow">Gongwoojeong · Hand-out</div>
       <div class="title">공우정바른학원 · 구조도 · 지스트 · 영작</div>
-      <div class="meta">${escapeHtml(p.passageCode)}${p.important ? " · ★ 중요문장" : ""}${p.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(p.redoRound)}${gradeBadgeHtml(p.grade)} · ${sName} ${sNo}</div>
+      <div class="meta">${escapeHtml(p.passageCode)}${p.important ? " · ★ 중요문장" : ""}${p.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(p.redoRound)}${classSessionBadgeHtml(p.classSession)}${gradeBadgeHtml(p.grade)} · ${sName} ${sNo}</div>
     </div>
     <div class="meta" style="text-align:right">
       <div>출력: ${stamp}</div>
@@ -1179,6 +1182,8 @@ export interface BookCombinedItem {
   grade?: string | null;
   /** 재학습 회차 (sentence_approvals.attempt_no) — 2 이상만 "재학습 N회" 배지 */
   redoRound?: number | null;
+  /** 수업에서 다룬 기록 (횟수·최근 날짜) */
+  classSession?: ClassSessionSummary | null;
   english: string;
   /** 분석 채점본 데이터 (없으면 평문 출력) */
   analysis: AnalysisPayload | null;
@@ -1333,7 +1338,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
         <div class="bk-prow">
           <div class="bk-num">${idx}.</div>
           <div class="bk-body">
-            <div class="bk-code">${escapeHtml(it.passageCode)}${it.important ? " · ★ 중요문장" : ""}${it.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(it.redoRound)}${gradeBadgeHtml(it.grade)} ${coachMark}</div>
+            <div class="bk-code">${escapeHtml(it.passageCode)}${it.important ? " · ★ 중요문장" : ""}${it.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(it.redoRound)}${classSessionBadgeHtml(it.classSession)}${gradeBadgeHtml(it.grade)} ${coachMark}</div>
             ${passageHtml}
             ${grammar}
           </div>
@@ -1377,7 +1382,7 @@ export const buildBookCombinedWorkbookHtml = (p: BookCombinedPayload): string =>
         <div class="bk-trow">
           <div class="bk-num">${idx2}.</div>
           <div class="bk-body">
-            <div class="bk-code">${escapeHtml(it.passageCode)}${it.important ? " · ★ 중요문장" : ""}${it.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(it.redoRound)}${gradeBadgeHtml(it.grade)}</div>
+            <div class="bk-code">${escapeHtml(it.passageCode)}${it.important ? " · ★ 중요문장" : ""}${it.topicSentence ? " · ⚑ 주제문" : ""}${redoRoundBadgeHtml(it.redoRound)}${classSessionBadgeHtml(it.classSession)}${gradeBadgeHtml(it.grade)}</div>
             ${hideKo
               ? ""
               : `<div class="bk-ko-line">${renderKoDiff(it.studentTranslation, it.referenceKorean, disableCorrection)}</div>`}
@@ -1650,6 +1655,8 @@ export interface CoachingReportPrintPayload {
   praises: string[];
   memos: { sentenceId: string; gradeLabel: string; atLabel: string; plainMemo: string }[];
   redoCount: number;
+  /** "수업 2일 · 5문장 (11/10, 11/12)" */
+  classSummary?: string;
   memoFieldSummary: string; // "No skipping 2회 · ..."
   wordAvg: number | null;
   wordMin: number | null;
@@ -1686,10 +1693,10 @@ export const buildCoachingReportHtml = (p: CoachingReportPrintPayload): string =
         .join("")}</div>`
     : "";
   const weakLine =
-    p.redoCount > 0 || p.memoFieldSummary
+    p.redoCount > 0 || p.memoFieldSummary || p.classSummary
       ? `<div class="section"><div class="section-title">재학습 · 취약 유형</div>${
           p.redoCount > 0 ? `<div class="cr-line"><b>재학습 지정</b> · ${p.redoCount}회</div>` : ""
-        }${p.memoFieldSummary ? `<div class="cr-line"><b>항목별 지적</b> · ${escapeHtml(p.memoFieldSummary)}</div>` : ""}</div>`
+        }${p.classSummary ? `<div class="cr-line"><b>수업에서 다룬 문장</b> · ${escapeHtml(p.classSummary)}</div>` : ""}${p.memoFieldSummary ? `<div class="cr-line"><b>항목별 지적</b> · ${escapeHtml(p.memoFieldSummary)}</div>` : ""}</div>`
       : "";
 
   const body = `

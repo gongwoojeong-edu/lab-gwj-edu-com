@@ -99,6 +99,13 @@
       "when": 1794218926169,
       "tag": "0013_class_queued_approval_marks",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794376851631,
+      "tag": "0014_class_session_attendance_log",
+      "breakpoints": true
     }
   ]
 }

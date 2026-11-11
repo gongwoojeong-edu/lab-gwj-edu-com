@@ -41,6 +41,7 @@ import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
 import { pickRedoMent, isAutoRedoMent } from "@/lib/praisePhrases";
 import { addIdiomToBank } from "@/lib/idiomBank";
 import { ClassReviewToggle } from "@/components/learning/ClassReviewToggle";
+import { fetchClassSessions, summarizeClassSessions, classSessionLabel, type ClassSessionSummary } from "@/lib/classSessions";
 
 /** 마지막으로 지정한 보류 담당 선생님 (선생님 모드 gwjt* 키 규칙) */
 const LAST_HELD_TEACHER_KEY = "gwjt_last_held_teacher_id";
@@ -217,6 +218,25 @@ export const TeacherApprovalDialog = ({
     }).finally(() => { if (alive) setTopicLoading(false); });
     return () => { alive = false; };
   }, [open, skipPin, studentUserId, sentenceId, topicReload]);
+
+  /** 수업에서 다룬 기록 — 재제출 첨삭 때 "수업 11/10 · 선생님" 표시 */
+  const [classSession, setClassSession] = useState<ClassSessionSummary | null>(null);
+  const [classSessionError, setClassSessionError] = useState(false);
+  const [classSessionReload, setClassSessionReload] = useState(0);
+  useEffect(() => {
+    if (!open || !skipPin || !studentUserId) return;
+    let alive = true;
+    setClassSession(null);
+    setClassSessionError(false);
+    fetchClassSessions(studentUserId, [sentenceId]).then((rows) => {
+      if (alive) setClassSession(summarizeClassSessions(rows).get(sentenceId) ?? null);
+    }).catch(() => {
+      if (!alive) return;
+      setClassSessionError(true);
+      toast({ title: "수업 기록을 불러오지 못했어요", variant: "destructive" });
+    });
+    return () => { alive = false; };
+  }, [open, skipPin, studentUserId, sentenceId, classSessionReload]);
 
   const toggleTopic = async () => {
     if (!studentUserId || topicLoading || topicError) return;
@@ -797,6 +817,23 @@ export const TeacherApprovalDialog = ({
               >
                 <RefreshCw className="w-3 h-3" /> 재학습 {redoCount}회 · {roundNo}회차
               </span>
+            )}
+            {classSession && (
+              <span
+                className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/40"
+                title="이 문장을 수업에서 다룬 기록"
+              >
+                <GraduationCap className="w-3 h-3" /> {classSessionLabel(classSession)}
+                {(() => {
+                  const name = heldTeachers.find((t) => t.id === classSession.lastTeacherId)?.name;
+                  return name ? ` · ${name}` : "";
+                })()}
+              </span>
+            )}
+            {classSessionError && (
+              <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive" onClick={() => setClassSessionReload((n) => n + 1)}>
+                수업 기록 다시 불러오기
+              </Button>
             )}
             {redoCount === 0 && roundNo > 1 && (
               <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
