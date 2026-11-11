@@ -1655,6 +1655,8 @@ export interface CoachingReportPrintPayload {
   praises: string[];
   memos: { sentenceId: string; gradeLabel: string; atLabel: string; plainMemo: string }[];
   redoCount: number;
+  /** "수업 2일 · 5문장 (11/10, 11/12)" */
+  classSummary?: string;
   memoFieldSummary: string; // "No skipping 2회 · ..."
   wordAvg: number | null;
   wordMin: number | null;
@@ -1691,10 +1693,10 @@ export const buildCoachingReportHtml = (p: CoachingReportPrintPayload): string =
         .join("")}</div>`
     : "";
   const weakLine =
-    p.redoCount > 0 || p.memoFieldSummary
+    p.redoCount > 0 || p.memoFieldSummary || p.classSummary
       ? `<div class="section"><div class="section-title">재학습 · 취약 유형</div>${
           p.redoCount > 0 ? `<div class="cr-line"><b>재학습 지정</b> · ${p.redoCount}회</div>` : ""
-        }${p.memoFieldSummary ? `<div class="cr-line"><b>항목별 지적</b> · ${escapeHtml(p.memoFieldSummary)}</div>` : ""}</div>`
+        }${p.classSummary ? `<div class="cr-line"><b>수업에서 다룬 문장</b> · ${escapeHtml(p.classSummary)}</div>` : ""}${p.memoFieldSummary ? `<div class="cr-line"><b>항목별 지적</b> · ${escapeHtml(p.memoFieldSummary)}</div>` : ""}</div>`
       : "";
 
   const body = `

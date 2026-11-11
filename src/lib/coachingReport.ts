@@ -6,6 +6,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { parseMemo, MEMO_FIELD_KEYS, MEMO_FIELD_LABEL, type MemoFieldKey } from "@/lib/approvalMemo";
 import { GRADE_LABEL, type ApprovalGrade } from "@/lib/sentenceApprovals";
+import { fetchClassSessionsInPeriod, classSessionsReportText, type ClassSession } from "@/lib/classSessions";
 
 export interface ReportPeriod {
   start: string; // yyyy-mm-dd
@@ -33,6 +34,8 @@ export interface StudentCoachingReport {
   praises: string[];
   memos: ReportMemoItem[];
   redoCount: number;
+  /** 기간 안에 수업에서 다룬 문장 (수업 완료 시점 기준) */
+  classSessions: { sentenceId: string; heldAt: string }[];
   /** 코칭 메모 4개 항목별 지적 횟수 */
   memoFieldCounts: Record<MemoFieldKey, number>;
   wordAvg: number | null; // %
@@ -98,7 +101,7 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
   // (9월 학습 → 10월 2일 첨삭 → 10월 3일 9월 리포트 발송 시 포함)
   const lookforwardEnd = new Date(period.end + "T23:59:59.999");
   lookforwardEnd.setDate(lookforwardEnd.getDate() + LOOKBACK_DAYS);
-  const [ap, wr, ho, rr] = await Promise.all([
+  const [ap, wr, ho, rr, classSessions] = await Promise.all([
     supabase
       .from("sentence_approvals")
       .select("user_id,sentence_id,grade,memo,praise_text,approved_at,requested_at")
@@ -122,6 +125,7 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
       .select("user_id")
       .gte("created_at", startIso)
       .lte("created_at", endIso),
+    fetchClassSessionsInPeriod(startIso, endIso),
   ]);
   // 승인된 문장들의 최초 통과일(학습일) 조회
   const approvals = (ap.data ?? []) as ApprovalRow[];
@@ -151,6 +155,7 @@ export const fetchCoachingReportSource = async (period: ReportPeriod) => {
     wordResults: (wr.data ?? []) as WordRow[],
     handouts: (ho.data ?? []) as HandoutRow[],
     reviewReqs: (rr.data ?? []) as ReviewRow[],
+    classSessions: classSessions as ClassSession[],
   };
 };
 
@@ -211,6 +216,9 @@ export const buildStudentReport = (
     praises,
     memos,
     redoCount: src.reviewReqs.filter((r) => r.user_id === userId).length,
+    classSessions: src.classSessions
+      .filter((c) => c.user_id === userId)
+      .map((c) => ({ sentenceId: c.sentence_id, heldAt: c.held_at })),
     memoFieldCounts,
     wordAvg: words.length ? Math.round(words.reduce((s, v) => s + v, 0) / words.length) : null,
     wordMin: words.length ? Math.min(...words) : null,
@@ -238,6 +246,8 @@ export const reportSummaryText = (r: StudentCoachingReport, periodLabel: string)
   ];
   if (r.wordAvg != null) lines.push(`단어테스트 평균 ${r.wordAvg}% (${r.wordTests}회)`);
   if (r.redoCount > 0) lines.push(`재학습 ${r.redoCount}회`);
+  const classText = classSessionsReportText(r.classSessions);
+  if (classText) lines.push(classText);
   return lines.join("\n");
 };
 

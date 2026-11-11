@@ -61,3 +61,11 @@ export function classSessionBadgeHtml(s: ClassSessionSummary | null | undefined)
     `${escapeHtml(label)}</span>`
   );
 }
+
+/** 리포트용: "수업 2일 · 5문장 (11/10, 11/12)" — 같은 날 여러 문장은 하루로 센다 */
+export function classSessionsReportText(rows: { sentenceId: string; heldAt: string }[]): string {
+  if (!rows.length) return "";
+  const dates = [...new Set([...rows].sort((a, b) => a.heldAt.localeCompare(b.heldAt)).map((r) => classDateLabel(r.heldAt)))];
+  const sentences = new Set(rows.map((r) => r.sentenceId)).size;
+  return `수업 ${dates.length}일 · ${sentences}문장 (${dates.join(", ")})`;
+}
