@@ -54,6 +54,8 @@ import {
   resolveNextAfterPass,
 } from "@/lib/nextSentence";
 import { TeacherAnalysisOverride } from "@/components/learning/TeacherAnalysisOverride";
+import { applyMasterKeyFlags, isMasterKeyMode } from "@/lib/masterKeyMode";
+import { hasMasterForSentence } from "@/lib/masterAvailability";
 import { AnalysisSubmitConfirmDialog } from "@/components/learning/AnalysisSubmitConfirmDialog";
 import {
   decideTrack,
@@ -125,6 +127,9 @@ const SentenceLearn = () => {
   const { setMode } = useViewMode();
   const { displayStudent: levelDisplay } = useLevelLabels();
   const isStaff = roles.includes("teacher") || roles.includes("admin");
+  // 요청함 "마스터 등록"으로 진입 — 단어 단계 없이 분석·한글 해석만 입력하면 등록 완료
+  const masterMode = useMemo(() => isMasterKeyMode(location.search, roles), [location.search, roles]);
+  const [masterRegistered, setMasterRegistered] = useState<null | "ok" | "missing">(null);
   // 라운드 모델: ?assignment=<id> 로 특정 회독 진행행을 격리해서 다룬다.
   const assignmentIdParam = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -518,7 +523,7 @@ const SentenceLearn = () => {
         currentHasOpenQna = false;
       }
 
-      const keepHere = restartParam || redoPending || currentHasOpenQna;
+      const keepHere = restartParam || redoPending || currentHasOpenQna || masterMode;
       if (mounted && latestApproval?.status === "pending" && gateOnPending) {
         setPendingApproval(latestApproval);
       } else if (
@@ -549,12 +554,13 @@ const SentenceLearn = () => {
       // 학생×지문 override (skip_pre)가 켜져 있으면 단어학습(pre)을 OFF로 강제
       const overrideSkipPre = !!overrideRes?.skip_pre;
       if (mounted) setSkippedSentence(!!overrideRes?.skip_sentence);
-      const flags = {
+      const flags = applyMasterKeyFlags({
         pre: overrideSkipPre ? false : (assignRes ? !!assignRes.include_pre : true),
         analysis: assignRes ? !!assignRes.include_analysis : true,
         translation: assignRes ? !!assignRes.include_translation : true,
         wordtest: assignRes ? !!assignRes.include_wordtest : true,
-      };
+      }, masterMode);
+      if (mounted) setMasterRegistered(null);
       setSkipFlags(flags);
 
       // OFF 단계는 자동으로 done 처리 (DB에도 upsert)
@@ -601,7 +607,7 @@ const SentenceLearn = () => {
       }
 
       // 미통 진입 시 인트로 노출 (보류는 미노출)
-      if (status === "fail") {
+      if (status === "fail" && !masterMode) {
         setShowFailIntro(true);
       }
 
@@ -647,7 +653,8 @@ const SentenceLearn = () => {
       setPreDone(preEff);
       setWordtestDone(wtEff);
 
-      if (translationDoneEff) setStep("translation");
+      if (masterMode) setStep("analysis");
+      else if (translationDoneEff) setStep("translation");
       else if (analysisDoneEff && flags.translation) setStep("translation");
       else if (!preEff && flags.pre) setStep("pre");
       else if (!wtEff && flags.wordtest) setStep("wordtest");
@@ -665,7 +672,7 @@ const SentenceLearn = () => {
     return () => {
       mounted = false;
     };
-  }, [sentenceId, hydrationReloadNonce, location.key]);
+  }, [sentenceId, hydrationReloadNonce, location.key, masterMode]);
 
   // 학생: 본인 요청의 상태 변화(승인/거절/취소) 실시간 수신
   useEffect(() => {
@@ -748,7 +755,7 @@ const SentenceLearn = () => {
       wordtest: { done: wordtestDone, locked: skipFlags.pre && !preDone, skipped: !skipFlags.wordtest },
       analysis: {
         done: analysisDone,
-        locked: (skipFlags.pre && !preDone) || (skipFlags.wordtest && !wordtestDone) || translationDone,
+        locked: (skipFlags.pre && !preDone) || (skipFlags.wordtest && !wordtestDone) || (translationDone && !masterMode),
         skipped: !skipFlags.analysis,
       },
       translation: {
@@ -760,7 +767,7 @@ const SentenceLearn = () => {
         skipped: !skipFlags.translation,
       },
     }),
-    [preDone, wordtestDone, analysisDone, translationDone, skipFlags],
+    [preDone, wordtestDone, analysisDone, translationDone, skipFlags, masterMode],
   );
 
   /** 다음으로 진입 가능한 OFF가 아닌 단계로 자동 점프 */
@@ -784,7 +791,7 @@ const SentenceLearn = () => {
 
   /** 백워드 전이 차단: 한글해석 제출 후에는 이전 단계 진입 차단 */
   const safeSetStep = (next: Step) => {
-    if (translationDone && next !== "translation") {
+    if (translationDone && next !== "translation" && !masterMode) {
       setStep("translation");
       return;
     }
@@ -1053,8 +1060,8 @@ const SentenceLearn = () => {
     setAnalysisDone(true);
     advanceFrom("analysis");
 
-    // 마스터키 없을 때만 안내 토스트(차단 아님)
-    if (!sentenceHasMaster) {
+    // 마스터키 없을 때만 안내 토스트(차단 아님) — 마스터 등록 중에는 생략
+    if (!sentenceHasMaster && !masterMode) {
       toast({
         title: "선생님 채점 대기 중",
         description: "정답 등록 후 자동 채점됩니다. 한글 해석을 계속 진행하세요.",
@@ -1358,13 +1365,13 @@ const SentenceLearn = () => {
 
       <main className="max-w-3xl mx-auto px-5 py-6 space-y-5">
         {/* 마스터키 등록 모드 — 요청함에서 "마스터 등록"으로 진입한 경우 */}
-        {new URLSearchParams(window.location.search).get("master") === "1" && (
+        {masterMode && (
           <Card className="p-4 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-500/10">
             <div className="text-sm font-extrabold text-amber-700 dark:text-amber-300">
               🔑 마스터키 등록 모드
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              관리자 계정으로 이 지문을 분석해 저장하면 정답(마스터키)으로 등록됩니다. 저장 후 요청함으로 돌아가면 승인 버튼이 활성화돼요.
+              단어 학습 없이 구문 분석 → 한글 해석만 입력하면 마스터키 등록이 끝나요. 등록 후 요청함으로 돌아가면 승인 버튼이 활성화돼요.
             </div>
           </Card>
         )}
@@ -1745,7 +1752,9 @@ const SentenceLearn = () => {
 
             <Card className="p-4 border-primary/40 bg-primary/5 flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm text-foreground">
-                {!analysisMasterLoaded
+                {masterMode
+                  ? "마스터키 분석을 마쳤으면 한글 해석으로 넘어가세요. 분석은 입력하는 대로 저장돼요."
+                  : !analysisMasterLoaded
                   ? "정답 정보를 불러오는 중…"
                   : canAdvanceToTranslation
                     ? requiredGateActive
@@ -1758,6 +1767,7 @@ const SentenceLearn = () => {
                       : `분석을 30% 이상 완료하면 한글 해석으로 넘어갈 수 있어요. (${Math.round(analysisRate * 100)}% · ${analysisCounts.filled}/${analysisCounts.total})`}
               </div>
               <div className="flex items-center gap-2">
+                {!masterMode && (
                 <TeacherAnalysisOverride
                   label="선생님 확인 후 분석 스킵"
                   description="의문점이나 오류가 있을 때 선생님 PIN을 확인하면 분석 단계를 스킵하고 한글 해석으로 넘어갑니다."
@@ -1777,10 +1787,11 @@ const SentenceLearn = () => {
                     advanceFrom("analysis");
                   }}
                 />
+                )}
                 <Button
                   size="sm"
-                  disabled={!canAdvanceToTranslation}
-                  onClick={() => setSubmitDialogOpen(true)}
+                  disabled={!masterMode && !canAdvanceToTranslation}
+                  onClick={() => (masterMode ? void proceedToTranslation() : setSubmitDialogOpen(true))}
                 >
                   한글 해석 →
                 </Button>
@@ -1851,19 +1862,75 @@ const SentenceLearn = () => {
         )}
 
 
-        {step === "translation" && !pendingApproval && (
+        {step === "translation" && masterMode && masterRegistered && (
+          <Card
+            className={cn(
+              "p-5 space-y-3 border-2",
+              masterRegistered === "ok"
+                ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-500/10"
+                : "border-destructive/50 bg-destructive/5",
+            )}
+          >
+            <div className="text-base font-extrabold text-foreground">
+              {masterRegistered === "ok" ? "🔑 마스터키 등록 완료" : "분석이 아직 저장되지 않았어요"}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {masterRegistered === "ok"
+                ? "분석과 한글 해석이 저장됐어요. 요청함으로 돌아가면 승인 버튼이 활성화돼요."
+                : "구문 분석에서 한 곳 이상 분석한 뒤 다시 등록해 주세요."}
+            </div>
+            <div className="flex justify-end gap-2">
+              {masterRegistered === "ok" ? (
+                <>
+                  <Button size="sm" variant="ghost" onClick={() => { setMasterRegistered(null); setStep("analysis"); }}>
+                    분석 고치기
+                  </Button>
+                  <Button size="sm" onClick={() => navigate("/teacher/requests")}>
+                    요청함으로 돌아가기
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" onClick={() => { setMasterRegistered(null); setStep("analysis"); }}>
+                  구문 분석으로 돌아가기
+                </Button>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {step === "translation" && !pendingApproval && !(masterMode && masterRegistered) && (
           <div className="space-y-3">
             <div className="text-xs text-muted-foreground px-1">
-              ⚠ 이 단계에서는 이전 단계로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요.
+              {masterMode
+                ? "🔑 마스터키용 한글 해석을 입력하고 제출하면 등록이 끝나요."
+                : "⚠ 이 단계에서는 이전 단계로 돌아갈 수 없어요. 원문을 보고 직접 해석을 작성하세요."}
             </div>
             <TranslationStep
               sentenceId={sentence.id}
               englishSentence={sentence.english}
               redoMode={
+                masterMode ||
                 !!redoRequestedAt ||
                 (!!lastEvaluation && lastEvaluation.sentenceId === sentence.id)
               }
               onSubmitted={async (submittedText) => {
+                if (masterMode) {
+                  // 마스터 등록: 승인 요청·채점 기록·다음 문장 이동 없이 등록 완료 처리
+                  try {
+                    setTranslationDone(true);
+                    setSubmittedTranslation(submittedText);
+                    const ok = await hasMasterForSentence(sentence.id);
+                    setMasterRegistered(ok ? "ok" : "missing");
+                    toast(
+                      ok
+                        ? { title: "🔑 마스터키 등록 완료" }
+                        : { title: "분석이 저장되지 않았어요", description: "구문 분석을 입력한 뒤 다시 등록해 주세요.", variant: "destructive" },
+                    );
+                  } catch (e) {
+                    toast({ title: "등록 확인 실패", description: String(e), variant: "destructive" });
+                  }
+                  return;
+                }
                 try {
                   const sp = new URLSearchParams(window.location.search);
                   const asnId = sp.get("assignment") || null;
