@@ -7,7 +7,9 @@ import { createNotification } from "@/lib/studentNotifications";
 import { memoToPlainText } from "@/lib/approvalMemo";
 import { pickPraise, pickComebackPraise } from "@/lib/praisePhrases";
 import { GRADE_LABEL, GRADE_ORDER, type ApprovalGrade } from "./gradeMeta";
-import { fetchAllPages } from "./paginatedQuery";
+import { fetchAllPages, fetchInChunks } from "./paginatedQuery";
+import { fetchHeldTeachers } from "./heldTeachers";
+import { excludeWithdrawn, withdrawnStudentIds, type EnrollmentRow } from "./withdrawnStudents";
 import { requestNotificationsRefresh } from "./studentInbox";
 import { excludeClassQueued, fetchOpenClassReviewMarks } from "./classReview";
 
@@ -412,11 +414,25 @@ export const fetchApprovalsByStatus = async (
     .order(status === "held" ? "held_at" : "requested_at", { ascending: false })
     .order("id", { ascending: true })
     .range(from, to));
-  if (status !== "pending") return rows as SentenceApproval[];
+  // 퇴원생 제출은 승인 대기·보류함·배지 모두에서 뺀다 (기록은 보존).
+  const enrolled = await excludeWithdrawnApprovals(rows as SentenceApproval[]);
+  if (status !== "pending") return enrolled;
   // 수업으로 지정된 제출은 승인 대기에서 빼고 수업 자료함에서만 보인다 (목록·배지 공통).
   const marks = await fetchOpenClassReviewMarks();
-  return excludeClassQueued(rows as SentenceApproval[], marks);
+  return excludeClassQueued(enrolled, marks);
 };
+
+async function excludeWithdrawnApprovals(rows: SentenceApproval[]): Promise<SentenceApproval[]> {
+  const userIds = [...new Set(rows.map(r => r.user_id))];
+  if (!userIds.length) return rows;
+  const [profiles, staff] = await Promise.all([
+    fetchInChunks(userIds, ids => fetchAllPages<EnrollmentRow>((from, to) => supabase
+      .from("student_profiles").select("user_id, orbit_enrollment_active")
+      .in("user_id", ids).order("user_id").range(from, to) as never)),
+    fetchHeldTeachers(),
+  ]);
+  return excludeWithdrawn(rows, withdrawnStudentIds(profiles, staff.map(t => t.id)));
+}
 
 /** 선생님 대시보드: pending 상태 전체 목록 (호환용) */
 export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
