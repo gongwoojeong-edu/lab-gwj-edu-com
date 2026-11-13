@@ -30,7 +30,7 @@ export interface ClassReviewGroup {
   unitTitle: string | null;
   passageNo: number | null;
   latestAt: string;
-  students: { userId: string; name: string; translation: string | null }[];
+  students: { userId: string; name: string; studentNo: string; translation: string | null }[];
 }
 
 /** 선생님은 본인 담당(또는 본인이 표시한) 항목만, 관리자는 전체. */
@@ -55,6 +55,15 @@ export function groupBySentence(rows: ClassReviewRow[]) {
     map.set(r.sentence_id, g);
   }
   return [...map.values()];
+}
+
+/** 학생 이름·학번으로 수업 자료함 문장을 거른다. 검색어가 없으면 전체를 그대로 둔다. */
+export function filterGroupsByStudent<T extends { students: { name: string; studentNo?: string }[] }>(
+  groups: T[], query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return groups;
+  return groups.filter(g => g.students.some(st => `${st.name} ${st.studentNo ?? ""}`.toLowerCase().includes(q)));
 }
 
 export interface OpenClassReviewMark { approval_id: string | null; sentence_id: string; user_id: string; created_at: string }
@@ -227,7 +236,7 @@ export async function fetchClassReviewGroups(status: "open" | "done"): Promise<C
     if (error) throw error;
     return data ?? [];
   });
-  const nameMap = new Map(profiles.map(p => [p.user_id, p.display_name || p.student_no]));
+  const profileMap = new Map(profiles.map(p => [p.user_id, { name: p.display_name || p.student_no, studentNo: p.student_no }]));
   const trMap = new Map<string, string>();
   for (const t of translations) { const k = `${t.sentence_id}|${t.user_id}`; if (!trMap.has(k)) trMap.set(k, t.text); }
   const pMap = new Map(passages.map(p => [p.code, p]));
@@ -247,7 +256,10 @@ export async function fetchClassReviewGroups(status: "open" | "done"): Promise<C
       unitNo: u?.unit_no ?? null, unitTitle: u?.title ?? null,
       textbookTitle: b?.title ?? null, volumeNo: b?.volume_no ?? null,
       seriesTitle: s?.title ?? null,
-      students: g.studentIds.map(id => ({ userId: id, name: nameMap.get(id) ?? "학생", translation: trMap.get(`${g.sentenceId}|${id}`) ?? null })),
+      students: g.studentIds.map(id => {
+        const prof = profileMap.get(id);
+        return { userId: id, name: prof?.name ?? "학생", studentNo: prof?.studentNo ?? "", translation: trMap.get(`${g.sentenceId}|${id}`) ?? null };
+      }),
     };
   }).sort((a, b) =>
     (a.seriesTitle ?? "").localeCompare(b.seriesTitle ?? "") || (a.volumeNo ?? 0) - (b.volumeNo ?? 0)

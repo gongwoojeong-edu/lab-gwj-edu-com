@@ -65,7 +65,7 @@ describe("수업 지정 제출은 승인 대기에서 빠진다", () => {
   });
 });
 
-import { classReviewCoachMemo } from "@/lib/classReview";
+import { classReviewCoachMemo, filterGroupsByStudent } from "@/lib/classReview";
 describe("수업 담기 코칭 멘트", () => {
   it("써 둔 코칭 멘트는 저장 형식과 알림용 평문으로 함께 담는다", () => {
     const raw = JSON.stringify({ no_skipping: "", no_guessing: "주어 찾기", grammar_watch: "", other: "" });
@@ -76,5 +76,30 @@ describe("수업 담기 코칭 멘트", () => {
   it("멘트가 비어 있으면 아무것도 전달하지 않는다", () => {
     expect(classReviewCoachMemo(null)).toEqual({ coach_memo: null, coach_memo_text: null });
     expect(classReviewCoachMemo("   ")).toEqual({ coach_memo: null, coach_memo_text: null });
+  });
+});
+
+describe("수업 자료함 학생 이름 검색", () => {
+  const groups = [
+    { sentenceId: "s1", students: [{ userId: "u1", name: "배서연", studentNo: "gwj0001" }] },
+    { sentenceId: "s2", students: [{ userId: "u2", name: "이지호", studentNo: "gwj0002" }] },
+    { sentenceId: "s3", students: [] },
+  ];
+  const hits = (q: string) => filterGroupsByStudent(groups, q).map(g => g.sentenceId);
+  it("이름 일부로 그 학생이 담긴 문장만 남긴다", () => {
+    expect(hits("서연")).toEqual(["s1"]);
+  });
+  it("학번으로도 찾고 대소문자를 가리지 않는다", () => {
+    expect(hits("GWJ0002")).toEqual(["s2"]);
+  });
+  it("여러 학생 중 한 명만 맞아도 그 문장을 남긴다", () => {
+    const many = [{ sentenceId: "s1", students: [{ userId: "u1", name: "이지호", studentNo: "gwj0002" }, { userId: "u2", name: "배서연", studentNo: "gwj0001" }] }];
+    expect(filterGroupsByStudent(many, "서연")).toHaveLength(1);
+  });
+  it("검색어가 비어 있으면 전체를 그대로 둔다", () => {
+    expect(filterGroupsByStudent(groups, "   ")).toBe(groups);
+  });
+  it("한 명도 없으면 아무 문장도 남기지 않는다", () => {
+    expect(hits("없는이름")).toEqual([]);
   });
 });

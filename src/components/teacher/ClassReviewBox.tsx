@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import type { HeldTeacher } from "@/lib/heldTeachers";
 import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
-import { completeClassReviewAttendance, fetchClassReviewStudents, fetchClassReviewGroups, removeClassReview, setClassReviewStatus, type ClassReviewGroup, type ClassReviewStudent } from "@/lib/classReview";
+import { completeClassReviewAttendance, fetchClassReviewStudents, fetchClassReviewGroups, filterGroupsByStudent, removeClassReview, setClassReviewStatus, type ClassReviewGroup, type ClassReviewStudent } from "@/lib/classReview";
 
 interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[]; onProjectingChange?: (open: boolean) => void }
 
@@ -33,6 +33,7 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange
   const [students, setStudents] = useState<ClassReviewStudent[]>([]);
   const [attendees, setAttendees] = useState<Set<string>>(new Set());
   const [studentSearch, setStudentSearch] = useState("");
+  const [studentQuery, setStudentQuery] = useState("");
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState(false);
 
@@ -58,9 +59,9 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange
   const seriesList = useMemo(() => [...new Set(byTeacher.map(g => g.seriesTitle ?? "기타"))], [byTeacher]);
   const volumeList = useMemo(() => [...new Set(byTeacher.filter(g => seriesFilter === "all" || (g.seriesTitle ?? "기타") === seriesFilter)
     .map(g => g.volumeNo).filter((v): v is number => v != null))].sort((a, b) => a - b), [byTeacher, seriesFilter]);
-  const visible = useMemo(() => byTeacher.filter(g =>
+  const visible = useMemo(() => filterGroupsByStudent(byTeacher.filter(g =>
     (seriesFilter === "all" || (g.seriesTitle ?? "기타") === seriesFilter) &&
-    (volumeFilter === "all" || String(g.volumeNo) === volumeFilter)), [byTeacher, seriesFilter, volumeFilter]);
+    (volumeFilter === "all" || String(g.volumeNo) === volumeFilter)), studentQuery), [byTeacher, seriesFilter, volumeFilter, studentQuery]);
 
   const chosen = visible.filter(g => selected.has(g.sentenceId));
   const toggle = (id: string) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -131,6 +132,9 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange
             {volumeList.map(v => <SelectItem key={v} value={String(v)}>{v}과</SelectItem>)}
           </SelectContent>
         </Select>
+        <Input aria-label="수업 자료함 학생 검색" placeholder="학생 이름 또는 학번 검색" value={studentQuery}
+          onChange={e => setStudentQuery(e.target.value)} className="w-56" />
+        {studentQuery.trim() && <Button size="sm" variant="ghost" onClick={() => setStudentQuery("")}>검색 지우기</Button>}
       </div>
 
       {error && <div role="alert" className="flex items-center gap-2 text-sm text-destructive">수업 자료함을 불러오지 못했습니다.
@@ -150,7 +154,8 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange
 
       {loading && !groups.length && <Card className="p-8 text-center text-muted-foreground">불러오는 중...</Card>}
       {!loading && !visible.length && !error && <Card className="p-8 text-center text-muted-foreground">
-        {status === "open" ? "담긴 문장이 없어요. 승인창의 [수업] 버튼으로 담을 수 있어요." : "수업 완료한 문장이 없어요."}</Card>}
+        {studentQuery.trim() ? `"${studentQuery.trim()}"로 찾은 수업 문장이 없어요.`
+          : status === "open" ? "담긴 문장이 없어요. 승인창의 [수업] 버튼으로 담을 수 있어요." : "수업 완료한 문장이 없어요."}</Card>}
 
       <div className="space-y-2">
         {visible.map(g => (
