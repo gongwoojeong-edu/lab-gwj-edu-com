@@ -64,3 +64,17 @@ describe("수업 지정 제출은 승인 대기에서 빠진다", () => {
     expect(excludeClassQueued([a("old"), a("new", "2026-11-09T03:00:00Z")], marks).map(r => r.id)).toEqual(["new"]);
   });
 });
+
+import { classReviewCoachMemo } from "@/lib/classReview";
+describe("수업 담기 코칭 멘트", () => {
+  it("써 둔 코칭 멘트는 저장 형식과 알림용 평문으로 함께 담는다", () => {
+    const raw = JSON.stringify({ no_skipping: "", no_guessing: "주어 찾기", grammar_watch: "", other: "" });
+    const r = classReviewCoachMemo(raw);
+    expect(r.coach_memo).toBe(raw);
+    expect(r.coach_memo_text).toContain("주어 찾기");
+  });
+  it("멘트가 비어 있으면 아무것도 전달하지 않는다", () => {
+    expect(classReviewCoachMemo(null)).toEqual({ coach_memo: null, coach_memo_text: null });
+    expect(classReviewCoachMemo("   ")).toEqual({ coach_memo: null, coach_memo_text: null });
+  });
+});

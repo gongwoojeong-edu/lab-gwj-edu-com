@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages, fetchInChunks } from "@/lib/paginatedQuery";
+import { memoToPlainText } from "@/lib/approvalMemo";
 import { isReviewScopeAssigned, type ReviewScope, type ReviewTarget } from "@/lib/classReviewEligibility";
 
 export interface ClassReviewRow {
@@ -92,10 +93,20 @@ export async function fetchClassReviewForApproval(sentenceId: string, userId: st
   return data ?? [];
 }
 
-export async function addClassReview(input: { sentenceId: string; userId: string; approvalId?: string | null; teacherId: string | null; note?: string | null }) {
+/** 승인창에서 써 둔 코칭 멘트(저장 형식 문자열)를 수업 표시와 함께 보관할 값으로 바꾼다.
+ *  수업완료 시 재학습 안내와 함께 학생 화면·알림에 그대로 전달된다. 비어 있으면 둘 다 null. */
+export function classReviewCoachMemo(serialized: string | null | undefined): { coach_memo: string | null; coach_memo_text: string | null } {
+  const raw = serialized?.trim() || null;
+  const text = raw ? memoToPlainText(raw).trim() : "";
+  if (!raw || !text) return { coach_memo: null, coach_memo_text: null };
+  return { coach_memo: raw, coach_memo_text: text };
+}
+
+export async function addClassReview(input: { sentenceId: string; userId: string; approvalId?: string | null; teacherId: string | null; note?: string | null; coachMemo?: string | null }) {
   const { error } = await supabase.from("class_review_items").upsert({
     sentence_id: input.sentenceId, user_id: input.userId, approval_id: input.approvalId ?? null,
     teacher_id: input.teacherId, note: input.note?.trim() || null, status: "open", done_at: null,
+    ...classReviewCoachMemo(input.coachMemo),
   }, { onConflict: "sentence_id,user_id,teacher_id" });
   if (error) throw error;
 }

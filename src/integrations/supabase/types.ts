@@ -175,6 +175,8 @@ export type Database = {
       class_review_items: {
         Row: {
           approval_id: string | null
+          coach_memo: string | null
+          coach_memo_text: string | null
           created_at: string
           created_by: string
           done_at: string | null
@@ -188,6 +190,8 @@ export type Database = {
         }
         Insert: {
           approval_id?: string | null
+          coach_memo?: string | null
+          coach_memo_text?: string | null
           created_at?: string
           created_by?: string
           done_at?: string | null
@@ -201,6 +205,8 @@ export type Database = {
         }
         Update: {
           approval_id?: string | null
+          coach_memo?: string | null
+          coach_memo_text?: string | null
           created_at?: string
           created_by?: string
           done_at?: string | null
