@@ -434,6 +434,18 @@ async function excludeWithdrawnApprovals(rows: SentenceApproval[]): Promise<Sent
   return excludeWithdrawn(rows, withdrawnStudentIds(profiles, staff.map(t => t.id)));
 }
 
+/** 선생님 대시보드: 여러 승인 요청을 한꺼번에 삭제 — 100건씩 나눠 보내고 실패는 그대로 알린다. */
+export const deleteApprovals = async (ids: string[]): Promise<number> => {
+  const unique = [...new Set(ids)];
+  if (!unique.length) return 0;
+  await fetchInChunks(unique, async (chunk) => {
+    const { error } = await supabase.from("sentence_approvals").delete().in("id", chunk);
+    if (error) throw error;
+    return [];
+  });
+  return unique.length;
+};
+
 /** 선생님 대시보드: pending 상태 전체 목록 (호환용) */
 export const fetchPendingApprovals = async (): Promise<SentenceApproval[]> => {
   return fetchApprovalsByStatus("pending");

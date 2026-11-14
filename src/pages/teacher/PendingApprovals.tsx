@@ -13,7 +13,9 @@ import {
   subscribeAllApprovals,
   type SentenceApproval,
   type ApprovalStatus,
+  deleteApprovals,
 } from "@/lib/sentenceApprovals";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TeacherApprovalDialog } from "@/components/learning/TeacherApprovalDialog";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { toast } from "@/hooks/use-toast";
@@ -235,6 +237,8 @@ const PendingApprovals = () => {
   // 검색은 입력을 막지 않게 늦춰 반영하고, 카드는 페이지 단위로 그린다.
   const deferredQuery = useDeferredValue(query);
   const [renderLimit, setRenderLimit] = useState(PAGE_SIZE);
+  // 여러 건 한꺼번에 삭제 — 현재 검색·필터로 보이는 항목만 대상
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // 책(시리즈)별 필터 — "level::seriesTitle" 키, "all"은 전체
   const [seriesFilter, setSeriesFilter] = useState("all");
 
@@ -277,9 +281,10 @@ const PendingApprovals = () => {
     if (ids.length === 0) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.from("sentence_approvals").delete().in("id", ids);
-      if (error) throw error;
-      setRows((prev) => prev.filter((r) => !ids.includes(r.id)));
+      await deleteApprovals(ids);
+      const gone = new Set(ids);
+      setRows((prev) => prev.filter((r) => !gone.has(r.id)));
+      setSelectedIds((prev) => new Set([...prev].filter((id) => !gone.has(id))));
       toast({ title: `🗑️ ${label} ${ids.length}건을 삭제했습니다` });
       await load();
     } catch (e: any) {
@@ -504,6 +509,25 @@ const PendingApprovals = () => {
   useEffect(() => { setRenderLimit(PAGE_SIZE); }, [deferredQuery, seriesFilter, tab, heldFilter]);
   const renderedRows = useMemo(() => filteredRows.slice(0, renderLimit), [filteredRows, renderLimit]);
   const searchPending = query !== deferredQuery;
+  useEffect(() => { setSelectedIds(new Set()); }, [tab]);
+  const selectedVisibleIds = useMemo(
+    () => filteredRows.filter((r) => selectedIds.has(r.id)).map((r) => r.id),
+    [filteredRows, selectedIds],
+  );
+  const allVisibleSelected = filteredRows.length > 0 && selectedVisibleIds.length === filteredRows.length;
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  const toggleAllVisible = () =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) filteredRows.forEach((r) => next.delete(r.id));
+      else filteredRows.forEach((r) => next.add(r.id));
+      return next;
+    });
 
   const countLabel = useMemo(
     () => `${filteredRows.length}건 ${tab === "held" ? "보류" : "대기"}`,
@@ -663,6 +687,34 @@ const PendingApprovals = () => {
           </Card>
         )}
 
+        {tab !== "qna" && tab !== "class" && filteredRows.length > 0 && (
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-2 flex-wrap rounded-md border bg-background/95 backdrop-blur px-3 py-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <Checkbox checked={allVisibleSelected} onCheckedChange={toggleAllVisible} aria-label="보이는 항목 전체 선택" />
+              {allVisibleSelected ? "전체 선택 해제" : `보이는 ${filteredRows.length}건 전체 선택`}
+            </label>
+            <div className="flex items-center gap-2">
+              {selectedVisibleIds.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                  선택 해제
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={deleting || selectedVisibleIds.length === 0}
+                onClick={() => {
+                  if (window.confirm(`선택한 ${selectedVisibleIds.length}건을 삭제할까요? 되돌릴 수 없습니다.`))
+                    void deleteRows(selectedVisibleIds, "선택한 항목");
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                선택 삭제{selectedVisibleIds.length > 0 ? ` (${selectedVisibleIds.length}건)` : ""}
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className={`space-y-3 transition-opacity ${searchPending ? "opacity-50" : ""}`} aria-busy={searchPending}>
           {(tab === "qna" || tab === "class" ? [] : renderedRows).map((row) => {
             // 가림 모드: 이 행의 한글해석 정답이 현재 가려져 있는가
@@ -672,10 +724,15 @@ const PendingApprovals = () => {
               !revealedIds.has(row.id) &&
               !!row.korean?.trim();
             return (
-            <Card key={row.id} className="p-4 space-y-3">
+            <Card key={row.id} className={`p-4 space-y-3 ${selectedIds.has(row.id) ? "ring-2 ring-destructive/50" : ""}`}>
 
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-sm flex-wrap">
+                  <Checkbox
+                    checked={selectedIds.has(row.id)}
+                    onCheckedChange={() => toggleSelected(row.id)}
+                    aria-label={`${row.display_name ?? row.student_no ?? "학생"} ${row.sentence_id} 선택`}
+                  />
                   <Badge>{row.student_no ?? "-"}</Badge>
                   <span className="font-semibold">{row.display_name ?? "이름 없음"}</span>
                   <span className="text-muted-foreground">·</span>
