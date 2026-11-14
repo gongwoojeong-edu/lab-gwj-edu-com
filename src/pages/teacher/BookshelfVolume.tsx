@@ -93,6 +93,8 @@ import {
   type WorkbookMode,
 } from "@/lib/unitWorkbook";
 import { launchPrintHtml } from "@/lib/printLauncher";
+import { recordWorkbookPrint } from "@/lib/workbookPrintLog";
+import { WorkbookPrintStatus } from "@/components/teacher/WorkbookPrintStatus";
 
 // ============================================================
 // Helpers — bulk unit creation
@@ -235,6 +237,7 @@ const BookshelfVolume = () => {
   /** 통합 워크북에서 학생해석 자동 첨삭 표기 끄기 */
   const [printDisableCorrection, setPrintDisableCorrection] = useState(false);
   const [printHideTranslation, setPrintHideTranslation] = useState(false);
+  const [printLogNonce, setPrintLogNonce] = useState(0);
 
   const toggleSel = (id: string) => {
     setSelectedIds((prev) => {
@@ -355,6 +358,20 @@ const BookshelfVolume = () => {
         loadTimeoutMs: 15000,
         cleanupAfterMs: 2500,
       });
+      try {
+        await recordWorkbookPrint({
+          studentId: printStudentId,
+          unitIds: selectedUnits.map((u) => u.id),
+          mode: printMode,
+          answerKey: printMode === "syntax_unit" && printAnswerKey,
+          hideTranslation:
+            (printMode === "syntax_book" || printMode === "syntax_unit") && printHideTranslation,
+          passageCount,
+        });
+        setPrintLogNonce((n) => n + 1);
+      } catch (logErr) {
+        toast({ title: "인쇄 기록 저장 실패", description: errMsg(logErr), variant: "destructive" });
+      }
       toast({
         title: "워크북 인쇄 시작",
         description: `${WORKBOOK_MODE_LABEL[printMode]} · 유닛 ${unitCount}개 · 지문 ${passageCount}건`,
@@ -1654,6 +1671,16 @@ const BookshelfVolume = () => {
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   선택한 강을 배정/학습한 학생이 없습니다. 체크를 해제하면 전체 학생이 표시됩니다.
                 </div>
+              )}
+              {printStudentId && (
+                <WorkbookPrintStatus
+                  className="mt-2"
+                  studentId={printStudentId}
+                  reloadKey={printLogNonce}
+                  units={units
+                    .filter((u) => selectedIds.has(u.id))
+                    .map((u) => ({ id: u.id, label: `U${u.unit_no} ${u.title}` }))}
+                />
               )}
             </div>
 

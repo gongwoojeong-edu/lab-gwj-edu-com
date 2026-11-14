@@ -1986,6 +1986,42 @@ export type Database = {
         }
         Relationships: []
       }
+      workbook_print_logs: {
+        Row: {
+          answer_key: boolean
+          hide_translation: boolean
+          id: string
+          mode: string
+          passage_count: number
+          printed_at: string
+          printed_by: string
+          student_id: string
+          unit_ids: string[]
+        }
+        Insert: {
+          answer_key?: boolean
+          hide_translation?: boolean
+          id?: string
+          mode: string
+          passage_count?: number
+          printed_at?: string
+          printed_by: string
+          student_id: string
+          unit_ids: string[]
+        }
+        Update: {
+          answer_key?: boolean
+          hide_translation?: boolean
+          id?: string
+          mode?: string
+          passage_count?: number
+          printed_at?: string
+          printed_by?: string
+          student_id?: string
+          unit_ids?: string[]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

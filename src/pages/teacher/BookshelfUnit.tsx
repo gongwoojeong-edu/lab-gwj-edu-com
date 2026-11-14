@@ -72,6 +72,8 @@ import { swapListOrder } from "@/lib/bookshelfOrder";
 import { hydrateSentencesFromDb, setPassageReady } from "@/lib/sentenceSource";
 import { supabase } from "@/integrations/supabase/client";
 import { launchPrintHtml } from "@/lib/printLauncher";
+import { recordWorkbookPrint } from "@/lib/workbookPrintLog";
+import { WorkbookPrintStatus } from "@/components/teacher/WorkbookPrintStatus";
 import {
   buildHandoutPrintHtmlFor,
   printStageMessage,
@@ -159,6 +161,7 @@ const BookshelfUnit = () => {
   } | null>(null);
   const [workbookLoading, setWorkbookLoading] = useState(false);
   const [workbookPrinting, setWorkbookPrinting] = useState(false);
+  const [printLogNonce, setPrintLogNonce] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // 다중선택 + 다른 유닛으로 이동
@@ -351,6 +354,19 @@ const BookshelfUnit = () => {
         loadTimeoutMs: 12000,
         cleanupAfterMs: 2500,
       });
+      try {
+        await recordWorkbookPrint({
+          studentId: workbookStudentId,
+          unitIds: [unit.id, ...extras.map((u) => u.id)],
+          mode,
+          answerKey: opts.answerKey,
+          hideTranslation: hideKo,
+          passageCount: completedCount,
+        });
+        setPrintLogNonce((n) => n + 1);
+      } catch (logErr) {
+        toast({ title: "인쇄 기록 저장 실패", description: errMsg(logErr), variant: "destructive" });
+      }
       const { WORKBOOK_MODE_LABEL } = await import("@/lib/unitWorkbook");
       toast({
         title: opts.answerKey ? "답지 인쇄 시작" : "워크북 인쇄 시작",
@@ -1325,6 +1341,13 @@ const BookshelfUnit = () => {
               {workbookPrinting ? "인쇄 준비 중…" : "미리보기 & 인쇄"}
             </Button>
           </div>
+          {workbookStudentId && unit && (
+            <WorkbookPrintStatus
+              studentId={workbookStudentId}
+              reloadKey={printLogNonce}
+              units={[{ id: unit.id, label: `U${unit.unit_no} ${unit.title}` }]}
+            />
+          )}
         </Card>
 
         {/* 유닛 워크북 인쇄 미리보기 모달 */}
