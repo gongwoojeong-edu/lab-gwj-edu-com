@@ -1,7 +1,7 @@
 // ============================================================
 // PendingApprovals — 선생님 화면: 한글해석 승인 대기 목록
 // ============================================================
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { TeacherLayout } from "@/components/teacher/TeacherLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,6 +164,9 @@ interface Row extends SentenceApproval {
 
 
 
+/** 한 번에 그리는 카드 수 — 나머지는 [더 보기]로 */
+const PAGE_SIZE = 50;
+
 const PendingApprovals = () => {
   const { effectiveTeacherAuthUserId } = useStaff();
   const { roles } = useAuth();
@@ -228,6 +231,10 @@ const PendingApprovals = () => {
 
   const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
+  // 목록이 1000건을 넘으면 한 번에 다 그릴 때 화면이 수 초간 멈춘다 —
+  // 검색은 입력을 막지 않게 늦춰 반영하고, 카드는 페이지 단위로 그린다.
+  const deferredQuery = useDeferredValue(query);
+  const [renderLimit, setRenderLimit] = useState(PAGE_SIZE);
   // 책(시리즈)별 필터 — "level::seriesTitle" 키, "all"은 전체
   const [seriesFilter, setSeriesFilter] = useState("all");
 
@@ -473,7 +480,7 @@ const PendingApprovals = () => {
   }, [rows]);
 
   const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     // 보류함: 관리자는 드롭다운으로 범위 선택, 선생님은 load 단계에서 이미 내 보류함만 스코핑됨
     let scoped =
       tab === "held" && isAdmin
@@ -491,7 +498,12 @@ const PendingApprovals = () => {
         (r.student_no ?? "").toLowerCase().includes(q) ||
         r.sentence_id.toLowerCase().includes(q),
     );
-  }, [rows, query, seriesFilter, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
+  }, [rows, deferredQuery, seriesFilter, tab, heldFilter, effectiveTeacherAuthUserId, isAdmin]);
+
+  // 검색어·책·탭이 바뀌면 다시 첫 페이지부터
+  useEffect(() => { setRenderLimit(PAGE_SIZE); }, [deferredQuery, seriesFilter, tab, heldFilter]);
+  const renderedRows = useMemo(() => filteredRows.slice(0, renderLimit), [filteredRows, renderLimit]);
+  const searchPending = query !== deferredQuery;
 
   const countLabel = useMemo(
     () => `${filteredRows.length}건 ${tab === "held" ? "보류" : "대기"}`,
@@ -651,8 +663,8 @@ const PendingApprovals = () => {
           </Card>
         )}
 
-        <div className="space-y-3">
-          {(tab === "qna" || tab === "class" ? [] : filteredRows).map((row) => {
+        <div className={`space-y-3 transition-opacity ${searchPending ? "opacity-50" : ""}`} aria-busy={searchPending}>
+          {(tab === "qna" || tab === "class" ? [] : renderedRows).map((row) => {
             // 가림 모드: 이 행의 한글해석 정답이 현재 가려져 있는가
             const concealed =
               hideKorean &&
@@ -838,6 +850,13 @@ const PendingApprovals = () => {
             );
           })}
 
+          {tab !== "qna" && tab !== "class" && filteredRows.length > renderedRows.length && (
+            <div className="flex justify-center py-2">
+              <Button variant="outline" onClick={() => setRenderLimit((n) => n + PAGE_SIZE)}>
+                더 보기 ({renderedRows.length} / {filteredRows.length}건)
+              </Button>
+            </div>
+          )}
         </div>
 
         {target && (
