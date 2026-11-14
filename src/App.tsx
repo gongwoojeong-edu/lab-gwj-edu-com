@@ -57,6 +57,7 @@ import { TeachingOverlay } from "./components/student/TeachingOverlay";
 import { TeachingQuestionAlert } from "./components/student/TeachingQuestionAlert";
 import RedoAlertBar from "./components/student/RedoAlertBar";
 import IdiomTestBanner from "./components/student/IdiomTestBanner";
+import { NewVersionBanner } from "./components/system/NewVersionBanner";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ const App = () => (
         <StaffProvider>
         <Toaster />
         <Sonner />
+        <NewVersionBanner />
         <BrowserRouter>
           <TeachingOverlay />
           <RedoAlertBar />
