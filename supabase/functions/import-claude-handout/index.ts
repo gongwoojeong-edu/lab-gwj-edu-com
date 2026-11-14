@@ -666,7 +666,18 @@ const handleRequest = async (req: Request): Promise<Response> => {
         .select("id")
         .or(`code.eq.${codeRoot},code.like.${codeRoot}-%`)
         .limit(1);
-      if (!clash || clash.length === 0) break;
+      let taken = !!clash && clash.length > 0;
+      if (!taken) {
+        // 삭제된 옛 문장의 학습 기록이 남아 있는 코드는 재사용 금지
+        // (재사용 시 옛 해석·진도가 새 문장에 붙어 버림)
+        const historyFilter = `sentence_id.eq.${codeRoot},sentence_id.like.${codeRoot}-%`;
+        const [{ data: oldProg }, { data: oldAppr }] = await Promise.all([
+          admin.from("sentence_progress").select("id").or(historyFilter).limit(1),
+          admin.from("sentence_approvals").select("id").or(historyFilter).limit(1),
+        ]);
+        taken = (oldProg?.length ?? 0) > 0 || (oldAppr?.length ?? 0) > 0;
+      }
+      if (!taken) break;
       codeRoot = `${preferredCode}-alt${i}`;
     }
   }
