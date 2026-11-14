@@ -8,7 +8,8 @@ import {
 import {
   primeApprovalChime,
   speakApproval,
-  unitLabelFromSentenceId,
+  spokenUnitLabel,
+  passageCodeLabel,
 } from "@/lib/approvalChime";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPages, fetchInChunks } from "@/lib/paginatedQuery";
@@ -38,9 +39,24 @@ const announce = async (newRows: { user_id: string; sentence_id: string }[]) => 
   (profiles ?? []).forEach((p: { user_id: string; display_name: string | null; student_no: string | null }) => {
     nameMap.set(p.user_id, p.display_name || p.student_no || "학생");
   });
+  // 모의고사 등 비-강 코드는 교과서 제목(예: "2026년10월")을 함께 읽어 준다.
+  const passageIds = Array.from(
+    new Set(newRows.map((r) => r.sentence_id).filter((id) => passageCodeLabel(id) !== null)),
+  );
+  const titleMap = new Map<string, string>();
+  if (passageIds.length > 0) {
+    const { data: passages } = await supabase
+      .from("textbook_passages")
+      .select("code, textbook:textbooks(title)")
+      .in("code", passageIds);
+    (passages ?? []).forEach((p: { code: string; textbook: { title: string } | { title: string }[] | null }) => {
+      const tb = Array.isArray(p.textbook) ? p.textbook[0] : p.textbook;
+      if (tb?.title) titleMap.set(p.code, tb.title);
+    });
+  }
   newRows.forEach((r) => {
     const name = nameMap.get(r.user_id) ?? "학생";
-    speakApproval(name, unitLabelFromSentenceId(r.sentence_id));
+    speakApproval(name, spokenUnitLabel(r.sentence_id, titleMap.get(r.sentence_id)));
   });
 };
 

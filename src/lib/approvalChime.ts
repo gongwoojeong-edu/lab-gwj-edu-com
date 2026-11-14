@@ -25,6 +25,22 @@ export const unitLabelFromSentenceId = (sentenceId: string): string => {
   return `${parseInt(m[1], 10)}강`;
 };
 
+// 모의고사 등 비-강 코드 (예: "37-1-alt8-7") → "37-7" (문항번호-문장번호)
+// 첫 세그먼트가 문항 번호, 마지막 세그먼트가 문장 번호인 코드만 해당한다.
+export const passageCodeLabel = (sentenceId: string): string | null => {
+  if (/^L\d/i.test(sentenceId)) return null;
+  const m = sentenceId.match(/^(\d{1,2})-.*-(\d{1,2})$/);
+  if (!m) return null;
+  return `${parseInt(m[1], 10)}-${parseInt(m[2], 10)}`;
+};
+
+// 음성 안내용 라벨: 모의고사는 "2026년10월 37-7", 일반 강은 "1강"
+export const spokenUnitLabel = (sentenceId: string, textbookTitle?: string | null): string => {
+  const code = passageCodeLabel(sentenceId);
+  if (code) return textbookTitle ? `${textbookTitle} ${code}` : code;
+  return unitLabelFromSentenceId(sentenceId);
+};
+
 const pickKoreanVoice = (): SpeechSynthesisVoice | null => {
   try {
     const voices = window.speechSynthesis.getVoices();
