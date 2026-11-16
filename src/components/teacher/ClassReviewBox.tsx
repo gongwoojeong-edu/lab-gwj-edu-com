@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Presentation, RotateCcw, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, CheckCircle2, ChevronLeft, ChevronRight, Download, Eye, EyeOff, FileDown, Loader2, Presentation, RotateCcw, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import type { HeldTeacher } from "@/lib/heldTeachers";
-import { AnnotationLayer } from "@/features/annotation/AnnotationLayer";
+import { deliverFile, slidesToPdf, slidesToPng } from "@/lib/classSlideExport";
+import { classCaptureFilename, classPdfFilename } from "@/lib/classSlideExportMeta";
 import { completeClassReviewAttendance, fetchClassReviewStudents, fetchClassReviewGroups, filterGroupsByStudent, removeClassReview, setClassReviewStatus, type ClassReviewGroup, type ClassReviewStudent } from "@/lib/classReview";
 
 interface Props { isAdmin: boolean; viewerId: string | null; teachers: HeldTeacher[]; onProjectingChange?: (open: boolean) => void }
@@ -197,10 +198,32 @@ export function ClassReviewBox({ isAdmin, viewerId, teachers, onProjectingChange
   );
 }
 
+/** 수업 화면 한 장 — 프로젝터와 캡처/PDF가 같은 모양을 쓴다 */
+function ClassSlide({ g, showKo, forExport = false }: { g: ClassReviewGroup; showKo: boolean; forExport?: boolean }) {
+  return (
+    <div data-class-slide className={forExport ? "flex flex-col gap-8 bg-card text-card-foreground px-16 pt-10 pb-48" : "flex flex-col gap-8 px-6 md:px-12 py-8 pb-24"}>
+      {forExport && <p className="text-xl text-muted-foreground">{sourceLabel(g)}</p>}
+      <p className={`class-review-original font-semibold py-8 break-words ${forExport ? "text-5xl" : "text-4xl md:text-5xl"}`}>{g.english}</p>
+      {showKo && g.korean && <p className="text-2xl md:text-3xl text-muted-foreground leading-relaxed">{g.korean}</p>}
+      {g.students.length > 0 && <div className="space-y-3 border-t border-border pt-6">
+        {g.students.map(st => <div key={st.userId} className="text-2xl leading-relaxed">
+          <span className="font-semibold text-primary mr-3">{st.name}</span>
+          <span>{st.translation ?? "(제출한 해석 없음)"}</span>
+        </div>)}
+      </div>}
+      {g.notes.length > 0 && <div className="space-y-1">{g.notes.map(n => <p key={n} className="text-2xl text-primary">· {n}</p>)}</div>}
+    </div>
+  );
+}
+
+type ExportJob = { kind: "png" | "pdf"; items: ClassReviewGroup[]; showKo: boolean; filename: string };
+
 function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; onClose: () => void }) {
   const [i, setI] = useState(0);
   const [showKo, setShowKo] = useState(false);
-  const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
+  const [job, setJob] = useState<ExportJob | null>(null);
+  const [ready, setReady] = useState<{ blob: Blob; filename: string } | null>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const g = items[i];
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -212,45 +235,60 @@ function ClassReviewProjector({ items, onClose }: { items: ClassReviewGroup[]; o
     document.documentElement.requestFullscreen?.().catch(() => {});
     return () => { window.removeEventListener("keydown", h); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); };
   }, [items.length, onClose]);
+
+  // 화면 밖에 슬라이드를 그려 파일로 만든다. 만든 뒤에는 [저장] 버튼으로 바로 내려받는다(아이패드 공유 시트 유지).
+  useEffect(() => {
+    if (!job) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await document.fonts?.ready;
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const nodes = [...(exportRef.current?.querySelectorAll<HTMLElement>("[data-class-slide]") ?? [])];
+        const blob = job.kind === "pdf" ? await slidesToPdf(nodes) : await slidesToPng(nodes[0]);
+        if (!cancelled) setReady({ blob, filename: job.filename });
+      } catch (e) {
+        if (!cancelled) toast({ title: job.kind === "pdf" ? "PDF를 만들지 못했어요" : "캡처하지 못했어요", description: e instanceof Error ? e.message : undefined, variant: "destructive" });
+      } finally { if (!cancelled) setJob(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [job]);
+
+  const startCapture = () => { if (!g || job) return; setReady(null); setJob({ kind: "png", items: [g], showKo, filename: classCaptureFilename(i + 1) }); };
+  const startPdf = () => { if (job) return; setReady(null); setJob({ kind: "pdf", items, showKo, filename: classPdfFilename() }); };
+
   if (!g) return null;
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       <div className="flex items-center gap-3 px-6 py-3 border-b border-border">
-        <span className="text-muted-foreground shrink-0">{sourceLabel(g)}</span>
-        <div ref={setToolbarEl} className="flex-1 min-w-0 flex justify-center" />
+        <span className="text-muted-foreground min-w-0 flex-1 truncate">{sourceLabel(g)}</span>
+        {ready ? <div className="flex items-center gap-1 shrink-0">
+          <Button size="sm" onClick={() => { void deliverFile(ready.blob, ready.filename); }}><Download className="size-4 mr-1" /> 저장 · {ready.filename.endsWith(".pdf") ? "PDF" : "이미지"}</Button>
+          <Button size="sm" variant="ghost" onClick={() => setReady(null)}>취소</Button>
+        </div> : <>
+          <Button size="sm" variant="outline" className="shrink-0" disabled={!!job} onClick={startCapture} title="지금 보이는 문장을 이미지로 저장">
+            {job?.kind === "png" ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Camera className="size-4 mr-1" />} 캡처
+          </Button>
+          <Button size="sm" variant="outline" className="shrink-0" disabled={!!job} onClick={startPdf} title={`선택한 ${items.length}문장을 PDF로 저장${showKo ? " (해석 포함)" : ""}`}>
+            {job?.kind === "pdf" ? <Loader2 className="size-4 mr-1 animate-spin" /> : <FileDown className="size-4 mr-1" />} PDF {items.length}장{showKo ? " · 해석 포함" : ""}
+          </Button>
+        </>}
         <span className="text-muted-foreground shrink-0">{i + 1} / {items.length}</span>
-        <Button variant="outline" size="icon" aria-label={showKo ? "해석 가리기" : "해석 보기"} title={showKo ? "해석 가리기" : "해석 보기"} onClick={() => setShowKo(v => !v)}>
+        <Button variant="outline" size="icon" aria-label={showKo ? "해석 가리기" : "해석 보기"} title={showKo ? "해석 가리기" : "해석 보기"} onClick={() => { setShowKo(v => !v); setReady(null); }}>
           {showKo ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
         </Button>
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="닫기"><X className="size-5" /></Button>
       </div>
       <div className="flex-1 min-h-0 overflow-auto">
-      <div className="relative min-h-full flex flex-col gap-8 px-6 md:px-12 py-8 pb-40">
-        <p className="class-review-original text-4xl md:text-5xl font-semibold py-8 break-words">{g.english}</p>
-        {showKo && g.korean && <p className="text-2xl md:text-3xl text-muted-foreground leading-relaxed">{g.korean}</p>}
-        {g.students.length > 0 && <div className="space-y-3 border-t border-border pt-6">
-          {g.students.map(st => <div key={st.userId} className="text-2xl leading-relaxed">
-            <span className="font-semibold text-primary mr-3">{st.name}</span>
-            <span>{st.translation ?? "(제출한 해석 없음)"}</span>
-          </div>)}
-        </div>}
-        {g.notes.length > 0 && <div className="space-y-1">{g.notes.map(n => <p key={n} className="text-2xl text-primary">· {n}</p>)}</div>}
-        {/* 수업 판서 — 문장별 공용 칠판(학생 지정 없음), 문장 이동해도 도구 상태 유지 */}
-        <AnnotationLayer
-          sentenceId={g.sentenceId}
-          studentId={null}
-          canEdit
-          classroom
-          extraBottomPx={0}
-          toolbarClassName="relative z-30 flex flex-nowrap items-center gap-1 overflow-x-auto max-w-full"
-          toolbarPortalTarget={toolbarEl}
-        />
-      </div>
+        <ClassSlide g={g} showKo={showKo} />
       </div>
       <div className="flex justify-between px-6 py-4 border-t border-border">
-        <Button variant="outline" size="lg" disabled={i === 0} onClick={() => { setI(i - 1); setShowKo(false); }}><ChevronLeft className="size-5 mr-1" /> 이전</Button>
-        <Button variant="outline" size="lg" disabled={i === items.length - 1} onClick={() => { setI(i + 1); setShowKo(false); }}>다음 <ChevronRight className="size-5 ml-1" /></Button>
+        <Button variant="outline" size="lg" disabled={i === 0} onClick={() => { setI(i - 1); setShowKo(false); setReady(null); }}><ChevronLeft className="size-5 mr-1" /> 이전</Button>
+        <Button variant="outline" size="lg" disabled={i === items.length - 1} onClick={() => { setI(i + 1); setShowKo(false); setReady(null); }}>다음 <ChevronRight className="size-5 ml-1" /></Button>
       </div>
+      {job && <div ref={exportRef} aria-hidden className="fixed top-0 pointer-events-none" style={{ left: -20000, width: 1280 }}>
+        {job.items.map(it => <ClassSlide key={it.sentenceId} g={it} showKo={job.showKo} forExport />)}
+      </div>}
     </div>
   );
 }
