@@ -58,9 +58,12 @@ export function IdiomTestBanner() {
   }, [check]);
 
   if (pathname.startsWith("/teacher")) return null;
-  if (!pending || pending.id === dismissedId) return null;
+  // 제출 직후 pending이 비어도 결과 창(open)은 계속 보여야 한다.
+  const showBanner = !!pending && pending.id !== dismissedId;
+  if (!showBanner && !open) return null;
 
   const start = async () => {
+    if (!pending) return;
     setOpen(true);
     setResult(null);
     setAnswers({});
@@ -80,6 +83,7 @@ export function IdiomTestBanner() {
   };
 
   const submit = async () => {
+    if (!pending) return;
     setSubmitting(true);
     try {
       const r = await submitIdiomTest(pending, items, answers);
@@ -96,6 +100,7 @@ export function IdiomTestBanner() {
 
   return (
     <>
+      {showBanner && pending && (
       <div className="fixed inset-x-0 top-0 z-[60] px-2 pt-2 pointer-events-none">
         <div className="pointer-events-auto mx-auto flex max-w-3xl items-center gap-3 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 shadow-lg dark:border-indigo-700 dark:bg-indigo-950/80">
           <BookMarked className="h-5 w-5 shrink-0 text-indigo-600" />
@@ -121,13 +126,14 @@ export function IdiomTestBanner() {
           </Button>
         </div>
       </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>관용어구 테스트 ({items.length}문항)</DialogTitle>
             <DialogDescription>
-              영어 표현의 뜻을 한글로 적어주세요. 비슷한 뜻이면 정답으로 인정됩니다.
+              영어 표현의 뜻을 한글로 적어주세요. 띄어쓰기·조사·끝말(~함, ~하기)이 조금 달라도 정답으로 인정됩니다.
             </DialogDescription>
           </DialogHeader>
 

@@ -51,3 +51,30 @@ describe("gradeIdiomAnswer", () => {
     expect(gradeIdiomAnswer("A급", "a급")).toBe(true);
   });
 });
+
+describe("gradeIdiomAnswer — 조금 다른 답 인정", () => {
+  it("앞 조사 자리표시가 없어도 정답", () => {
+    expect(gradeIdiomAnswer("~에 참가하다", "참가하다")).toBe(true);
+    expect(gradeIdiomAnswer("~을 포기하다", "포기하다")).toBe(true);
+  });
+
+  it("앞에 목적어를 붙여 써도 정답", () => {
+    expect(gradeIdiomAnswer("참가하다", "대회에 참가하다")).toBe(true);
+  });
+
+  it("단어 안 띄어쓰기 차이는 무시", () => {
+    expect(gradeIdiomAnswer("포기하지 않다", "포기하지않다")).toBe(true);
+  });
+
+  it("끝말 함/하기/한다는 하다와 같게 본다", () => {
+    expect(gradeIdiomAnswer("참가하다", "참가함")).toBe(true);
+    expect(gradeIdiomAnswer("참가하다", "참가하기")).toBe(true);
+    expect(gradeIdiomAnswer("참가하다", "참가한다")).toBe(true);
+  });
+
+  it("끝부분만 쓰거나 뜻이 반대면 오답", () => {
+    expect(gradeIdiomAnswer("참가하다", "하다")).toBe(false);
+    expect(gradeIdiomAnswer("포기하지 않다", "포기하다")).toBe(false);
+    expect(gradeIdiomAnswer("포기하지 않다", "않다")).toBe(false);
+  });
+});

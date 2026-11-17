@@ -188,22 +188,49 @@ const normalizeAnswer = (s: string): string =>
   s
     .trim()
     .toLowerCase()
-    .replace(/[.,!?~·・]/g, "")
-    .replace(/\s+/g, " ");
+    .replace(/[.,!?~·・()\[\]"'“”‘’]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** 뜻 앞에 붙는 조사 자리표시("~에", "~을/를" 등) — 있든 없든 같은 답으로 본다. */
+const LEADING_PARTICLES = new Set([
+  "에", "에서", "에게", "에게서", "한테", "을", "를", "이", "가", "은", "는",
+  "와", "과", "의", "로", "으로", "도", "부터", "까지", "보다", "처럼", "만",
+]);
+
+/** 끝말 차이(~함/~하기/~한다/~하는 것)는 "~하다"로 맞춘다. */
+const normalizeEnding = (s: string): string =>
+  s
+    .replace(/(하는것|하기|한다|함)$/, "하다")
+    .replace(/(되는것|되기|된다|됨)$/, "되다");
+
+/** 채점용 핵심형: 앞 조사 제거 → 띄어쓰기 제거 → 끝말 통일. */
+const coreAnswer = (s: string): string => {
+  const words = normalizeAnswer(s).split(" ").filter(Boolean);
+  while (words.length > 1 && LEADING_PARTICLES.has(words[0])) words.shift();
+  return normalizeEnding(words.join(""));
+};
 
 /**
  * 관용어구 뜻 채점 — 학생은 한글 뜻을 입력한다.
- * 정답에 "/" 또는 ","로 여러 표현이 있으면 그중 하나만 맞혀도 정답.
+ * - 정답에 "/" 또는 ","로 여러 표현이 있으면 그중 하나만 맞혀도 정답.
+ * - 띄어쓰기, 앞에 붙은 조사("~에 참가하다" ↔ "참가하다"), 끝말(함/하기/한다)은 무시.
+ * - 한쪽이 다른 쪽 끝부분과 같으면(앞에 목적어·조사만 더 붙은 경우) 정답.
+ *   단, 짧은 쪽이 3자 미만이거나 긴 쪽의 절반보다 짧으면 인정하지 않는다("하다"만 써도 정답이 되는 것 방지).
  */
 export const gradeIdiomAnswer = (expected: string, given: string): boolean => {
-  const g = normalizeAnswer(given);
+  const g = coreAnswer(given);
   if (!g) return false;
   const alternatives = expected
     .split(/[\/,]/)
-    .map(normalizeAnswer)
+    .map(coreAnswer)
     .filter(Boolean);
   if (alternatives.length === 0) return false;
-  return alternatives.some((a) => a === g);
+  return alternatives.some((a) => {
+    if (a === g) return true;
+    const [short, long] = a.length <= g.length ? [a, g] : [g, a];
+    return short.length >= 3 && short.length * 2 >= long.length && long.endsWith(short);
+  });
 };
 
 export const submitIdiomTest = async (
