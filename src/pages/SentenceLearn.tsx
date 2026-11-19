@@ -80,6 +80,7 @@ import { Eye, Hourglass, ShieldCheck, HelpCircle, GraduationCap } from "lucide-r
 import { fetchClassSessions, summarizeClassSessions, classDateLabel, type ClassSessionSummary } from "@/lib/classSessions";
 
 import { supabase } from "@/integrations/supabase/client";
+import { shouldSkipPassedQnaSentence } from "@/lib/answeredQnaRedirect";
 import { toast } from "@/hooks/use-toast";
 import { StructuredMemoView } from "@/components/learning/StructuredMemoView";
 import { TeacherFeedbackPanel } from "@/components/student/TeacherFeedbackPanel";
@@ -384,7 +385,12 @@ const SentenceLearn = () => {
               readMyProg(found.id),
               "첨삭 문답 진도 확인",
             );
-            if (currentProgress?.status === "pass") {
+            const restarting = new URLSearchParams(window.location.search).get("restart") === "1";
+            if (shouldSkipPassedQnaSentence({
+              status: currentProgress?.status,
+              redoRequestedAt: (currentProgress as { redo_requested_at?: string | null } | null)?.redo_requested_at,
+              restart: restarting,
+            })) {
               const next = await withLearnLoadTimeout(
                 resolveNextAfterPass(found.id, assignmentIdParam),
                 "다음 진도 확인",
