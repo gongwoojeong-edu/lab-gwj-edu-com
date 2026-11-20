@@ -120,6 +120,46 @@ export async function addClassReview(input: { sentenceId: string; userId: string
   if (error) throw error;
 }
 
+/** 학생·문장마다 가장 최근 제출(승인 행) id. 수업 완료 때 그 뒤의 새 제출을 덮어쓰지 않도록 함께 담는다. */
+export function latestApprovalIdByKey(rows: { id: string; user_id: string; sentence_id: string; requested_at: string; attempt_no: number }[]) {
+  const best = new Map<string, { id: string; requested_at: string; attempt_no: number }>();
+  for (const r of rows) {
+    const k = `${r.user_id}|${r.sentence_id}`;
+    const prev = best.get(k);
+    if (!prev || r.requested_at > prev.requested_at || (r.requested_at === prev.requested_at && r.attempt_no > prev.attempt_no)) best.set(k, r);
+  }
+  return new Map([...best].map(([k, v]) => [k, v.id]));
+}
+
+/** 재학습 점검 화면에서 고른 여러 학생·문장을 한 선생님 수업 자료함에 한꺼번에 담는다.
+ *  남아 있던 재학습 코칭 멘트를 같이 담아, 수업완료 때 학생 안내가 비지 않게 한다. */
+export async function addClassReviewBatch(
+  items: { sentenceId: string; userId: string; coachMemo?: string | null }[],
+  teacherId: string,
+  note?: string | null,
+): Promise<number> {
+  const unique = [...new Map(items.map(i => [`${i.userId}|${i.sentenceId}`, i])).values()];
+  if (!unique.length) return 0;
+  const sentenceIds = [...new Set(unique.map(i => i.sentenceId))];
+  const userIds = [...new Set(unique.map(i => i.userId))];
+  const approvals = await fetchInChunks(sentenceIds, (ids) =>
+    fetchAllPages<{ id: string; user_id: string; sentence_id: string; requested_at: string; attempt_no: number }>((from, to) =>
+      supabase.from("sentence_approvals").select("id, user_id, sentence_id, requested_at, attempt_no")
+        .in("sentence_id", ids).in("user_id", userIds).order("id").range(from, to) as never));
+  const latest = latestApprovalIdByKey(approvals);
+  const rows = unique.map(i => ({
+    sentence_id: i.sentenceId, user_id: i.userId, approval_id: latest.get(`${i.userId}|${i.sentenceId}`) ?? null,
+    teacher_id: teacherId, note: note?.trim() || null, status: "open", done_at: null,
+    ...classReviewCoachMemo(i.coachMemo),
+  }));
+  for (let i = 0; i < rows.length; i += 100) {
+    const { error } = await supabase.from("class_review_items")
+      .upsert(rows.slice(i, i + 100), { onConflict: "sentence_id,user_id,teacher_id" });
+    if (error) throw error;
+  }
+  return rows.length;
+}
+
 export async function removeClassReview(ids: string[]) {
   if (!ids.length) return;
   const { error } = await supabase.from("class_review_items").delete().in("id", ids);

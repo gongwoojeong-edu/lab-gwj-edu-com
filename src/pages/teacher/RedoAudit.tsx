@@ -15,11 +15,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, RotateCcw, Search, AlertTriangle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, RotateCcw, Search, AlertTriangle, Presentation } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { addClassReviewBatch, fetchOpenClassReviewMarks } from "@/lib/classReview";
+import { fetchHeldTeachers, type HeldTeacher } from "@/lib/heldTeachers";
 import { toast } from "@/hooks/use-toast";
 import { fetchRedoAudit, clearRedoRequests, type RedoAuditRow } from "@/lib/redoAudit";
 
 const keyOf = (r: RedoAuditRow) => `${r.userId}|${r.sentenceId}`;
+const LAST_CLASS_TEACHER_KEY = "gwjt_last_class_review_teacher_id";
 
 const RedoAudit = () => {
   const [rows, setRows] = useState<RedoAuditRow[]>([]);
@@ -29,13 +42,19 @@ const RedoAudit = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [confirmTargets, setConfirmTargets] = useState<RedoAuditRow[] | null>(null);
+  const [classMarked, setClassMarked] = useState<Set<string>>(new Set());
+  const [classTargets, setClassTargets] = useState<RedoAuditRow[] | null>(null);
+  const [teachers, setTeachers] = useState<HeldTeacher[]>([]);
+  const [classTeacherId, setClassTeacherId] = useState("");
+  const [classNote, setClassNote] = useState("");
 
   const load = async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const list = await fetchRedoAudit();
+      const [list, marks] = await Promise.all([fetchRedoAudit(), fetchOpenClassReviewMarks()]);
       setRows(list);
+      setClassMarked(new Set(marks.map((m) => `${m.user_id}|${m.sentence_id}`)));
       setSelected(new Set());
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -87,6 +106,52 @@ const RedoAudit = () => {
     );
   };
 
+  const openClassDialog = async (targets: RedoAuditRow[]) => {
+    try {
+      const [list, auth] = await Promise.all([
+        teachers.length ? Promise.resolve(teachers) : fetchHeldTeachers(),
+        supabase.auth.getUser(),
+      ]);
+      setTeachers(list);
+      const pref = localStorage.getItem(LAST_CLASS_TEACHER_KEY) || auth.data.user?.id || "";
+      setClassTeacherId(list.some((t) => t.id === pref) ? pref : list[0]?.id ?? "");
+      setClassNote("");
+      setClassTargets(targets);
+    } catch (e) {
+      toast({
+        title: "선생님 목록을 불러오지 못했어요",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const runAddToClass = async () => {
+    const targets = classTargets ?? [];
+    if (targets.length === 0 || !classTeacherId) return;
+    setBusy(true);
+    try {
+      const n = await addClassReviewBatch(
+        targets.map((r) => ({ userId: r.userId, sentenceId: r.sentenceId, coachMemo: r.rawMemo })),
+        classTeacherId,
+        classNote,
+      );
+      localStorage.setItem(LAST_CLASS_TEACHER_KEY, classTeacherId);
+      const name = teachers.find((t) => t.id === classTeacherId)?.name ?? "선생님";
+      toast({ title: `${name} 수업 자료함에 ${n}건을 담았어요.` });
+      setClassTargets(null);
+      await load();
+    } catch (e) {
+      toast({
+        title: "수업 자료함에 담지 못했어요",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const runCancel = async () => {
     const targets = confirmTargets ?? [];
     setConfirmTargets(null);
@@ -120,8 +185,9 @@ const RedoAudit = () => {
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          학생에게 아직 남아 있는 재학습 요청입니다. 필요 없는 요청을 골라 취소하면 학생 알림함과
-          진도에서 바로 빠집니다. 지난 제출·첨삭 기록은 그대로 남습니다.
+          학생에게 아직 남아 있는 재학습 요청입니다. 문장을 골라 수업 자료함에 담거나, 필요 없는
+          요청을 취소할 수 있습니다. 취소하면 학생 알림함과 진도에서 바로 빠지고, 지난 제출·첨삭
+          기록은 그대로 남습니다.
         </p>
 
         {loading ? (
@@ -155,6 +221,14 @@ const RedoAudit = () => {
               <div className="flex-1" />
               <Button size="sm" variant="outline" onClick={selectOld} disabled={visible.length === 0}>
                 3주 이상 지난 요청 선택
+              </Button>
+              <Button
+                size="sm"
+                disabled={busy || selectedRows.length === 0}
+                onClick={() => void openClassDialog(selectedRows)}
+              >
+                <Presentation className="size-4 mr-1" />
+                선택 {selectedRows.length}건 수업 자료함에 담기
               </Button>
               <Button
                 size="sm"
@@ -218,6 +292,7 @@ const RedoAudit = () => {
                           <div className="flex flex-wrap gap-1 mt-1">
                             {!r.inScope && <Badge variant="outline">현재 진도 밖</Badge>}
                             {r.fromAssignment && <Badge variant="outline">특별과제</Badge>}
+                            {classMarked.has(keyOf(r)) && <Badge variant="secondary">수업 자료함</Badge>}
                           </div>
                         </td>
                         <td className="py-2 px-2 text-xs text-muted-foreground whitespace-nowrap">
@@ -242,6 +317,47 @@ const RedoAudit = () => {
           </Card>
         )}
       </div>
+
+      <Dialog open={!!classTargets} onOpenChange={(o) => !o && !busy && setClassTargets(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>수업 자료함에 {classTargets?.length ?? 0}건 담기</DialogTitle>
+            <DialogDescription>
+              고른 문장을 선생님 수업 자료함에 담아요. 재학습 요청은 그대로 남고, 수업완료를 누르면
+              남아 있던 코칭 멘트와 함께 학생에게 다시 안내돼요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Select value={classTeacherId} onValueChange={setClassTeacherId}>
+              <SelectTrigger aria-label="담당 선생님">
+                <SelectValue placeholder="담당 선생님" />
+              </SelectTrigger>
+              <SelectContent>
+                {teachers.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={classNote}
+              onChange={(e) => setClassNote(e.target.value)}
+              placeholder="설명할 포인트 (선택)"
+              maxLength={200}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={busy} onClick={() => setClassTargets(null)}>
+              닫기
+            </Button>
+            <Button disabled={busy || !classTeacherId} onClick={() => void runAddToClass()}>
+              {busy && <Loader2 className="size-3 mr-1 animate-spin" />}
+              담기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!confirmTargets} onOpenChange={(o) => !o && setConfirmTargets(null)}>
         <AlertDialogContent>

@@ -16,6 +16,8 @@ export interface RedoAuditRow {
   sentenceId: string;
   requestedAt: string;
   memo: string | null;
+  /** 저장 형식 그대로의 재학습 코칭 멘트 (수업 자료함에 담을 때 함께 넘긴다) */
+  rawMemo: string | null;
   /** 원문 앞부분 */
   englishPreview: string;
   /** 요청 문장이 속한 시리즈 · 권 · 유닛 */
@@ -194,6 +196,7 @@ export const fetchRedoAudit = async (): Promise<RedoAuditRow[]> => {
       sentenceId: r.sentence_id,
       requestedAt: r.redo_requested_at,
       memo: r.last_redo_memo ? memoToPlainText(r.last_redo_memo) || null : null,
+      rawMemo: r.last_redo_memo ?? null,
       englishPreview: english.length > 90 ? `${english.slice(0, 90)}…` : english,
       bookLabel: labelOf(r.sentence_id),
       inScope: scope == null ? true : scope.has(r.sentence_id),

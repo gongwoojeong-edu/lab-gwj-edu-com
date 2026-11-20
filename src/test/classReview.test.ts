@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc } }));
-import { completeClassReviewAttendance, groupBySentence, scopeClassReview, setClassReviewStatus } from "@/lib/classReview";
+import { completeClassReviewAttendance, groupBySentence, latestApprovalIdByKey, scopeClassReview, setClassReviewStatus } from "@/lib/classReview";
 
 const rows = [
   { teacher_id: "t1", created_by: "t1" },
@@ -101,5 +101,25 @@ describe("수업 자료함 학생 이름 검색", () => {
   });
   it("한 명도 없으면 아무 문장도 남기지 않는다", () => {
     expect(hits("없는이름")).toEqual([]);
+  });
+});
+
+
+describe("latestApprovalIdByKey (재학습 점검 → 수업 자료함)", () => {
+  it("picks the newest submission per student and sentence", () => {
+    const m = latestApprovalIdByKey([
+      { id: "a1", user_id: "u1", sentence_id: "s1", requested_at: "2026-11-01T00:00:00Z", attempt_no: 1 },
+      { id: "a2", user_id: "u1", sentence_id: "s1", requested_at: "2026-11-10T00:00:00Z", attempt_no: 2 },
+      { id: "b1", user_id: "u2", sentence_id: "s1", requested_at: "2026-11-05T00:00:00Z", attempt_no: 1 },
+    ]);
+    expect(m.get("u1|s1")).toBe("a2");
+    expect(m.get("u2|s1")).toBe("b1");
+  });
+  it("breaks equal times by attempt number", () => {
+    const m = latestApprovalIdByKey([
+      { id: "x2", user_id: "u1", sentence_id: "s1", requested_at: "2026-11-01T00:00:00Z", attempt_no: 2 },
+      { id: "x1", user_id: "u1", sentence_id: "s1", requested_at: "2026-11-01T00:00:00Z", attempt_no: 1 },
+    ]);
+    expect(m.get("u1|s1")).toBe("x2");
   });
 });
