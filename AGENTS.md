@@ -25,3 +25,5 @@
 - When import-claude-handout picks a new passage code root, treat codes with existing sentence_progress/sentence_approvals history as taken; reusing them attaches old learners' answers and pass state to unrelated new sentences.
 - Record every bookshelf workbook print (unit page and multi-unit dialog) as an append-only row in workbook_print_logs via workbookPrintLog.ts, and show per-student/per-unit print status from it; the browser cannot confirm physical printing, so a row means the print window was opened.
 - Detect stale open tabs in NewVersionBanner (appVersion.ts compares the loaded entry script with the deployed index.html) and offer a reload; long-open teacher tabs otherwise keep running old code that shows already-deleted items.
+- Bulk-adding redo-audit rows to the class box goes through addClassReviewBatch with each pair's latest approval id and its stored redo memo; completion then guards newer submissions and keeps the student's redo guidance.
+- SentenceLearn's answered-question shortcut (shouldSkipPassedQnaSentence) must not skip restart/redo entries; otherwise a redo opens the student's current sentence instead.
