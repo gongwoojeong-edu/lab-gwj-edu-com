@@ -229,7 +229,11 @@ export const gradeIdiomAnswer = (expected: string, given: string): boolean => {
   return alternatives.some((a) => {
     if (a === g) return true;
     const [short, long] = a.length <= g.length ? [a, g] : [g, a];
-    return short.length >= 3 && short.length * 2 >= long.length && long.endsWith(short);
+    if (!(short.length >= 3 && short.length * 2 >= long.length && long.endsWith(short))) return false;
+    // 짧은 쪽 앞에 부정 접두어(불/안/못/비/무)가 붙으면 뜻이 반대이므로 오답.
+    // 예: 정답 "가능하다"에 "불가능하다", "좋아하다"에 "안 좋아하다".
+    const prefix = long.slice(0, long.length - short.length);
+    return !/[불안못비무]$/.test(prefix);
   });
 };
 

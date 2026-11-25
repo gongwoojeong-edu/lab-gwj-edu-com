@@ -77,4 +77,13 @@ describe("gradeIdiomAnswer — 조금 다른 답 인정", () => {
     expect(gradeIdiomAnswer("포기하지 않다", "포기하다")).toBe(false);
     expect(gradeIdiomAnswer("포기하지 않다", "않다")).toBe(false);
   });
+
+  it("부정 접두어가 붙은 반대 뜻은 오답", () => {
+    expect(gradeIdiomAnswer("가능하다", "불가능하다")).toBe(false);
+    expect(gradeIdiomAnswer("만족하다", "불만족하다")).toBe(false);
+    expect(gradeIdiomAnswer("좋아하다", "안 좋아하다")).toBe(false);
+    expect(gradeIdiomAnswer("좋아하다", "안좋아하다")).toBe(false);
+    expect(gradeIdiomAnswer("할 수 있다", "못하다")).toBe(false);
+    expect(gradeIdiomAnswer("유능하다", "무능하다")).toBe(false);
+  });
 });
