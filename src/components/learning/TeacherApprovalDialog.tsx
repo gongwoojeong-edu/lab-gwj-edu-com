@@ -1,3 +1,4 @@
+import { PronounReferentReview } from "@/components/learning/PronounReferentReview";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil, Save, Star, Flag } from "lucide-react";
 
@@ -1058,6 +1059,9 @@ export const TeacherApprovalDialog = ({
                     <div className="whitespace-pre-wrap">{shownTranslation}</div>
                   )}
               </div>
+            )}
+            {studentUserId && (
+              <PronounReferentReview studentUserId={studentUserId} sentenceId={sentenceId} english={shownEnglish ?? ""} />
             )}
 
             {skipPin && studentUserId && (

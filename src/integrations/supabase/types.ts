@@ -770,6 +770,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pronoun_referents: {
+        Row: {
+          id: string
+          kind: string
+          non_pronoun_type: string | null
+          outside_text: string | null
+          sentence_id: string
+          target_index: number | null
+          updated_at: string
+          user_id: string
+          word: string
+          word_index: number
+        }
+        Insert: {
+          id?: string
+          kind: string
+          non_pronoun_type?: string | null
+          outside_text?: string | null
+          sentence_id: string
+          target_index?: number | null
+          updated_at?: string
+          user_id: string
+          word: string
+          word_index: number
+        }
+        Update: {
+          id?: string
+          kind?: string
+          non_pronoun_type?: string | null
+          outside_text?: string | null
+          sentence_id?: string
+          target_index?: number | null
+          updated_at?: string
+          user_id?: string
+          word?: string
+          word_index?: number
+        }
+        Relationships: []
+      }
       referent_relations: {
         Row: {
           created_at: string

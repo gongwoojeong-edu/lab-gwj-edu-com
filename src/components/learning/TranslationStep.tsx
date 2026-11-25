@@ -7,6 +7,10 @@ import { fetchTranslation, upsertTranslation } from "@/integrations/supabase/sto
 import { toast } from "@/hooks/use-toast";
 import { stripKoreanFromEnglishSource } from "@/lib/sentenceSource";
 import { UnknownWordActivity } from "@/components/learning/UnknownWordActivity";
+import { PronounReferentInput } from "@/components/learning/PronounReferentInput";
+import { missingReferents, type ReferentAnswer } from "@/lib/pronounReferents";
+import { fetchReferents, saveReferents } from "@/lib/pronounReferentStore";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   sentenceId: string;
@@ -30,6 +34,8 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const safeEnglishSentence = stripKoreanFromEnglishSource(englishSentence);
+  const [referents, setReferents] = useState<ReferentAnswer[]>([]);
+  const missing = missingReferents(safeEnglishSentence, referents);
 
   useEffect(() => {
     // 정책: 새 학습 진입 시 이전 제출 내용을 불러오지 않는다.
@@ -39,6 +45,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
     setShowPrevious(false);
     setPreviousText(null);
     setSubmitted(false);
+    setReferents([]);
     if (!redoMode) {
       setLoading(false);
       return;
@@ -46,6 +53,13 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
     let alive = true;
     // 이전 제출본 조회가 늦거나 실패해도 학생이 새 답안을 입력하는 작업은 막지 않는다.
     setLoading(false);
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id;
+      if (!uid) return;
+      fetchReferents(uid, sentenceId)
+        .then((rows) => { if (alive) setReferents((cur) => (cur.length ? cur : rows)); })
+        .catch(() => { /* 이전 지시어를 못 불러와도 새로 입력 가능 */ });
+    });
     fetchTranslation(sentenceId)
       .then((prev) => {
         if (!alive) return;
@@ -74,8 +88,15 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
       toast({ title: "해석을 입력하세요", variant: "destructive" });
       return;
     }
+    if (missing.length) {
+      toast({ title: "대명사 지시어를 모두 처리하세요", description: missing.map((m) => m.word).join(", "), variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) throw new Error("로그인이 필요해요");
+      await saveReferents(auth.user.id, sentenceId, referents);
       await upsertTranslation(sentenceId, text.trim());
       setPreviousText(text.trim());
       setSubmitted(true);
@@ -134,6 +155,12 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
           rows={3}
           aria-label="한글해석 입력"
         />
+        <PronounReferentInput english={safeEnglishSentence} answers={referents} onChange={setReferents} />
+        {missing.length > 0 && text.trim() && (
+          <p className="text-[11px] text-destructive text-right">
+            남은 대명사: {missing.map((m) => m.word).join(", ")}
+          </p>
+        )}
         {submitted && !text.trim() && !loading && (
           <p className="text-[11px] text-amber-700 dark:text-amber-300 text-right">
             칸에 해석을 입력해야 [다시 제출] 버튼이 켜집니다.
@@ -158,7 +185,7 @@ export const TranslationStep = ({ sentenceId, englishSentence, onSubmitted, redo
               이전 내용 불러오기
             </Button>
           )}
-          <Button onClick={handleSubmit} disabled={saving || loading || !text.trim()}>
+          <Button onClick={handleSubmit} disabled={saving || loading || !text.trim() || missing.length > 0}>
             {submitted ? "다시 제출" : "해석 제출"}
           </Button>
         </div>
