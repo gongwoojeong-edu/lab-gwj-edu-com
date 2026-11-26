@@ -54,6 +54,11 @@ export function missingReferents(english: string, answers: ReferentAnswer[]): { 
   return pronounCandidates(english).filter((c) => !isAnswerComplete(byIdx.get(c.index)));
 }
 
+/** 승인 전 검토: 조회 성공 후 모든 항목을 선생님이 확인해야 한다. */
+export function isReferentReviewComplete(loaded: boolean, hasError: boolean, indices: number[], reviewed: Set<number>): boolean {
+  return loaded && !hasError && indices.every((index) => reviewed.has(index));
+}
+
 /** 승인창 표시용 한 줄 */
 export function describeAnswer(a: ReferentAnswer, words: string[]): string {
   if (a.kind === "in_sentence") return `${a.word} → ${words[a.targetIndex ?? -1] ?? "?"}`;

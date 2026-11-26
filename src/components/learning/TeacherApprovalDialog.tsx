@@ -1,5 +1,5 @@
 import { PronounReferentReview } from "@/components/learning/PronounReferentReview";
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Lock, ShieldCheck, PauseCircle, Trash2, Eye, EyeOff, GraduationCap, BookOpen, History, RefreshCw, CheckCircle2, Pencil, Save, Star, Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -375,6 +375,13 @@ export const TeacherApprovalDialog = ({
   const [headerToolbarEl, setHeaderToolbarEl] = useState<HTMLElement | null>(null);
 
   const shownEnglish = englishOverride ?? englishSentence;
+  const reviewKey = `${approvalId}|${studentUserId ?? ""}|${sentenceId}|${shownEnglish ?? ""}|${open}`;
+  const [referentReview, setReferentReview] = useState<{ key: string; complete: boolean } | null>(null);
+  const onReferentReviewChange = useCallback((complete: boolean) => {
+    setReferentReview({ key: reviewKey, complete });
+  }, [reviewKey]);
+  useEffect(() => { setReferentReview(null); }, [reviewKey]);
+  const referentsReviewed = !studentUserId || (referentReview?.key === reviewKey && referentReview.complete);
   const shownKorean = koreanOverride ?? koreanAnswer ?? "";
   const shownTranslation = translationOverride ?? studentTranslation ?? "";
 
@@ -677,6 +684,10 @@ export const TeacherApprovalDialog = ({
 
   const submit = async () => {
     if (saving) return;
+    if (!referentsReviewed) {
+      toast({ title: "대명사 지시어를 모두 검토해 주세요", variant: "destructive" });
+      return;
+    }
     // 코칭 포인트를 모두 해결 체크하면 등급 선택 없이 승인 가능 — "해결완료"로 기록
     const effectiveGrade = effectiveApprovalGrade(grade, allCoachingResolved);
     if (!effectiveGrade) {
@@ -1061,7 +1072,7 @@ export const TeacherApprovalDialog = ({
               </div>
             )}
             {studentUserId && (
-              <PronounReferentReview studentUserId={studentUserId} sentenceId={sentenceId} english={shownEnglish ?? ""} />
+              <PronounReferentReview key={reviewKey} studentUserId={studentUserId} sentenceId={sentenceId} english={shownEnglish ?? ""} onReviewChange={onReferentReviewChange} />
             )}
 
             {skipPin && studentUserId && (
@@ -1390,7 +1401,8 @@ export const TeacherApprovalDialog = ({
           </div>
           <Button
             onClick={submit}
-            disabled={saving || (!skipPin && pin.length < 4) || (!grade && !allCoachingResolved)}
+            disabled={saving || !referentsReviewed || (!skipPin && pin.length < 4) || (!grade && !allCoachingResolved)}
+            title={!referentsReviewed ? "대명사 지시어를 모두 검토해 주세요" : undefined}
           >
             {saving
               ? "저장 중..."

@@ -1,9 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { pronounCandidates, missingReferents, isAnswerComplete, matchesMaster } from "@/lib/pronounReferents";
+import { pronounCandidates, missingReferents, isAnswerComplete, matchesMaster, isReferentReviewComplete } from "@/lib/pronounReferents";
 
 const S = "They finally solved it, and that was important.";
 
 describe("pronounReferents", () => {
+  it("requires review of every pronoun before approval", () => {
+    expect(isReferentReviewComplete(true, false, [0, 3, 5], new Set([0, 3]))).toBe(false);
+    expect(isReferentReviewComplete(true, false, [0, 3, 5], new Set([0, 3, 5]))).toBe(true);
+  });
+  it("blocks approval while loading or when fetching fails", () => {
+    expect(isReferentReviewComplete(false, false, [], new Set())).toBe(false);
+    expect(isReferentReviewComplete(true, true, [0], new Set([0]))).toBe(false);
+  });
+  it("does not require a checkbox when a loaded sentence has no pronouns", () => {
+    expect(isReferentReviewComplete(true, false, [], new Set())).toBe(true);
+  });
+  it("review of another sentence cannot satisfy the current sentence", () => {
+    expect(isReferentReviewComplete(true, false, [3, 5], new Set([0]))).toBe(false);
+  });
   it("finds pronoun candidates with punctuation stripped", () => {
     expect(pronounCandidates(S).map((c) => c.word)).toEqual(["They", "it", "that"]);
   });

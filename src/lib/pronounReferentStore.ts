@@ -36,7 +36,8 @@ export async function saveReferents(userId: string, sentenceId: string, answers:
 
 /** 원장(admin) 계정이 등록한 정답. 여러 명이면 먼저 나온 것 */
 export async function fetchMasterReferents(sentenceId: string): Promise<Map<number, ReferentAnswer>> {
-  const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+  const { data: roles, error: rolesError } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+  if (rolesError) throw rolesError;
   const ids = ((roles ?? []) as { user_id: string }[]).map((r) => r.user_id);
   const out = new Map<number, ReferentAnswer>();
   if (!ids.length) return out;
