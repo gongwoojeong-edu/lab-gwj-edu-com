@@ -29,3 +29,4 @@
 - SentenceLearn's answered-question shortcut (shouldSkipPassedQnaSentence) must not skip restart/redo entries; otherwise a redo opens the student's current sentence instead.
 - Keep pronoun-referent rules (candidates, completeness, master comparison) in src/lib/pronounReferents.ts and storage in pronoun_referents via pronounReferentStore.ts; translation submit and the approval window share them, and admin rows act as the answer key.
 - Require a fresh per-item referent review in TeacherApprovalDialog for each opened submission; loading failures block grading so approval cannot bypass unread referents. Class completion remains a coaching resubmission, not final grading.
+- Unit print requests reuse UnitWorkbookPreviewDialog and bookshelf builders via requestWorkbook.ts; log printing and finish the request only after the print window opens so formats and print status stay consistent.

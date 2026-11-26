@@ -79,8 +79,9 @@ import {
   subscribeToMaterialViewRequests,
   type MaterialViewRequest,
 } from "@/lib/materialViewRequests";
-import { buildUnitWorkbookHtmlFor } from "@/lib/unitWorkbook";
-import { launchPrintHtml } from "@/lib/printLauncher";
+import { UnitWorkbookPreviewDialog } from "@/components/teacher/UnitWorkbookPreviewDialog";
+import { loadRequestWorkbook, printRequestWorkbook, type RequestWorkbook } from "@/lib/requestWorkbook";
+import type { WorkbookMode } from "@/lib/unitWorkbook";
 
 interface StudentInfo {
   user_id: string;
@@ -109,6 +110,8 @@ const RequestsInbox = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [tab, setTab] = useState<"pending" | "done">("pending");
+  const [workbookRequest, setWorkbookRequest] = useState<{ row: UnitWorkflowRow; workbook: RequestWorkbook } | null>(null);
+  const [workbookPrinting, setWorkbookPrinting] = useState(false);
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
 
@@ -359,24 +362,31 @@ const RequestsInbox = () => {
     const busyKey = `unit:${wf.user_id}:${wf.unit_id}`;
     setBusy((p) => ({ ...p, [busyKey]: true }));
     try {
-      const label = unitLabels[wf.unit_id] ?? "Unit";
-      const { html } = await buildUnitWorkbookHtmlFor({
-        unitId: wf.unit_id,
-        unitTitle: label,
-        unitCode: label,
-        studentId: wf.user_id,
-        mode: "syntax_unit",
-        paperSize: "B5",
-      });
-      launchPrintHtml(html, { jobKey: busyKey });
-      await markUnitPrinted(wf.user_id, wf.unit_id);
-      toast({ title: "유닛 워크북 인쇄 · 기록 완료" });
-      setTab("done");
-      await refresh();
+      const workbook = await loadRequestWorkbook(wf.unit_id, wf.user_id);
+      setWorkbookRequest({ row: wf, workbook });
     } catch (e) {
       toast({ title: "인쇄 실패", description: errMsg(e), variant: "destructive" });
     } finally {
       setBusy((p) => ({ ...p, [busyKey]: false }));
+    }
+  };
+
+  const confirmWorkbookPrint = async (
+    mode: WorkbookMode,
+    opts: { answerKey: boolean; extraUnitIds: string[]; hideStudentTranslation: boolean },
+  ) => {
+    if (!workbookRequest || workbookPrinting) return;
+    setWorkbookPrinting(true);
+    try {
+      await printRequestWorkbook(workbookRequest.workbook, workbookRequest.row.user_id, mode, opts);
+      setWorkbookRequest(null);
+      toast({ title: "워크북 인쇄 · 기록 완료" });
+      setTab("done");
+      await refresh();
+    } catch (e) {
+      toast({ title: "인쇄 또는 기록 저장 실패", description: errMsg(e), variant: "destructive" });
+    } finally {
+      setWorkbookPrinting(false);
     }
   };
 
@@ -426,6 +436,21 @@ const RequestsInbox = () => {
 
   return (
     <TeacherLayout>
+      {workbookRequest && (
+        <UnitWorkbookPreviewDialog
+          open
+          onOpenChange={(open) => { if (!open && !workbookPrinting) setWorkbookRequest(null); }}
+          studentName={students[workbookRequest.row.user_id]?.display_name ?? students[workbookRequest.row.user_id]?.student_no ?? "학생"}
+          studentNo={students[workbookRequest.row.user_id]?.student_no ?? "—"}
+          unitTitle={workbookRequest.workbook.unit.unitTitle}
+          unitCode={workbookRequest.workbook.unit.unitCode}
+          siblingUnits={workbookRequest.workbook.siblings}
+          completedCodes={workbookRequest.workbook.summary.completedCodes}
+          pendingCodes={workbookRequest.workbook.summary.pendingCodes}
+          printing={workbookPrinting}
+          onConfirmPrint={confirmWorkbookPrint}
+        />
+      )}
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <div>
