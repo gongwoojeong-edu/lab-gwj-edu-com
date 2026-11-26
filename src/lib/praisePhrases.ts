@@ -75,19 +75,57 @@ export const REDO_MENT_SECOND = "견뎌";
 /** 재학습 이력이 있는 문장을 통과시켰을 때 */
 export const REDO_MENT_SUCCESS = "옳지";
 
+/** 회차별 멘트 묶음 — 같은 상황에서도 매번 다른 말이 나오도록 여러 개 중에서 고른다 */
+export const REDO_MENTS_FIRST: string[] = [
+  REDO_MENT_FIRST,
+  "다시! 한 번만 더 보면 확실히 네 것이 돼.",
+  "다시 해 보자. 코칭 포인트만 고치면 바로 통과야.",
+  "다시! 거의 다 왔어, 조금만 더 꼼꼼하게.",
+  "다시 한번! 천천히 읽으면 답이 보여.",
+  "다시 도전! 틀린 곳을 아는 게 실력이야.",
+  "다시 보자. 이번엔 구조부터 차근차근.",
+];
+export const REDO_MENTS_SECOND: string[] = [
+  REDO_MENT_SECOND,
+  "견뎌! 지금 버티는 만큼 실력이 붙어.",
+  "견뎌 보자. 여기만 넘으면 이 문장은 끝이야.",
+  "견뎌! 포기하지 않는 게 제일 멋져.",
+  "조금만 더 견뎌. 선생님이 끝까지 같이 갈게.",
+  "견뎌! 어려운 문장일수록 남는 게 많아.",
+  "힘들지? 그래도 견뎌. 한 걸음만 더!",
+];
+export const REDO_MENTS_SUCCESS: string[] = [
+  REDO_MENT_SUCCESS,
+  "옳지! 끝까지 해냈구나.",
+  "옳지! 다시 한 보람이 있지?",
+  "옳지, 바로 이거야! 정말 잘 고쳤어.",
+  "옳지! 버틴 만큼 실력이 늘었어.",
+  "옳지! 이제 이 문장은 완전히 네 거야.",
+  "옳지! 포기 안 한 네가 자랑스러워.",
+];
+
 /** 자동 삽입되는 멘트 목록 — 선생님이 직접 입력한 문구와 구분한다 */
-export const REDO_MENTS: string[] = [REDO_MENT_FIRST, REDO_MENT_SECOND, REDO_MENT_SUCCESS];
+export const REDO_MENTS: string[] = [...REDO_MENTS_FIRST, ...REDO_MENTS_SECOND, ...REDO_MENTS_SUCCESS];
 
 /**
- * 재학습 회차에 따른 자동 멘트.
+ * 재학습 회차에 따른 자동 멘트. 해당 회차 묶음에서 무작위로 고르되,
+ * current가 이미 같은 묶음의 멘트면 그대로 둬서 화면이 깜빡이며 바뀌지 않게 한다.
  * @param redoCount 이 문장의 재학습 지정 횟수 (승인 이력 기준)
  * @param willPass  true = 통과 승인, false = 재학습(redo) 지정
  */
-export const pickRedoMent = (redoCount: number, willPass: boolean): string | null => {
-  if (willPass) return redoCount > 0 ? REDO_MENT_SUCCESS : null;
-  return redoCount <= 0 ? REDO_MENT_FIRST : REDO_MENT_SECOND;
+export const pickRedoMent = (
+  redoCount: number,
+  willPass: boolean,
+  current?: string | null,
+): string | null => {
+  const pool = willPass
+    ? redoCount > 0 ? REDO_MENTS_SUCCESS : null
+    : redoCount <= 0 ? REDO_MENTS_FIRST : REDO_MENTS_SECOND;
+  if (!pool) return null;
+  const c = current?.trim();
+  if (c && pool.includes(c)) return c;
+  return pickRandom(pool);
 };
-
 /** 비어 있거나 자동 멘트인지 — 직접 입력한 칭찬은 덮어쓰지 않는다 */
 export const isAutoRedoMent = (text: string | null | undefined): boolean => {
   const t = text?.trim();

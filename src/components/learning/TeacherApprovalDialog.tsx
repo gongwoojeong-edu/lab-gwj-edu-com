@@ -475,7 +475,7 @@ export const TeacherApprovalDialog = ({
     if (!open || !historyLoaded) return;
     const eff = effectiveApprovalGrade(grade, allCoachingResolved);
     if (!eff) return;
-    const ment = pickRedoMent(redoCount, eff !== "redo");
+    const ment = pickRedoMent(redoCount, eff !== "redo", praise);
     if (ment) {
       if (isAutoRedoMent(praise)) setPraise(ment);
     } else if (praise.trim() && isAutoRedoMent(praise)) {
